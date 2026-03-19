@@ -19,16 +19,18 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 const App: React.FC = () => {
   const { login, isAuthenticated } = useAuthStore();
   const { isDarkMode } = useUIStore();
-// 初始化明暗模式样式
-useEffect(() => {
-  const root = window.document.documentElement;
-  if (isDarkMode) {
-    root.classList.add('dark');
-  } else {
-    root.classList.remove('dark');
-  }
-}, [isDarkMode]);
 
+  // Initialize light/dark mode
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  // MVP Test: Auto Login
   useEffect(() => {
     if (!isAuthenticated) {
       login('STUDENT');
@@ -45,7 +47,10 @@ useEffect(() => {
         <Route path="diagnosis" element={<Placeholder name="智能诊断" />} />
         <Route path="training" element={<Placeholder name="个性化训练" />} />
         <Route path="analytics" element={<Placeholder name="学情分析" />} />
-        <Route path="teacher" element={<Placeholder name="教师端" />} />
+        <Route path="tasks" element={<Placeholder name="实验任务" />} />
+        <Route path="errors" element={<Placeholder name="错题库" />} />
+        <Route path="teacher" element={<Placeholder name="班级管理" />} />
+        <Route path="monitor" element={<Placeholder name="数据监控" />} />
         <Route path="settings" element={<Placeholder name="系统设置" />} />
       </Route>
 

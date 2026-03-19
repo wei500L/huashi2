@@ -60,6 +60,11 @@
     background: var(--background);
     @apply text-foreground font-sans antialiased min-h-screen bg-fixed relative;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    cursor: none !important;
+  }
+  
+  a, button, input, [role="button"] {
+    cursor: none !important;
   }
   
   body::before {
@@ -221,6 +226,41 @@
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+  }
+
+  /* Awwwards Level: Border Beam Animation */
+  .border-beam {
+    position: relative;
+  }
+  .border-beam::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      var(--beam-angle, 0deg),
+      transparent 20%,
+      rgba(139, 92, 246, 0.5) 50%,
+      transparent 80%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: beam-rotate 6s linear infinite;
+  }
+
+  @keyframes beam-rotate {
+    from { --beam-angle: 0deg; }
+    to { --beam-angle: 360deg; }
+  }
+
+  @property --beam-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
   }
 
   /* Reveal mask animation for text */

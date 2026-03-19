@@ -72,6 +72,7 @@ export default {
         'float-delayed': 'float 25s ease-in-out infinite 2s',
         'pulse-slow': 'pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'border-beam': 'border-beam 4s ease infinite',
+        'page-reveal': 'page-reveal 1.2s cubic-bezier(0.77, 0, 0.175, 1) forwards',
       },
       keyframes: {
         flow: {
@@ -87,9 +88,21 @@ export default {
           '100%': { 'offset-distance': '100%' },
         },
         reveal: {
-          '0%': { clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0% 100%)', transform: 'translateY(100%)' },
+          '0%': { clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0% 100%)', transform: 'translateY(40px)' },
           '100%': { clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', transform: 'translateY(0)' },
+        },
+        'page-reveal': {
+          '0%': { transform: 'translateY(0)' },
+          '100%': { transform: 'translateY(-100%)' },
+        },
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' },
         }
+      },
+      transitionTimingFunction: {
+        'expo-out': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'expo-in-out': 'cubic-bezier(0.87, 0, 0.13, 1)',
+        'fluid': 'cubic-bezier(0.23, 1, 0.32, 1)',
       }
     },
   },

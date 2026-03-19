@@ -34,8 +34,13 @@ const Dashboard: React.FC = () => {
   };
 
   const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } }
+    hidden: { y: 30, opacity: 0, filter: "blur(10px)" },
+    visible: { 
+      y: 0, 
+      opacity: 1, 
+      filter: "blur(0px)",
+      transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } 
+    }
   };
 
   if (error) return (
@@ -147,30 +152,30 @@ const Dashboard: React.FC = () => {
       className="space-y-12 pb-20"
     >
       {/* 1. Welcoming Hero Section */}
-      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-10 p-10 md:p-12 liquid-glass-panel rounded-[3rem] edge-light fluid-texture text-foreground">
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-10 p-10 md:p-16 liquid-glass-panel rounded-[3.5rem] edge-light fluid-texture text-foreground">
         <div className="flex-1">
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-8">
             <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
               <Sparkles className="text-primary animate-pulse" size={20} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-primary/60">Profile Intelligence Active</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 dark:text-primary/60">Neural Engine Synchronized</span>
           </div>
-          <h1 className="text-5xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter mb-6 flex flex-wrap items-center gap-x-6 leading-[1.1]">
+          <h1 className="text-5xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter mb-8 flex flex-wrap items-center gap-x-6 leading-[1.1]">
             Hello, <span className="text-gradient-animated drop-shadow-xl">{data?.userProfile?.name}</span>
-            <span className="text-sm font-black bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-full flex items-center gap-2 text-amber-600 dark:text-amber-400 shadow-sm dark:shadow-[0_0_20px_rgba(245,158,11,0.2)] ml-4">
-              <Flame size={18} fill="currentColor" /> {data?.userProfile?.streak} DAYS STREAK
+            <span className="text-xs font-black bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-5 py-2.5 rounded-full flex items-center gap-2 text-amber-600 dark:text-amber-400 shadow-sm dark:shadow-[0_0_20px_rgba(245,158,11,0.2)] ml-4 tracking-widest uppercase">
+              <Flame size={16} fill="currentColor" className="animate-pulse" /> {data?.userProfile?.streak} DAY STREAK
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-slate-500 dark:text-white/40 max-w-2xl font-medium leading-relaxed">
-            Your current mastery is <span className="text-slate-900 dark:text-white font-black drop-shadow-none dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">{data?.userProfile?.level}</span>.
-            Neural patterns suggest stable <span className="text-emerald-600 dark:text-emerald-400/80">Positive Transfer</span>. Focus on homograph discrimination to optimize results.
+          <p className="text-lg md:text-xl text-slate-500 dark:text-white/40 max-w-3xl font-medium leading-relaxed">
+            Your current cognitive mastery is <span className="text-slate-900 dark:text-white font-black">{data?.userProfile?.level}</span>.
+            Real-time analysis suggests stable <span className="text-emerald-600 dark:text-emerald-400/80 font-bold">Positive Transfer</span> patterns. We recommend focusing on homograph discrimination to optimize neural processing.
           </p>
         </div>
         <div className="shrink-0">
           <Magnetic strength={0.15}>
-            <button className="btn-liquid text-white flex items-center gap-3 px-10 py-6 text-xl group shadow-lg">
+            <button className="btn-liquid text-white flex items-center gap-4 px-12 py-7 text-xl group shadow-2xl">
               START NEW DIAGNOSIS 
-              <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+              <ChevronRight size={28} className="group-hover:translate-x-1.5 transition-transform duration-500" />
             </button>
           </Magnetic>
         </div>
@@ -208,12 +213,12 @@ const Dashboard: React.FC = () => {
             <ChartCard title="Error Distribution" option={distributionOption} loading={loading} height={320} />
             <div className="liquid-glass-panel edge-light fluid-texture p-10 flex flex-col justify-between rounded-[2.5rem]">
               <div className="flex justify-between items-start">
-                <h3 className="text-[10px] font-black tracking-[0.2em] text-slate-400 dark:text-white/30 uppercase">Cognitive Load Index</h3>
+                <h3 className="text-[10px] font-black tracking-[0.3em] text-slate-400 dark:text-white/30 uppercase">Cognitive Load Index</h3>
                 <span className="text-[9px] font-black bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 dark:border-rose-500/30 px-3 py-1.5 rounded-full uppercase tracking-widest">High Risk Alert</span>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center py-8">
                 <div className="relative group">
-                  <div className="text-7xl md:text-8xl font-black text-glow-rose tracking-tighter mb-4 transition-transform group-hover:scale-110 duration-500">
+                  <div className="text-7xl md:text-8xl font-black text-glow-rose tracking-tighter mb-4 transition-transform group-hover:scale-110 duration-500 tabular-nums">
                     <AnimatedNumber value={data?.metrics?.negativeTransferRisk || 0} format={(v) => v.toFixed(2)} />
                   </div>
                   <div className="absolute -inset-8 bg-rose-500/5 dark:bg-rose-500/10 rounded-full blur-[40px] -z-10 animate-pulse-slow" />
@@ -235,7 +240,7 @@ const Dashboard: React.FC = () => {
         {/* 4. Side Lists */}
         <motion.div variants={itemVariants} className="space-y-10 md:space-y-12">
           <section className="liquid-glass p-8 rounded-[2.5rem] edge-light">
-            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
+            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
               <Zap size={16} className="text-primary" /> Current Objectives
             </h3>
             <div className="space-y-5">
@@ -252,7 +257,7 @@ const Dashboard: React.FC = () => {
                     )}>{task.priority}</span>
                     <span className="text-[9px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-tighter">{task.estimatedTime} MIN</span>
                   </div>
-                  <h4 className="font-black text-base text-slate-800 dark:text-white group-hover:text-primary transition-colors mb-2 uppercase">{task.title}</h4>
+                  <h4 className="font-black text-base text-slate-800 dark:text-white group-hover:text-primary transition-colors mb-2 uppercase tracking-tight">{task.title}</h4>
                   <p className="text-xs text-slate-500 dark:text-white/30 font-medium leading-relaxed line-clamp-2">{task.description}</p>
                 </motion.div>
               ))}
@@ -260,7 +265,7 @@ const Dashboard: React.FC = () => {
           </section>
 
           <section className="liquid-glass p-8 rounded-[2.5rem] edge-light">
-            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
+            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
               <AlertTriangle size={16} className="text-rose-500" /> High-Risk Tokens
             </h3>
             <div className="bg-slate-50/50 dark:bg-black/30 border border-slate-100 dark:border-white/5 rounded-3xl divide-y divide-slate-100 dark:divide-white/5 overflow-hidden shadow-sm">
