@@ -28,25 +28,25 @@ export const ChartCard: React.FC<ChartCardProps> = ({
   extra 
 }) => {
   return (
-    <div className={cn("bg-card border border-border rounded-xl shadow-sm overflow-hidden", className)}>
-      <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/20">
-        <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+    <div className={cn("liquid-glass-panel edge-light fluid-texture rounded-3xl overflow-hidden group transition-all duration-500 hover:shadow-[0_15px_50px_rgba(0,0,0,0.6)]", className)}>
+      <div className="px-8 py-5 border-b border-white/5 flex items-center justify-between bg-white/5 backdrop-blur-md relative z-10">
+        <h3 className="text-sm font-bold tracking-widest uppercase text-white/90 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">{title}</h3>
         <div className="flex items-center gap-4">
           {extra}
-          {loading && <RefreshCcw className="animate-spin text-muted-foreground" size={14} />}
+          {loading && <RefreshCcw className="animate-spin text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" size={16} />}
         </div>
       </div>
       
-      <div className="p-6 relative" style={{ height }}>
+      <div className="p-8 relative z-10" style={{ height }}>
         {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-card/50 backdrop-blur-sm z-10">
-            <div className="w-full h-full animate-pulse bg-muted/30 rounded-lg flex items-center justify-center">
-              <span className="text-xs text-muted-foreground">分析数据中...</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-20">
+            <div className="w-full h-full animate-pulse bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]">
+              <span className="text-sm font-medium tracking-widest text-primary animate-pulse drop-shadow-[0_0_10px_rgba(139,92,246,0.8)]">SYNCHRONIZING DATA...</span>
             </div>
           </div>
         ) : isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <p className="text-sm">暂无诊断数据，请先参与实验</p>
+          <div className="flex flex-col items-center justify-center h-full text-white/40">
+            <p className="text-sm uppercase tracking-widest">No diagnostic data available</p>
           </div>
         ) : (
           <ReactECharts 
@@ -54,7 +54,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
             style={{ height: '100%', width: '100%' }} 
             notMerge={true}
             lazyUpdate={true}
-            theme={undefined} // 可根据明暗模式动态切换主题
+            theme="dark" // 强制为暗色以适应全局背景
           />
         )}
       </div>

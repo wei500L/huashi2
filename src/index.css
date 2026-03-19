@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: #ffffff;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -27,25 +27,30 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    /* Advanced Deep Dark Gradient Background */
+    --background: radial-gradient(circle at 50% -20%, #1c1542 0%, #060514 60%, #030208 100%);
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    
+    /* Transparent layers for glassmorphism */
+    --card: transparent;
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    
+    /* Neon accents */
+    --primary: 262 83% 58%; /* Glowing Purple */
+    --primary-foreground: 210 40% 100%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 220 20% 20%;
+    --muted-foreground: 215 20.2% 75.1%;
+    --accent: 262 83% 58%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 350 89% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
+    --border: 262 83% 58%; /* Purple border base for neon */
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --ring: 262 83% 58%;
   }
 }
 
@@ -54,6 +59,84 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    background: var(--background);
+    @apply text-foreground font-sans antialiased min-h-screen bg-fixed;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+@layer utilities {
+  .liquid-glass {
+    @apply bg-glass backdrop-blur-xl border border-glass-border shadow-glass rounded-2xl relative overflow-hidden;
+    box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.02), inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  }
+  
+  .liquid-glass-panel {
+    @apply bg-glass-light backdrop-blur-2xl border border-glass-border/50 rounded-3xl relative overflow-hidden;
+    box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.01), inset 0 1px 2px rgba(255, 255, 255, 0.15), 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  .edge-light {
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  
+  .edge-light::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(to bottom right, rgba(139, 92, 246, 0.6), transparent 40%, transparent 60%, rgba(59, 130, 246, 0.3));
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .edge-light:hover::after {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+  }
+
+  .fluid-texture::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03) 0%, transparent 50%),
+                radial-gradient(circle at 100% 0%, rgba(139,92,246,0.05) 0%, transparent 40%);
+    background-size: 200% 200%;
+    animation: fluid-flow 15s ease infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  /* Glowing text variants for data */
+  .text-glow-emerald {
+    color: #10b981;
+    text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  }
+  .text-glow-rose {
+    color: #f43f5e;
+    text-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+  }
+  .text-glow-amber {
+    color: #f59e0b;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+  }
+  .text-glow-blue {
+    color: #3b82f6;
+    text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  }
+  .text-glow-primary {
+    color: #8b5cf6;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  }
+  
+  /* Hide scrollbars but keep functionality */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
