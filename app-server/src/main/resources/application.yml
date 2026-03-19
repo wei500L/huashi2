@@ -50,15 +50,18 @@ mybatis-plus:
   global-config:
     db-config:
       logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      logic-delete-value: true
+      logic-not-delete-value: false
 
 app:
+  redis:
+    redisson-enabled: ${APP_REDIS_REDISSON_ENABLED:true}
   security:
     jwt:
       secret: ${APP_JWT_SECRET:replace-me-with-a-32-byte-minimum-secret-key}
       issuer: ${APP_JWT_ISSUER:ef-transfer-platform}
       access-token-ttl: ${APP_JWT_ACCESS_TTL:PT6H}
+      refresh-token-ttl: ${APP_JWT_REFRESH_TTL:PT168H}
 
 integration:
   ai:

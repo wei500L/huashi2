@@ -20,6 +20,9 @@ public class JwtProperties {
     @NotNull
     private Duration accessTokenTtl = Duration.ofHours(6);
 
+    @NotNull
+    private Duration refreshTokenTtl = Duration.ofDays(7);
+
     public String getSecret() {
         return secret;
     }
@@ -42,5 +45,13 @@ public class JwtProperties {
 
     public void setAccessTokenTtl(Duration accessTokenTtl) {
         this.accessTokenTtl = accessTokenTtl;
+    }
+
+    public Duration getRefreshTokenTtl() {
+        return refreshTokenTtl;
+    }
+
+    public void setRefreshTokenTtl(Duration refreshTokenTtl) {
+        this.refreshTokenTtl = refreshTokenTtl;
     }
 }

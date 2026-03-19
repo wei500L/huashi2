@@ -1,14 +1,32 @@
 package com.huashi.eftransfer.shared.model;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+
 import java.time.LocalDateTime;
 
 public class BaseAuditEntity {
 
+    @TableId(type = IdType.AUTO)
     private Long id;
+
+    @TableField(value = "created_at", fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
+
+    @TableField(value = "created_by", fill = FieldFill.INSERT)
     private Long createdBy;
+
+    @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
+
+    @TableField(value = "updated_by", fill = FieldFill.INSERT_UPDATE)
     private Long updatedBy;
+
+    @TableLogic
+    @TableField(value = "deleted", fill = FieldFill.INSERT)
     private Boolean deleted;
 
     public Long getId() {

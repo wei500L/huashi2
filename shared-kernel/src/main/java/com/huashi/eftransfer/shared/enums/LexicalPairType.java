@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.shared.enums;
 
+import java.util.Arrays;
+
 public enum LexicalPairType {
     COGNATE("cognate", "Cognate"),
     FALSE_FRIEND("false_friend", "False Friend"),
@@ -20,5 +22,12 @@ public enum LexicalPairType {
 
     public String label() {
         return label;
+    }
+
+    public static LexicalPairType fromCode(String value) {
+        return Arrays.stream(values())
+                .filter(item -> item.code.equalsIgnoreCase(value) || item.name().equalsIgnoreCase(value))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported lexicalPairType: " + value));
     }
 }

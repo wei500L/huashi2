@@ -38,6 +38,7 @@ cp .env.example .env
 - `AI_RERANK_URL`
 - `AI_RERANK_MODEL`
 - `APP_JWT_SECRET`
+- `APP_JWT_REFRESH_TTL`
 
 ## 4. Docker 本地联调
 
@@ -97,10 +98,18 @@ mvn test
 - 审计字段基类 `BaseAuditEntity`
 - 通用枚举
 - `app-server` 基础安全、JWT、Redis、RabbitMQ、MyBatis-Plus、Flyway、健康检查
+- `app-server` 真实认证授权链路：登录、刷新、注销、当前用户、管理员用户列表、Redis refresh token 与 access token 拉黑
 - `ai-gateway` OpenAI compatible 配置、pgvector 连接、向量库启动配置、Rerank HTTP 客户端、健康检查
 - 本地 Docker 开发环境与服务镜像构建
 
-## 7. 当前未完成内容
+## 7. 默认测试账号
+
+- 管理员：`admin` / `Admin@123456`
+- 教师：`teacher.zhang` / `Teacher@123456`
+- 学生：`student.li` / `Student@123456`
+- 学生：`student.wang` / `Student@123456`
+
+## 8. 当前未完成内容
 
 - 登录、用户、班级、词表、诊断、训练、分析等业务接口
 - 审计日志落库与幂等性拦截器的完整链路

@@ -6,9 +6,11 @@ import org.redisson.config.Config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.util.StringUtils;
 
 @Configuration
+@ConditionalOnProperty(name = "app.redis.redisson-enabled", havingValue = "true", matchIfMissing = true)
 public class RedissonConfig {
 
     @Bean(destroyMethod = "shutdown")

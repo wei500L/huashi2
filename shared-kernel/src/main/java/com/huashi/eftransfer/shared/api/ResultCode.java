@@ -8,6 +8,10 @@ public enum ResultCode {
     NOT_FOUND("NOT_FOUND", "Requested resource was not found"),
     VALIDATION_ERROR("VALIDATION_ERROR", "Validation failed"),
     CONFLICT("CONFLICT", "Resource conflict"),
+    INVALID_CREDENTIALS("INVALID_CREDENTIALS", "Invalid username/email or password"),
+    ACCOUNT_DISABLED("ACCOUNT_DISABLED", "Account is disabled"),
+    TOKEN_INVALID("TOKEN_INVALID", "Token is invalid"),
+    TOKEN_EXPIRED("TOKEN_EXPIRED", "Token has expired"),
     RATE_LIMITED("RATE_LIMITED", "Too many requests"),
     AI_PROVIDER_UNAVAILABLE("AI_PROVIDER_UNAVAILABLE", "AI provider unavailable"),
     INTERNAL_ERROR("INTERNAL_ERROR", "Internal server error");

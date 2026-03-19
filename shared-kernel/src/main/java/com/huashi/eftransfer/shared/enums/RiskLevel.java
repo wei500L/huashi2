@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.shared.enums;
 
+import java.util.Arrays;
+
 public enum RiskLevel {
     LOW("low", "Low"),
     MEDIUM("medium", "Medium"),
@@ -20,5 +22,12 @@ public enum RiskLevel {
 
     public String label() {
         return label;
+    }
+
+    public static RiskLevel fromCode(String value) {
+        return Arrays.stream(values())
+                .filter(item -> item.code.equalsIgnoreCase(value) || item.name().equalsIgnoreCase(value))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported riskLevel: " + value));
     }
 }

@@ -22,7 +22,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
-        return ResponseEntity.badRequest()
+        return ResponseEntity.status(exception.getHttpStatus())
                 .body(ApiResponse.failure(exception.getResultCode(), exception.getMessage(), traceId()));
     }
 
