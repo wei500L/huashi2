@@ -1,6 +1,10 @@
 package com.huashi.eftransfer.app.modules.auth.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
 import com.huashi.eftransfer.app.modules.user.entity.StudentProfileEntity;
 import com.huashi.eftransfer.app.modules.user.entity.TeacherProfileEntity;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
@@ -27,6 +31,8 @@ public class DemoUserInitializer implements ApplicationRunner {
     private final UserRoleMapper userRoleMapper;
     private final StudentProfileMapper studentProfileMapper;
     private final TeacherProfileMapper teacherProfileMapper;
+    private final TeachingClassMapper teachingClassMapper;
+    private final TeachingClassStudentMapper teachingClassStudentMapper;
     private final PasswordEncoder passwordEncoder;
 
     public DemoUserInitializer(
@@ -34,12 +40,16 @@ public class DemoUserInitializer implements ApplicationRunner {
             UserRoleMapper userRoleMapper,
             StudentProfileMapper studentProfileMapper,
             TeacherProfileMapper teacherProfileMapper,
+            TeachingClassMapper teachingClassMapper,
+            TeachingClassStudentMapper teachingClassStudentMapper,
             PasswordEncoder passwordEncoder
     ) {
         this.userMapper = userMapper;
         this.userRoleMapper = userRoleMapper;
         this.studentProfileMapper = studentProfileMapper;
         this.teacherProfileMapper = teacherProfileMapper;
+        this.teachingClassMapper = teachingClassMapper;
+        this.teachingClassStudentMapper = teachingClassStudentMapper;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -60,6 +70,10 @@ public class DemoUserInitializer implements ApplicationRunner {
         UserEntity studentTwo = ensureUser("student.wang", "student.wang@ef.local", "王敏", "Student@123456");
         ensureRole(studentTwo.getId(), UserRole.STUDENT);
         ensureStudentProfile(studentTwo.getId(), "S-1002", "Grade 11", "B1", "A2", 63);
+
+        Long classId = ensureTeachingClass(teacher.getId(), "CLS-0001", "2024级英法迁移试点1班", "Pilot Grade");
+        ensureTeachingClassMember(classId, studentOne.getId());
+        ensureTeachingClassMember(classId, studentTwo.getId());
 
         log.info("event=demo_users_ready accounts=4 usernames=admin,teacher.zhang,student.li,student.wang");
     }
@@ -136,5 +150,37 @@ public class DemoUserInitializer implements ApplicationRunner {
         profile.setCreatedBy(0L);
         profile.setUpdatedBy(0L);
         teacherProfileMapper.insert(profile);
+    }
+
+    private Long ensureTeachingClass(Long teacherUserId, String classCode, String className, String gradeName) {
+        TeachingClassEntity existing = teachingClassMapper.selectOne(Wrappers.<TeachingClassEntity>lambdaQuery()
+                .eq(TeachingClassEntity::getClassCode, classCode));
+        if (existing != null) {
+            return existing.getId();
+        }
+        TeachingClassEntity entity = new TeachingClassEntity();
+        entity.setClassCode(classCode);
+        entity.setClassName(className);
+        entity.setGradeName(gradeName);
+        entity.setTeacherUserId(teacherUserId);
+        entity.setActive(Boolean.TRUE);
+        teachingClassMapper.insert(entity);
+        return entity.getId();
+    }
+
+    private void ensureTeachingClassMember(Long classId, Long studentUserId) {
+        Long count = teachingClassStudentMapper.selectCount(Wrappers.<TeachingClassStudentEntity>lambdaQuery()
+                .eq(TeachingClassStudentEntity::getTeachingClassId, classId)
+                .eq(TeachingClassStudentEntity::getStudentUserId, studentUserId)
+                .eq(TeachingClassStudentEntity::getActive, Boolean.TRUE));
+        if (count != null && count > 0) {
+            return;
+        }
+        TeachingClassStudentEntity entity = new TeachingClassStudentEntity();
+        entity.setTeachingClassId(classId);
+        entity.setStudentUserId(studentUserId);
+        entity.setJoinedAt(java.time.LocalDateTime.now());
+        entity.setActive(Boolean.TRUE);
+        teachingClassStudentMapper.insert(entity);
     }
 }

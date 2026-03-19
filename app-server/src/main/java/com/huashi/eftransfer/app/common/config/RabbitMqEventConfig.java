@@ -1,13 +1,18 @@
 package com.huashi.eftransfer.app.common.config;
 
 import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEventPublisher;
+import com.huashi.eftransfer.app.modules.diagnosis.event.CompositeDiagnosisCompletedEventPublisher;
 import com.huashi.eftransfer.app.modules.diagnosis.event.RabbitDiagnosisCompletedEventPublisher;
+import com.huashi.eftransfer.app.modules.training.event.ApplicationTrainingCompletedEventPublisher;
+import com.huashi.eftransfer.app.modules.training.event.TrainingCompletedEventPublisher;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -41,8 +46,21 @@ public class RabbitMqEventConfig {
     }
 
     @Bean
-    public DiagnosisCompletedEventPublisher diagnosisCompletedEventPublisher(RabbitTemplate rabbitTemplate) {
+    public DiagnosisCompletedEventPublisher diagnosisCompletedEventPublisher(
+            RabbitTemplate rabbitTemplate,
+            ApplicationEventPublisher applicationEventPublisher,
+            @Value("${app.events.rabbit-publish-enabled:true}") boolean rabbitPublishEnabled
+    ) {
         rabbitTemplate.setMessageConverter(jackson2JsonMessageConverter());
-        return new RabbitDiagnosisCompletedEventPublisher(rabbitTemplate);
+        return new CompositeDiagnosisCompletedEventPublisher(
+                applicationEventPublisher,
+                new RabbitDiagnosisCompletedEventPublisher(rabbitTemplate),
+                rabbitPublishEnabled
+        );
+    }
+
+    @Bean
+    public TrainingCompletedEventPublisher trainingCompletedEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        return new ApplicationTrainingCompletedEventPublisher(applicationEventPublisher);
     }
 }

@@ -56,6 +56,11 @@ mybatis-plus:
 app:
   redis:
     redisson-enabled: ${APP_REDIS_REDISSON_ENABLED:true}
+  events:
+    rabbit-publish-enabled: ${APP_EVENTS_RABBIT_PUBLISH_ENABLED:true}
+  analytics:
+    compensation:
+      enabled: ${APP_ANALYTICS_COMPENSATION_ENABLED:true}
   security:
     jwt:
       secret: ${APP_JWT_SECRET:replace-me-with-a-32-byte-minimum-secret-key}

@@ -1,9 +1,12 @@
 package com.huashi.eftransfer.shared.enums;
 
+import java.util.Arrays;
+
 public enum TrainingMode {
-    RULE_BASED("rule_based", "Rule Based"),
-    AI_ASSISTED("ai_assisted", "AI Assisted"),
-    MIXED("mixed", "Mixed");
+    COGNATE_BOOST("cognate_strengthening", "Cognate Strengthening"),
+    FALSE_FRIEND_DISCRIM("false_friend_discrimination", "False Friend Discrimination"),
+    CONTEXT_FIX("context_repair", "Context Repair"),
+    SPEED_CHALLENGE("rapid_recognition", "Rapid Recognition");
 
     private final String code;
     private final String label;
@@ -19,5 +22,17 @@ public enum TrainingMode {
 
     public String label() {
         return label;
+    }
+
+    public static TrainingMode fromCode(String value) {
+        return Arrays.stream(values())
+                .filter(item -> item.code.equalsIgnoreCase(value)
+                        || item.name().equalsIgnoreCase(value)
+                        || (item == COGNATE_BOOST && "cognate_boost".equalsIgnoreCase(value))
+                        || (item == FALSE_FRIEND_DISCRIM && "false_friend_discrim".equalsIgnoreCase(value))
+                        || (item == CONTEXT_FIX && "context_fix".equalsIgnoreCase(value))
+                        || (item == SPEED_CHALLENGE && "speed_challenge".equalsIgnoreCase(value)))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported trainingMode: " + value));
     }
 }

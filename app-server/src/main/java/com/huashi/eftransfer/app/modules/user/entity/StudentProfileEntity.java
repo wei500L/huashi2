@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.huashi.eftransfer.shared.model.BaseAuditEntity;
 
+import java.time.LocalDateTime;
+
 @TableName("student_profile")
 public class StudentProfileEntity extends BaseAuditEntity {
 
@@ -24,6 +26,12 @@ public class StudentProfileEntity extends BaseAuditEntity {
 
     @TableField("composite_score")
     private Integer compositeScore;
+
+    @TableField("learning_profile_snapshot_json")
+    private String learningProfileSnapshotJson;
+
+    @TableField("learning_profile_updated_at")
+    private LocalDateTime learningProfileUpdatedAt;
 
     public Long getUserId() {
         return userId;
@@ -71,5 +79,21 @@ public class StudentProfileEntity extends BaseAuditEntity {
 
     public void setCompositeScore(Integer compositeScore) {
         this.compositeScore = compositeScore;
+    }
+
+    public String getLearningProfileSnapshotJson() {
+        return learningProfileSnapshotJson;
+    }
+
+    public void setLearningProfileSnapshotJson(String learningProfileSnapshotJson) {
+        this.learningProfileSnapshotJson = learningProfileSnapshotJson;
+    }
+
+    public LocalDateTime getLearningProfileUpdatedAt() {
+        return learningProfileUpdatedAt;
+    }
+
+    public void setLearningProfileUpdatedAt(LocalDateTime learningProfileUpdatedAt) {
+        this.learningProfileUpdatedAt = learningProfileUpdatedAt;
     }
 }
