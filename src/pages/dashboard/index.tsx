@@ -12,7 +12,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useDashboard } from '@/hooks/useDashboard';
-import { StatCard, PageHeader, AnimatedNumber } from '@/components/common';
+import { StatCard, PageHeader, AnimatedNumber, Magnetic } from '@/components/common';
 import { ChartCard } from '@/components/common/ChartCard';
 import { TrainingTask, ErrorWordPair } from '@/types/learning';
 import { motion } from 'framer-motion';
@@ -147,7 +147,7 @@ const Dashboard: React.FC = () => {
       className="space-y-12 pb-20"
     >
       {/* 1. Welcoming Hero Section */}
-      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-10 p-10 md:p-12 liquid-glass-panel rounded-[3rem] edge-light fluid-texture">
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-10 p-10 md:p-12 liquid-glass-panel rounded-[3rem] edge-light fluid-texture text-foreground">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
@@ -155,9 +155,9 @@ const Dashboard: React.FC = () => {
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-primary/60">Profile Intelligence Active</span>
           </div>
-          <h1 className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tighter mb-6 flex flex-wrap items-center gap-x-6">
-            你好, {data?.userProfile?.name}
-            <span className="text-sm font-black bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 text-amber-600 dark:text-amber-400 shadow-sm dark:shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+          <h1 className="text-5xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter mb-6 flex flex-wrap items-center gap-x-6 leading-[1.1]">
+            Hello, <span className="text-gradient-animated drop-shadow-xl">{data?.userProfile?.name}</span>
+            <span className="text-sm font-black bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-full flex items-center gap-2 text-amber-600 dark:text-amber-400 shadow-sm dark:shadow-[0_0_20px_rgba(245,158,11,0.2)] ml-4">
               <Flame size={18} fill="currentColor" /> {data?.userProfile?.streak} DAYS STREAK
             </span>
           </h1>
@@ -167,10 +167,12 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
         <div className="shrink-0">
-          <button className="btn-liquid text-white flex items-center gap-3 px-10 py-6 text-xl group shadow-lg">
-            START NEW DIAGNOSIS 
-            <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
-          </button>
+          <Magnetic strength={0.15}>
+            <button className="btn-liquid text-white flex items-center gap-3 px-10 py-6 text-xl group shadow-lg">
+              START NEW DIAGNOSIS 
+              <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </Magnetic>
         </div>
       </motion.div>
 

@@ -155,16 +155,22 @@ export const Topbar: React.FC = () => {
   );
 };
 
-// 3. Layout Container with Dynamic Environmental Blobs
+// 3. Layout Container with Dynamic Environmental Blobs & Custom Cursor
 import { useMotionValue, useSpring } from 'framer-motion';
 
 export const AppLayout: React.FC = () => {
   const cursorX = useMotionValue(-100);
   const cursorY = useMotionValue(-100);
   
-  const springConfig = { damping: 40, stiffness: 150, mass: 0.5 };
-  const cursorXSpring = useSpring(cursorX, springConfig);
-  const cursorYSpring = useSpring(cursorY, springConfig);
+  // Spring for the ambient background light
+  const ambientSpringConfig = { damping: 40, stiffness: 150, mass: 0.5 };
+  const ambientXSpring = useSpring(cursorX, ambientSpringConfig);
+  const ambientYSpring = useSpring(cursorY, ambientSpringConfig);
+
+  // Spring for the precise geometric cursor
+  const cursorSpringConfig = { damping: 25, stiffness: 400, mass: 0.2 };
+  const geometricXSpring = useSpring(cursorX, cursorSpringConfig);
+  const geometricYSpring = useSpring(cursorY, cursorSpringConfig);
 
   React.useEffect(() => {
     const moveCursor = (e: MouseEvent) => {
@@ -176,7 +182,27 @@ export const AppLayout: React.FC = () => {
   }, [cursorX, cursorY]);
 
   return (
-    <div className="flex min-h-screen bg-transparent text-foreground relative overflow-hidden transition-colors duration-500">
+    <div className="flex min-h-screen bg-transparent text-foreground relative overflow-hidden transition-colors duration-500 cursor-none">
+      {/* Custom Awwwards Level Cursor */}
+      <motion.div 
+        className="fixed top-0 left-0 w-4 h-4 border-2 border-primary rounded-full pointer-events-none z-[9999] mix-blend-difference hidden md:block"
+        style={{ 
+          x: geometricXSpring, 
+          y: geometricYSpring, 
+          translateX: "-50%", 
+          translateY: "-50%" 
+        }}
+      />
+      <motion.div 
+        className="fixed top-0 left-0 w-1.5 h-1.5 bg-primary rounded-full pointer-events-none z-[10000] hidden md:block"
+        style={{ 
+          x: cursorX, 
+          y: cursorY, 
+          translateX: "-50%", 
+          translateY: "-50%" 
+        }}
+      />
+
       {/* Background Deep Layers - Responsive */}
       <div className="fixed inset-0 -z-20 bg-[#f8fafc] dark:bg-[#030208] transition-colors duration-700" />
       
@@ -186,8 +212,8 @@ export const AppLayout: React.FC = () => {
         <motion.div 
           className="absolute top-0 left-0 w-[800px] h-[800px] bg-primary/10 dark:bg-primary/20 rounded-full blur-[160px] opacity-50 transition-colors duration-700"
           style={{ 
-            x: cursorXSpring, 
-            y: cursorYSpring, 
+            x: ambientXSpring, 
+            y: ambientYSpring, 
             translateX: "-50%", 
             translateY: "-50%" 
           }}

@@ -8,6 +8,55 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Magnetic Interaction Component
+export const Magnetic: React.FC<{ children: React.ReactElement; strength?: number }> = ({ children, strength = 0.5 }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const springConfig = { damping: 15, stiffness: 150 };
+  const springX = useSpring(x, springConfig);
+  const springY = useSpring(y, springConfig);
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!ref.current) return;
+    const { clientX, clientY } = e;
+    const { left, top, width, height } = ref.current.getBoundingClientRect();
+    const centerX = left + width / 2;
+    const centerY = top + height / 2;
+    const distanceX = clientX - centerX;
+    const distanceY = clientY - centerY;
+    
+    // Only attract if within range
+    if (Math.abs(distanceX) < width && Math.abs(distanceY) < height) {
+      x.set(distanceX * strength);
+      y.set(distanceY * strength);
+    } else {
+      x.set(0);
+      y.set(0);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseLeave={handleMouseLeave}
+      style={{ x: springX, y: springY }}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 // Number Animation Component
 export const AnimatedNumber: React.FC<{ value: number; format?: (v: number) => string }> = ({ value, format = (v) => Math.round(v).toString() }) => {
   const [displayValue, setDisplayValue] = useState(0);
@@ -95,7 +144,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
       <div className="flex items-start justify-between relative z-10" style={{ transform: "translateZ(30px)" }}>
         <div>
           <p className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1">{title}</p>
-          <h3 className={cn("text-4xl font-black tracking-tighter drop-shadow-none dark:drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]", iconGlowClass)}>
+          <h3 className={cn("text-4xl font-black tracking-tighter drop-shadow-none dark:drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] reveal-text animate-[reveal_1s_cubic-bezier(0.77,0,0.175,1)_forwards]", iconGlowClass)}>
             {!isNaN(numericValue) ? (
               <>
                 <AnimatedNumber value={numericValue} />

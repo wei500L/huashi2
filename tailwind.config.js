@@ -86,6 +86,10 @@ export default {
         'border-beam': {
           '100%': { 'offset-distance': '100%' },
         },
+        reveal: {
+          '0%': { clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0% 100%)', transform: 'translateY(100%)' },
+          '100%': { clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', transform: 'translateY(0)' },
+        }
       }
     },
   },
