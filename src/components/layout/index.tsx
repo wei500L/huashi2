@@ -48,13 +48,13 @@ export const Sidebar: React.FC = () => {
           <motion.h1 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-xl font-black bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+            className="text-xl font-black bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent dark:text-transparent drop-shadow-sm dark:drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]"
           >
             EF-Transfer
           </motion.h1>
         )}
-        <button onClick={toggleSidebar} className="p-2 hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-white/5 group">
-          <ChevronLeft className={cn("transition-transform duration-500 text-white/70 group-hover:text-white", isSidebarCollapsed && "rotate-180")} size={20} />
+        <button onClick={toggleSidebar} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-slate-200 dark:border-white/5 group">
+          <ChevronLeft className={cn("transition-transform duration-500 text-slate-400 dark:text-white/70 group-hover:text-primary dark:group-hover:text-white", isSidebarCollapsed && "rotate-180")} size={20} />
         </button>
       </div>
       
@@ -64,9 +64,8 @@ export const Sidebar: React.FC = () => {
           return (
             <Link key={item.path} to={item.path} className={cn(
               "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative",
-              isActive ? "text-primary font-bold" : "text-white/50 hover:text-white"
+              isActive ? "text-primary font-bold" : "text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white"
             )}>
-              {/* Liquid Active Indicator */}
               {isActive && (
                 <motion.div 
                   layoutId="active-pill"
@@ -93,7 +92,7 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       <div className="p-4 relative z-10 mt-auto">
-        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all border border-transparent hover:border-rose-500/20 group">
+        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-300 transition-all border border-transparent hover:border-rose-500/20 group">
           <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
           {!isSidebarCollapsed && <span className="font-bold uppercase tracking-wider text-xs">Shutdown System</span>}
         </button>
@@ -111,20 +110,20 @@ export const Topbar: React.FC = () => {
     <header className="h-16 mt-3 mx-4 lg:mx-8 flex items-center justify-between px-6 sticky top-3 z-40 liquid-glass rounded-2xl edge-light fluid-texture">
       <div className="flex items-center gap-4 flex-1 relative z-10">
         <div className="relative max-w-md w-full hidden md:block group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-primary transition-colors duration-300" size={16} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within:text-primary transition-colors duration-300" size={16} />
           <input 
             type="text" 
             placeholder="Explore global analytics..." 
-            className="w-full bg-black/30 border border-white/5 focus:border-primary/40 focus:bg-black/50 rounded-full py-2.5 pl-11 pr-4 text-sm transition-all duration-500 focus:outline-none focus:ring-4 focus:ring-primary/5 text-white placeholder:text-white/20" 
+            className="w-full bg-white/50 dark:bg-black/30 border border-slate-200 dark:border-white/5 focus:border-primary/40 focus:bg-white dark:focus:bg-black/50 rounded-full py-2.5 pl-11 pr-4 text-sm transition-all duration-500 focus:outline-none focus:ring-4 focus:ring-primary/5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/20" 
           />
         </div>
       </div>
       <div className="flex items-center gap-5 relative z-10">
-        <button className="p-2.5 hover:bg-white/5 rounded-full transition-all relative group border border-transparent hover:border-white/10">
-          <Bell size={20} className="text-white/50 group-hover:text-white transition-colors" />
+        <button className="p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-all relative group border border-transparent hover:border-slate-200 dark:hover:border-white/10">
+          <Bell size={20} className="text-slate-500 dark:text-white/50 group-hover:text-primary dark:group-hover:text-white transition-colors" />
           <div className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(244,63,94,1)]" />
         </button>
-        <button onClick={toggleDarkMode} className="p-2.5 hover:bg-white/5 rounded-full transition-all group border border-transparent hover:border-white/10 overflow-hidden">
+        <button onClick={toggleDarkMode} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-all group border border-transparent hover:border-slate-200 dark:hover:border-white/10 overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={isDarkMode ? 'dark' : 'light'}
@@ -141,11 +140,11 @@ export const Topbar: React.FC = () => {
             </motion.div>
           </AnimatePresence>
         </button>
-        <div className="w-px h-8 bg-white/5 mx-1" />
+        <div className="w-px h-8 bg-slate-200 dark:bg-white/5 mx-1" />
         <div className="flex items-center gap-3 pl-1 cursor-pointer group">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-black text-white/90 group-hover:text-primary transition-colors">{user?.username || 'Guest'}</p>
-            <p className="text-[9px] text-white/30 uppercase tracking-[0.2em] font-bold mt-0.5">{user?.role || 'USER'}</p>
+            <p className="text-sm font-black text-slate-900 dark:text-white/90 group-hover:text-primary transition-colors">{user?.username || 'Guest'}</p>
+            <p className="text-[9px] text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] font-bold mt-0.5">{user?.role || 'USER'}</p>
           </div>
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary via-purple-600 to-accent flex items-center justify-center text-white font-black shadow-[0_0_20px_rgba(139,92,246,0.4)] border border-white/20 group-hover:scale-105 transition-transform duration-300">
             {user?.username?.[0] || 'G'}

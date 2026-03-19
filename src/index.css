@@ -5,12 +5,12 @@
 @layer base {
   :root {
     /* High-Fidelity Light Mode: Frosted White & Airy */
-    --background: radial-gradient(circle at 50% -20%, #f0f4ff 0%, #ffffff 60%, #f8fafc 100%);
-    --foreground: 222.2 84% 4.9%;
-    --card: transparent;
-    --card-foreground: 222.2 84% 4.9%;
+    --background: radial-gradient(circle at 50% -20%, #f8fafc 0%, #ffffff 60%, #eff6ff 100%);
+    --foreground: 222.2 47.4% 11.2%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222.2 47.4% 11.2%;
     --primary: 262 83% 58%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
@@ -54,7 +54,6 @@
 @layer base {
   * {
     @apply border-border;
-    /* Ultra-smooth theme transition */
     transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.5s ease, color 0.3s ease, box-shadow 0.5s ease;
   }
   body {
@@ -80,20 +79,21 @@
 @layer utilities {
   .liquid-glass {
     @apply backdrop-blur-xl border relative overflow-hidden;
-    background: theme('colors.glass.DEFAULT');
-    border-color: theme('colors.glass.border');
-    box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.02), inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.7); /* Much higher opacity for light mode */
+    border-color: rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
   }
   .dark .liquid-glass {
     background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
     box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.02), inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 8px 32px 0 rgba(0, 0, 0, 0.4);
   }
   
   .liquid-glass-panel {
     @apply backdrop-blur-3xl border relative overflow-hidden;
-    background: theme('colors.glass.light');
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.01), inset 0 1px 2px rgba(255, 255, 255, 0.15), 0 12px 40px 0 rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.05);
   }
   .dark .liquid-glass-panel {
     background: rgba(255, 255, 255, 0.03);
@@ -111,10 +111,13 @@
     position: absolute;
     inset: -1px;
     border-radius: inherit;
-    background: linear-gradient(to bottom right, rgba(139, 92, 246, 0.4), transparent 40%, transparent 60%, rgba(59, 130, 246, 0.2));
+    background: linear-gradient(to bottom right, rgba(139, 92, 246, 0.2), transparent 40%, transparent 60%, rgba(59, 130, 246, 0.1));
     z-index: -1;
     opacity: 0.1;
     transition: opacity 0.4s ease;
+  }
+  .dark .edge-light::after {
+    background: linear-gradient(to bottom right, rgba(139, 92, 246, 0.4), transparent 40%, transparent 60%, rgba(59, 130, 246, 0.2));
   }
 
   .edge-light:hover::after {
@@ -134,24 +137,27 @@
     z-index: 0;
   }
   
-  /* Text Glows adjust based on mode */
-  .text-glow-emerald { color: #059669; text-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+  /* High contrast text glows */
+  .text-glow-emerald { color: #065f46; text-shadow: none; }
   .dark .text-glow-emerald { color: #10b981; text-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }
   
-  .text-glow-rose { color: #e11d48; text-shadow: 0 0 10px rgba(244, 63, 94, 0.2); }
+  .text-glow-rose { color: #9f1239; text-shadow: none; }
   .dark .text-glow-rose { color: #f43f5e; text-shadow: 0 0 15px rgba(244, 63, 94, 0.6); }
   
-  .text-glow-primary { color: #7c3aed; text-shadow: 0 0 10px rgba(139, 92, 246, 0.2); }
+  .text-glow-primary { color: #5b21b6; text-shadow: none; }
   .dark .text-glow-primary { color: #a78bfa; text-shadow: 0 0 15px rgba(139, 92, 246, 0.6); }
+
+  .text-glow-amber { color: #92400e; text-shadow: none; }
+  .dark .text-glow-amber { color: #f59e0b; text-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
   
   .no-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
   .no-scrollbar::-webkit-scrollbar-track { background: transparent; }
-  .no-scrollbar::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.1); border-radius: 10px; }
+  .no-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
   .dark .no-scrollbar::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.2); }
   
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.1); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
   .dark ::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.2); }
 
   .btn-liquid {

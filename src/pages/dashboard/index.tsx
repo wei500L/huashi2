@@ -41,8 +41,8 @@ const Dashboard: React.FC = () => {
   if (error) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-rose-500 liquid-glass p-12 rounded-[3rem] max-w-lg mx-auto mt-20 shadow-[0_0_100px_rgba(244,63,94,0.15)] edge-light">
       <AlertTriangle size={80} className="drop-shadow-[0_0_25px_rgba(244,63,94,0.8)] animate-pulse mb-8" />
-      <h2 className="font-black text-2xl tracking-tighter uppercase mb-2">Neural Link Severed</h2>
-      <p className="text-center text-rose-400/60 font-medium mb-10 max-w-xs">{error}</p>
+      <h2 className="font-black text-2xl tracking-tighter uppercase mb-2 text-slate-900 dark:text-rose-500">Neural Link Severed</h2>
+      <p className="text-center text-slate-500 dark:text-rose-400/60 font-medium mb-10 max-w-xs">{error}</p>
       <button className="btn-liquid text-white px-10 py-4" onClick={() => window.location.reload()}>RE-ESTABLISH CONNECTION</button>
     </div>
   );
@@ -61,7 +61,7 @@ const Dashboard: React.FC = () => {
     legend: { 
       data: ['正确率 (%)', '反应时 (ms)'], 
       bottom: 0,
-      textStyle: { color: 'rgba(255,255,255,0.4)', fontFamily: 'Inter', fontSize: 11, fontWeight: 700 },
+      textStyle: { color: '#64748b', fontFamily: 'Inter', fontSize: 11, fontWeight: 700 },
       icon: 'circle',
       itemGap: 30
     },
@@ -71,18 +71,18 @@ const Dashboard: React.FC = () => {
       data: data.trends.dates, 
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: 'rgba(255,255,255,0.25)', fontFamily: 'Inter', margin: 20, fontWeight: 600 }
+      axisLabel: { color: '#94a3b8', fontFamily: 'Inter', margin: 20, fontWeight: 600 }
     },
     yAxis: [
       { 
         type: 'value', min: 0, max: 100, position: 'left',
-        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.02)' } },
-        axisLabel: { color: 'rgba(255,255,255,0.25)', fontFamily: 'Inter', fontWeight: 600 }
+        splitLine: { lineStyle: { color: 'rgba(0,0,0,0.03)' } },
+        axisLabel: { color: '#94a3b8', fontFamily: 'Inter', fontWeight: 600 }
       },
       { 
         type: 'value', position: 'right',
         splitLine: { show: false },
-        axisLabel: { color: 'rgba(255,255,255,0.25)', fontFamily: 'Inter', fontWeight: 600 }
+        axisLabel: { color: '#94a3b8', fontFamily: 'Inter', fontWeight: 600 }
       }
     ],
     series: [
@@ -129,10 +129,10 @@ const Dashboard: React.FC = () => {
       avoidLabelOverlap: false,
       itemStyle: { 
         borderRadius: 15, 
-        borderColor: '#030208', 
+        borderColor: 'inherit', 
         borderWidth: 5,
         shadowBlur: 30,
-        shadowColor: 'rgba(0,0,0,0.5)'
+        shadowColor: 'rgba(0,0,0,0.1)'
       },
       label: { show: false },
       data: data.errorDistribution
@@ -153,21 +153,21 @@ const Dashboard: React.FC = () => {
             <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
               <Sparkles className="text-primary animate-pulse" size={20} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/60">Profile Intelligence Active</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-primary/60">Profile Intelligence Active</span>
           </div>
-          <h1 className="text-5xl font-black text-white tracking-tighter mb-6 flex flex-wrap items-center gap-x-6">
+          <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-6 flex flex-wrap items-center gap-x-6">
             你好, {data?.userProfile?.name}
-            <span className="text-sm font-black bg-white/5 border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+            <span className="text-sm font-black bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 text-amber-600 dark:text-amber-400 shadow-sm dark:shadow-[0_0_20px_rgba(245,158,11,0.2)]">
               <Flame size={18} fill="currentColor" /> {data?.userProfile?.streak} DAYS STREAK
             </span>
           </h1>
-          <p className="text-lg text-white/40 max-w-2xl font-medium leading-relaxed">
-            Your current mastery is <span className="text-white font-black drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">{data?.userProfile?.level}</span>.
-            Neural patterns suggest stable <span className="text-emerald-400/80">Positive Transfer</span>. Focus on homograph discrimination to optimize results.
+          <p className="text-lg text-slate-500 dark:text-white/40 max-w-2xl font-medium leading-relaxed">
+            Your current mastery is <span className="text-slate-900 dark:text-white font-black drop-shadow-none dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">{data?.userProfile?.level}</span>.
+            Neural patterns suggest stable <span className="text-emerald-600 dark:text-emerald-400/80">Positive Transfer</span>. Focus on homograph discrimination to optimize results.
           </p>
         </div>
         <div className="shrink-0">
-          <button className="btn-liquid text-white flex items-center gap-3 px-10 py-5 text-lg group">
+          <button className="btn-liquid text-white flex items-center gap-3 px-10 py-5 text-lg group shadow-lg">
             START NEW DIAGNOSIS 
             <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
           </button>
@@ -176,10 +176,10 @@ const Dashboard: React.FC = () => {
 
       {/* 2. Key Metrics Grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <StatCard title="Positive Score" value={`${((data?.metrics?.positiveTransferScore || 0) * 100).toFixed(0)}%`} icon={TrendingUp} trend={{ value: 12, isUp: true }} color="text-blue-500" />
-        <StatCard title="Negative Risk" value={`${((data?.metrics?.negativeTransferRisk || 0) * 100).toFixed(0)}%`} icon={AlertTriangle} trend={{ value: 5, isUp: false }} color="text-rose-500" />
-        <StatCard title="Context Sensitivity" value={`${((data?.metrics?.contextSensitivity || 0) * 100).toFixed(0)}%`} icon={RefreshCw} color="text-emerald-500" />
-        <StatCard title="Latency (avg)" value={`${data?.metrics?.avgResponseTime || 0}ms`} icon={Zap} color="text-amber-500" />
+        <StatCard title="Positive Score" value={`${((data?.metrics?.positiveTransferScore || 0) * 100).toFixed(0)}%`} icon={TrendingUp} trend={{ value: 12, isUp: true }} color="text-blue-600 dark:text-blue-500" />
+        <StatCard title="Negative Risk" value={`${((data?.metrics?.negativeTransferRisk || 0) * 100).toFixed(0)}%`} icon={AlertTriangle} trend={{ value: 5, isUp: false }} color="text-rose-600 dark:text-rose-500" />
+        <StatCard title="Context Sensitivity" value={`${((data?.metrics?.contextSensitivity || 0) * 100).toFixed(0)}%`} icon={RefreshCw} color="text-emerald-600 dark:text-emerald-500" />
+        <StatCard title="Latency (avg)" value={`${data?.metrics?.avgResponseTime || 0}ms`} icon={Zap} color="text-amber-600 dark:text-amber-500" />
       </motion.div>
 
       {/* 3. Charts & Detailed Analysis */}
@@ -191,12 +191,12 @@ const Dashboard: React.FC = () => {
             loading={loading}
             extra={
               <div className="relative group">
-                <button className="flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white hover:bg-white/10 transition-all backdrop-blur-xl">
+                <button className="flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white transition-all backdrop-blur-xl">
                   <Calendar size={14} /> {timeRange === '7D' ? 'Last 7 Days' : 'Last Month'} <ChevronDown size={14} />
                 </button>
                 <div className="absolute top-full right-0 mt-3 w-40 liquid-glass p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-                  <div className="px-4 py-3 text-[10px] font-bold text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => setTimeRange('7D')}>LAST 7 DAYS</div>
-                  <div className="px-4 py-3 text-[10px] font-bold text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => setTimeRange('30D')}>LAST 30 DAYS</div>
+                  <div className="px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => setTimeRange('7D')}>LAST 7 DAYS</div>
+                  <div className="px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => setTimeRange('30D')}>LAST 30 DAYS</div>
                 </div>
               </div>
             }
@@ -206,25 +206,25 @@ const Dashboard: React.FC = () => {
             <ChartCard title="Error Distribution" option={distributionOption} loading={loading} height={320} />
             <div className="liquid-glass-panel edge-light fluid-texture p-10 flex flex-col justify-between rounded-[2.5rem]">
               <div className="flex justify-between items-start">
-                <h3 className="text-[10px] font-black tracking-[0.2em] text-white/30 uppercase">Cognitive Load Index</h3>
-                <span className="text-[9px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-full uppercase tracking-widest">High Risk Alert</span>
+                <h3 className="text-[10px] font-black tracking-[0.2em] text-slate-400 dark:text-white/30 uppercase">Cognitive Load Index</h3>
+                <span className="text-[9px] font-black bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 dark:border-rose-500/30 px-3 py-1.5 rounded-full uppercase tracking-widest">High Risk Alert</span>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center py-8">
                 <div className="relative group">
                   <div className="text-7xl font-black text-glow-rose tracking-tighter mb-4 transition-transform group-hover:scale-110 duration-500">
                     <AnimatedNumber value={data?.metrics?.negativeTransferRisk || 0} format={(v) => v.toFixed(2)} />
                   </div>
-                  <div className="absolute -inset-8 bg-rose-500/10 rounded-full blur-[40px] -z-10 animate-pulse-slow" />
+                  <div className="absolute -inset-8 bg-rose-500/5 dark:bg-rose-500/10 rounded-full blur-[40px] -z-10 animate-pulse-slow" />
                 </div>
-                <p className="text-[10px] font-black text-white/20 tracking-widest uppercase mt-4">Threshold: 0.5 Critical</p>
-                <div className="w-full h-4 bg-black/40 rounded-full mt-10 overflow-hidden border border-white/5 shadow-inner p-1">
+                <p className="text-[10px] font-black text-slate-400 dark:text-white/20 tracking-widest uppercase mt-4">Threshold: 0.5 Critical</p>
+                <div className="w-full h-4 bg-slate-100 dark:bg-black/40 rounded-full mt-10 overflow-hidden border border-slate-200 dark:border-white/5 shadow-inner p-1">
                   <div className="h-full bg-gradient-to-r from-rose-600 via-rose-400 to-rose-500 rounded-full relative" style={{ width: `${(data?.metrics?.negativeTransferRisk || 0) * 100}%` }}>
                     <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)] animate-fluid-flow" style={{ backgroundSize: '200% 100%' }} />
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-white/40 font-medium leading-relaxed bg-white/5 p-5 rounded-2xl border border-white/5">
-                Current metrics indicate a stable baseline, though <span className="text-rose-400 font-bold">False Friends</span> interference remains a localized peak.
+              <p className="text-xs text-slate-500 dark:text-white/40 font-medium leading-relaxed bg-white/50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/5">
+                Current metrics indicate a stable baseline, though <span className="text-rose-600 dark:text-rose-400 font-bold">False Friends</span> interference remains a localized peak.
               </p>
             </div>
           </div>
@@ -233,7 +233,7 @@ const Dashboard: React.FC = () => {
         {/* 4. Side Lists */}
         <motion.div variants={itemVariants} className="space-y-10">
           <section className="liquid-glass p-8 rounded-[2.5rem] edge-light">
-            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] text-white/30">
+            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
               <Zap size={16} className="text-primary" /> Current Objectives
             </h3>
             <div className="space-y-5">
@@ -241,50 +241,50 @@ const Dashboard: React.FC = () => {
                 <motion.div 
                   key={task.id} 
                   whileHover={{ x: 5 }}
-                  className="group bg-white/[0.03] border border-white/[0.05] p-6 rounded-3xl hover:bg-white/[0.08] hover:border-primary/40 transition-all cursor-pointer relative"
+                  className="group bg-slate-50/50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/[0.05] p-6 rounded-3xl hover:bg-white dark:hover:bg-white/[0.08] hover:border-primary/40 transition-all cursor-pointer relative shadow-sm hover:shadow-md"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <span className={cn(
                       "text-[9px] font-black px-3 py-1 rounded-lg border uppercase tracking-widest",
-                      task.priority === 'HIGH' ? "bg-rose-500/10 text-rose-400 border-rose-500/30" : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                      task.priority === 'HIGH' ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
                     )}>{task.priority}</span>
-                    <span className="text-[9px] font-bold text-white/20 uppercase tracking-tighter">{task.estimatedTime} MIN</span>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-tighter">{task.estimatedTime} MIN</span>
                   </div>
-                  <h4 className="font-black text-sm text-white group-hover:text-primary transition-colors mb-2 uppercase">{task.title}</h4>
-                  <p className="text-xs text-white/30 font-medium leading-relaxed line-clamp-2">{task.description}</p>
+                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-primary transition-colors mb-2 uppercase">{task.title}</h4>
+                  <p className="text-xs text-slate-500 dark:text-white/30 font-medium leading-relaxed line-clamp-2">{task.description}</p>
                 </motion.div>
               ))}
             </div>
           </section>
 
           <section className="liquid-glass p-8 rounded-[2.5rem] edge-light">
-            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] text-white/30">
+            <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
               <AlertTriangle size={16} className="text-rose-500" /> High-Risk Tokens
             </h3>
-            <div className="bg-black/30 border border-white/5 rounded-3xl divide-y divide-white/5 overflow-hidden">
+            <div className="bg-slate-50/50 dark:bg-black/30 border border-slate-100 dark:border-white/5 rounded-3xl divide-y divide-slate-100 dark:divide-white/5 overflow-hidden shadow-sm">
               {data?.recentErrors?.map(error => (
                 <motion.div 
                   key={error.id} 
-                  whileHover={{ backgroundColor: "rgba(255,255,255,0.03)" }}
-                  className="p-5 flex items-center justify-between group cursor-pointer"
+                  whileHover={{ backgroundColor: "rgba(255,255,255,0.8)" }}
+                  className="dark:whileHover:bg-white/[0.03] p-5 flex items-center justify-between group cursor-pointer"
                 >
                   <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg font-black text-white/80 group-hover:border-primary/50 group-hover:text-primary transition-all">
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-lg font-black text-slate-700 dark:text-white/80 group-hover:border-primary/50 group-hover:text-primary transition-all shadow-sm">
                       {error.en[0].toUpperCase()}
                     </div>
                     <div>
                       <div className="flex items-center gap-3 mb-1">
-                        <span className="text-sm font-black text-white/90">{error.en}</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                        <span className="text-sm font-black text-white/90">{error.fr}</span>
+                        <span className="text-sm font-black text-slate-800 dark:text-white/90">{error.en}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-white/10" />
+                        <span className="text-sm font-black text-slate-800 dark:text-white/90">{error.fr}</span>
                       </div>
-                      <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest flex items-center gap-2">
+                      <p className="text-[10px] text-rose-600 dark:text-rose-400 font-black uppercase tracking-widest flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,1)] animate-pulse" />
                         Error Rate: {error.errorCount}X
                       </p>
                     </div>
                   </div>
-                  <ArrowUpRight size={18} className="text-white/20 group-hover:text-primary transition-all" />
+                  <ArrowUpRight size={18} className="text-slate-300 dark:text-white/20 group-hover:text-primary transition-all" />
                 </motion.div>
               ))}
             </div>

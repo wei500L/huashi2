@@ -14,12 +14,11 @@ export const AnimatedNumber: React.FC<{ value: number; format?: (v: number) => s
 
   useEffect(() => {
     let startTimestamp: number;
-    const duration = 1500; // 1.5 seconds
+    const duration = 1500;
 
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      // easeOutExpo
       const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
       setDisplayValue(easeProgress * value);
       if (progress < 1) {
@@ -35,7 +34,7 @@ export const AnimatedNumber: React.FC<{ value: number; format?: (v: number) => s
 // 1. StatCard with Advanced Glass Effects, Framer Motion & 3D Tilt
 interface StatCardProps {
   title: string;
-  value: string | number; // We will parse this to animate if it contains numbers
+  value: string | number;
   icon: LucideIcon;
   trend?: { value: number; isUp: boolean };
   className?: string;
@@ -45,19 +44,21 @@ interface StatCardProps {
 export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, className, color = "text-primary" }) => {
   const glowColorMap: Record<string, string> = {
     'text-blue-500': 'text-glow-blue',
+    'text-blue-600': 'text-glow-blue',
     'text-rose-500': 'text-glow-rose',
+    'text-rose-600': 'text-glow-rose',
     'text-emerald-500': 'text-glow-emerald',
+    'text-emerald-600': 'text-glow-emerald',
     'text-amber-500': 'text-glow-amber',
+    'text-amber-600': 'text-glow-amber',
     'text-primary': 'text-glow-primary',
   };
   
   const iconGlowClass = glowColorMap[color] || color;
 
-  // Extract number and suffix for animation
   const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g,"")) : value;
   const suffix = typeof value === 'string' ? value.replace(/[0-9.-]+/g,"") : "";
 
-  // 3D Tilt Logic
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const mouseXSpring = useSpring(x);
@@ -89,12 +90,12 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
       onMouseLeave={handleMouseLeave}
       whileHover={{ scale: 1.02 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      className={cn("liquid-glass p-7 rounded-[2.5rem] flex flex-col justify-between edge-light group fluid-texture transition-shadow duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-default", className)}
+      className={cn("liquid-glass p-7 rounded-[2.5rem] flex flex-col justify-between edge-light group fluid-texture transition-shadow duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-default", className)}
     >
       <div className="flex items-start justify-between relative z-10" style={{ transform: "translateZ(30px)" }}>
         <div>
-          <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">{title}</p>
-          <h3 className={cn("text-4xl font-black tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]", iconGlowClass)}>
+          <p className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1">{title}</p>
+          <h3 className={cn("text-4xl font-black tracking-tighter drop-shadow-none dark:drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]", iconGlowClass)}>
             {!isNaN(numericValue) ? (
               <>
                 <AnimatedNumber value={numericValue} />
@@ -103,28 +104,25 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
             ) : value}
           </h3>
         </div>
-        <div className={cn("p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl relative group-hover:scale-110 transition-transform duration-500 shadow-[inset_0_0_15px_rgba(255,255,255,0.05)]", color)}>
-          <Icon size={28} className={cn("drop-shadow-[0_0_12px_currentColor]")} />
+        <div className={cn("p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl relative group-hover:scale-110 transition-transform duration-500 shadow-sm dark:shadow-[inset_0_0_15px_rgba(255,255,255,0.05)]", color)}>
+          <Icon size={28} className={cn("dark:drop-shadow-[0_0_12px_currentColor]")} />
         </div>
       </div>
       
       {trend && (
         <div className="mt-6 relative z-10" style={{ transform: "translateZ(20px)" }}>
           <div className={cn(
-            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border backdrop-blur-md transition-all duration-500 group-hover:shadow-[0_0_20px_currentColor]",
+            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border backdrop-blur-md transition-all duration-500",
             trend.isUp 
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-              : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
+              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
           )}>
             <span className="text-xs">{trend.isUp ? '↑' : '↓'}</span>
             <span><AnimatedNumber value={trend.value} />%</span>
-            <span className="text-white/20 font-medium ml-1">PAST WEEK</span>
+            <span className="text-slate-400 dark:text-white/20 font-medium ml-1">PAST WEEK</span>
           </div>
         </div>
       )}
-      
-      {/* Decorative internal refraction line */}
-      <div className="absolute top-0 left-1/4 w-px h-full bg-gradient-to-b from-transparent via-white/10 to-transparent pointer-events-none" style={{ transform: "translateZ(10px)" }} />
     </motion.div>
   );
 };
@@ -145,17 +143,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcr
       transition={{ duration: 0.6, ease: "easeOut" }}
     >
       {breadcrumbs && (
-        <div className="flex items-center gap-3 text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3">
+        <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-3">
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={i}>
               <span className="hover:text-primary transition-colors cursor-pointer">{b}</span>
-              {i < breadcrumbs.length - 1 && <span className="text-white/10">/</span>}
+              {i < breadcrumbs.length - 1 && <span className="text-slate-200 dark:text-white/10">/</span>}
             </React.Fragment>
           ))}
         </div>
       )}
-      <h1 className="text-4xl font-black tracking-tight text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">{title}</h1>
-      {subtitle && <p className="text-sm text-white/40 mt-3 font-medium max-w-xl leading-relaxed">{subtitle}</p>}
+      <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white drop-shadow-none dark:drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">{title}</h1>
+      {subtitle && <p className="text-sm text-slate-500 dark:text-white/40 mt-3 font-medium max-w-xl leading-relaxed">{subtitle}</p>}
     </motion.div>
     {actions && (
       <motion.div 
