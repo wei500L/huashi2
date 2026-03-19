@@ -49,10 +49,10 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         glass: {
-          light: "rgba(255, 255, 255, 0.05)",
-          DEFAULT: "rgba(255, 255, 255, 0.08)",
+          light: "rgba(255, 255, 255, 0.03)",
+          DEFAULT: "rgba(255, 255, 255, 0.06)",
           dark: "rgba(0, 0, 0, 0.2)",
-          border: "rgba(255, 255, 255, 0.1)",
+          border: "rgba(255, 255, 255, 0.08)",
         }
       },
       borderRadius: {
@@ -60,25 +60,32 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
         '4xl': "2rem",
+        '5xl': "3rem",
       },
       backgroundImage: {
         'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
-        'dark-ambient': 'radial-gradient(circle at 50% 0%, #1a153a 0%, #05050f 70%)',
-      },
-      boxShadow: {
-        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.36)',
-        'glass-inset': 'inset 0 0 20px rgba(255, 255, 255, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
-        'neon-primary': '0 0 10px rgba(139, 92, 246, 0.4), inset 0 0 10px rgba(139, 92, 246, 0.2)',
-        'neon-hover': '0 0 20px rgba(139, 92, 246, 0.6), inset 0 0 15px rgba(139, 92, 246, 0.3)',
+        'noise': "url('https://grainy-gradients.vercel.app/noise.svg')",
       },
       animation: {
-        'fluid-flow': 'flow 10s ease-in-out infinite',
+        'fluid-flow': 'flow 15s ease-in-out infinite',
+        'float': 'float 20s ease-in-out infinite',
+        'float-delayed': 'float 25s ease-in-out infinite 2s',
+        'pulse-slow': 'pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'border-beam': 'border-beam 4s ease infinite',
       },
       keyframes: {
         flow: {
           '0%, 100%': { backgroundPosition: '0% 50%' },
           '50%': { backgroundPosition: '100% 50%' },
-        }
+        },
+        float: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+        },
+        'border-beam': {
+          '100%': { 'offset-distance': '100%' },
+        },
       }
     },
   },

@@ -19,12 +19,15 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 const App: React.FC = () => {
   const { login, isAuthenticated } = useAuthStore();
   const { isDarkMode } = useUIStore();
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (isDarkMode) root.classList.add('dark');
-    else root.classList.remove('dark');
-  }, [isDarkMode]);
+// 初始化明暗模式样式
+useEffect(() => {
+  const root = window.document.documentElement;
+  if (isDarkMode) {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
+}, [isDarkMode]);
 
   useEffect(() => {
     if (!isAuthenticated) {

@@ -17,12 +17,13 @@ import {
 import { useAuthStore, useUIStore } from '@/store';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// 1. 侧边栏组件
+// 1. Sidebar Component with Liquid Indicator
 export const Sidebar: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
@@ -39,49 +40,69 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside className={cn(
-      "h-[calc(100vh-1.5rem)] my-3 ml-3 flex flex-col transition-all duration-300 z-50 liquid-glass-panel rounded-3xl edge-light fluid-texture",
+      "h-[calc(100vh-1.5rem)] my-3 ml-3 flex flex-col transition-all duration-500 z-50 liquid-glass-panel rounded-3xl edge-light fluid-texture",
       isSidebarCollapsed ? "w-20" : "w-64"
     )}>
       <div className="p-6 flex items-center justify-between relative z-10">
         {!isSidebarCollapsed && (
-          <h1 className="text-xl font-black bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(139,92,246,0.5)]">
+          <motion.h1 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-xl font-black bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+          >
             EF-Transfer
-          </h1>
+          </motion.h1>
         )}
-        <button onClick={toggleSidebar} className="p-2 hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-white/5">
-          <ChevronLeft className={cn("transition-transform", isSidebarCollapsed && "rotate-180")} size={20} />
+        <button onClick={toggleSidebar} className="p-2 hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-white/5 group">
+          <ChevronLeft className={cn("transition-transform duration-500 text-white/70 group-hover:text-white", isSidebarCollapsed && "rotate-180")} size={20} />
         </button>
       </div>
+      
       <nav className="flex-1 px-4 space-y-2 overflow-y-auto no-scrollbar relative z-10 mt-4">
-        {menuItems.map((item) => (
-          <Link key={item.path} to={item.path} className={cn(
-            "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden",
-            location.pathname === item.path 
-              ? "bg-primary/20 text-primary font-bold shadow-[0_0_15px_rgba(139,92,246,0.3)] border border-primary/30" 
-              : "text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent"
-          )}>
-            {location.pathname === item.path && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_10px_rgba(139,92,246,0.8)]" />
-            )}
-            <item.icon size={20} className={cn(
-              "transition-transform group-hover:scale-110",
-              location.pathname === item.path && "drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]"
-            )} />
-            {!isSidebarCollapsed && <span>{item.name}</span>}
-          </Link>
-        ))}
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link key={item.path} to={item.path} className={cn(
+              "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative",
+              isActive ? "text-primary font-bold" : "text-white/50 hover:text-white"
+            )}>
+              {/* Liquid Active Indicator */}
+              {isActive && (
+                <motion.div 
+                  layoutId="active-pill"
+                  className="absolute inset-0 bg-primary/10 border border-primary/30 rounded-2xl shadow-[0_0_20px_rgba(139,92,246,0.2)]"
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                />
+              )}
+              {isActive && (
+                <motion.div 
+                  layoutId="active-dot"
+                  className="absolute left-0 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_15px_rgba(139,92,246,1)]"
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                />
+              )}
+              
+              <item.icon size={20} className={cn(
+                "transition-all duration-300 group-hover:scale-110 relative z-10",
+                isActive ? "drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" : "opacity-70 group-hover:opacity-100"
+              )} />
+              {!isSidebarCollapsed && <span className="relative z-10">{item.name}</span>}
+            </Link>
+          );
+        })}
       </nav>
+
       <div className="p-4 relative z-10 mt-auto">
-        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 hover:shadow-[0_0_15px_rgba(244,63,94,0.2)] hover:border-rose-500/20 border border-transparent transition-all">
-          <LogOut size={20} />
-          {!isSidebarCollapsed && <span className="font-medium">退出系统</span>}
+        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all border border-transparent hover:border-rose-500/20 group">
+          <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+          {!isSidebarCollapsed && <span className="font-bold uppercase tracking-wider text-xs">Shutdown System</span>}
         </button>
       </div>
     </aside>
   );
 };
 
-// 2. 顶栏组件
+// 2. Topbar Component
 export const Topbar: React.FC = () => {
   const { user } = useAuthStore();
   const { isDarkMode, toggleDarkMode } = useUIStore();
@@ -90,33 +111,43 @@ export const Topbar: React.FC = () => {
     <header className="h-16 mt-3 mx-4 lg:mx-8 flex items-center justify-between px-6 sticky top-3 z-40 liquid-glass rounded-2xl edge-light fluid-texture">
       <div className="flex items-center gap-4 flex-1 relative z-10">
         <div className="relative max-w-md w-full hidden md:block group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-primary transition-colors duration-300" size={16} />
           <input 
             type="text" 
-            placeholder="Search analytics, tasks..." 
-            className="w-full bg-black/20 border border-white/5 focus:border-primary/50 focus:bg-black/40 rounded-full py-2 pl-11 pr-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground placeholder:text-muted-foreground" 
+            placeholder="Explore global analytics..." 
+            className="w-full bg-black/30 border border-white/5 focus:border-primary/40 focus:bg-black/50 rounded-full py-2.5 pl-11 pr-4 text-sm transition-all duration-500 focus:outline-none focus:ring-4 focus:ring-primary/5 text-white placeholder:text-white/20" 
           />
         </div>
       </div>
-      <div className="flex items-center gap-4 relative z-10">
-        <button className="p-2 hover:bg-white/10 rounded-full transition-colors relative group">
-          <Bell size={20} className="text-muted-foreground group-hover:text-foreground" />
-          <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+      <div className="flex items-center gap-5 relative z-10">
+        <button className="p-2.5 hover:bg-white/5 rounded-full transition-all relative group border border-transparent hover:border-white/10">
+          <Bell size={20} className="text-white/50 group-hover:text-white transition-colors" />
+          <div className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(244,63,94,1)]" />
         </button>
-        <button onClick={toggleDarkMode} className="p-2 hover:bg-white/10 rounded-full transition-colors group">
-          {isDarkMode ? (
-            <Sun size={20} className="text-muted-foreground group-hover:text-amber-400 drop-shadow-none group-hover:drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-          ) : (
-            <Moon size={20} className="text-muted-foreground group-hover:text-blue-400 drop-shadow-none group-hover:drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
-          )}
+        <button onClick={toggleDarkMode} className="p-2.5 hover:bg-white/5 rounded-full transition-all group border border-transparent hover:border-white/10 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={isDarkMode ? 'dark' : 'light'}
+              initial={{ y: 20, opacity: 0, rotate: 45 }}
+              animate={{ y: 0, opacity: 1, rotate: 0 }}
+              exit={{ y: -20, opacity: 0, rotate: -45 }}
+              transition={{ duration: 0.3, ease: "circOut" }}
+            >
+              {isDarkMode ? (
+                <Sun size={20} className="text-white/50 group-hover:text-amber-400 transition-colors" />
+              ) : (
+                <Moon size={20} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </button>
-        <div className="w-px h-6 bg-white/10 mx-1" />
+        <div className="w-px h-8 bg-white/5 mx-1" />
         <div className="flex items-center gap-3 pl-1 cursor-pointer group">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold leading-tight group-hover:text-primary transition-colors">{user?.username || 'Guest'}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{user?.role || 'USER'}</p>
+            <p className="text-sm font-black text-white/90 group-hover:text-primary transition-colors">{user?.username || 'Guest'}</p>
+            <p className="text-[9px] text-white/30 uppercase tracking-[0.2em] font-bold mt-0.5">{user?.role || 'USER'}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(139,92,246,0.4)] border border-white/20">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary via-purple-600 to-accent flex items-center justify-center text-white font-black shadow-[0_0_20px_rgba(139,92,246,0.4)] border border-white/20 group-hover:scale-105 transition-transform duration-300">
             {user?.username?.[0] || 'G'}
           </div>
         </div>
@@ -125,13 +156,49 @@ export const Topbar: React.FC = () => {
   );
 };
 
-// 3. 布局容器组件
+// 3. Layout Container with Dynamic Environmental Blobs
+import { useMotionValue, useSpring } from 'framer-motion';
+
 export const AppLayout: React.FC = () => {
+  const cursorX = useMotionValue(-100);
+  const cursorY = useMotionValue(-100);
+  
+  const springConfig = { damping: 40, stiffness: 150, mass: 0.5 };
+  const cursorXSpring = useSpring(cursorX, springConfig);
+  const cursorYSpring = useSpring(cursorY, springConfig);
+
+  React.useEffect(() => {
+    const moveCursor = (e: MouseEvent) => {
+      cursorX.set(e.clientX);
+      cursorY.set(e.clientY);
+    };
+    window.addEventListener('mousemove', moveCursor);
+    return () => window.removeEventListener('mousemove', moveCursor);
+  }, [cursorX, cursorY]);
+
   return (
-    <div className="flex min-h-screen bg-transparent text-foreground relative overflow-hidden">
-      {/* Deep Dark Ambient Background Overlay for Extra Depth */}
-      <div className="fixed inset-0 pointer-events-none -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1a153a]/40 via-transparent to-transparent opacity-80" />
+    <div className="flex min-h-screen bg-transparent text-foreground relative overflow-hidden transition-colors duration-500">
+      {/* Background Deep Layers - Responsive */}
+      <div className="fixed inset-0 -z-20 bg-[#f8fafc] dark:bg-[#030208] transition-colors duration-700" />
       
+      {/* Dynamic Environmental Blobs */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        {/* Interactive Mouse Blob */}
+        <motion.div 
+          className="absolute top-0 left-0 w-[800px] h-[800px] bg-primary/10 dark:bg-primary/20 rounded-full blur-[160px] opacity-50 transition-colors duration-700"
+          style={{ 
+            x: cursorXSpring, 
+            y: cursorYSpring, 
+            translateX: "-50%", 
+            translateY: "-50%" 
+          }}
+        />
+        {/* Static Animated Blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 dark:bg-primary/10 rounded-full blur-[120px] animate-float opacity-40 transition-colors duration-700" />
+        <div className="absolute bottom-[5%] right-[-5%] w-[35%] h-[35%] bg-purple-400/10 dark:bg-accent/10 rounded-full blur-[100px] animate-float-delayed opacity-30 transition-colors duration-700" />
+        <div className="absolute top-[20%] right-[15%] w-[25%] h-[25%] bg-indigo-400/10 dark:bg-purple-600/10 rounded-full blur-[100px] animate-pulse-slow opacity-30 transition-colors duration-700" />
+      </div>
+
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar />

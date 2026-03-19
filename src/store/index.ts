@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// 1. 用户认证 Store
+// 1. User Auth Store
 interface User {
   id: string;
   username: string;
@@ -12,7 +12,7 @@ interface User {
 interface AuthStore {
   user: User | null;
   isAuthenticated: boolean;
-  login: (userData: User) => void;
+  login: (role: 'STUDENT' | 'TEACHER' | 'ADMIN') => void;
   logout: () => void;
 }
 
@@ -21,9 +21,17 @@ export const useAuthStore = create<AuthStore>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
-      login: (userData) => set({ user: userData, isAuthenticated: true }),
+      login: (role) => set({ 
+        isAuthenticated: true,
+        user: { 
+          id: 'mock-1', 
+          username: '李华', 
+          role, 
+          token: 'mock-jwt' 
+        } 
+      }),
       logout: () => {
-        localStorage.removeItem('token');
+        localStorage.removeItem('ef-auth-storage');
         set({ user: null, isAuthenticated: false });
       },
     }),
@@ -31,7 +39,7 @@ export const useAuthStore = create<AuthStore>()(
   )
 );
 
-// 2. UI 交互 Store
+// 2. UI Interaction Store
 interface UIStore {
   isSidebarCollapsed: boolean;
   isDarkMode: boolean;
@@ -43,17 +51,9 @@ export const useUIStore = create<UIStore>()(
   persist(
     (set) => ({
       isSidebarCollapsed: false,
-      isDarkMode: false,
+      isDarkMode: true, // Default to Dark Mode for high-fidelity experience
       toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
-      toggleDarkMode: () => {
-        const root = window.document.documentElement;
-        set((state) => {
-          const nextMode = !state.isDarkMode;
-          if (nextMode) root.classList.add('dark');
-          else root.classList.remove('dark');
-          return { isDarkMode: nextMode };
-        });
-      },
+      toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
     }),
     { name: 'ef-ui-storage' }
   )
