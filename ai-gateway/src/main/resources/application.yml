@@ -1,0 +1,63 @@
+server:
+  port: ${AI_GATEWAY_PORT:8090}
+  shutdown: graceful
+
+spring:
+  application:
+    name: ai-gateway
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  datasource:
+    url: jdbc:postgresql://${AI_DB_HOST:localhost}:${AI_DB_PORT:5432}/${AI_DB_NAME:ef_transfer_ai}
+    username: ${AI_DB_USERNAME:ef_ai}
+    password: ${AI_DB_PASSWORD:ef_ai_password}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+  ai:
+    openai:
+      api-key: ${AI_OPENAI_API_KEY:no-key-configured}
+      base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+      chat:
+        options:
+          model: ${AI_CHAT_MODEL:qwen-max}
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL:text-embedding-v4}
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: ${AI_EMBEDDING_DIMENSION:1024}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+ai:
+  provider:
+    provider: ${AI_PROVIDER:qwen}
+    fallback-provider: ${AI_FALLBACK_PROVIDER:deepseek}
+    base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+    api-key: ${AI_OPENAI_API_KEY:no-key-configured}
+    chat-model: ${AI_CHAT_MODEL:qwen-max}
+    embedding-model: ${AI_EMBEDDING_MODEL:text-embedding-v4}
+    rerank-model: ${AI_RERANK_MODEL:gte-rerank-v2}
+    rerank-url: ${AI_RERANK_URL:https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank}
+    connect-timeout: ${AI_PROVIDER_CONNECT_TIMEOUT:PT5S}
+    read-timeout: ${AI_PROVIDER_READ_TIMEOUT:PT15S}
+
+logging:
+  level:
+    root: INFO
+    com.huashi.eftransfer: INFO
+  pattern:
+    level: "%5p [traceId:%X{traceId:-}]"
