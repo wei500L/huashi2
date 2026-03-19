@@ -110,12 +110,25 @@
       0 25px 50px -12px rgba(0, 0, 0, 0.08),
       inset 0 1px 2px rgba(255, 255, 255, 0.9);
   }
+  .liquid-glass-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.03;
+    pointer-events: none;
+    background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+    mix-blend-mode: overlay;
+  }
   .dark .liquid-glass-panel {
     background: rgba(255, 255, 255, 0.02);
     border-color: rgba(255, 255, 255, 0.08);
     box-shadow: 
       0 30px 60px -12px rgba(0, 0, 0, 0.6),
       inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  }
+  .dark .liquid-glass-panel::after {
+    opacity: 0.05;
   }
 
   /* Magnetic Base Class */
@@ -228,11 +241,11 @@
     100% { background-position: 0% 50%; }
   }
 
-  /* Awwwards Level: Border Beam Animation */
+  /* Awwwards Level: Border Beam Animation - Moved to ::after to avoid conflicts */
   .border-beam {
     position: relative;
   }
-  .border-beam::before {
+  .border-beam::after {
     content: "";
     position: absolute;
     inset: -1px;
@@ -241,7 +254,7 @@
     background: linear-gradient(
       var(--beam-angle, 0deg),
       transparent 20%,
-      rgba(139, 92, 246, 0.5) 50%,
+      rgba(139, 92, 246, 0.8) 50%,
       transparent 80%
     );
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -249,7 +262,12 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
     animation: beam-rotate 6s linear infinite;
+  }
+  .border-beam:hover::after {
+    opacity: 1;
   }
 
   @keyframes beam-rotate {
@@ -261,6 +279,24 @@
     syntax: '<angle>';
     initial-value: 0deg;
     inherits: false;
+  }
+
+  /* Awwwards Level: Liquid Focus States */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(139, 92, 246, 0.5);
+    border-radius: inherit;
+  }
+
+  /* Awwwards Level: High-Tech Scanline Pattern */
+  .scanline-grid {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .dark .scanline-grid {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   }
 
   /* Reveal mask animation for text */

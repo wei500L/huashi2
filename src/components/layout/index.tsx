@@ -32,18 +32,48 @@ export const Sidebar: React.FC = () => {
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const location = useLocation();
 
-  const menuItems = user?.role === 'STUDENT' ? [
-    { name: '总览', icon: LayoutDashboard, path: '/dashboard' },
-    { name: '智能诊断', icon: Activity, path: '/diagnosis' },
-    { name: '个性化训练', icon: GraduationCap, path: '/training' },
-    { name: '学情分析', icon: LineChart, path: '/analytics' },
-    { name: '实验任务', icon: ClipboardList, path: '/tasks' },
-    { name: '错题库', icon: Database, path: '/errors' },
-    { name: '系统设置', icon: Settings, path: '/settings' },
+  const sections = user?.role === 'STUDENT' ? [
+    {
+      label: 'Core',
+      items: [
+        { name: '总览', icon: LayoutDashboard, path: '/dashboard' },
+        { name: '智能诊断', icon: Activity, path: '/diagnosis' },
+      ]
+    },
+    {
+      label: 'Training',
+      items: [
+        { name: '个性化训练', icon: GraduationCap, path: '/training' },
+        { name: '学情分析', icon: LineChart, path: '/analytics' },
+      ]
+    },
+    {
+      label: 'Repository',
+      items: [
+        { name: '实验任务', icon: ClipboardList, path: '/tasks' },
+        { name: '错题库', icon: Database, path: '/errors' },
+      ]
+    },
+    {
+      label: 'System',
+      items: [
+        { name: '系统设置', icon: Settings, path: '/settings' },
+      ]
+    }
   ] : [
-    { name: '班级管理', icon: BookOpen, path: '/teacher' },
-    { name: '数据监控', icon: LineChart, path: '/monitor' },
-    { name: '系统设置', icon: Settings, path: '/settings' },
+    {
+      label: 'Management',
+      items: [
+        { name: '班级管理', icon: BookOpen, path: '/teacher' },
+        { name: '数据监控', icon: LineChart, path: '/monitor' },
+      ]
+    },
+    {
+      label: 'System',
+      items: [
+        { name: '系统设置', icon: Settings, path: '/settings' },
+      ]
+    }
   ];
 
   return (
@@ -51,63 +81,79 @@ export const Sidebar: React.FC = () => {
       "h-[calc(100vh-1.5rem)] my-3 ml-3 flex flex-col transition-all duration-700 z-50 liquid-glass-panel rounded-3xl edge-light fluid-texture",
       isSidebarCollapsed ? "w-20" : "w-64"
     )}>
-      <div className="p-6 flex items-center justify-between relative z-10">
+      <div className="p-8 flex items-center justify-between relative z-10">
         {!isSidebarCollapsed && (
-          <motion.h1 
-            initial={{ opacity: 0, x: -10 }}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-xl font-black bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent dark:text-transparent drop-shadow-sm dark:drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+            className="flex items-center gap-3 group cursor-pointer"
           >
-            EF-Transfer
-          </motion.h1>
+            <div className="relative w-8 h-8 flex items-center justify-center">
+              <div className="absolute inset-0 bg-primary/20 rounded-lg rotate-45 group-hover:rotate-90 transition-transform duration-700" />
+              <div className="absolute inset-0 border border-primary/50 rounded-lg -rotate-12 group-hover:rotate-0 transition-transform duration-700" />
+              <Activity size={16} className="text-primary relative z-10" />
+            </div>
+            
+            <div className="flex flex-col">
+              <span className="text-lg font-black tracking-tighter text-slate-900 dark:text-white leading-none">
+                EF<span className="text-primary">.</span>
+              </span>
+              <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-slate-400 dark:text-white/30 leading-none mt-1">
+                Transfer
+              </span>
+            </div>
+          </motion.div>
         )}
         <Magnetic strength={0.2}>
-          <button onClick={toggleSidebar} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-slate-200 dark:border-white/5 group">
+          <button onClick={toggleSidebar} className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-slate-200 dark:border-white/5 group">
             <ChevronLeft className={cn("transition-transform duration-500 text-slate-400 dark:text-white/70 group-hover:text-primary dark:group-hover:text-white", isSidebarCollapsed && "rotate-180")} size={20} />
           </button>
         </Magnetic>
       </div>
       
-      <nav className="flex-1 px-4 space-y-2 overflow-y-auto no-scrollbar relative z-10 mt-4">
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <motion.div key={item.path} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}>
-              <Link to={item.path} className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative",
-                isActive ? "text-primary font-black" : "text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white"
-              )}>
-                {isActive && (
-                  <motion.div 
-                    layoutId="active-pill"
-                    className="absolute inset-0 bg-primary/[0.08] border border-primary/20 rounded-2xl shadow-[0_0_20px_rgba(139,92,246,0.1)] dark:bg-primary/10 dark:border-primary/30"
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                  />
-                )}
-                {isActive && (
-                  <motion.div 
-                    layoutId="active-dot"
-                    className="absolute left-0 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_15px_rgba(139,92,246,1)]"
-                    transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                  />
-                )}
-                
-                <item.icon size={20} className={cn(
-                  "transition-all duration-300 group-hover:scale-110 relative z-10",
-                  isActive ? "drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" : "opacity-70 group-hover:opacity-100"
-                )} />
-                {!isSidebarCollapsed && <span className="relative z-10 tracking-wide text-sm">{item.name}</span>}
-              </Link>
-            </motion.div>
-          );
-        })}
+      <nav className="flex-1 px-4 py-4 overflow-y-auto no-scrollbar relative z-10 space-y-8">
+        {sections.map((section, idx) => (
+          <div key={idx} className="space-y-2">
+            {!isSidebarCollapsed && (
+              <h4 className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-white/20">
+                {section.label}
+              </h4>
+            )}
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <motion.div key={item.path} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}>
+                    <Link to={item.path} className={cn(
+                      "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative",
+                      isActive ? "text-primary font-black" : "text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white"
+                    )}>
+                      {isActive && (
+                        <motion.div 
+                          layoutId="active-pill"
+                          className="absolute inset-0 bg-primary/[0.08] border border-primary/20 rounded-2xl shadow-[0_0_20px_rgba(139,92,246,0.1)] dark:bg-primary/10 dark:border-primary/30"
+                          transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                        />
+                      )}
+                      <item.icon size={18} className={cn(
+                        "transition-all duration-300 group-hover:scale-110 relative z-10",
+                        isActive ? "drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" : "opacity-70 group-hover:opacity-100"
+                      )} />
+                      {!isSidebarCollapsed && <span className="relative z-10 tracking-wide text-xs">{item.name}</span>}
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="p-4 relative z-10 mt-auto">
+      <div className="p-4 relative z-10 mt-auto border-t border-white/5">
         <Magnetic strength={0.1}>
           <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-300 transition-all border border-transparent hover:border-rose-500/20 group font-bold">
-            <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-            {!isSidebarCollapsed && <span className="uppercase tracking-widest text-[10px]">Eject Session</span>}
+            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
+            {!isSidebarCollapsed && <span className="uppercase tracking-widest text-[9px]">Eject Session</span>}
           </button>
         </Magnetic>
       </div>
@@ -180,7 +226,7 @@ export const Topbar: React.FC = () => {
 export const AppLayout: React.FC = () => {
   const cursorX = useMotionValue(-100);
   const cursorY = useMotionValue(-100);
-  const [isHovering, setIsHovering] = React.useState(false);
+  const [cursorType, setCursorType] = React.useState<'default' | 'pointer' | 'chart'>('default');
   const [isClicked, setIsClicked] = React.useState(false);
   
   const ambientSpringConfig = { damping: 40, stiffness: 150, mass: 0.5 };
@@ -195,8 +241,15 @@ export const AppLayout: React.FC = () => {
     const moveCursor = (e: MouseEvent) => {
       cursorX.set(e.clientX);
       cursorY.set(e.clientY);
+      
       const target = e.target as HTMLElement;
-      setIsHovering(!!target.closest('button, a, input, [role="button"]'));
+      if (target.closest('button, a, [role="button"]')) {
+        setCursorType('pointer');
+      } else if (target.closest('.echarts-for-react')) {
+        setCursorType('chart');
+      } else {
+        setCursorType('default');
+      }
     };
     const handleMouseDown = () => setIsClicked(true);
     const handleMouseUp = () => setIsClicked(false);
@@ -212,15 +265,17 @@ export const AppLayout: React.FC = () => {
   }, [cursorX, cursorY]);
 
   return (
-    <div className="flex h-screen bg-transparent text-foreground relative overflow-hidden transition-colors duration-500">
+    <div className="flex h-screen bg-transparent text-foreground relative overflow-hidden transition-colors duration-500 cursor-none">
       <div className="fixed inset-0 z-[99999] pointer-events-none bg-primary animate-page-reveal" />
 
-      {/* Advanced Custom Cursor with Click Feedback */}
+      {/* Advanced Custom Cursor with Elegant States */}
       <motion.div 
         className="fixed top-0 left-0 border-2 border-primary rounded-full pointer-events-none z-[9999] mix-blend-difference hidden md:block"
         animate={{ 
-          width: isClicked ? 40 : (isHovering ? 60 : 32), 
-          height: isClicked ? 40 : (isHovering ? 60 : 32),
+          width: cursorType === 'chart' ? 42 : (cursorType === 'pointer' ? 60 : 32), 
+          height: cursorType === 'chart' ? 42 : (cursorType === 'pointer' ? 60 : 32),
+          borderRadius: cursorType === 'chart' ? "35%" : "50%",
+          rotate: cursorType === 'chart' ? 45 : 0,
           opacity: isClicked ? 0.5 : 1
         }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}

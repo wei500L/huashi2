@@ -15,7 +15,7 @@ import { useDashboard } from '@/hooks/useDashboard';
 import { StatCard, PageHeader, AnimatedNumber, Magnetic } from '@/components/common';
 import { ChartCard } from '@/components/common/ChartCard';
 import { TrainingTask, ErrorWordPair } from '@/types/learning';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function cn(...inputs: any[]) {
   return inputs.filter(Boolean).join(' ');
@@ -24,6 +24,7 @@ function cn(...inputs: any[]) {
 const Dashboard: React.FC = () => {
   const { data, loading, error } = useDashboard();
   const [timeRange, setTimeRange] = useState('7D');
+  const [isTimeRangeOpen, setIsTimeRangeOpen] = useState(false);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -197,14 +198,29 @@ const Dashboard: React.FC = () => {
             option={trendOption} 
             loading={loading}
             extra={
-              <div className="relative group">
-                <button className="flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white transition-all backdrop-blur-xl">
-                  <Calendar size={14} /> {timeRange === '7D' ? 'Last 7 Days' : 'Last Month'} <ChevronDown size={14} />
+              <div className="relative">
+                <button 
+                  onClick={() => setIsTimeRangeOpen(!isTimeRangeOpen)}
+                  onBlur={() => setTimeout(() => setIsTimeRangeOpen(false), 200)}
+                  className="flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white transition-all backdrop-blur-xl"
+                >
+                  <Calendar size={14} /> {timeRange === '7D' ? 'Last 7 Days' : 'Last Month'} <ChevronDown size={14} className={cn("transition-transform duration-300", isTimeRangeOpen && "rotate-180")} />
                 </button>
-                <div className="absolute top-full right-0 mt-3 w-40 liquid-glass p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-                  <div className="px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => setTimeRange('7D')}>LAST 7 DAYS</div>
-                  <div className="px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => setTimeRange('30D')}>LAST 30 DAYS</div>
-                </div>
+                
+                <AnimatePresence>
+                  {isTimeRangeOpen && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="absolute top-full right-0 mt-3 w-40 liquid-glass p-2 z-50 overflow-hidden shadow-2xl"
+                    >
+                      <div className="px-4 py-3 text-[10px] font-bold text-slate-400 dark:text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => { setTimeRange('7D'); setIsTimeRangeOpen(false); }}>LAST 7 DAYS</div>
+                      <div className="px-4 py-3 text-[10px] font-bold text-slate-400 dark:text-white/40 hover:text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-all" onClick={() => { setTimeRange('30D'); setIsTimeRangeOpen(false); }}>LAST 30 DAYS</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             }
           />
