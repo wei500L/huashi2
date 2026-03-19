@@ -144,10 +144,10 @@ const Dashboard: React.FC = () => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-12 pb-20 relative z-10"
+      className="space-y-12 pb-20"
     >
       {/* 1. Welcoming Hero Section */}
-      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-10 p-10 liquid-glass-panel rounded-[3rem] edge-light fluid-texture">
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-10 p-10 md:p-12 liquid-glass-panel rounded-[3rem] edge-light fluid-texture">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
@@ -155,19 +155,19 @@ const Dashboard: React.FC = () => {
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-primary/60">Profile Intelligence Active</span>
           </div>
-          <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-6 flex flex-wrap items-center gap-x-6">
+          <h1 className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tighter mb-6 flex flex-wrap items-center gap-x-6">
             你好, {data?.userProfile?.name}
             <span className="text-sm font-black bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 text-amber-600 dark:text-amber-400 shadow-sm dark:shadow-[0_0_20px_rgba(245,158,11,0.2)]">
               <Flame size={18} fill="currentColor" /> {data?.userProfile?.streak} DAYS STREAK
             </span>
           </h1>
-          <p className="text-lg text-slate-500 dark:text-white/40 max-w-2xl font-medium leading-relaxed">
+          <p className="text-lg md:text-xl text-slate-500 dark:text-white/40 max-w-2xl font-medium leading-relaxed">
             Your current mastery is <span className="text-slate-900 dark:text-white font-black drop-shadow-none dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">{data?.userProfile?.level}</span>.
             Neural patterns suggest stable <span className="text-emerald-600 dark:text-emerald-400/80">Positive Transfer</span>. Focus on homograph discrimination to optimize results.
           </p>
         </div>
         <div className="shrink-0">
-          <button className="btn-liquid text-white flex items-center gap-3 px-10 py-5 text-lg group shadow-lg">
+          <button className="btn-liquid text-white flex items-center gap-3 px-10 py-6 text-xl group shadow-lg">
             START NEW DIAGNOSIS 
             <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
           </button>
@@ -175,7 +175,7 @@ const Dashboard: React.FC = () => {
       </motion.div>
 
       {/* 2. Key Metrics Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10">
         <StatCard title="Positive Score" value={`${((data?.metrics?.positiveTransferScore || 0) * 100).toFixed(0)}%`} icon={TrendingUp} trend={{ value: 12, isUp: true }} color="text-blue-600 dark:text-blue-500" />
         <StatCard title="Negative Risk" value={`${((data?.metrics?.negativeTransferRisk || 0) * 100).toFixed(0)}%`} icon={AlertTriangle} trend={{ value: 5, isUp: false }} color="text-rose-600 dark:text-rose-500" />
         <StatCard title="Context Sensitivity" value={`${((data?.metrics?.contextSensitivity || 0) * 100).toFixed(0)}%`} icon={RefreshCw} color="text-emerald-600 dark:text-emerald-500" />
@@ -183,8 +183,8 @@ const Dashboard: React.FC = () => {
       </motion.div>
 
       {/* 3. Charts & Detailed Analysis */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 md:gap-12">
+        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-10 md:space-y-12">
           <ChartCard 
             title="Performance Trajectory" 
             option={trendOption} 
@@ -202,7 +202,7 @@ const Dashboard: React.FC = () => {
             }
           />
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12">
             <ChartCard title="Error Distribution" option={distributionOption} loading={loading} height={320} />
             <div className="liquid-glass-panel edge-light fluid-texture p-10 flex flex-col justify-between rounded-[2.5rem]">
               <div className="flex justify-between items-start">
@@ -211,7 +211,7 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="flex-1 flex flex-col items-center justify-center py-8">
                 <div className="relative group">
-                  <div className="text-7xl font-black text-glow-rose tracking-tighter mb-4 transition-transform group-hover:scale-110 duration-500">
+                  <div className="text-7xl md:text-8xl font-black text-glow-rose tracking-tighter mb-4 transition-transform group-hover:scale-110 duration-500">
                     <AnimatedNumber value={data?.metrics?.negativeTransferRisk || 0} format={(v) => v.toFixed(2)} />
                   </div>
                   <div className="absolute -inset-8 bg-rose-500/5 dark:bg-rose-500/10 rounded-full blur-[40px] -z-10 animate-pulse-slow" />
@@ -223,7 +223,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 dark:text-white/40 font-medium leading-relaxed bg-white/50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/5">
+              <p className="text-xs text-slate-500 dark:text-white/40 font-medium leading-relaxed bg-white/50 dark:bg-white/5 p-6 rounded-2xl border border-slate-100 dark:border-white/5">
                 Current metrics indicate a stable baseline, though <span className="text-rose-600 dark:text-rose-400 font-bold">False Friends</span> interference remains a localized peak.
               </p>
             </div>
@@ -231,7 +231,7 @@ const Dashboard: React.FC = () => {
         </motion.div>
 
         {/* 4. Side Lists */}
-        <motion.div variants={itemVariants} className="space-y-10">
+        <motion.div variants={itemVariants} className="space-y-10 md:space-y-12">
           <section className="liquid-glass p-8 rounded-[2.5rem] edge-light">
             <h3 className="text-[10px] font-black mb-8 flex items-center gap-3 uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
               <Zap size={16} className="text-primary" /> Current Objectives
@@ -250,7 +250,7 @@ const Dashboard: React.FC = () => {
                     )}>{task.priority}</span>
                     <span className="text-[9px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-tighter">{task.estimatedTime} MIN</span>
                   </div>
-                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-primary transition-colors mb-2 uppercase">{task.title}</h4>
+                  <h4 className="font-black text-base text-slate-800 dark:text-white group-hover:text-primary transition-colors mb-2 uppercase">{task.title}</h4>
                   <p className="text-xs text-slate-500 dark:text-white/30 font-medium leading-relaxed line-clamp-2">{task.description}</p>
                 </motion.div>
               ))}
@@ -265,8 +265,8 @@ const Dashboard: React.FC = () => {
               {data?.recentErrors?.map(error => (
                 <motion.div 
                   key={error.id} 
-                  whileHover={{ backgroundColor: "rgba(255,255,255,0.8)" }}
-                  className="dark:whileHover:bg-white/[0.03] p-5 flex items-center justify-between group cursor-pointer"
+                  whileHover={{ x: 5 }}
+                  className="group p-5 flex items-center justify-between group cursor-pointer bg-slate-50/50 dark:bg-transparent hover:bg-white dark:hover:bg-white/[0.03] transition-all"
                 >
                   <div className="flex items-center gap-5">
                     <div className="w-12 h-12 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-lg font-black text-slate-700 dark:text-white/80 group-hover:border-primary/50 group-hover:text-primary transition-all shadow-sm">

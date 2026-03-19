@@ -201,10 +201,15 @@ export const AppLayout: React.FC = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar />
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-6 no-scrollbar relative z-0">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar relative z-0">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="max-w-7xl mx-auto"
+          >
             <Outlet />
-          </div>
+          </motion.div>
         </main>
       </div>
     </div>
