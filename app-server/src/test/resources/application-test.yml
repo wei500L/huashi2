@@ -27,6 +27,9 @@ app:
   analytics:
     compensation:
       enabled: false
+  internal:
+    knowledge:
+      token: test-internal-knowledge-token
   security:
     jwt:
       secret: 0123456789abcdef0123456789abcdef

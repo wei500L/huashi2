@@ -61,6 +61,9 @@ app:
   analytics:
     compensation:
       enabled: ${APP_ANALYTICS_COMPENSATION_ENABLED:true}
+  internal:
+    knowledge:
+      token: ${APP_INTERNAL_KNOWLEDGE_TOKEN:}
   security:
     jwt:
       secret: ${APP_JWT_SECRET:replace-me-with-a-32-byte-minimum-secret-key}

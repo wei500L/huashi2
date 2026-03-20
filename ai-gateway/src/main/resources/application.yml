@@ -19,7 +19,7 @@ spring:
   ai:
     vectorstore:
       pgvector:
-        initialize-schema: true
+        initialize-schema: false
         dimensions: ${AI_EMBEDDING_DIMENSION:1024}
 
 management:
@@ -70,3 +70,19 @@ logging:
     com.huashi.eftransfer: INFO
   pattern:
     level: "%5p [traceId:%X{traceId:-}]"
+
+rag:
+  app-server:
+    base-url: ${APP_SERVER_BASE_URL:http://localhost:8080}
+    internal-token: ${APP_SERVER_INTERNAL_TOKEN:}
+    connect-timeout: ${APP_SERVER_CONNECT_TIMEOUT:PT3S}
+    read-timeout: ${APP_SERVER_READ_TIMEOUT:PT5S}
+  ingestion:
+    export-page-size: ${RAG_EXPORT_PAGE_SIZE:100}
+    embedding-batch-size: ${RAG_EMBEDDING_BATCH_SIZE:32}
+  retrieval:
+    recall-top-k: ${RAG_RECALL_TOP_K:20}
+    recall-threshold: ${RAG_RECALL_THRESHOLD:0.55}
+    rerank-top-n: ${RAG_RERANK_TOP_N:8}
+    rerank-threshold: ${RAG_RERANK_THRESHOLD:0.2}
+    final-top-k: ${RAG_FINAL_TOP_K:6}

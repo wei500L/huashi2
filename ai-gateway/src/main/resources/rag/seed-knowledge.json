@@ -1,0 +1,140 @@
+[
+  {
+    "sourceType": "ERROR_TYPE",
+    "sourceId": "false_friend_confusion",
+    "title": "False Friend Confusion",
+    "content": "False friend confusion happens when an English-French lexical pair looks similar but carries different meanings. Learners often map the familiar form to the wrong meaning and answer quickly with high confidence, which makes the negative transfer persistent.",
+    "metadata": {
+      "errorType": "false_friend_confusion",
+      "lexicalPairTypes": ["FALSE_FRIEND", "ORTHOGRAPHIC_SIMILAR"]
+    }
+  },
+  {
+    "sourceType": "ERROR_TYPE",
+    "sourceId": "context_ignored",
+    "title": "Context Ignored",
+    "content": "Context ignored errors appear when the learner focuses on word form and skips contextual cues in the sentence. The student may know both word forms but fails to use surrounding clues to disambiguate the intended sense.",
+    "metadata": {
+      "errorType": "context_ignored"
+    }
+  },
+  {
+    "sourceType": "ERROR_TYPE",
+    "sourceId": "over_transfer",
+    "title": "Over Transfer",
+    "content": "Over transfer means the learner extends a familiar cross-language similarity too broadly. The student applies a transfer rule outside the reliable context, so a partially shared meaning becomes a wrong answer.",
+    "metadata": {
+      "errorType": "over_transfer"
+    }
+  },
+  {
+    "sourceType": "ERROR_TYPE",
+    "sourceId": "under_transfer",
+    "title": "Under Transfer",
+    "content": "Under transfer occurs when the learner fails to use a valid cross-language similarity. The student responds cautiously or slowly even when a cognate relationship could have helped.",
+    "metadata": {
+      "errorType": "under_transfer"
+    }
+  },
+  {
+    "sourceType": "ERROR_TYPE",
+    "sourceId": "orthographic_interference",
+    "title": "Orthographic Interference",
+    "content": "Orthographic interference is triggered by similar spelling or visual form. The learner confuses words that look alike and anchors on surface similarity instead of meaning or usage constraints.",
+    "metadata": {
+      "errorType": "orthographic_interference",
+      "lexicalPairTypes": ["ORTHOGRAPHIC_SIMILAR"]
+    }
+  },
+  {
+    "sourceType": "ERROR_TYPE",
+    "sourceId": "semantic_misfire",
+    "title": "Semantic Misfire",
+    "content": "Semantic misfire describes an answer that misses the target meaning without a dominant false-friend or context pattern. It often signals a weak semantic boundary or insufficient exposure to the specific sense.",
+    "metadata": {
+      "errorType": "semantic_misfire"
+    }
+  },
+  {
+    "sourceType": "INTERVENTION_TEMPLATE",
+    "sourceId": "false_friend_focus",
+    "title": "Teacher Intervention: False Friend Focus",
+    "content": "First contrast the misleading pair in minimal contexts, then ask the learner to explain the meaning difference aloud, and finally provide a short discrimination drill with immediate corrective feedback. Emphasize one reliable cue the student can check before answering.",
+    "metadata": {
+      "targetErrorTypes": ["false_friend_confusion", "orthographic_interference"],
+      "targetRiskLevels": ["HIGH", "CRITICAL"]
+    }
+  },
+  {
+    "sourceType": "INTERVENTION_TEMPLATE",
+    "sourceId": "context_repair",
+    "title": "Teacher Intervention: Context Repair",
+    "content": "Slow the learner down, highlight the sentence clue that changes the meaning, and require the student to justify the answer with a context phrase instead of a word-form similarity. Use a pair of near-identical examples where only context changes the correct answer.",
+    "metadata": {
+      "targetErrorTypes": ["context_ignored"]
+    }
+  },
+  {
+    "sourceType": "INTERVENTION_TEMPLATE",
+    "sourceId": "precision_scaffold",
+    "title": "Teacher Intervention: Precision Scaffold",
+    "content": "Reduce task load to one target pair at a time, move from recognition to explanation, and only then restore speed. Reinforce the exact sense boundary that the learner keeps over-generalizing or under-using.",
+    "metadata": {
+      "targetErrorTypes": ["over_transfer", "under_transfer", "semantic_misfire"]
+    }
+  },
+  {
+    "sourceType": "TRAINING_GUIDE",
+    "sourceId": "false_friend_discrimination",
+    "title": "Training Guide: False Friend Discrimination",
+    "content": "Prioritize high-risk false friends in short contrastive sets. Alternate between meaning judgement, bilingual definition matching, and immediate correction so the learner repeatedly notices the difference before speed is added back.",
+    "metadata": {
+      "trainingMode": "false_friend_discrimination"
+    }
+  },
+  {
+    "sourceType": "TRAINING_GUIDE",
+    "sourceId": "context_repair",
+    "title": "Training Guide: Context Repair",
+    "content": "Use sentence-level stimuli with medium to high contextual support, then gradually remove cues. The goal is to force the learner to read the surrounding sentence before relying on surface similarity.",
+    "metadata": {
+      "trainingMode": "context_repair"
+    }
+  },
+  {
+    "sourceType": "TRAINING_GUIDE",
+    "sourceId": "cognate_strengthening",
+    "title": "Training Guide: Cognate Strengthening",
+    "content": "When the learner is missing valid transfer opportunities, rehearse reliable cognate mappings in simple contexts first. Build confidence and then widen the set only after the learner can explain why the mapping is safe.",
+    "metadata": {
+      "trainingMode": "cognate_strengthening"
+    }
+  },
+  {
+    "sourceType": "TRAINING_GUIDE",
+    "sourceId": "rapid_recognition",
+    "title": "Training Guide: Rapid Recognition",
+    "content": "Speed-oriented training should only start after accuracy is stable. Keep items short, track reaction time closely, and immediately step back to explanation mode when a fast answer reintroduces the same transfer error.",
+    "metadata": {
+      "trainingMode": "rapid_recognition"
+    }
+  },
+  {
+    "sourceType": "COURSE_GUIDE",
+    "sourceId": "negative_transfer_basics",
+    "title": "Course Guide: Negative Transfer Basics",
+    "content": "This course targets English-French lexical transfer by separating helpful similarities from misleading ones. Learners should practice noticing sense boundaries, checking context, and explaining why an apparently familiar form is or is not reliable.",
+    "metadata": {
+      "topic": "negative_transfer"
+    }
+  },
+  {
+    "sourceType": "COURSE_GUIDE",
+    "sourceId": "risk_driven_training_sequence",
+    "title": "Course Guide: Risk-Driven Training Sequence",
+    "content": "High-risk learners should train in a sequence of contrastive explanation, context-supported recognition, and only then controlled speed practice. The sequence is designed to reduce confident but wrong transfer before fluency work begins.",
+    "metadata": {
+      "topic": "risk_driven_training"
+    }
+  }
+]

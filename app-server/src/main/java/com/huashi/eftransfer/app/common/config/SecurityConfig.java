@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, InternalKnowledgeProperties.class})
 public class SecurityConfig {
 
     @Bean
@@ -43,6 +43,7 @@ public class SecurityConfig {
                                 "/api/health",
                                 "/api/auth/login",
                                 "/api/auth/refresh",
+                                "/internal/**",
                                 "/actuator/health",
                                 "/actuator/info"
                         ).permitAll()

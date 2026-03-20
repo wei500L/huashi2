@@ -37,7 +37,7 @@ class AiHealthControllerTest {
                 List.of("test"),
                 OffsetDateTime.parse("2026-03-19T09:00:00Z")
         );
-        AiHealthService aiHealthService = new AiHealthService(null, null, null, null, null, null) {
+        AiHealthService aiHealthService = new AiHealthService(null, null, null, null, null, null, null, null) {
             @Override
             public AiHealthPayload getHealthPayload() {
                 return payload;

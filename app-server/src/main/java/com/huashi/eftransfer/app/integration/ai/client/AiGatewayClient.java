@@ -8,6 +8,10 @@ import com.huashi.eftransfer.shared.ai.EmbeddingRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
+import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
+import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
+import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
+import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
@@ -37,6 +41,12 @@ public class AiGatewayClient {
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<RerankResponse>> RERANK_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<RagAnswerResponse>> RAG_ANSWER_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<RagExplainRiskResponse>> RAG_EXPLAIN_RISK_TYPE =
             new ParameterizedTypeReference<>() {
             };
 
@@ -81,6 +91,14 @@ public class AiGatewayClient {
 
     public RerankResponse rerank(RerankRequest request) {
         return post("/internal/ai/rerank", request, RERANK_TYPE);
+    }
+
+    public RagAnswerResponse ragAnswer(RagAnswerRequest request) {
+        return post("/internal/ai/rag/answer", request, RAG_ANSWER_TYPE);
+    }
+
+    public RagExplainRiskResponse explainRisk(RagExplainRiskRequest request) {
+        return post("/internal/ai/rag/explain-risk", request, RAG_EXPLAIN_RISK_TYPE);
     }
 
     private <T, R> R post(String uri, T request, ParameterizedTypeReference<ApiResponse<R>> responseType) {

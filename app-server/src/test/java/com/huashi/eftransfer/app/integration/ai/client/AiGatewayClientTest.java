@@ -9,6 +9,10 @@ import com.huashi.eftransfer.shared.ai.EmbeddingRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
+import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
+import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
+import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
+import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.sun.net.httpserver.HttpExchange;
@@ -284,6 +288,108 @@ class AiGatewayClientTest {
         assertThat(response.items().get(0).index()).isEqualTo(1);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rerank");
         assertThat(LAST_REQUEST.get().body()).contains("\"query\":\"hello\"");
+    }
+
+    @Test
+    void shouldPostRagAnswerRequestAndDeserializeResponse() {
+        NEXT_RESPONSE.set(StubResponse.ok("""
+                {
+                  "success": true,
+                  "code": "SUCCESS",
+                  "message": "Request succeeded",
+                  "data": {
+                    "answer": "coin / coin is risky because it can trigger false friend confusion [C1].",
+                    "grounded": true,
+                    "uncertaintyNote": null,
+                    "citations": [
+                      {
+                        "citationId": "C1",
+                        "sourceType": "LEXICAL_PAIR",
+                        "sourceId": "1001",
+                        "title": "coin / coin",
+                        "snippet": "False friend pair guidance",
+                        "score": 0.88
+                      }
+                    ],
+                    "contextChunks": [
+                      {
+                        "citationId": "C1",
+                        "sourceType": "LEXICAL_PAIR",
+                        "sourceId": "1001",
+                        "title": "coin / coin",
+                        "content": "False friend pair guidance",
+                        "snippet": "False friend pair guidance",
+                        "score": 0.88,
+                        "metadata": {
+                          "chunkKind": "LEXICAL_PAIR"
+                        }
+                      }
+                    ]
+                  },
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-rag-answer-client"
+                }
+                """));
+
+        RagAnswerResponse response = aiGatewayClient.ragAnswer(new RagAnswerRequest("Why is coin/coin risky?", null, null));
+
+        assertThat(response.grounded()).isTrue();
+        assertThat(response.citations()).hasSize(1);
+        assertThat(response.contextChunks()).hasSize(1);
+        assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rag/answer");
+        assertThat(LAST_REQUEST.get().body()).contains("\"query\":\"Why is coin/coin risky?\"");
+    }
+
+    @Test
+    void shouldPostExplainRiskRequestAndDeserializeResponse() {
+        NEXT_RESPONSE.set(StubResponse.ok("""
+                {
+                  "success": true,
+                  "code": "SUCCESS",
+                  "message": "Request succeeded",
+                  "data": {
+                    "riskExplanation": "The learner is over-relying on surface similarity [C1].",
+                    "negativeTransferReason": "The pair behaves like a false friend [C1].",
+                    "priorityTrainingFocus": "Prioritize contrastive false-friend discrimination [C2].",
+                    "uncertaintyNote": null,
+                    "citations": [
+                      {
+                        "citationId": "C1",
+                        "sourceType": "ERROR_TYPE",
+                        "sourceId": "false_friend_confusion",
+                        "title": "False Friend Confusion",
+                        "snippet": "False friend confusion happens when...",
+                        "score": 0.91
+                      }
+                    ],
+                    "contextChunks": []
+                  },
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-rag-risk-client"
+                }
+                """));
+
+        RagExplainRiskResponse response = aiGatewayClient.explainRisk(new RagExplainRiskRequest(
+                new com.huashi.eftransfer.shared.ai.RagDiagnosticSummary(0.81, 0.42, 0.57, 1310L),
+                List.of(new com.huashi.eftransfer.shared.ai.RagErrorTypeStat("false_friend_confusion", "False Friend Confusion", 4L, 0.5)),
+                List.of(new com.huashi.eftransfer.shared.ai.RagRiskLexicalPair(
+                        1001L,
+                        "coin",
+                        "coin",
+                        "硬币；角落",
+                        "FALSE_FRIEND",
+                        0.88,
+                        3L,
+                        1280L,
+                        "false_friend_confusion",
+                        "CRITICAL"
+                ))
+        ));
+
+        assertThat(response.riskExplanation()).contains("surface similarity");
+        assertThat(response.citations()).hasSize(1);
+        assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rag/explain-risk");
+        assertThat(LAST_REQUEST.get().body()).contains("\"highRiskLexicalPairs\"");
     }
 
     private static void handle(HttpExchange exchange) throws IOException {

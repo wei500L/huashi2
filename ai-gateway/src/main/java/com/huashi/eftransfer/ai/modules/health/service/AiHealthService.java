@@ -1,6 +1,8 @@
 package com.huashi.eftransfer.ai.modules.health.service;
 
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
+import com.huashi.eftransfer.ai.modules.rag.repository.IngestionJobRepository;
+import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
 import com.huashi.eftransfer.ai.modules.health.dto.AiHealthPayload;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -20,6 +22,8 @@ public class AiHealthService {
     private final JdbcTemplate jdbcTemplate;
     private final Environment environment;
     private final AiProviderProperties providerProperties;
+    private final KnowledgeStoreRepository knowledgeStoreRepository;
+    private final IngestionJobRepository ingestionJobRepository;
     private final ObjectProvider<ChatModel> chatModelProvider;
     private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private final ObjectProvider<VectorStore> vectorStoreProvider;
@@ -28,6 +32,8 @@ public class AiHealthService {
             JdbcTemplate jdbcTemplate,
             Environment environment,
             AiProviderProperties providerProperties,
+            KnowledgeStoreRepository knowledgeStoreRepository,
+            IngestionJobRepository ingestionJobRepository,
             ObjectProvider<ChatModel> chatModelProvider,
             ObjectProvider<EmbeddingModel> embeddingModelProvider,
             ObjectProvider<VectorStore> vectorStoreProvider
@@ -35,6 +41,8 @@ public class AiHealthService {
         this.jdbcTemplate = jdbcTemplate;
         this.environment = environment;
         this.providerProperties = providerProperties;
+        this.knowledgeStoreRepository = knowledgeStoreRepository;
+        this.ingestionJobRepository = ingestionJobRepository;
         this.chatModelProvider = chatModelProvider;
         this.embeddingModelProvider = embeddingModelProvider;
         this.vectorStoreProvider = vectorStoreProvider;
@@ -44,7 +52,10 @@ public class AiHealthService {
         AiProviderProperties.ProviderProperties activeProvider = providerProperties.getActiveProviderProperties();
         boolean databaseReady = isDatabaseReady();
         String vectorVersion = fetchVectorExtensionVersion();
-        boolean vectorStoreReady = vectorStoreProvider.getIfAvailable() != null && !"UNAVAILABLE".equals(vectorVersion);
+        boolean vectorStoreReady = vectorStoreProvider.getIfAvailable() != null
+                && !"UNAVAILABLE".equals(vectorVersion)
+                && knowledgeStoreRepository.hasKnowledgeDocuments()
+                && ingestionJobRepository.findLatestSuccessfulJob("KNOWLEDGE_REINDEX") != null;
         boolean providerReady = chatModelProvider.getIfAvailable() != null
                 && embeddingModelProvider.getIfAvailable() != null
                 && activeProvider != null;
