@@ -8,6 +8,8 @@ import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
+import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
+import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
@@ -31,6 +33,11 @@ public class InternalRagController {
     @PostMapping("/answer")
     public ApiResponse<RagAnswerResponse> answer(@Valid @RequestBody RagAnswerRequest request) {
         return ApiResponse.success(ragService.answer(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/retrieve")
+    public ApiResponse<RagRetrieveResponse> retrieve(@Valid @RequestBody RagRetrieveRequest request) {
+        return ApiResponse.success(ragService.retrieve(request), MDC.get("traceId"));
     }
 
     @PostMapping("/explain-risk")

@@ -12,6 +12,8 @@ import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
+import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
@@ -355,6 +357,60 @@ class AiGatewayClientTest {
         assertThat(response.data().contextChunks()).hasSize(1);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rag/answer");
         assertThat(LAST_REQUEST.get().body()).contains("\"query\":\"Why is coin/coin risky?\"");
+    }
+
+    @Test
+    void shouldPostRagRetrieveRequestAndDeserializeResponse() {
+        enqueue(StubResponse.ok("""
+                {
+                  "success": true,
+                  "code": "SUCCESS",
+                  "message": "Request succeeded",
+                  "data": {
+                    "grounded": true,
+                    "uncertaintyNote": null,
+                    "citations": [
+                      {
+                        "citationId": "C1",
+                        "sourceType": "LEXICAL_PAIR",
+                        "sourceId": "1001",
+                        "title": "coin / coin",
+                        "snippet": "False friend pair guidance",
+                        "score": 0.88
+                      }
+                    ],
+                    "contextChunks": [
+                      {
+                        "citationId": "C1",
+                        "sourceType": "LEXICAL_PAIR",
+                        "sourceId": "1001",
+                        "title": "coin / coin",
+                        "content": "False friend pair guidance",
+                        "snippet": "False friend pair guidance",
+                        "score": 0.88,
+                        "metadata": {
+                          "chunkKind": "LEXICAL_PAIR"
+                        }
+                      }
+                    ]
+                  },
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-rag-retrieve-client"
+                }
+                """));
+
+        AiGatewayCallResult<RagRetrieveResponse> response = aiGatewayClient.ragRetrieve(new RagRetrieveRequest(
+                "What is the difference between coin and coin?",
+                List.of("LEXICAL_PAIR"),
+                null
+        ));
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.data().grounded()).isTrue();
+        assertThat(response.data().citations()).hasSize(1);
+        assertThat(response.data().contextChunks()).hasSize(1);
+        assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rag/retrieve");
+        assertThat(LAST_REQUEST.get().body()).contains("\"query\":\"What is the difference between coin and coin?\"");
     }
 
     @Test

@@ -13,6 +13,8 @@ import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
+import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
@@ -48,6 +50,9 @@ public class AiGatewayClient {
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<RagAnswerResponse>> RAG_ANSWER_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<RagRetrieveResponse>> RAG_RETRIEVE_TYPE =
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<RagExplainRiskResponse>> RAG_EXPLAIN_RISK_TYPE =
@@ -101,6 +106,10 @@ public class AiGatewayClient {
 
     public AiGatewayCallResult<RagAnswerResponse> ragAnswer(RagAnswerRequest request) {
         return post("/internal/ai/rag/answer", request, RAG_ANSWER_TYPE);
+    }
+
+    public AiGatewayCallResult<RagRetrieveResponse> ragRetrieve(RagRetrieveRequest request) {
+        return post("/internal/ai/rag/retrieve", request, RAG_RETRIEVE_TYPE);
     }
 
     public AiGatewayCallResult<RagExplainRiskResponse> explainRisk(RagExplainRiskRequest request) {

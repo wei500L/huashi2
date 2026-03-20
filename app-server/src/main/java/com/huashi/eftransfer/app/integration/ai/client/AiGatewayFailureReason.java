@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.integration.ai.client;
 
 public enum AiGatewayFailureReason {
+    NO_GROUNDED_CONTEXT,
     TIMEOUT,
     HTTP_ERROR,
     PROVIDER_UNAVAILABLE,

@@ -83,4 +83,33 @@ public class AiOutputSchemaFactory {
                 )
         );
     }
+
+    public Map<String, Object> lexicalRagAnswerSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "properties", Map.of(
+                        "answer", Map.of("type", "string"),
+                        "explanation", Map.of("type", "string"),
+                        "recommendedActions", Map.of(
+                                "type", "array",
+                                "minItems", 1,
+                                "items", Map.of("type", "string")
+                        ),
+                        "confidence", Map.of("type", "number"),
+                        "citationIds", Map.of(
+                                "type", "array",
+                                "minItems", 1,
+                                "items", Map.of("type", "string")
+                        )
+                ),
+                "required", List.of(
+                        "answer",
+                        "explanation",
+                        "recommendedActions",
+                        "confidence",
+                        "citationIds"
+                )
+        );
+    }
 }

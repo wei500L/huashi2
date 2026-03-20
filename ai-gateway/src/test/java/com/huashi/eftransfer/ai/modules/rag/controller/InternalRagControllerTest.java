@@ -7,6 +7,7 @@ import com.huashi.eftransfer.shared.ai.RagCitation;
 import com.huashi.eftransfer.shared.ai.RagContextChunk;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
+import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -56,6 +57,38 @@ class InternalRagControllerTest {
 
         mockMvc.perform(post("/internal/ai/rag/answer")
                         .header("X-Trace-Id", "trace-rag-answer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "query": "Why is coin/coin risky?"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.grounded").value(true))
+                .andExpect(jsonPath("$.data.citations[0].citationId").value("C1"))
+                .andExpect(jsonPath("$.data.contextChunks[0].sourceType").value("LEXICAL_PAIR"));
+    }
+
+    @Test
+    void shouldReturnRagRetrievePayload() throws Exception {
+        when(ragService.retrieve(any())).thenReturn(new RagRetrieveResponse(
+                true,
+                null,
+                List.of(new RagCitation("C1", "LEXICAL_PAIR", "1001", "coin / coin", "False friend pair guidance", 0.88d)),
+                List.of(new RagContextChunk(
+                        "C1",
+                        "LEXICAL_PAIR",
+                        "1001",
+                        "coin / coin",
+                        "False friend pair guidance",
+                        "False friend pair guidance",
+                        0.88d,
+                        Map.of("chunkKind", "LEXICAL_PAIR")
+                ))
+        ));
+
+        mockMvc.perform(post("/internal/ai/rag/retrieve")
+                        .header("X-Trace-Id", "trace-rag-retrieve")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

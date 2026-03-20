@@ -13,6 +13,8 @@ import com.huashi.eftransfer.shared.ai.RagCitation;
 import com.huashi.eftransfer.shared.ai.RagContextChunk;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
+import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -87,6 +89,19 @@ public class RagService {
 
         return new RagAnswerResponse(
                 answer,
+                grounded,
+                uncertaintyNote,
+                toCitations(retrievalResult),
+                toContextChunks(retrievalResult)
+        );
+    }
+
+    public RagRetrieveResponse retrieve(RagRetrieveRequest request) {
+        RagSearchFilter filter = new RagSearchFilter(normalizeSourceTypes(request.sourceTypes()), normalizeIds(request.sourceIds()));
+        RagRetrievalResult retrievalResult = knowledgeSearchService.search(request.query(), filter);
+        boolean grounded = !retrievalResult.chunks().isEmpty();
+        String uncertaintyNote = grounded ? null : "No sufficiently relevant knowledge chunks were retrieved from the knowledge base.";
+        return new RagRetrieveResponse(
                 grounded,
                 uncertaintyNote,
                 toCitations(retrievalResult),
