@@ -1,250 +1,395 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Rocket, 
-  Target, 
-  Brain, 
-  Zap, 
-  ChevronRight, 
-  CheckCircle, 
-  XCircle,
-  Lightbulb,
-  ArrowRight,
-  Flame,
-  Award,
-  RefreshCcw,
-  BookOpen
-} from 'lucide-react';
-import { useTrainingStore } from '@/store/training.store';
-import { useDiagnosisStore } from '@/store/diagnosis.store';
-import { Exercise, TrainingMode } from '@/types/training';
+import React from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, Award, Brain, Clock3, RefreshCcw, Rocket } from 'lucide-react';
+import { PageHeader } from '@/components/common';
+import { aiService, trainingService } from '@/lib/services';
+import { formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
+import { normalizeApiError } from '@/lib/api';
+import type { TrainingOptionViewVO } from '@/lib/contracts';
+
+type TrainingPhase = 'home' | 'running' | 'summary';
 
 const TrainingPage: React.FC = () => {
-  const { plan, generatePlan, startSession, currentSession, submitAnswer, endSession } = useTrainingStore();
-  const { result: diagResult } = useDiagnosisStore();
-  
-  const [phase, setPhase] = useState<'HOME' | 'SESSION' | 'SUMMARY'>('HOME');
-  const [showFeedback, setShowFeedback] = useState<boolean>(false);
-  const [lastCorrect, setLastCorrect] = useState<boolean>(false);
-  const startTimeRef = useRef<number>(0);
+  const queryClient = useQueryClient();
+  const [phase, setPhase] = React.useState<TrainingPhase>('home');
+  const [sessionId, setSessionId] = React.useState<number | null>(null);
+  const [summarySessionId, setSummarySessionId] = React.useState<number | null>(null);
+  const shownAtRef = React.useRef<number>(Date.now());
 
-  // 初始化推荐计划
-  useEffect(() => {
-    if (diagResult) {
-      generatePlan(diagResult);
-    }
-  }, [diagResult]);
+  const recommendedPlanQuery = useQuery({
+    queryKey: ['recommended-training-plan'],
+    queryFn: () => trainingService.getRecommendedPlan(),
+    retry: false,
+  });
 
-  const handleStart = (mode: TrainingMode) => {
-    startSession(mode);
-    setPhase('SESSION');
-    startTimeRef.current = Date.now();
-  };
+  const aiRecommendationQuery = useQuery({
+    queryKey: ['ai-recommend-training', recommendedPlanQuery.data?.sourceDiagnosisSummaryId],
+    queryFn: () => aiService.recommendTraining(recommendedPlanQuery.data?.sourceDiagnosisSummaryId),
+    enabled: !!recommendedPlanQuery.data,
+    retry: false,
+  });
 
-  const handleExerciseSubmit = (optionIdx: number) => {
-    if (!currentSession) return;
-    const exercise = currentSession.exercises[currentSession.currentIdx];
-    const isCorrect = optionIdx === exercise.content.correctAnswer;
-    const rt = Date.now() - startTimeRef.current;
+  const wrongBookQuery = useQuery({
+    queryKey: ['wrong-book'],
+    queryFn: () => trainingService.getWrongBook(),
+  });
 
-    setLastCorrect(isCorrect);
-    setShowFeedback(true);
+  const reviewScheduleQuery = useQuery({
+    queryKey: ['review-schedule', true],
+    queryFn: () => trainingService.getReviewSchedule(true),
+  });
 
-    // 延迟提交，给用户看反馈
-    setTimeout(() => {
-      submitAnswer({ exerciseId: exercise.id, isCorrect, responseTime: rt });
-      setShowFeedback(false);
-      
-      if (currentSession.currentIdx + 1 >= currentSession.exercises.length) {
-        setPhase('SUMMARY');
-        endSession();
-      } else {
-        startTimeRef.current = Date.now();
+  const startMutation = useMutation({
+    mutationFn: (mode: string) =>
+      trainingService.startSession({
+        planId: recommendedPlanQuery.data!.planId,
+        mode,
+      }),
+    onSuccess: (created) => {
+      setSessionId(created.sessionId);
+      shownAtRef.current = Date.now();
+      setPhase('running');
+    },
+  });
+
+  const nextItemQuery = useQuery({
+    queryKey: ['training-next-item', sessionId],
+    queryFn: () => trainingService.getNextItem(sessionId as number),
+    enabled: phase === 'running' && !!sessionId,
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: (value: number) => trainingService.complete(value),
+    onSuccess: (_, currentSessionId) => {
+      setSummarySessionId(currentSessionId);
+      setPhase('summary');
+      void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
+      void queryClient.invalidateQueries({ queryKey: ['student-trends'] });
+      void queryClient.invalidateQueries({ queryKey: ['wrong-book'] });
+      void queryClient.invalidateQueries({ queryKey: ['review-schedule'] });
+    },
+  });
+
+  const answerMutation = useMutation({
+    mutationFn: (payload: { itemResultId: number; selectedAnswerKey: string; reactionTimeMs: number; hesitationTimeMs: number }) =>
+      trainingService.submitAnswer(sessionId as number, payload),
+    onSuccess: async (progress) => {
+      if (progress.completed || progress.answeredItems >= progress.totalItems) {
+        await completeMutation.mutateAsync(progress.sessionId);
+        return;
       }
-    }, 1500);
+      shownAtRef.current = Date.now();
+      await nextItemQuery.refetch();
+    },
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: ['training-summary', summarySessionId],
+    queryFn: () => trainingService.getSummary(summarySessionId as number),
+    enabled: phase === 'summary' && !!summarySessionId,
+  });
+
+  const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
+  const currentItem = nextItemQuery.data?.item;
+
+  const submitAnswer = async (option: TrainingOptionViewVO) => {
+    if (!currentItem) {
+      return;
+    }
+    const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
+    const hesitationTimeMs = Math.max(0, reactionTimeMs - 1200);
+    shownAtRef.current = Date.now();
+    await answerMutation.mutateAsync({
+      itemResultId: currentItem.itemResultId,
+      selectedAnswerKey: option.key,
+      reactionTimeMs,
+      hesitationTimeMs,
+    });
   };
 
-  // 1. 训练主页
-  if (phase === 'HOME') {
+  if (phase === 'running') {
     return (
-      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-        <div className="bg-gradient-to-br from-primary to-accent p-10 rounded-[2.5rem] text-white shadow-2xl shadow-primary/20 relative overflow-hidden">
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex-1 text-center md:text-left">
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold mb-4">
-                <Rocket size={14} /> AI 智能自适应计划
+      <div className="max-w-5xl mx-auto space-y-8">
+        <PageHeader title="训练进行中" subtitle="本期合同不支持刷新恢复，刷新页面后需要重新开始本次训练。" />
+
+        {nextItemQuery.error && (
+          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{nextItemQuery.error.message}</div>
+        )}
+
+        {nextItemQuery.isLoading || !currentItem ? (
+          <div className="min-h-[360px] rounded-[2.8rem] liquid-glass-panel flex items-center justify-center">
+            <div className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">loading training item</div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-500 dark:text-white/45">
+                第 {nextItemQuery.data?.currentItemOrder}/{nextItemQuery.data?.totalItems} 题
               </div>
-              <h1 className="text-4xl font-black mb-4 leading-tight">为你准备的训练建议</h1>
-              <p className="text-blue-50/80 leading-relaxed max-w-md">
-                {plan?.recommendationReason || '请先完成一次智能诊断，以便我们为你生成精准的训练路径。'}
-              </p>
+              <div className="w-56 h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-sky-500"
+                  style={{
+                    width: `${((nextItemQuery.data?.answeredItems || 0) / Math.max(1, nextItemQuery.data?.totalItems || 1)) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
-            {plan && (
-              <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
-                {plan.targetMetrics.map((m, i) => (
-                  <div key={i} className="bg-white/10 border border-white/20 p-4 rounded-2xl flex items-center gap-3">
-                    <Target size={18} />
-                    <span className="text-xs font-bold">{m}</span>
+
+            <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                {currentItem.mode} · {currentItem.cognitiveTag} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
+              </div>
+
+              <div className="mt-8 grid md:grid-cols-2 gap-6">
+                <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 p-8">
+                  <div className="text-sm uppercase tracking-[0.24em] text-sky-500 mb-3">English</div>
+                  <div className="text-4xl font-black text-slate-900 dark:text-white">{currentItem.englishWord}</div>
+                </div>
+                <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 p-8">
+                  <div className="text-sm uppercase tracking-[0.24em] text-rose-500 mb-3">French</div>
+                  <div className="text-4xl font-black text-slate-900 dark:text-white">{currentItem.frenchWord}</div>
+                </div>
+              </div>
+
+              <div className="mt-8 rounded-[2rem] border border-dashed border-slate-300 dark:border-white/10 p-6 bg-white/40 dark:bg-white/5">
+                <div className="text-lg font-bold text-slate-900 dark:text-white">{currentItem.content.question}</div>
+                {currentItem.content.sentence && (
+                  <div className="mt-3 text-slate-500 dark:text-white/45 italic">{currentItem.content.sentence}</div>
+                )}
+              </div>
+
+              <div className="mt-8 grid gap-4">
+                {currentItem.options.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    disabled={answerMutation.isPending || completeMutation.isPending}
+                    onClick={() => void submitAnswer(option)}
+                    className="w-full rounded-[1.8rem] border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-5 py-4 text-left hover:border-primary/50 transition-all disabled:opacity-60"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-bold text-slate-900 dark:text-white">{option.label}</span>
+                      <Rocket size={16} className="text-primary" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (phase === 'summary') {
+    const summary = summaryQuery.data;
+    return (
+      <div className="space-y-8">
+        <PageHeader title="训练总结" subtitle={summary ? `Session #${summary.sessionId} · ${summary.mode}` : '正在加载本次训练总结'} />
+
+        {summaryQuery.error && (
+          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{summaryQuery.error.message}</div>
+        )}
+
+        {summary && (
+          <>
+            <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+              <div className="flex flex-col lg:flex-row items-start justify-between gap-8">
+                <div>
+                  <div className="inline-flex items-center gap-3 rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-amber-500">
+                    <Award size={14} />
+                    session completed
+                  </div>
+                  <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">本轮训练已完成</h2>
+                  <p className="mt-4 text-slate-500 dark:text-white/45 leading-7">{summary.improvementHint}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhase('home');
+                    setSessionId(null);
+                    setSummarySessionId(null);
+                  }}
+                  className="btn-liquid px-6 py-3 text-white"
+                >
+                  返回训练首页
+                </button>
+              </div>
+            </section>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="rounded-[2rem] liquid-glass p-6">
+                <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">本次正确率</div>
+                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMaybePercent(summary.accuracy)}</div>
+              </div>
+              <div className="rounded-[2rem] liquid-glass p-6">
+                <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">平均反应时</div>
+                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMs(summary.averageReactionTime)}</div>
+              </div>
+              <div className="rounded-[2rem] liquid-glass p-6">
+                <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">下一推荐模式</div>
+                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{summary.nextRecommendedMode}</div>
+              </div>
+            </div>
+
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">risk words to review</div>
+              <div className="grid md:grid-cols-2 gap-4">
+                {summary.riskWordsToReview.map((item) => (
+                  <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                    <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.reason}</div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-          {/* Decorative shapes */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-        </div>
+            </section>
+          </>
+        )}
+      </div>
+    );
+  }
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plan?.suggestedSessions.map((s, i) => (
-            <div 
-              key={i} 
-              className="bg-card border border-border p-6 rounded-3xl hover:border-primary transition-all group cursor-pointer shadow-sm hover:shadow-xl"
-              onClick={() => handleStart(s.mode)}
-            >
-              <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mb-4 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                {s.mode === 'FALSE_FRIEND_DISCRIM' ? <Zap size={24} /> : s.mode === 'CONTEXT_FIX' ? <Brain size={24} /> : <Rocket size={24} />}
+  return (
+    <div className="space-y-8">
+      <PageHeader title="个性化训练" subtitle="先从真实推荐计划开始，再进入训练 session。" />
+
+      <div className="rounded-[2rem] border border-amber-500/20 bg-amber-500/5 px-6 py-4 text-sm text-amber-600 dark:text-amber-400">
+        当前后端合同不提供训练 session 恢复接口。刷新页面会丢失本轮训练进度，但不会影响已完成总结和错题/复习数据。
+      </div>
+
+      {recommendedPlanQuery.error && planError?.status !== 409 && (
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{recommendedPlanQuery.error.message}</div>
+      )}
+
+      {planError?.status === 409 ? (
+        <section className="rounded-[2.5rem] liquid-glass-panel p-10">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="text-amber-500 shrink-0 mt-1" />
+            <div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white">尚无推荐训练计划</div>
+              <p className="mt-3 text-slate-500 dark:text-white/45 leading-7">
+                训练计划依赖最近一次诊断 summary。请先到诊断页完成一次真实诊断，再回来开始训练。
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <>
+          <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+            <div className="grid xl:grid-cols-[1fr_0.9fr] gap-8">
+              <div>
+                <div className="inline-flex items-center gap-3 rounded-full border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-sky-500">
+                  <Rocket size={14} />
+                  recommended plan
+                </div>
+                <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">
+                  {recommendedPlanQuery.data?.priorityMode || '正在生成训练建议'}
+                </h2>
+                <p className="mt-4 text-slate-500 dark:text-white/45 leading-7">
+                  {recommendedPlanQuery.data?.recommendationReason || '系统正在读取最新训练计划。'}
+                </p>
+                {!!recommendedPlanQuery.data?.targetMetrics.length && (
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    {recommendedPlanQuery.data.targetMetrics.map((metric) => (
+                      <span key={metric} className="rounded-full border border-slate-200/70 dark:border-white/10 px-4 py-2 text-sm">
+                        {metric}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <h3 className="font-bold mb-2">{s.label}</h3>
-              <p className="text-xs text-muted-foreground mb-4">包含 {s.count} 组针对性词对练习</p>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Start Training</span>
-                <ChevronRight size={16} className="text-primary opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+              <div className="rounded-[2.2rem] border border-slate-200/80 dark:border-white/10 p-6 bg-white/60 dark:bg-white/5">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">AI recommendation</div>
+                {aiRecommendationQuery.isLoading ? (
+                  <div className="text-sm text-slate-500 dark:text-white/45">正在生成 AI 训练建议...</div>
+                ) : aiRecommendationQuery.data ? (
+                  <div className="space-y-4">
+                    <p className="text-sm leading-7 text-slate-800 dark:text-white/85">{aiRecommendationQuery.data.explanation}</p>
+                    {aiRecommendationQuery.data.fallbackReason && (
+                      <div className="text-xs uppercase tracking-[0.24em] text-amber-500">规则回退：{aiRecommendationQuery.data.fallbackReason}</div>
+                    )}
+                  </div>
+                ) : aiRecommendationQuery.error ? (
+                  <div className="text-sm text-rose-500">{aiRecommendationQuery.error.message}</div>
+                ) : null}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+          </section>
 
-  // 2. 训练作答页
-  if (phase === 'SESSION' && currentSession) {
-    const exercise = currentSession.exercises[currentSession.currentIdx];
-    const progress = ((currentSession.currentIdx) / currentSession.exercises.length) * 100;
+          <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-8">
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">suggested sessions</div>
+              <div className="grid md:grid-cols-2 gap-4">
+                {(recommendedPlanQuery.data?.suggestedSessions || []).map((session) => (
+                  <button
+                    key={session.mode}
+                    type="button"
+                    onClick={() => startMutation.mutate(session.mode)}
+                    disabled={startMutation.isPending}
+                    className="text-left rounded-[1.8rem] border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 p-5 hover:border-primary/40 transition-all disabled:opacity-60"
+                  >
+                    <div className="font-black text-slate-900 dark:text-white">{session.label}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">建议题量 {session.count}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
 
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => setPhase('HOME')} className="p-2 hover:bg-muted rounded-full"><ArrowRight className="rotate-180" size={20} /></button>
-          <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
-            <motion.div className="h-full bg-primary" initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">recommended pairs</div>
+              <div className="space-y-4 max-h-[420px] overflow-y-auto no-scrollbar">
+                {(recommendedPlanQuery.data?.recommendedPairs || []).slice(0, 6).map((item) => (
+                  <div key={item.planItemId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                    <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      {item.recommendedMode} · {item.recommendedReason}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
-          <span className="text-xs font-black">{currentSession.currentIdx + 1} / {currentSession.exercises.length}</span>
-        </div>
+        </>
+      )}
 
-        <AnimatePresence mode="wait">
-          {!showFeedback ? (
-            <motion.div 
-              key={exercise.id}
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="bg-card border border-border p-10 rounded-[2.5rem] shadow-2xl shadow-primary/5 min-h-[450px] flex flex-col"
-            >
-              <div className="flex items-center gap-2 mb-8">
-                <div className={cn(
-                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                  exercise.cognitiveTag === 'TRAP' ? "bg-rose-50 text-rose-600 border-rose-100" : "bg-blue-50 text-blue-600 border-blue-100"
-                )}>
-                  {exercise.cognitiveTag === 'TRAP' ? '⚠️ Negative Transfer Trap' : '✨ Positive Transfer Opportunity'}
+      <div className="grid xl:grid-cols-2 gap-8">
+        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Clock3 size={16} className="text-primary" />
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">review schedule</div>
+          </div>
+          <div className="space-y-4">
+            {(reviewScheduleQuery.data || []).slice(0, 5).map((item) => (
+              <div key={item.reviewScheduleId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  {item.reviewMode} · {formatDateTime(item.dueAt)}
                 </div>
               </div>
+            ))}
+          </div>
+        </section>
 
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <div className="flex items-baseline gap-6 mb-4">
-                  <span className="text-5xl font-black">{exercise.wordPair.en}</span>
-                  <span className="text-lg text-muted-foreground">vs</span>
-                  <span className="text-5xl font-black">{exercise.wordPair.fr}</span>
-                </div>
-                <p className="text-lg font-medium text-muted-foreground italic mb-12">"{exercise.content.question}"</p>
-
-                <div className="grid grid-cols-1 gap-3 w-full max-w-md">
-                  {exercise.content.options?.map((opt, i) => (
-                    <button 
-                      key={i} 
-                      onClick={() => handleExerciseSubmit(i)}
-                      className="p-4 bg-background border border-border rounded-2xl font-bold hover:border-primary hover:bg-primary/5 transition-all text-sm"
-                    >
-                      {opt}
-                    </button>
-                  ))}
+        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Brain size={16} className="text-primary" />
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">wrong book</div>
+          </div>
+          <div className="space-y-4">
+            {(wrongBookQuery.data || []).slice(0, 5).map((item) => (
+              <div key={item.wrongBookId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  {lexicalPairTypeLabel(item.lexicalPairType)} · {item.lastErrorType} · 错误 {item.wrongCount} 次
                 </div>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className={cn(
-                "p-12 rounded-[2.5rem] flex flex-col items-center justify-center text-center min-h-[450px]",
-                lastCorrect ? "bg-emerald-50 border-2 border-emerald-100" : "bg-rose-50 border-2 border-rose-100"
-              )}
-            >
-              <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-6", lastCorrect ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600")}>
-                {lastCorrect ? <CheckCircle size={40} /> : <XCircle size={40} />}
-              </div>
-              <h2 className={cn("text-3xl font-black mb-4", lastCorrect ? "text-emerald-700" : "text-rose-700")}>
-                {lastCorrect ? '认知辨析正确！' : '触发迁移陷阱！'}
-              </h2>
-              <p className="text-muted-foreground text-sm max-w-md leading-relaxed">
-                {exercise.content.explanation}
-              </p>
-              <div className="mt-8 flex items-center gap-2 text-muted-foreground font-mono text-xs">
-                <RefreshCw size={14} className="animate-spin-slow" /> Loading next stimulus...
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ))}
+          </div>
+        </section>
       </div>
-    );
-  }
-
-  // 3. 总结页
-  if (phase === 'SUMMARY') {
-    return (
-      <div className="max-w-4xl mx-auto space-y-8 py-12 text-center animate-in slide-in-from-bottom duration-700">
-        <div className="inline-flex items-center justify-center w-24 h-24 bg-amber-100 text-amber-600 rounded-full mb-6">
-          <Award size={48} />
-        </div>
-        <h1 className="text-4xl font-black mb-2">训练已达标</h1>
-        <p className="text-muted-foreground">你在同形异义词辨析上的认知反应已趋于稳定</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-12">
-          <div className="bg-card border border-border p-8 rounded-3xl">
-            <div className="text-3xl font-black mb-1">92%</div>
-            <div className="text-xs text-muted-foreground uppercase font-bold tracking-widest">本次正确率</div>
-          </div>
-          <div className="bg-card border border-border p-8 rounded-3xl">
-            <div className="text-3xl font-black mb-1">450ms</div>
-            <div className="text-xs text-muted-foreground uppercase font-bold tracking-widest">平均反应时</div>
-          </div>
-          <div className="bg-card border border-border p-8 rounded-3xl">
-            <div className="text-3xl font-black mb-1 text-emerald-500">-120ms</div>
-            <div className="text-xs text-muted-foreground uppercase font-bold tracking-widest">认知延迟缩减</div>
-          </div>
-        </div>
-
-        <div className="flex justify-center gap-4 pt-8">
-          <button 
-            onClick={() => setPhase('HOME')}
-            className="px-8 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-105 transition-transform"
-          >
-            继续下一轮推荐训练
-          </button>
-          <button 
-            onClick={() => window.location.href = '/dashboard'}
-            className="px-8 py-4 bg-muted text-foreground font-black rounded-2xl hover:bg-muted/80 transition-all"
-          >
-            返回总览
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 };
-
-// Utils
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
-}
 
 export default TrainingPage;

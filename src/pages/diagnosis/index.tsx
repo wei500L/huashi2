@@ -1,319 +1,446 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Timer, 
-  Brain, 
-  CheckCircle2, 
-  AlertCircle, 
-  ChevronRight, 
-  Play, 
-  ArrowLeft,
-  Activity,
-  Zap,
-  Target
-} from 'lucide-react';
-import { useDiagnosisStore } from '@/store/diagnosis.store';
-import { DiagnosisQuestion, AnswerRecord } from '@/types/diagnosis';
+import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, Brain, CheckCircle2, ChevronRight, Play, Timer } from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
+import { PageHeader } from '@/components/common';
+import { aiService, diagnosisSessionService, diagnosisTemplateService } from '@/lib/services';
+import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
+import type { DiagnosisOptionViewVO } from '@/lib/contracts';
 
-const mockQuestions: DiagnosisQuestion[] = [
-  {
-    id: 'q1',
-    type: 'RT_JUDGMENT',
-    wordPair: { en: 'table', fr: 'table', type: 'COGNATE' },
-    context: { level: 'LOW', sentence: '', options: ['语义一致', '语义不一致'], correctIndex: 0 }
-  },
-  {
-    id: 'q2',
-    type: 'RT_JUDGMENT',
-    wordPair: { en: 'coin', fr: 'coin', type: 'FALSE_FRIEND' },
-    context: { level: 'LOW', sentence: '', options: ['语义一致', '语义不一致'], correctIndex: 1 }
-  },
-  {
-    id: 'q3',
-    type: 'SEMANTIC_CONTEXT',
-    wordPair: { en: 'actually', fr: 'actuellement', type: 'FALSE_FRIEND' },
-    context: { 
-      level: 'HIGH', 
-      sentence: 'Il travaille "actuellement" à Paris.', 
-      options: ['Actually (实际上)', 'Currently (目前)'], 
-      correctIndex: 1 
-    }
-  },
-  {
-    id: 'q4',
-    type: 'RT_JUDGMENT',
-    wordPair: { en: 'nature', fr: 'nature', type: 'COGNATE' },
-    context: { level: 'MEDIUM', sentence: 'The "nature" of the problem.', options: ['语义一致', '语义不一致'], correctIndex: 0 }
+type Phase = 'boot' | 'select' | 'running' | 'result';
+
+function inferSemanticMatch(option: DiagnosisOptionViewVO): boolean {
+  const key = option.key.toLowerCase();
+  const label = option.label.toLowerCase();
+  if (key.includes('mismatch') || key.includes('false') || label.includes('不') || label.includes('diff')) {
+    return false;
   }
-];
+  return true;
+}
 
-const Diagnosis: React.FC = () => {
-  const { 
-    questions, currentIdx, records, isComplete, result, 
-    startDiagnosis, recordAnswer, reset 
-  } = useDiagnosisStore();
+const DiagnosisPage: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [phase, setPhase] = React.useState<Phase>('boot');
+  const [sessionId, setSessionId] = React.useState<number | null>(null);
+  const shownAtRef = React.useRef<number>(Date.now());
 
-  const [phase, setPhase] = useState<'INTRO' | 'QUIZ' | 'RESULT'>('INTRO');
-  const startTimeRef = useRef<number>(0);
+  const historyQuery = useQuery({
+    queryKey: ['diagnosis-history', 'in-progress'],
+    queryFn: () => diagnosisSessionService.listHistory({ pageNo: 1, pageSize: 1, status: 'IN_PROGRESS' }),
+  });
 
-  // 开始诊断
-  const handleStart = () => {
-    startDiagnosis(mockQuestions);
-    setPhase('QUIZ');
-    startTimeRef.current = Date.now();
-  };
-
-  // 处理作答
-  const handleAnswer = (optionIdx: number) => {
-    const endTime = Date.now();
-    const rt = endTime - startTimeRef.current;
-    const currentQ = questions[currentIdx];
-    const isCorrect = optionIdx === currentQ.context?.correctIndex;
-
-    recordAnswer({
-      questionId: currentQ.id,
-      isCorrect,
-      responseTime: rt,
-      timestamp: endTime,
-      wordPairType: currentQ.wordPair.type,
-      contextLevel: currentQ.context?.level || 'LOW'
-    });
-
-    if (currentIdx + 1 < questions.length) {
-      startTimeRef.current = Date.now();
-    } else {
-      setPhase('RESULT');
+  React.useEffect(() => {
+    if (!historyQuery.data) {
+      return;
     }
+    const inProgress = historyQuery.data.records[0];
+    if (inProgress?.sessionId) {
+      setSessionId(inProgress.sessionId);
+      setPhase('running');
+    } else {
+      setPhase('select');
+    }
+  }, [historyQuery.data]);
+
+  const templatesQuery = useQuery({
+    queryKey: ['student-diagnosis-templates'],
+    queryFn: () => diagnosisTemplateService.listPublished({ pageNo: 1, pageSize: 20 }),
+    enabled: phase === 'select',
+  });
+
+  const createSessionMutation = useMutation({
+    mutationFn: (templateId: number) => diagnosisSessionService.create(templateId),
+    onSuccess: (created) => {
+      setSessionId(created.sessionId);
+      setPhase('running');
+      shownAtRef.current = Date.now();
+      void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
+    },
+  });
+
+  const nextItemQuery = useQuery({
+    queryKey: ['diagnosis-next-item', sessionId],
+    queryFn: () => diagnosisSessionService.getNextItem(sessionId as number),
+    enabled: phase === 'running' && !!sessionId,
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: (value: number) => diagnosisSessionService.complete(value),
+    onSuccess: () => {
+      setPhase('result');
+      void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
+      void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
+      void queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
+    },
+  });
+
+  const submitAnswerMutation = useMutation({
+    mutationFn: (payload: {
+      itemResultId: number;
+      selectedSemanticMatch?: boolean;
+      selectedAnswerKey?: string;
+      reactionTimeMs: number;
+      hesitationTimeMs: number;
+    }) => diagnosisSessionService.submitAnswer(sessionId as number, payload),
+    onSuccess: async (progress) => {
+      if (progress.completed || progress.answeredItems >= progress.totalItems) {
+        await completeMutation.mutateAsync(progress.sessionId);
+        return;
+      }
+      shownAtRef.current = Date.now();
+      await nextItemQuery.refetch();
+    },
+  });
+
+  const resultQuery = useQuery({
+    queryKey: ['diagnosis-result', sessionId],
+    queryFn: () => diagnosisSessionService.getResult(sessionId as number),
+    enabled: phase === 'result' && !!sessionId,
+  });
+
+  const explanationQuery = useQuery({
+    queryKey: ['diagnosis-explanation', sessionId],
+    queryFn: () => aiService.explainDiagnosis(),
+    enabled: phase === 'result' && !!sessionId,
+    retry: false,
+  });
+
+  React.useEffect(() => {
+    if (!sessionId || phase !== 'running') {
+      return;
+    }
+    const persist = () => {
+      const snapshot = nextItemQuery.data
+        ? {
+            sessionId,
+            currentItemOrder: nextItemQuery.data.currentItemOrder,
+            answeredItems: nextItemQuery.data.answeredItems,
+            timestamp: new Date().toISOString(),
+          }
+        : { sessionId, timestamp: new Date().toISOString() };
+      void diagnosisSessionService.saveProgress(sessionId, snapshot);
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        persist();
+      }
+    };
+    window.addEventListener('beforeunload', persist);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', persist);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [nextItemQuery.data, phase, sessionId]);
+
+  const currentItem = nextItemQuery.data?.item;
+  const submitAnswer = async (option: DiagnosisOptionViewVO) => {
+    if (!currentItem) {
+      return;
+    }
+    const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
+    const hesitationTimeMs = Math.max(0, reactionTimeMs - 1200);
+    shownAtRef.current = Date.now();
+
+    if (currentItem.taskType === 'REACTION_TIME') {
+      await submitAnswerMutation.mutateAsync({
+        itemResultId: currentItem.itemResultId,
+        selectedSemanticMatch: inferSemanticMatch(option),
+        reactionTimeMs,
+        hesitationTimeMs,
+      });
+      return;
+    }
+    await submitAnswerMutation.mutateAsync({
+      itemResultId: currentItem.itemResultId,
+      selectedAnswerKey: option.key,
+      reactionTimeMs,
+      hesitationTimeMs,
+    });
   };
 
-  // 1. 引导页
-  if (phase === 'INTRO') {
+  if (phase === 'boot' || historyQuery.isLoading) {
     return (
-      <div className="max-w-3xl mx-auto py-12 px-6 bg-card border border-border rounded-3xl shadow-xl shadow-primary/5">
-        <div className="flex justify-center mb-8">
-          <div className="p-4 bg-primary/10 text-primary rounded-2xl">
-            <Brain size={48} />
-          </div>
-        </div>
-        <h1 className="text-3xl font-black text-center mb-4 tracking-tight">英法双语认知迁移智能诊断</h1>
-        <p className="text-muted-foreground text-center leading-relaxed mb-12">
-          欢迎参加认知决策任务。我们将通过一系列快速反应任务和语义判断任务，分析你在英法同源词与同形异义词处理中的正迁移表现与负迁移风险。
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          <div className="p-6 bg-muted/50 rounded-2xl border border-border">
-            <Zap className="text-amber-500 mb-3" size={24} />
-            <h3 className="font-bold mb-2 text-sm uppercase tracking-wider">反应速度</h3>
-            <p className="text-xs text-muted-foreground">部分题目要求你在 1s 内做出判断，以捕捉你的自动加工路径。</p>
-          </div>
-          <div className="p-6 bg-muted/50 rounded-2xl border border-border">
-            <Target className="text-blue-500 mb-3" size={24} />
-            <h3 className="font-bold mb-2 text-sm uppercase tracking-wider">语境辨析</h3>
-            <p className="text-xs text-muted-foreground">你将在不同强度的语境（低、中、高）下进行语义抉择。</p>
-          </div>
-        </div>
-
-        <button 
-          onClick={handleStart}
-          className="w-full flex items-center justify-center gap-3 bg-primary text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform"
-        >
-          我已准备好，立即开始 <Play size={20} fill="currentColor" />
-        </button>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">loading diagnosis session</div>
       </div>
     );
   }
 
-  // 2. 作答页
-  if (phase === 'QUIZ') {
-    const currentQ = questions[currentIdx];
-    const progress = ((currentIdx + 1) / questions.length) * 100;
-
+  if (phase === 'select') {
     return (
-      <div className="max-w-4xl mx-auto">
-        {/* 进度与计时 */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4 flex-1 max-w-xs">
-            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-              <motion.div 
-                className="h-full bg-primary" 
-                initial={{ width: 0 }} 
-                animate={{ width: `${progress}%` }} 
-              />
+      <div className="space-y-8">
+        <PageHeader title="智能诊断" subtitle="选择一个已发布模板，开始真实后端 session 流程。" />
+        <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
+          <div className="max-w-3xl">
+            <div className="inline-flex p-4 rounded-3xl bg-primary/10 border border-primary/20">
+              <Brain size={32} className="text-primary" />
             </div>
-            <span className="text-xs font-mono font-bold">{currentIdx + 1} / {questions.length}</span>
+            <h2 className="mt-6 text-4xl font-black text-slate-900 dark:text-white">开始一轮新的迁移诊断</h2>
+            <p className="mt-4 text-slate-500 dark:text-white/50 leading-7">
+              系统会根据模板生成真实的诊断题流，并在完成后直接写入 summary、训练计划和分析聚合。
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Timer size={16} />
-            <span className="text-xs font-mono uppercase tracking-widest">Live Stimulus Capture</span>
-          </div>
-        </div>
+        </section>
 
-        <AnimatePresence mode="wait">
-          <motion.div 
-            key={currentQ.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="bg-card border border-border rounded-3xl p-12 shadow-2xl shadow-primary/5 min-h-[400px] flex flex-col items-center justify-center"
-          >
-            {/* 刺激呈现区 */}
-            <div className="text-center mb-12">
-              <div className="flex items-center justify-center gap-12 mb-8">
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase text-blue-500 tracking-tighter">English</span>
-                  <div className="text-5xl font-black">{currentQ.wordPair.en}</div>
+        {templatesQuery.error && (
+          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{templatesQuery.error.message}</div>
+        )}
+
+        {!templatesQuery.isLoading && !templatesQuery.data?.records.length && (
+          <div className="rounded-[2rem] border border-slate-200 dark:border-white/10 p-8 text-slate-500 dark:text-white/45">
+            当前没有已发布模板。请联系教师先发布模板。
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {(templatesQuery.data?.records || []).map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              onClick={() => createSessionMutation.mutate(template.id)}
+              className="text-left liquid-glass rounded-[2.4rem] p-7 edge-light hover:border-primary/40 transition-all"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{template.status}</div>
+                  <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{template.templateName}</div>
+                  <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/45">{template.description || '无额外描述'}</div>
                 </div>
-                <div className="text-2xl font-light text-muted-foreground italic">vs</div>
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase text-rose-500 tracking-tighter">French</span>
-                  <div className="text-5xl font-black">{currentQ.wordPair.fr}</div>
+                <ChevronRight className="text-primary shrink-0" />
+              </div>
+              <div className="mt-6 flex gap-4 text-sm text-slate-500 dark:text-white/45">
+                <span>{template.itemCount} 题</span>
+                <span>{template.estimatedDurationMinutes} 分钟</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'running') {
+    return (
+      <div className="max-w-5xl mx-auto space-y-8">
+        <PageHeader
+          title="诊断进行中"
+          subtitle={sessionId ? `Session #${sessionId}` : '正在加载当前题目'}
+        />
+
+        {nextItemQuery.error && (
+          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{nextItemQuery.error.message}</div>
+        )}
+
+        {nextItemQuery.isLoading || !currentItem ? (
+          <div className="min-h-[360px] rounded-[2.8rem] liquid-glass-panel flex items-center justify-center">
+            <div className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">loading next item</div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-white/45">
+                <Timer size={16} />
+                <span>
+                  第 {nextItemQuery.data?.currentItemOrder}/{nextItemQuery.data?.totalItems} 题
+                </span>
+              </div>
+              <div className="w-56 h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-sky-500 to-blue-500"
+                  style={{
+                    width: `${((nextItemQuery.data?.answeredItems || 0) / Math.max(1, nextItemQuery.data?.totalItems || 1)) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                {currentItem.taskType} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
+              </div>
+              <div className="mt-8 grid md:grid-cols-2 gap-6 items-start">
+                <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 p-8">
+                  <div className="text-sm uppercase tracking-[0.24em] text-sky-500 mb-3">English</div>
+                  <div className="text-4xl font-black text-slate-900 dark:text-white">{currentItem.englishWord}</div>
+                </div>
+                <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 p-8">
+                  <div className="text-sm uppercase tracking-[0.24em] text-rose-500 mb-3">French</div>
+                  <div className="text-4xl font-black text-slate-900 dark:text-white">{currentItem.frenchWord}</div>
                 </div>
               </div>
 
-              {currentQ.context?.sentence && (
-                <div className="p-6 bg-muted/30 rounded-2xl border border-dashed border-border max-w-xl mx-auto">
-                  <p className="text-lg font-medium italic">"{currentQ.context.sentence}"</p>
+              {(currentItem.stimulus.promptText || currentItem.stimulus.instruction || currentItem.stimulus.contextSentence) && (
+                <div className="mt-8 rounded-[2rem] border border-dashed border-slate-300 dark:border-white/10 p-6 bg-white/40 dark:bg-white/5">
+                  {currentItem.stimulus.instruction && (
+                    <div className="text-sm font-bold text-slate-700 dark:text-white/75">{currentItem.stimulus.instruction}</div>
+                  )}
+                  {currentItem.stimulus.promptText && (
+                    <div className="mt-3 text-lg text-slate-800 dark:text-white/85">{currentItem.stimulus.promptText}</div>
+                  )}
+                  {currentItem.stimulus.contextSentence && (
+                    <div className="mt-3 text-slate-500 dark:text-white/45 italic">{currentItem.stimulus.contextSentence}</div>
+                  )}
                 </div>
               )}
-            </div>
 
-            {/* 决策选项 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md">
-              {currentQ.context?.options.map((opt, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleAnswer(i)}
-                  className="p-4 bg-background border border-border rounded-2xl font-bold hover:border-primary hover:bg-primary/5 transition-all text-sm group flex items-center justify-between"
-                >
-                  {opt}
-                  <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary" />
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    );
-  }
-
-  // 3. 结果页
-  if (phase === 'RESULT' && result) {
-    const radarOption = {
-      radar: {
-        indicator: [
-          { name: '正迁移能力', max: 1 },
-          { name: '负迁移控制', max: 1 },
-          { name: '语义辨析力', max: 1 },
-          { name: '语境敏感度', max: 1 },
-          { name: '认知流畅度', max: 1 },
-        ],
-        shape: 'circle',
-        splitNumber: 4,
-        axisName: { color: '#64748b', fontSize: 10 },
-        splitArea: { areaStyle: { color: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.2)'] } }
-      },
-      series: [{
-        type: 'radar',
-        data: [{
-          value: [
-            result.positiveTransferScore,
-            1 - result.negativeTransferRisk,
-            result.semanticDiscrimination,
-            result.contextSensitivity,
-            Math.min(1, 1500 / result.avgRT)
-          ],
-          name: '我的指标',
-          symbol: 'none',
-          areaStyle: { color: 'rgba(59, 130, 246, 0.2)' },
-          lineStyle: { color: '#3b82f6', width: 2 }
-        }]
-      }]
-    };
-
-    return (
-      <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col items-center text-center">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle2 size={40} />
-          </div>
-          <h1 className="text-4xl font-black mb-2">诊断分析完成</h1>
-          <p className="text-muted-foreground">已生成你的英法跨语言加工行为图谱</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* 左侧：认知画像图 */}
-          <div className="lg:col-span-2 bg-card border border-border rounded-3xl p-8 shadow-xl shadow-primary/5">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-bold flex items-center gap-2">
-                <Activity size={18} className="text-primary" /> 认知加工雷达图
-              </h3>
-              <div className="text-xs bg-muted px-3 py-1 rounded-full text-muted-foreground">基于 {records.length} 次刺激反应</div>
-            </div>
-            <div className="h-[400px]">
-              <ReactECharts option={radarOption} style={{ height: '100%' }} />
-            </div>
-          </div>
-
-          {/* 右侧：关键发现指标 */}
-          <div className="space-y-6">
-            <div className="bg-primary text-white p-8 rounded-3xl shadow-xl shadow-primary/20">
-              <h3 className="text-sm font-bold uppercase tracking-widest mb-6 opacity-80">Core Findings</h3>
-              <div className="space-y-6">
-                <div>
-                  <div className="text-xs mb-1 opacity-70">正迁移得分</div>
-                  <div className="text-4xl font-black">{(result.positiveTransferScore * 100).toFixed(0)}%</div>
-                  <div className="w-full h-1 bg-white/20 rounded-full mt-2">
-                    <div className="h-full bg-white" style={{ width: `${result.positiveTransferScore * 100}%` }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs mb-1 opacity-70">负迁移风险指数</div>
-                  <div className="text-4xl font-black text-rose-200">{(result.negativeTransferRisk * 100).toFixed(0)}%</div>
-                  <div className="w-full h-1 bg-white/20 rounded-full mt-2">
-                    <div className="h-full bg-rose-300" style={{ width: `${result.negativeTransferRisk * 100}%` }} />
-                  </div>
-                </div>
+              <div className="mt-8 grid gap-4">
+                {currentItem.options.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    disabled={submitAnswerMutation.isPending || completeMutation.isPending}
+                    onClick={() => void submitAnswer(option)}
+                    className="w-full rounded-[1.8rem] border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-5 py-4 text-left hover:border-primary/50 transition-all disabled:opacity-60"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-bold text-slate-900 dark:text-white">{option.label}</span>
+                      <ChevronRight className="text-primary" size={16} />
+                    </div>
+                  </button>
+                ))}
               </div>
-            </div>
-
-            <div className="bg-card border border-border p-8 rounded-3xl">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-widest text-muted-foreground">
-                <AlertCircle size={14} /> 实验观察发现
-              </h3>
-              <ul className="space-y-4">
-                <li className="flex gap-3 items-start">
-                  <div className="mt-1.5 w-1.5 h-1.5 bg-primary rounded-full shrink-0" />
-                  <p className="text-xs leading-relaxed">你在 **Cognate** 词对上的平均反应时为 **{result.avgRT - 100}ms**，展现出极强的正向认知促进作用。</p>
-                </li>
-                <li className="flex gap-3 items-start">
-                  <div className="mt-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full shrink-0" />
-                  <p className="text-xs leading-relaxed">面对 **False Friends** 时，你的反应时显著延长（+{Math.floor(result.avgRT * 0.4)}ms），说明大脑正在进行剧烈的语义抑制控制。</p>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-center gap-4">
-          <button 
-            onClick={() => setPhase('INTRO')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={18} /> 重新诊断
-          </button>
-          <button 
-            className="bg-foreground text-background px-8 py-3 rounded-2xl font-bold shadow-lg shadow-foreground/10 hover:scale-105 transition-transform"
-            onClick={() => window.location.href = '/dashboard'}
-          >
-            回到总览
-          </button>
-        </div>
+            </section>
+          </>
+        )}
       </div>
     );
   }
 
-  return null;
+  const result = resultQuery.data;
+  const radarOption = buildRadarOption(
+    result?.chartPayload.radarMetrics.map((metric) => ({
+      key: metric.key,
+      label: metric.label,
+      value: metric.value,
+      max: metric.max,
+    }))
+  );
+
+  return (
+    <div className="space-y-8 pb-20">
+      <PageHeader title="诊断结果" subtitle={result ? `${result.templateName} · 完成于 ${formatDateTime(result.completedAt)}` : '正在加载结果'} />
+
+      {resultQuery.error && (
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{resultQuery.error.message}</div>
+      )}
+
+      {result && (
+        <>
+          <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
+            <div className="flex flex-col lg:flex-row justify-between gap-8 items-start">
+              <div>
+                <div className="inline-flex items-center gap-3 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-emerald-500">
+                  <CheckCircle2 size={14} />
+                  diagnosis completed
+                </div>
+                <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">已生成真实诊断 summary</h2>
+                <p className="mt-4 text-slate-500 dark:text-white/45 leading-7">
+                  本次结果已经进入训练计划和分析聚合链路。你现在可以直接转入训练，或者先阅读 AI 解释。
+                </p>
+              </div>
+              <button type="button" onClick={() => setPhase('select')} className="btn-liquid px-6 py-3 text-white">
+                再做一轮诊断
+              </button>
+            </div>
+          </section>
+
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="rounded-[2rem] liquid-glass p-6">
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">正迁移得分</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMaybePercent(result.metrics.positiveTransferScore)}</div>
+            </div>
+            <div className="rounded-[2rem] liquid-glass p-6">
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">负迁移风险</div>
+              <div className="mt-3 text-3xl font-black text-rose-500">{formatMaybePercent(result.metrics.negativeTransferRisk)}</div>
+            </div>
+            <div className="rounded-[2rem] liquid-glass p-6">
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">语义辨析</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMaybePercent(result.metrics.semanticDiscrimination)}</div>
+            </div>
+            <div className="rounded-[2rem] liquid-glass p-6">
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">平均反应时</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMs(result.metrics.averageReactionTime)}</div>
+            </div>
+          </div>
+
+          <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-8">
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">radar profile</div>
+              <div className="h-[360px]">
+                <ReactECharts option={radarOption} style={{ height: '100%' }} />
+              </div>
+            </section>
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">AI explain diagnosis</div>
+              {explanationQuery.isLoading ? (
+                <div className="text-sm text-slate-500 dark:text-white/45">正在生成解释...</div>
+              ) : explanationQuery.data ? (
+                <div className="space-y-4">
+                  <p className="text-base leading-7 text-slate-800 dark:text-white/85">{explanationQuery.data.explanation}</p>
+                  <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">教师/系统备注</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45 leading-6">{explanationQuery.data.teacherNote}</div>
+                  </div>
+                </div>
+              ) : explanationQuery.error ? (
+                <div className="text-sm text-rose-500">{explanationQuery.error.message}</div>
+              ) : (
+                <div className="text-sm text-slate-500 dark:text-white/45">暂无解释内容。</div>
+              )}
+            </section>
+          </div>
+
+          <div className="grid xl:grid-cols-2 gap-8">
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">高风险词对</div>
+              <div className="space-y-4">
+                {result.highRiskLexicalPairs.map((item) => (
+                  <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                        <div className="text-sm text-slate-500 dark:text-white/45 mt-2">
+                          {lexicalPairTypeLabel(item.lexicalPairType)} · {item.dominantErrorType}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-rose-500">{formatMaybePercent(item.riskScore)}</div>
+                        <div className="text-xs text-slate-400 dark:text-white/30">{formatMs(item.averageReactionTime)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">题目明细</div>
+              <div className="space-y-4 max-h-[540px] overflow-y-auto no-scrollbar">
+                {result.items.map((item) => (
+                  <div key={item.itemResultId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white">
+                          #{item.presentationOrder} {item.englishWord} / {item.frenchWord}
+                        </div>
+                        <div className="text-sm text-slate-500 dark:text-white/45 mt-2">
+                          {item.detectedErrorType} · {item.correct ? '正确' : '错误'}
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-slate-500 dark:text-white/45">
+                        <div>{formatMs(item.reactionTimeMs)}</div>
+                        <div>{formatMaybePercent(item.transferRiskScore)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </>
+      )}
+    </div>
+  );
 };
 
-export default Diagnosis;
+export default DiagnosisPage;

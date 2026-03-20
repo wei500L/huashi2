@@ -160,6 +160,40 @@ public class DiagnosisTemplateService {
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
     }
 
+    public PageResult<DiagnosisTemplateSummaryVO> pagePublishedTemplates(DiagnosisTemplatePageQuery query) {
+        PageQuery pageQuery = query.toPageQuery();
+        LambdaQueryWrapper<DiagnosisTemplateEntity> wrapper = Wrappers.<DiagnosisTemplateEntity>lambdaQuery()
+                .eq(DiagnosisTemplateEntity::getStatus, DiagnosisTemplateStatus.PUBLISHED.name())
+                .orderByDesc(DiagnosisTemplateEntity::getUpdatedAt)
+                .orderByDesc(DiagnosisTemplateEntity::getId);
+
+        if (query.keyword() != null && !query.keyword().isBlank()) {
+            String keyword = query.keyword().trim();
+            wrapper.and(condition -> condition.like(DiagnosisTemplateEntity::getTemplateName, keyword)
+                    .or()
+                    .like(DiagnosisTemplateEntity::getDescription, keyword));
+        }
+
+        long total = diagnosisTemplateMapper.selectCount(wrapper);
+        List<DiagnosisTemplateEntity> templates = diagnosisTemplateMapper.selectList(wrapper
+                .last("LIMIT " + pageQuery.pageSize() + " OFFSET " + pageQuery.offset()));
+
+        List<DiagnosisTemplateSummaryVO> records = templates.stream()
+                .map(entity -> new DiagnosisTemplateSummaryVO(
+                        entity.getId(),
+                        entity.getTemplateName(),
+                        entity.getDescription(),
+                        entity.getStatus(),
+                        entity.getItemCount(),
+                        entity.getEstimatedDurationMinutes(),
+                        entity.getScoringVersion(),
+                        entity.getOwnerUserId(),
+                        entity.getUpdatedAt()
+                ))
+                .toList();
+        return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
+    }
+
     public DiagnosisTemplateDetailVO getDetail(Long templateId) {
         DiagnosisTemplateEntity template = requireManageableTemplate(templateId);
         List<DiagnosisTemplateItemEntity> itemEntities = diagnosisTemplateItemMapper.selectList(Wrappers.<DiagnosisTemplateItemEntity>lambdaQuery()

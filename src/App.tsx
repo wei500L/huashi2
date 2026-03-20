@@ -1,27 +1,69 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/layout';
 import { useAuthStore, useUIStore } from './store';
+import { SESSION_CHANGE_EVENT } from './lib/session';
+import { roleHomePath } from './lib/format';
+import Login from './pages/Login';
 import Dashboard from './pages/dashboard/index';
+import DiagnosisPage from './pages/diagnosis/index';
+import TrainingPage from './pages/training/index';
+import AnalyticsPage from './pages/analytics/index';
+import ErrorsPage from './pages/student/Errors';
+import SettingsPage from './pages/student/Settings';
+import TeacherClassesPage from './pages/teacher/Classes';
+import TeacherClassDetailPage from './pages/teacher/ClassDetail';
+import TeacherStudentDetailPage from './pages/teacher/StudentDetail';
+import TeacherTemplatesPage from './pages/teacher/Templates';
+import TeacherLexicalPairsPage from './pages/teacher/LexicalPairs';
+import TeacherLexicalListsPage from './pages/teacher/LexicalLists';
+import TeacherInterventionsPage from './pages/teacher/Interventions';
+import AdminUsersPage from './pages/admin/index';
+import type { Role } from './lib/contracts';
 
-const Placeholder = ({ name }: { name: string }) => (
-  <div className="p-8 border-2 border-dashed border-border rounded-3xl flex flex-col items-center justify-center min-h-[400px] text-muted-foreground bg-muted/5">
-    <h2 className="text-xl font-bold text-foreground mb-2">{name} 模块开发中</h2>
-    <p>正在连接英法双语语料库与认知加工模型...</p>
+const BootScreen: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="text-[10px] uppercase tracking-[0.4em] text-slate-400 dark:text-white/30">initializing session</div>
   </div>
 );
 
-const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+  const authenticated = useAuthStore((state) => state.status === 'authenticated' && !!state.session?.accessToken);
+  return authenticated ? <>{children}</> : <Navigate to="/login" replace state={{ from: location.pathname }} />;
+};
+
+const RequireRole: React.FC<{ roles: Role[]; children: React.ReactNode }> = ({ roles, children }) => {
+  const user = useAuthStore((state) => state.user);
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return roles.includes(user.primaryRole) ? <>{children}</> : <Navigate to={roleHomePath(user.primaryRole)} replace />;
+};
+
+const HomeRedirect: React.FC = () => {
+  const user = useAuthStore((state) => state.user);
+  return <Navigate to={roleHomePath(user?.primaryRole)} replace />;
 };
 
 const App: React.FC = () => {
-  const { login, isAuthenticated } = useAuthStore();
+  const initialize = useAuthStore((state) => state.initialize);
+  const syncFromStorage = useAuthStore((state) => state.syncFromStorage);
+  const status = useAuthStore((state) => state.status);
+  const user = useAuthStore((state) => state.user);
   const { isDarkMode } = useUIStore();
 
-  // Initialize light/dark mode
-  useEffect(() => {
+  React.useEffect(() => {
+    void initialize();
+  }, [initialize]);
+
+  React.useEffect(() => {
+    const handler = () => syncFromStorage();
+    window.addEventListener(SESSION_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(SESSION_CHANGE_EVENT, handler);
+  }, [syncFromStorage]);
+
+  React.useEffect(() => {
     const root = window.document.documentElement;
     if (isDarkMode) {
       root.classList.add('dark');
@@ -30,28 +72,134 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  // MVP Test: Auto Login
-  useEffect(() => {
-    if (!isAuthenticated) {
-      login('STUDENT');
-    }
-  }, [isAuthenticated, login]);
+  if (status === 'idle' || status === 'loading') {
+    return <BootScreen />;
+  }
 
   return (
     <Routes>
-      <Route path="/login" element={<div className="h-screen flex items-center justify-center font-bold text-2xl bg-slate-900 text-white">Login Page Placeholder</div>} />
-      
-      <Route path="/" element={<AuthGuard><AppLayout /></AuthGuard>}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="diagnosis" element={<Placeholder name="智能诊断" />} />
-        <Route path="training" element={<Placeholder name="个性化训练" />} />
-        <Route path="analytics" element={<Placeholder name="学情分析" />} />
-        <Route path="tasks" element={<Placeholder name="实验任务" />} />
-        <Route path="errors" element={<Placeholder name="错题库" />} />
-        <Route path="teacher" element={<Placeholder name="班级管理" />} />
-        <Route path="monitor" element={<Placeholder name="数据监控" />} />
-        <Route path="settings" element={<Placeholder name="系统设置" />} />
+      <Route path="/login" element={status === 'authenticated' && user ? <Navigate to={roleHomePath(user.primaryRole)} replace /> : <Login />} />
+
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <AppLayout />
+          </RequireAuth>
+        }
+      >
+        <Route index element={<HomeRedirect />} />
+
+        <Route
+          path="dashboard"
+          element={
+            <RequireRole roles={['STUDENT']}>
+              <Dashboard />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="diagnosis"
+          element={
+            <RequireRole roles={['STUDENT']}>
+              <DiagnosisPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="training"
+          element={
+            <RequireRole roles={['STUDENT']}>
+              <TrainingPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="analytics"
+          element={
+            <RequireRole roles={['STUDENT']}>
+              <AnalyticsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="errors"
+          element={
+            <RequireRole roles={['STUDENT']}>
+              <ErrorsPage />
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="teacher/classes"
+          element={
+            <RequireRole roles={['TEACHER']}>
+              <TeacherClassesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="teacher/classes/:classId"
+          element={
+            <RequireRole roles={['TEACHER']}>
+              <TeacherClassDetailPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="teacher/classes/:classId/students/:studentUserId"
+          element={
+            <RequireRole roles={['TEACHER']}>
+              <TeacherStudentDetailPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="teacher/diagnosis-templates"
+          element={
+            <RequireRole roles={['TEACHER']}>
+              <TeacherTemplatesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="teacher/lexical-pairs"
+          element={
+            <RequireRole roles={['TEACHER']}>
+              <TeacherLexicalPairsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="teacher/lexical-lists"
+          element={
+            <RequireRole roles={['TEACHER']}>
+              <TeacherLexicalListsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="teacher/interventions"
+          element={
+            <RequireRole roles={['TEACHER']}>
+              <TeacherInterventionsPage />
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="admin/users"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <AdminUsersPage />
+            </RequireRole>
+          }
+        />
+
+        <Route path="teacher" element={<Navigate to="/teacher/classes" replace />} />
+        <Route path="monitor" element={<Navigate to="/teacher/interventions" replace />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
