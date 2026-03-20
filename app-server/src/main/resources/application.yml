@@ -76,6 +76,9 @@ integration:
     base-url: ${AI_GATEWAY_BASE_URL:http://localhost:8090}
     connect-timeout: ${AI_GATEWAY_CONNECT_TIMEOUT:PT3S}
     read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT5S}
+    max-attempts: ${AI_GATEWAY_MAX_ATTEMPTS:2}
+    retry-backoff: ${AI_GATEWAY_RETRY_BACKOFF:PT0.2S}
+    degrade-enabled: ${AI_GATEWAY_DEGRADE_ENABLED:true}
 
 logging:
   level:

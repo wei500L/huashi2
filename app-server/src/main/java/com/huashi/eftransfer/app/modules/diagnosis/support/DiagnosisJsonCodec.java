@@ -43,10 +43,16 @@ public class DiagnosisJsonCodec {
     }
 
     public List<DiagnosisDistributionItem> readDistributionItems(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
         return Arrays.asList(read(json, DiagnosisDistributionItem[].class));
     }
 
     public List<DiagnosisHighRiskLexicalPair> readHighRiskLexicalPairs(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
         return Arrays.asList(read(json, DiagnosisHighRiskLexicalPair[].class));
     }
 

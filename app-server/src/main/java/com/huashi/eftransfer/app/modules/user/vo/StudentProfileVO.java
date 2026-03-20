@@ -5,6 +5,7 @@ public record StudentProfileVO(
         String gradeName,
         String englishLevel,
         String frenchLevel,
+        String courseStage,
         Integer compositeScore
 ) {
 }

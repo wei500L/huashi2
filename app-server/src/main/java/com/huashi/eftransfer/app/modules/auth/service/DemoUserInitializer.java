@@ -65,11 +65,11 @@ public class DemoUserInitializer implements ApplicationRunner {
 
         UserEntity studentOne = ensureUser("student.li", "student.li@ef.local", "李华", "Student@123456");
         ensureRole(studentOne.getId(), UserRole.STUDENT);
-        ensureStudentProfile(studentOne.getId(), "S-1001", "Grade 10", "B2", "B1", 72);
+        ensureStudentProfile(studentOne.getId(), "S-1001", "Grade 10", "B2", "B1", "FOUNDATION", 72);
 
         UserEntity studentTwo = ensureUser("student.wang", "student.wang@ef.local", "王敏", "Student@123456");
         ensureRole(studentTwo.getId(), UserRole.STUDENT);
-        ensureStudentProfile(studentTwo.getId(), "S-1002", "Grade 11", "B1", "A2", 63);
+        ensureStudentProfile(studentTwo.getId(), "S-1002", "Grade 11", "B1", "A2", "FOUNDATION", 63);
 
         Long classId = ensureTeachingClass(teacher.getId(), "CLS-0001", "2024级英法迁移试点1班", "Pilot Grade");
         ensureTeachingClassMember(classId, studentOne.getId());
@@ -117,6 +117,7 @@ public class DemoUserInitializer implements ApplicationRunner {
             String gradeName,
             String englishLevel,
             String frenchLevel,
+            String courseStage,
             int compositeScore
     ) {
         Long count = studentProfileMapper.selectCount(Wrappers.<StudentProfileEntity>lambdaQuery()
@@ -130,6 +131,7 @@ public class DemoUserInitializer implements ApplicationRunner {
         profile.setGradeName(gradeName);
         profile.setEnglishLevel(englishLevel);
         profile.setFrenchLevel(frenchLevel);
+        profile.setCourseStage(courseStage);
         profile.setCompositeScore(compositeScore);
         profile.setCreatedBy(0L);
         profile.setUpdatedBy(0L);

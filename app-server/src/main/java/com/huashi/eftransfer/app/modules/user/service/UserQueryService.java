@@ -81,6 +81,7 @@ public class UserQueryService {
                 studentProfile.getGradeName(),
                 studentProfile.getEnglishLevel(),
                 studentProfile.getFrenchLevel(),
+                studentProfile.getCourseStage(),
                 studentProfile.getCompositeScore()
         );
         TeacherProfileVO teacherProfileVO = teacherProfile == null ? null : new TeacherProfileVO(

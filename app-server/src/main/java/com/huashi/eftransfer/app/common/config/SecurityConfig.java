@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/actuator/info"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/ai/**").hasRole("STUDENT")
                         .requestMatchers("/api/teacher/**").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/student/**").hasAnyRole("STUDENT", "ADMIN")
                         .anyRequest().authenticated()

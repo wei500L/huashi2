@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.integration.ai.client;
 
+import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
 import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
@@ -7,12 +8,12 @@ import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
-import com.huashi.eftransfer.shared.ai.RerankRequest;
-import com.huashi.eftransfer.shared.ai.RerankResponse;
 import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RerankRequest;
+import com.huashi.eftransfer.shared.ai.RerankResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.sun.net.httpserver.HttpExchange;
@@ -26,10 +27,14 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,8 +43,9 @@ class AiGatewayClientTest {
 
     private static HttpServer server;
     private static String baseUrl;
-    private static final AtomicReference<StubResponse> NEXT_RESPONSE = new AtomicReference<>();
+    private static final Queue<StubResponse> RESPONSES = new ConcurrentLinkedQueue<>();
     private static final AtomicReference<CapturedRequest> LAST_REQUEST = new AtomicReference<>();
+    private static final AtomicInteger REQUEST_COUNT = new AtomicInteger();
 
     private AiGatewayClient aiGatewayClient;
 
@@ -60,14 +66,18 @@ class AiGatewayClientTest {
 
     @BeforeEach
     void setUp() {
-        NEXT_RESPONSE.set(null);
+        RESPONSES.clear();
         LAST_REQUEST.set(null);
-        aiGatewayClient = new AiGatewayClient(RestClient.builder().baseUrl(baseUrl).build());
+        REQUEST_COUNT.set(0);
+        aiGatewayClient = new AiGatewayClient(
+                RestClient.builder().baseUrl(baseUrl).build(),
+                defaultProperties()
+        );
     }
 
     @Test
     void shouldFetchHealthPayload() {
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -103,7 +113,7 @@ class AiGatewayClientTest {
 
     @Test
     void shouldPostChatRequestAndDeserializeResponse() {
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -125,15 +135,17 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        ChatResponse response = aiGatewayClient.chat(new ChatRequest(
+        AiGatewayCallResult<ChatResponse> response = aiGatewayClient.chat(new ChatRequest(
                 List.of(new ChatMessage("user", "Say hello")),
                 null,
                 0.2D,
                 256
         ));
 
-        assertThat(response.content()).isEqualTo("hello");
-        assertThat(response.usage().totalTokens()).isEqualTo(6);
+        assertThat(response.success()).isTrue();
+        assertThat(response.attempts()).isEqualTo(1);
+        assertThat(response.data().content()).isEqualTo("hello");
+        assertThat(response.data().usage().totalTokens()).isEqualTo(6);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/chat");
         assertThat(LAST_REQUEST.get().body()).contains("\"messages\"");
         assertThat(LAST_REQUEST.get().body()).contains("\"Say hello\"");
@@ -141,7 +153,7 @@ class AiGatewayClientTest {
 
     @Test
     void shouldPostStructuredChatRequestAndDeserializeStructuredMap() {
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -167,7 +179,7 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        StructuredChatResponse response = aiGatewayClient.structuredChat(new StructuredChatRequest(
+        AiGatewayCallResult<StructuredChatResponse> response = aiGatewayClient.structuredChat(new StructuredChatRequest(
                 List.of(new ChatMessage("user", "Return JSON")),
                 null,
                 0.1D,
@@ -183,15 +195,16 @@ class AiGatewayClientTest {
                 )
         ));
 
-        assertThat(response.structuredData()).containsEntry("summary", "ok");
-        assertThat(response.structuredData()).containsEntry("score", 95);
+        assertThat(response.success()).isTrue();
+        assertThat(response.data().structuredData()).containsEntry("summary", "ok");
+        assertThat(response.data().structuredData()).containsEntry("score", 95);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/chat/structured");
         assertThat(LAST_REQUEST.get().body()).contains("\"schemaName\":\"ResultSchema\"");
     }
 
     @Test
     void shouldPostEmbeddingRequests() {
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -215,13 +228,14 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        EmbeddingResponse single = aiGatewayClient.embed(new EmbeddingRequest("alpha", null, 3));
+        AiGatewayCallResult<EmbeddingResponse> single = aiGatewayClient.embed(new EmbeddingRequest("alpha", null, 3));
 
-        assertThat(single.items()).hasSize(1);
+        assertThat(single.success()).isTrue();
+        assertThat(single.data().items()).hasSize(1);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/embed");
         assertThat(LAST_REQUEST.get().body()).contains("\"text\":\"alpha\"");
 
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -245,17 +259,18 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        EmbeddingResponse batch = aiGatewayClient.embedBatch(new EmbeddingBatchRequest(List.of("alpha", "beta"), null, 3));
+        AiGatewayCallResult<EmbeddingResponse> batch = aiGatewayClient.embedBatch(new EmbeddingBatchRequest(List.of("alpha", "beta"), null, 3));
 
-        assertThat(batch.items()).hasSize(2);
-        assertThat(batch.items().get(1).text()).isEqualTo("beta");
+        assertThat(batch.success()).isTrue();
+        assertThat(batch.data().items()).hasSize(2);
+        assertThat(batch.data().items().get(1).text()).isEqualTo("beta");
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/embed/batch");
         assertThat(LAST_REQUEST.get().body()).contains("\"texts\":[\"alpha\",\"beta\"]");
     }
 
     @Test
     void shouldPostRerankRequestAndDeserializeResponse() {
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -275,7 +290,7 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        RerankResponse response = aiGatewayClient.rerank(new RerankRequest(
+        AiGatewayCallResult<RerankResponse> response = aiGatewayClient.rerank(new RerankRequest(
                 null,
                 "hello",
                 List.of("doc-a", "doc-b"),
@@ -284,15 +299,16 @@ class AiGatewayClientTest {
                 null
         ));
 
-        assertThat(response.items()).hasSize(2);
-        assertThat(response.items().get(0).index()).isEqualTo(1);
+        assertThat(response.success()).isTrue();
+        assertThat(response.data().items()).hasSize(2);
+        assertThat(response.data().items().get(0).index()).isEqualTo(1);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rerank");
         assertThat(LAST_REQUEST.get().body()).contains("\"query\":\"hello\"");
     }
 
     @Test
     void shouldPostRagAnswerRequestAndDeserializeResponse() {
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -331,18 +347,19 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        RagAnswerResponse response = aiGatewayClient.ragAnswer(new RagAnswerRequest("Why is coin/coin risky?", null, null));
+        AiGatewayCallResult<RagAnswerResponse> response = aiGatewayClient.ragAnswer(new RagAnswerRequest("Why is coin/coin risky?", null, null));
 
-        assertThat(response.grounded()).isTrue();
-        assertThat(response.citations()).hasSize(1);
-        assertThat(response.contextChunks()).hasSize(1);
+        assertThat(response.success()).isTrue();
+        assertThat(response.data().grounded()).isTrue();
+        assertThat(response.data().citations()).hasSize(1);
+        assertThat(response.data().contextChunks()).hasSize(1);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rag/answer");
         assertThat(LAST_REQUEST.get().body()).contains("\"query\":\"Why is coin/coin risky?\"");
     }
 
     @Test
     void shouldPostExplainRiskRequestAndDeserializeResponse() {
-        NEXT_RESPONSE.set(StubResponse.ok("""
+        enqueue(StubResponse.ok("""
                 {
                   "success": true,
                   "code": "SUCCESS",
@@ -369,7 +386,7 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        RagExplainRiskResponse response = aiGatewayClient.explainRisk(new RagExplainRiskRequest(
+        AiGatewayCallResult<RagExplainRiskResponse> response = aiGatewayClient.explainRisk(new RagExplainRiskRequest(
                 new com.huashi.eftransfer.shared.ai.RagDiagnosticSummary(0.81, 0.42, 0.57, 1310L),
                 List.of(new com.huashi.eftransfer.shared.ai.RagErrorTypeStat("false_friend_confusion", "False Friend Confusion", 4L, 0.5)),
                 List.of(new com.huashi.eftransfer.shared.ai.RagRiskLexicalPair(
@@ -386,13 +403,110 @@ class AiGatewayClientTest {
                 ))
         ));
 
-        assertThat(response.riskExplanation()).contains("surface similarity");
-        assertThat(response.citations()).hasSize(1);
+        assertThat(response.success()).isTrue();
+        assertThat(response.data().riskExplanation()).contains("surface similarity");
+        assertThat(response.data().citations()).hasSize(1);
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/rag/explain-risk");
         assertThat(LAST_REQUEST.get().body()).contains("\"highRiskLexicalPairs\"");
     }
 
+    @Test
+    void shouldRetryAndEventuallySucceedOnRetryableStatus() {
+        enqueue(StubResponse.status(503, """
+                {
+                  "success": false,
+                  "code": "AI_PROVIDER_UNAVAILABLE",
+                  "message": "downstream unavailable",
+                  "data": null,
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-retry-1"
+                }
+                """));
+        enqueue(StubResponse.ok("""
+                {
+                  "success": true,
+                  "code": "SUCCESS",
+                  "message": "Request succeeded",
+                  "data": {
+                    "provider": "qwen",
+                    "model": "qwen-max",
+                    "content": "retry-ok",
+                    "finishReason": "stop",
+                    "providerRequestId": "chat-retry",
+                    "usage": {
+                      "promptTokens": 3,
+                      "completionTokens": 2,
+                      "totalTokens": 5
+                    }
+                  },
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-retry-2"
+                }
+                """));
+
+        AiGatewayCallResult<ChatResponse> response = aiGatewayClient.chat(new ChatRequest(
+                List.of(new ChatMessage("user", "Retry please")),
+                null,
+                0.2D,
+                128
+        ));
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.attempts()).isEqualTo(2);
+        assertThat(response.data().content()).isEqualTo("retry-ok");
+        assertThat(REQUEST_COUNT.get()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldReturnFailureWhenRetryExhaustedForRagEndpoint() {
+        enqueue(StubResponse.status(503, """
+                {
+                  "success": false,
+                  "code": "RAG_UNAVAILABLE",
+                  "message": "vector store unavailable",
+                  "data": null,
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-rag-1"
+                }
+                """));
+        enqueue(StubResponse.status(503, """
+                {
+                  "success": false,
+                  "code": "RAG_UNAVAILABLE",
+                  "message": "vector store unavailable",
+                  "data": null,
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-rag-2"
+                }
+                """));
+
+        AiGatewayCallResult<RagAnswerResponse> response = aiGatewayClient.ragAnswer(new RagAnswerRequest(
+                "Why is coin/coin risky?",
+                List.of("TRAINING_GUIDE"),
+                List.of()
+        ));
+
+        assertThat(response.success()).isFalse();
+        assertThat(response.failureReason()).isEqualTo(AiGatewayFailureReason.RAG_UNAVAILABLE);
+        assertThat(response.attempts()).isEqualTo(2);
+        assertThat(response.endpoint()).isEqualTo("/internal/ai/rag/answer");
+        assertThat(REQUEST_COUNT.get()).isEqualTo(2);
+    }
+
+    private AiGatewayClientProperties defaultProperties() {
+        AiGatewayClientProperties properties = new AiGatewayClientProperties();
+        properties.setBaseUrl(baseUrl);
+        properties.setMaxAttempts(2);
+        properties.setRetryBackoff(Duration.ZERO);
+        return properties;
+    }
+
+    private static void enqueue(StubResponse response) {
+        RESPONSES.offer(response);
+    }
+
     private static void handle(HttpExchange exchange) throws IOException {
+        REQUEST_COUNT.incrementAndGet();
         byte[] requestBytes = exchange.getRequestBody().readAllBytes();
         LAST_REQUEST.set(new CapturedRequest(
                 exchange.getRequestMethod(),
@@ -401,7 +515,7 @@ class AiGatewayClientTest {
         ));
 
         StubResponse response = Objects.requireNonNullElseGet(
-                NEXT_RESPONSE.get(),
+                RESPONSES.poll(),
                 () -> new StubResponse(500, "{\"success\":false}")
         );
         byte[] responseBytes = response.body().getBytes(StandardCharsets.UTF_8);
@@ -415,6 +529,10 @@ class AiGatewayClientTest {
 
         private static StubResponse ok(String body) {
             return new StubResponse(200, body);
+        }
+
+        private static StubResponse status(int status, String body) {
+            return new StubResponse(status, body);
         }
     }
 

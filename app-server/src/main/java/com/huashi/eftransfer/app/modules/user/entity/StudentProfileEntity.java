@@ -24,6 +24,9 @@ public class StudentProfileEntity extends BaseAuditEntity {
     @TableField("french_level")
     private String frenchLevel;
 
+    @TableField("course_stage")
+    private String courseStage;
+
     @TableField("composite_score")
     private Integer compositeScore;
 
@@ -71,6 +74,14 @@ public class StudentProfileEntity extends BaseAuditEntity {
 
     public void setFrenchLevel(String frenchLevel) {
         this.frenchLevel = frenchLevel;
+    }
+
+    public String getCourseStage() {
+        return courseStage;
+    }
+
+    public void setCourseStage(String courseStage) {
+        this.courseStage = courseStage;
     }
 
     public Integer getCompositeScore() {
