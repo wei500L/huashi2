@@ -1,16 +1,12 @@
 package com.huashi.eftransfer.app.common.security.store;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.Optional;
 
-@Component
-@ConditionalOnMissingBean(AuthTokenStore.class)
 public class RedisAuthTokenStore implements AuthTokenStore {
 
     private static final String REFRESH_PREFIX = "auth:refresh:";

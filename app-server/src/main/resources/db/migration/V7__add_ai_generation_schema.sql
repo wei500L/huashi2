@@ -1,5 +1,5 @@
 ALTER TABLE student_profile
-    ADD COLUMN IF NOT EXISTS course_stage VARCHAR(64) NOT NULL DEFAULT 'FOUNDATION';
+    ADD COLUMN course_stage VARCHAR(64) NOT NULL DEFAULT 'FOUNDATION';
 
 UPDATE student_profile
 SET course_stage = 'FOUNDATION'

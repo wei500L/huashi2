@@ -1,8 +1,8 @@
 ALTER TABLE student_profile
-    ADD COLUMN IF NOT EXISTS learning_profile_snapshot_json LONGTEXT NULL;
+    ADD COLUMN learning_profile_snapshot_json LONGTEXT NULL;
 
 ALTER TABLE student_profile
-    ADD COLUMN IF NOT EXISTS learning_profile_updated_at TIMESTAMP NULL;
+    ADD COLUMN learning_profile_updated_at TIMESTAMP NULL;
 
 CREATE TABLE IF NOT EXISTS training_plan
 (

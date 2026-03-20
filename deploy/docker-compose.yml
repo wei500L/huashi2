@@ -15,7 +15,6 @@ services:
       - mysql-data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
     command:
-      - --default-authentication-plugin=caching_sha2_password
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
     healthcheck:
@@ -25,7 +24,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:8.6-bookworm
+    image: redis:8-bookworm
     container_name: ef-transfer-redis
     restart: unless-stopped
     ports:
@@ -71,7 +70,7 @@ services:
     ports:
       - "${AI_DB_PORT}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USERNAME} -d ${AI_DB_NAME}"]
       interval: 10s
@@ -99,6 +98,8 @@ services:
       AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER}
       AI_OPENAI_BASE_URL: ${AI_OPENAI_BASE_URL}
       AI_OPENAI_API_KEY: ${AI_OPENAI_API_KEY}
+      SPRING_AI_OPENAI_BASE_URL: ${AI_OPENAI_BASE_URL}
+      SPRING_AI_OPENAI_API_KEY: ${AI_OPENAI_API_KEY}
       AI_CHAT_MODEL: ${AI_CHAT_MODEL}
       AI_CHAT_TIMEOUT: ${AI_CHAT_TIMEOUT}
       AI_CHAT_TEMPERATURE: ${AI_CHAT_TEMPERATURE}

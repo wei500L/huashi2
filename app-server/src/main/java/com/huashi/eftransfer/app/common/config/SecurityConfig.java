@@ -3,9 +3,12 @@ package com.huashi.eftransfer.app.common.config;
 import com.huashi.eftransfer.app.common.security.JwtAuthenticationFilter;
 import com.huashi.eftransfer.app.common.security.handler.RestAccessDeniedHandler;
 import com.huashi.eftransfer.app.common.security.handler.RestAuthenticationEntryPoint;
+import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
+import com.huashi.eftransfer.app.common.security.store.RedisAuthTokenStore;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -65,6 +68,11 @@ public class SecurityConfig {
     @Bean
     public RestAccessDeniedHandler restAccessDeniedHandler(ObjectMapper objectMapper) {
         return new RestAccessDeniedHandler(objectMapper);
+    }
+
+    @Bean
+    public AuthTokenStore authTokenStore(StringRedisTemplate stringRedisTemplate, ObjectMapper objectMapper) {
+        return new RedisAuthTokenStore(stringRedisTemplate, objectMapper);
     }
 
     @Bean

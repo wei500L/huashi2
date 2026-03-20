@@ -8,6 +8,7 @@ import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
 import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -28,7 +29,7 @@ public class QwenRerankClient implements RerankClient {
     private final ProviderRequestContextHolder requestContextHolder;
 
     public QwenRerankClient(
-            RestClient qwenRerankRestClient,
+            @Qualifier("qwenRerankRestClient") RestClient qwenRerankRestClient,
             AiProviderProperties providerProperties,
             ResilientAiExecutor resilientAiExecutor,
             AiProviderObservationService observationService,

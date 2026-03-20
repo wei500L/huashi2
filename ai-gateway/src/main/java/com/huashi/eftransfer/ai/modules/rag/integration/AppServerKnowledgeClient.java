@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriBuilder;
 
+import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -53,7 +54,7 @@ public class AppServerKnowledgeClient {
         return response.data();
     }
 
-    private String buildExportUri(
+    private URI buildExportUri(
             UriBuilder uriBuilder,
             OffsetDateTime updatedSince,
             String cursor,
@@ -71,6 +72,6 @@ public class AppServerKnowledgeClient {
         if (sourceIds != null && !sourceIds.isEmpty()) {
             builder.queryParam("ids", sourceIds.toArray());
         }
-        return builder.build().toString();
+        return builder.build();
     }
 }
