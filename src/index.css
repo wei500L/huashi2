@@ -60,11 +60,6 @@
     background: var(--background);
     @apply text-foreground font-sans antialiased min-h-screen bg-fixed relative;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    cursor: none !important;
-  }
-  
-  a, button, input, [role="button"] {
-    cursor: none !important;
   }
   
   body::before {
@@ -78,6 +73,49 @@
     pointer-events: none;
     z-index: 9999;
     mix-blend-mode: overlay;
+  }
+
+  /* Default to native cursors unless a custom cursor is explicitly enabled. */
+  html:not([data-custom-cursor="enabled"]) body {
+    cursor: auto !important;
+  }
+
+  html:not([data-custom-cursor="enabled"]) a,
+  html:not([data-custom-cursor="enabled"]) button,
+  html:not([data-custom-cursor="enabled"]) [role="button"],
+  html:not([data-custom-cursor="enabled"]) summary,
+  html:not([data-custom-cursor="enabled"]) input[type="button"],
+  html:not([data-custom-cursor="enabled"]) input[type="submit"],
+  html:not([data-custom-cursor="enabled"]) input[type="reset"],
+  html:not([data-custom-cursor="enabled"]) input[type="checkbox"],
+  html:not([data-custom-cursor="enabled"]) input[type="radio"] {
+    cursor: pointer !important;
+  }
+
+  html:not([data-custom-cursor="enabled"]) input:not([type]),
+  html:not([data-custom-cursor="enabled"]) input[type="text"],
+  html:not([data-custom-cursor="enabled"]) input[type="email"],
+  html:not([data-custom-cursor="enabled"]) input[type="password"],
+  html:not([data-custom-cursor="enabled"]) input[type="search"],
+  html:not([data-custom-cursor="enabled"]) input[type="url"],
+  html:not([data-custom-cursor="enabled"]) input[type="tel"],
+  html:not([data-custom-cursor="enabled"]) input[type="number"],
+  html:not([data-custom-cursor="enabled"]) textarea {
+    cursor: text !important;
+  }
+
+  html:not([data-custom-cursor="enabled"]) select {
+    cursor: default !important;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    html[data-custom-cursor="enabled"] body,
+    html[data-custom-cursor="enabled"] a,
+    html[data-custom-cursor="enabled"] button,
+    html[data-custom-cursor="enabled"] input,
+    html[data-custom-cursor="enabled"] [role="button"] {
+      cursor: none !important;
+    }
   }
 }
 
@@ -174,17 +212,63 @@
   }
   
   /* High contrast text glows */
+  .stat-card-value {
+    line-height: 0.92;
+    letter-spacing: -0.06em;
+    animation: stat-value-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .stat-card-value-suffix {
+    font-size: 0.54em;
+    opacity: 0.72;
+    margin-left: 0.05em;
+  }
+
+  .text-glow-blue { color: #1d4ed8; text-shadow: none; }
+  .dark .text-glow-blue {
+    color: #93c5fd;
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 10px rgba(96, 165, 250, 0.18),
+      0 0 22px rgba(29, 78, 216, 0.1);
+  }
+
   .text-glow-emerald { color: #065f46; text-shadow: none; }
-  .dark .text-glow-emerald { color: #10b981; text-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }
+  .dark .text-glow-emerald {
+    color: #6ee7b7;
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.05),
+      0 0 10px rgba(52, 211, 153, 0.18),
+      0 0 22px rgba(5, 150, 105, 0.1);
+  }
   
   .text-glow-rose { color: #9f1239; text-shadow: none; }
-  .dark .text-glow-rose { color: #f43f5e; text-shadow: 0 0 15px rgba(244, 63, 94, 0.6); }
+  .dark .text-glow-rose {
+    color: #fda4af;
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.05),
+      0 0 10px rgba(251, 113, 133, 0.16),
+      0 0 22px rgba(225, 29, 72, 0.08);
+  }
   
   .text-glow-primary { color: #5b21b6; text-shadow: none; }
-  .dark .text-glow-primary { color: #a78bfa; text-shadow: 0 0 15px rgba(139, 92, 246, 0.6); }
+  .dark .text-glow-primary {
+    color: #c4b5fd;
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 10px rgba(167, 139, 250, 0.2),
+      0 0 24px rgba(91, 33, 182, 0.1);
+  }
 
   .text-glow-amber { color: #92400e; text-shadow: none; }
-  .dark .text-glow-amber { color: #f59e0b; text-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+  .dark .text-glow-amber {
+    color: #fcd34d;
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.05),
+      0 0 10px rgba(251, 191, 36, 0.18),
+      0 0 22px rgba(217, 119, 6, 0.09);
+  }
   
   .no-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
   .no-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -299,8 +383,20 @@
                       linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   }
 
-  /* Reveal mask animation for text */
-  .reveal-text {
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+  @keyframes stat-value-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stat-card-value {
+      animation: none;
+    }
   }
+}

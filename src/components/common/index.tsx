@@ -79,19 +79,26 @@ interface StatCardProps {
 }
 
 export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, className, color = "text-primary" }) => {
-  const glowColorMap: Record<string, string> = {
-    'text-blue-500': 'text-glow-blue',
-    'text-blue-600': 'text-glow-blue',
-    'text-rose-500': 'text-glow-rose',
-    'text-rose-600': 'text-glow-rose',
-    'text-emerald-500': 'text-glow-emerald',
-    'text-emerald-600': 'text-glow-emerald',
-    'text-amber-500': 'text-glow-amber',
-    'text-amber-600': 'text-glow-amber',
-    'text-primary': 'text-glow-primary',
-  };
-  
-  const iconGlowClass = glowColorMap[color] || color;
+  const iconGlowClass = (() => {
+    switch (color) {
+      case 'text-blue-500':
+      case 'text-blue-600':
+        return 'text-glow-blue';
+      case 'text-rose-500':
+      case 'text-rose-600':
+        return 'text-glow-rose';
+      case 'text-emerald-500':
+      case 'text-emerald-600':
+        return 'text-glow-emerald';
+      case 'text-amber-500':
+      case 'text-amber-600':
+        return 'text-glow-amber';
+      case 'text-primary':
+        return 'text-glow-primary';
+      default:
+        return color;
+    }
+  })();
 
   const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g,"")) : value;
   const suffix = typeof value === 'string' ? value.replace(/[0-9.-]+/g,"") : "";
@@ -132,11 +139,11 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
       <div className="flex items-start justify-between relative z-10" style={{ transform: "translateZ(30px)" }}>
         <div>
           <p className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1">{title}</p>
-          <h3 className={cn("text-4xl font-black tracking-tighter drop-shadow-none dark:drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] reveal-text animate-[reveal_1s_cubic-bezier(0.77,0,0.175,1)_forwards] tabular-nums", iconGlowClass)}>
+          <h3 className={cn("stat-card-value text-4xl font-black tracking-tighter tabular-nums", iconGlowClass)}>
             {!isNaN(numericValue) ? (
               <>
                 <AnimatedNumber value={numericValue} />
-                <span className="text-xl opacity-80">{suffix}</span>
+                <span className="stat-card-value-suffix">{suffix}</span>
               </>
             ) : value}
           </h3>
