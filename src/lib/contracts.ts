@@ -1,4 +1,5 @@
 export type Role = 'STUDENT' | 'TEACHER' | 'ADMIN';
+export type Capability = 'STUDENT_WORKSPACE' | 'TEACHING_WORKSPACE' | 'ADMIN_CONSOLE';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -38,6 +39,7 @@ export interface CurrentUserVO {
   displayName: string;
   primaryRole: Role;
   roles: Role[];
+  capabilities: Capability[];
   studentProfile?: StudentProfileVO | null;
   teacherProfile?: TeacherProfileVO | null;
 }
@@ -584,6 +586,20 @@ export interface TrainingSessionProgressVO {
   answeredItems: number;
   currentItemOrder: number;
   completed: boolean;
+}
+
+export interface TrainingHistorySummaryVO {
+  sessionId: number;
+  planId: number;
+  ownerUserId: number;
+  status: string;
+  mode: string;
+  totalItems: number;
+  answeredItems: number;
+  currentItemOrder: number;
+  startedAt: string;
+  lastSavedAt?: string | null;
+  completedAt?: string | null;
 }
 
 export interface TrainingRiskWordVO {

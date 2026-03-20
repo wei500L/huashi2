@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
+import type { EChartsOption } from 'echarts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { RefreshCcw } from 'lucide-react';
@@ -12,7 +13,7 @@ function cn(...inputs: ClassValue[]) {
 
 interface ChartCardProps {
   title: string;
-  option: any;
+  option: EChartsOption;
   loading?: boolean;
   isEmpty?: boolean;
   height?: string | number;

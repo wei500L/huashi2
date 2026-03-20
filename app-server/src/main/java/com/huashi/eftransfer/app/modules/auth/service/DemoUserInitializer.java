@@ -16,13 +16,17 @@ import com.huashi.eftransfer.app.modules.user.mapper.UserRoleMapper;
 import com.huashi.eftransfer.shared.enums.UserRole;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@Profile({"local", "test"})
+@ConditionalOnProperty(prefix = "app.demo-data", name = "enabled", havingValue = "true")
 public class DemoUserInitializer implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DemoUserInitializer.class);

@@ -1,31 +1,57 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Award, Brain, Clock3, RefreshCcw, Rocket } from 'lucide-react';
+import { AlertTriangle, Award, Brain, Clock3, Rocket } from 'lucide-react';
 import { PageHeader } from '@/components/common';
 import { aiService, trainingService } from '@/lib/services';
 import { formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import { normalizeApiError } from '@/lib/api';
 import type { TrainingOptionViewVO } from '@/lib/contracts';
 
-type TrainingPhase = 'home' | 'running' | 'summary';
+type TrainingPhase = 'boot' | 'home' | 'running' | 'summary';
 
 const TrainingPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [phase, setPhase] = React.useState<TrainingPhase>('home');
+  const [phase, setPhase] = React.useState<TrainingPhase>('boot');
   const [sessionId, setSessionId] = React.useState<number | null>(null);
   const [summarySessionId, setSummarySessionId] = React.useState<number | null>(null);
   const shownAtRef = React.useRef<number>(Date.now());
 
+  const historyQuery = useQuery({
+    queryKey: ['training-history', 'in-progress'],
+    queryFn: () => trainingService.listHistory({ pageNo: 1, pageSize: 1, status: 'IN_PROGRESS' }),
+  });
+
+  React.useEffect(() => {
+    if (!historyQuery.data) {
+      return;
+    }
+    const inProgress = historyQuery.data.records[0];
+    if (inProgress?.sessionId) {
+      setSessionId(inProgress.sessionId);
+      shownAtRef.current = Date.now();
+      setPhase('running');
+      return;
+    }
+    setPhase('home');
+  }, [historyQuery.data]);
+
+  React.useEffect(() => {
+    if (historyQuery.error) {
+      setPhase('home');
+    }
+  }, [historyQuery.error]);
+
   const recommendedPlanQuery = useQuery({
     queryKey: ['recommended-training-plan'],
     queryFn: () => trainingService.getRecommendedPlan(),
+    enabled: phase === 'home',
     retry: false,
   });
 
   const aiRecommendationQuery = useQuery({
     queryKey: ['ai-recommend-training', recommendedPlanQuery.data?.sourceDiagnosisSummaryId],
     queryFn: () => aiService.recommendTraining(recommendedPlanQuery.data?.sourceDiagnosisSummaryId),
-    enabled: !!recommendedPlanQuery.data,
+    enabled: phase === 'home' && !!recommendedPlanQuery.data,
     retry: false,
   });
 
@@ -49,6 +75,7 @@ const TrainingPage: React.FC = () => {
       setSessionId(created.sessionId);
       shownAtRef.current = Date.now();
       setPhase('running');
+      void queryClient.invalidateQueries({ queryKey: ['training-history'] });
     },
   });
 
@@ -63,6 +90,7 @@ const TrainingPage: React.FC = () => {
     onSuccess: (_, currentSessionId) => {
       setSummarySessionId(currentSessionId);
       setPhase('summary');
+      void queryClient.invalidateQueries({ queryKey: ['training-history'] });
       void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
       void queryClient.invalidateQueries({ queryKey: ['student-trends'] });
       void queryClient.invalidateQueries({ queryKey: ['wrong-book'] });
@@ -89,6 +117,34 @@ const TrainingPage: React.FC = () => {
     enabled: phase === 'summary' && !!summarySessionId,
   });
 
+  React.useEffect(() => {
+    if (!sessionId || phase !== 'running') {
+      return;
+    }
+    const persist = () => {
+      const snapshot = nextItemQuery.data
+        ? {
+            sessionId,
+            currentItemOrder: nextItemQuery.data.currentItemOrder,
+            answeredItems: nextItemQuery.data.answeredItems,
+            timestamp: new Date().toISOString(),
+          }
+        : { sessionId, timestamp: new Date().toISOString() };
+      void trainingService.saveProgress(sessionId, snapshot);
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        persist();
+      }
+    };
+    window.addEventListener('beforeunload', persist);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', persist);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [nextItemQuery.data, phase, sessionId]);
+
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
   const currentItem = nextItemQuery.data?.item;
 
@@ -107,10 +163,18 @@ const TrainingPage: React.FC = () => {
     });
   };
 
+  if (phase === 'boot' || historyQuery.isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">loading training session</div>
+      </div>
+    );
+  }
+
   if (phase === 'running') {
     return (
       <div className="max-w-5xl mx-auto space-y-8">
-        <PageHeader title="训练进行中" subtitle="本期合同不支持刷新恢复，刷新页面后需要重新开始本次训练。" />
+        <PageHeader title="训练进行中" subtitle="训练 session 会自动保存进度；刷新后会优先恢复当前未完成训练。" />
 
         {nextItemQuery.error && (
           <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{nextItemQuery.error.message}</div>
@@ -252,10 +316,14 @@ const TrainingPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="个性化训练" subtitle="先从真实推荐计划开始，再进入训练 session。" />
+      <PageHeader title="个性化训练" subtitle="系统会先检查是否存在未完成训练，再决定恢复或创建新 session。" />
 
-      <div className="rounded-[2rem] border border-amber-500/20 bg-amber-500/5 px-6 py-4 text-sm text-amber-600 dark:text-amber-400">
-        当前后端合同不提供训练 session 恢复接口。刷新页面会丢失本轮训练进度，但不会影响已完成总结和错题/复习数据。
+      {historyQuery.error && (
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 px-6 py-4 text-sm text-rose-500">{historyQuery.error.message}</div>
+      )}
+
+      <div className="rounded-[2rem] border border-emerald-500/20 bg-emerald-500/5 px-6 py-4 text-sm text-emerald-600 dark:text-emerald-400">
+        训练链路已支持后端原生保存与恢复。离开页面时会保存快照，重新进入会恢复最近一个未完成 session。
       </div>
 
       {recommendedPlanQuery.error && planError?.status !== 409 && (

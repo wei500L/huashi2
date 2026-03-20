@@ -14,12 +14,14 @@ import com.huashi.eftransfer.app.modules.user.vo.StudentProfileVO;
 import com.huashi.eftransfer.app.modules.user.vo.TeacherProfileVO;
 import com.huashi.eftransfer.app.modules.user.vo.UserSummaryVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
+import com.huashi.eftransfer.shared.enums.UserCapability;
 import com.huashi.eftransfer.shared.enums.UserRole;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -97,6 +99,7 @@ public class UserQueryService {
                 user.getDisplayName(),
                 primaryRole(roles),
                 roles,
+                capabilities(roles),
                 studentProfileVO,
                 teacherProfileVO
         );
@@ -132,5 +135,27 @@ public class UserQueryService {
             case TEACHER -> 1;
             case STUDENT -> 2;
         };
+    }
+
+    private Set<String> capabilities(Set<String> roles) {
+        Set<UserCapability> capabilities = new LinkedHashSet<>();
+        Set<UserRole> typedRoles = roles.stream()
+                .map(UserRole::valueOf)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (typedRoles.contains(UserRole.STUDENT)) {
+            capabilities.add(UserCapability.STUDENT_WORKSPACE);
+        }
+        if (typedRoles.contains(UserRole.TEACHER)) {
+            capabilities.add(UserCapability.TEACHING_WORKSPACE);
+        }
+        if (typedRoles.contains(UserRole.ADMIN)) {
+            capabilities.add(UserCapability.ADMIN_CONSOLE);
+            capabilities.add(UserCapability.TEACHING_WORKSPACE);
+            capabilities.add(UserCapability.STUDENT_WORKSPACE);
+        }
+        return capabilities.stream()
+                .map(Enum::name)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

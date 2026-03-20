@@ -7,6 +7,15 @@ spring:
     name: ai-gateway
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:ef_admin}
+    password: ${RABBITMQ_PASSWORD:ef_password}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        default-requeue-rejected: false
   datasource:
     url: jdbc:postgresql://${AI_DB_HOST:localhost}:${AI_DB_PORT:5432}/${AI_DB_NAME:ef_transfer_ai}
     username: ${AI_DB_USERNAME:ef_ai}
@@ -74,7 +83,7 @@ logging:
 rag:
   app-server:
     base-url: ${APP_SERVER_BASE_URL:http://localhost:8080}
-    internal-token: ${APP_SERVER_INTERNAL_TOKEN:}
+    internal-token: ${PLATFORM_INTERNAL_API_TOKEN:}
     connect-timeout: ${APP_SERVER_CONNECT_TIMEOUT:PT3S}
     read-timeout: ${APP_SERVER_READ_TIMEOUT:PT5S}
   ingestion:
@@ -86,3 +95,8 @@ rag:
     rerank-top-n: ${RAG_RERANK_TOP_N:8}
     rerank-threshold: ${RAG_RERANK_THRESHOLD:0.2}
     final-top-k: ${RAG_FINAL_TOP_K:6}
+
+platform:
+  internal-api:
+    enabled: ${PLATFORM_INTERNAL_API_ENABLED:true}
+    token: ${PLATFORM_INTERNAL_API_TOKEN:}

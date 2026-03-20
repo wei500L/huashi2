@@ -25,6 +25,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
+import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -93,6 +94,7 @@ public class AiGatewayClient {
         try {
             ApiResponse<AiGatewayHealthResponse> response = aiGatewayRestClient.get()
                     .uri("/internal/ai/health")
+                    .headers(headers -> headers.set(InternalApiHeaders.INTERNAL_TOKEN, properties.getInternalToken()))
                     .retrieve()
                     .body(HEALTH_TYPE);
 
@@ -185,6 +187,7 @@ public class AiGatewayClient {
             try {
                 ApiResponse<R> response = aiGatewayRestClient.post()
                         .uri(uri)
+                        .headers(headers -> headers.set(InternalApiHeaders.INTERNAL_TOKEN, properties.getInternalToken()))
                         .body(request)
                         .retrieve()
                         .body(responseType);
@@ -222,6 +225,7 @@ public class AiGatewayClient {
         try {
             ApiResponse<R> response = aiGatewayRestClient.get()
                     .uri(uri)
+                    .headers(headers -> headers.set(InternalApiHeaders.INTERNAL_TOKEN, properties.getInternalToken()))
                     .retrieve()
                     .body(responseType);
 

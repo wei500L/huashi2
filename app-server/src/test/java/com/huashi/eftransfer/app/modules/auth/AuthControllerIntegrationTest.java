@@ -68,7 +68,11 @@ class AuthControllerIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value("admin"))
-                .andExpect(jsonPath("$.data.primaryRole").value("ADMIN"));
+                .andExpect(jsonPath("$.data.primaryRole").value("ADMIN"))
+                .andExpect(jsonPath("$.data.capabilities").isArray())
+                .andExpect(jsonPath("$.data.capabilities[0]").value("ADMIN_CONSOLE"))
+                .andExpect(jsonPath("$.data.capabilities[1]").value("TEACHING_WORKSPACE"))
+                .andExpect(jsonPath("$.data.capabilities[2]").value("STUDENT_WORKSPACE"));
 
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)

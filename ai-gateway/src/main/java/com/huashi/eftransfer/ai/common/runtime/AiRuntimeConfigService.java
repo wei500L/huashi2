@@ -11,6 +11,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,7 +82,7 @@ public class AiRuntimeConfigService {
                     .headers(headers -> {
                         String internalToken = baseBundle.config().rag().appServer().internalToken();
                         if (StringUtils.hasText(internalToken)) {
-                            headers.set("X-Internal-Token", internalToken);
+                            headers.set(InternalApiHeaders.INTERNAL_TOKEN, internalToken);
                         }
                     })
                     .retrieve()

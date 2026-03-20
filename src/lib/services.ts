@@ -30,6 +30,7 @@ import type {
   TeacherInterventionSummaryVO,
   TeacherStudentDetailVO,
   TeachingClassSummaryVO,
+  TrainingHistorySummaryVO,
   TrainingNextItemVO,
   TrainingSessionCreatedVO,
   TrainingSessionProgressVO,
@@ -115,9 +116,13 @@ export const trainingService = {
   getWrongBook: () => apiGet<WrongBookItemVO[]>('/training/wrong-book'),
   getReviewSchedule: (pendingOnly = true) =>
     apiGet<ReviewScheduleItemVO[]>('/training/review-schedule', { params: { pendingOnly } }),
+  listHistory: (params: { pageNo?: number; pageSize?: number; status?: string; planId?: number }) =>
+    apiGet<PageResult<TrainingHistorySummaryVO>>('/training/sessions', { params }),
   startSession: (payload: { planId: number; mode: string }) =>
     apiPost<TrainingSessionCreatedVO>('/training/sessions', payload),
   getNextItem: (sessionId: number) => apiGet<TrainingNextItemVO>(`/training/sessions/${sessionId}/next-item`),
+  saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
+    apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, { progressSnapshot }),
   submitAnswer: (
     sessionId: number,
     payload: { itemResultId: number; selectedAnswerKey: string; reactionTimeMs: number; hesitationTimeMs: number }

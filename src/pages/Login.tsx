@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { GraduationCap, ShieldCheck, Users } from 'lucide-react';
 import { useAuthStore } from '@/store';
-import { roleHomePath } from '@/lib/format';
+import { homePathForCapabilities } from '@/lib/format';
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(1, '请输入用户名或邮箱'),
@@ -14,32 +14,24 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-const demoAccounts: Array<{
+const workspaceCards: Array<{
   label: string;
   hint: string;
-  usernameOrEmail: string;
-  password: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }> = [
   {
-    label: '学生账号',
-    hint: 'student.li / Student@123456',
-    usernameOrEmail: 'student.li',
-    password: 'Student@123456',
+    label: '学生工作区',
+    hint: '诊断 session、训练恢复、学情分析与错题复习',
     icon: GraduationCap,
   },
   {
-    label: '教师账号',
-    hint: 'teacher.zhang / Teacher@123456',
-    usernameOrEmail: 'teacher.zhang',
-    password: 'Teacher@123456',
+    label: '教师工作区',
+    hint: '班级总览、模板管理、词汇知识维护与干预工作台',
     icon: Users,
   },
   {
-    label: '管理员',
-    hint: 'admin / Admin@123456',
-    usernameOrEmail: 'admin',
-    password: 'Admin@123456',
+    label: '管理员控制台',
+    hint: '用户管理、AI 配置与跨工作区联调',
     icon: ShieldCheck,
   },
 ];
@@ -50,19 +42,18 @@ const Login: React.FC = () => {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      usernameOrEmail: 'student.li',
-      password: 'Student@123456',
+      usernameOrEmail: '',
+      password: '',
     },
   });
 
   React.useEffect(() => {
     if (user) {
-      navigate(roleHomePath(user.primaryRole), { replace: true });
+      navigate(homePathForCapabilities(user.capabilities), { replace: true });
     }
   }, [navigate, user]);
 
@@ -85,25 +76,20 @@ const Login: React.FC = () => {
                 英法词汇迁移学习平台
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-500 dark:text-white/50">
-                前端已切到真实后端合同。登录后可以直接进入学生诊断与训练闭环、教师班级分析与干预工作台、管理员用户总览。
+                登录后系统会基于后端下发的 capability 进入对应工作区。开发环境如需演示账号，需要显式启用 demo data 开关。
               </p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-4 mt-10">
-              {demoAccounts.map((account) => (
-                <button
-                  key={account.label}
-                  type="button"
-                  onClick={() => {
-                    setValue('usernameOrEmail', account.usernameOrEmail, { shouldDirty: true });
-                    setValue('password', account.password, { shouldDirty: true });
-                  }}
-                  className="text-left rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/55 dark:bg-white/5 p-5 hover:border-primary/40 hover:-translate-y-0.5 transition-all"
+              {workspaceCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="text-left rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/55 dark:bg-white/5 p-5"
                 >
-                  <account.icon size={18} className="text-primary mb-4" />
-                  <div className="font-black text-slate-900 dark:text-white">{account.label}</div>
-                  <div className="text-sm mt-2 text-slate-500 dark:text-white/45 leading-6">{account.hint}</div>
-                </button>
+                  <card.icon size={18} className="text-primary mb-4" />
+                  <div className="font-black text-slate-900 dark:text-white">{card.label}</div>
+                  <div className="text-sm mt-2 text-slate-500 dark:text-white/45 leading-6">{card.hint}</div>
+                </div>
               ))}
             </div>
           </section>
@@ -117,7 +103,7 @@ const Login: React.FC = () => {
                 <input
                   {...register('usernameOrEmail')}
                   className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
-                  placeholder="student.li"
+                  placeholder="输入用户名或邮箱"
                 />
                 {errors.usernameOrEmail && <div className="mt-2 text-sm text-rose-500">{errors.usernameOrEmail.message}</div>}
               </label>
@@ -128,7 +114,7 @@ const Login: React.FC = () => {
                   type="password"
                   {...register('password')}
                   className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
-                  placeholder="Student@123456"
+                  placeholder="输入密码"
                 />
                 {errors.password && <div className="mt-2 text-sm text-rose-500">{errors.password.message}</div>}
               </label>

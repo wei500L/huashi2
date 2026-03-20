@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import type { EChartsOption } from 'echarts';
 import { AlertTriangle, ArrowRight, Brain, Clock3, RefreshCw, Target } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
@@ -52,7 +53,7 @@ const DashboardPage: React.FC = () => {
         data: (errorDistributionQuery.data || []).map((item) => ({ name: item.label, value: item.count })),
       },
     ],
-  };
+  } as EChartsOption;
 
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
 

@@ -11,7 +11,6 @@ import type {
   AiGatewayHealthResponse,
   AiOpsConfigPayload,
   AiOpsConfigValidationResponse,
-  RagReindexJobResponse,
   RagReindexRequest,
 } from '@/lib/contracts';
 

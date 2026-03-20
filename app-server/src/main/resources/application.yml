@@ -56,6 +56,8 @@ mybatis-plus:
 app:
   redis:
     redisson-enabled: ${APP_REDIS_REDISSON_ENABLED:true}
+  demo-data:
+    enabled: ${APP_DEMO_DATA_ENABLED:false}
   events:
     rabbit-publish-enabled: ${APP_EVENTS_RABBIT_PUBLISH_ENABLED:true}
   analytics:
@@ -64,19 +66,22 @@ app:
   ops:
     config:
       encryption-secret: ${APP_OPS_CONFIG_ENCRYPTION_SECRET:}
-  internal:
-    knowledge:
-      token: ${APP_INTERNAL_KNOWLEDGE_TOKEN:}
   security:
     jwt:
-      secret: ${APP_JWT_SECRET:replace-me-with-a-32-byte-minimum-secret-key}
+      secret: ${APP_JWT_SECRET:}
       issuer: ${APP_JWT_ISSUER:ef-transfer-platform}
       access-token-ttl: ${APP_JWT_ACCESS_TTL:PT6H}
       refresh-token-ttl: ${APP_JWT_REFRESH_TTL:PT168H}
 
+platform:
+  internal-api:
+    enabled: ${PLATFORM_INTERNAL_API_ENABLED:true}
+    token: ${PLATFORM_INTERNAL_API_TOKEN:}
+
 integration:
   ai:
     base-url: ${AI_GATEWAY_BASE_URL:http://localhost:8090}
+    internal-token: ${PLATFORM_INTERNAL_API_TOKEN:}
     connect-timeout: ${AI_GATEWAY_CONNECT_TIMEOUT:PT3S}
     read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT5S}
     max-attempts: ${AI_GATEWAY_MAX_ATTEMPTS:2}

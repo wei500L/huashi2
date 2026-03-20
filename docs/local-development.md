@@ -1,46 +1,77 @@
 # 本地开发说明
 
-## 1. 版本基线
-
-- `app-server`: Spring Boot `4.0.3` + Java `25` + MyBatis-Plus `3.5.16`
-- `ai-gateway`: Spring Boot `3.5.3` + Spring AI `1.1.3` + PostgreSQL `18.3` + pgvector `0.8.2`
-
-说明：
-
-- `app-server` 采用 `mybatis-plus-spring-boot4-starter`，避免误用 Boot 3 starter。
-- `ai-gateway` 当前使用 Spring AI `1.1.3`，通过 OpenAI compatible 协议接入 Qwen，并预留 DeepSeek 回切配置。
-- 当前仓库同时保留原有前端 Vite 工程与新增 Java 多模块后端。
-
-## 2. 目录说明
+## 1. 仓库结构
 
 ```text
 root
-├── app-server
-├── ai-gateway
-├── shared-kernel
-├── deploy
+├── src                     # React + TypeScript + Vite 前端
+├── app-server              # 主业务服务
+├── ai-gateway              # AI / RAG 网关
+├── shared-kernel           # 共享契约、枚举、事件
+├── deploy                  # Docker Compose 与本地依赖
 └── docs
 ```
 
-## 3. 环境变量准备
+## 2. 真实链路
+
+### 登录与权限
+
+`登录 -> JWT access token + refresh token -> Redis refresh token / blacklist -> /api/auth/me -> CurrentUserVO.capabilities -> 前端路由与菜单`
+
+### 学生学习链路
+
+`诊断模板 -> diagnosis session -> summary -> analytics 聚合 -> training plan -> training session -> wrong book / review schedule`
+
+### AI 链路
+
+`analytics snapshot + diagnosis/training 结果 -> app-server 上下文组装 -> ai-gateway chat / rag -> 诊断解释、训练建议、教师干预建议`
+
+### 知识链路
+
+`词对/词义/例句变更 -> app-server 发布 LexicalKnowledgeChangedEvent -> RabbitMQ -> ai-gateway 消费并定向 reindex -> retrieve / rerank`
+
+## 3. 角色与能力模型
+
+- `STUDENT -> STUDENT_WORKSPACE`
+- `TEACHER -> TEACHING_WORKSPACE`
+- `ADMIN -> ADMIN_CONSOLE + TEACHING_WORKSPACE + STUDENT_WORKSPACE`
+- 多角色用户取能力并集
+- 前端页面显隐、默认首页、侧边栏和 AI 助手入口都基于 `capabilities`，不再只看 `primaryRole`
+
+## 4. 安全默认值
+
+- `APP_JWT_SECRET` 必须显式提供，非测试环境不再使用可预测默认值
+- `PLATFORM_INTERNAL_API_TOKEN` 是 `app-server` 与 `ai-gateway` 的统一内部令牌
+- `platform.internal-api.enabled=true` 时，所有 `/internal/**` 接口都要求 `X-Internal-Token`
+- `APP_DEMO_DATA_ENABLED=false` 是默认值；demo 用户初始化仅在 `local/test` profile 且显式打开时执行
+- `ai-gateway` 的 `/internal/ai/**`、`/internal/ai/rag/**` 与 `app-server` 的 `/internal/**` 都采用同一内部鉴权头
+
+## 5. 环境变量
 
 ```bash
 cd deploy
 cp .env.example .env
 ```
 
-如需真实 AI 联调，至少修改以下变量：
+至少需要检查并填写：
 
+- `APP_JWT_SECRET`
+- `PLATFORM_INTERNAL_API_TOKEN`
+- `APP_DEMO_DATA_ENABLED`
 - `AI_OPENAI_API_KEY`
 - `AI_OPENAI_BASE_URL`
 - `AI_CHAT_MODEL`
 - `AI_EMBEDDING_MODEL`
 - `AI_RERANK_URL`
 - `AI_RERANK_MODEL`
-- `APP_JWT_SECRET`
-- `APP_JWT_REFRESH_TTL`
 
-## 4. Docker 本地联调
+说明：
+
+- `APP_DEMO_DATA_ENABLED=true` 时，本地会注入默认管理员、教师、学生测试账号
+- `APP_DEMO_DATA_ENABLED=false` 时，登录账号需要自行准备
+- `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`
+
+## 6. Docker 本地联调
 
 只启动基础依赖：
 
@@ -49,26 +80,27 @@ cd deploy
 docker compose --env-file .env up -d mysql redis rabbitmq postgres
 ```
 
-启动全链路：
+启动完整后端链路：
+
+```bash
+cd deploy
+docker compose --env-file .env up --build app-server ai-gateway
+```
+
+启动完整栈：
 
 ```bash
 cd deploy
 docker compose --env-file .env up --build
 ```
 
-健康检查地址：
-
-- `http://localhost:8080/api/health`
-- `http://localhost:8090/internal/ai/health`
-- `http://localhost:8080/actuator/health`
-- `http://localhost:8090/actuator/health`
-
-## 5. 本地 Maven 启动
+## 7. 本地命令启动
 
 前提：
 
 - JDK `25`
 - Maven `3.9.11+`
+- Node.js `20+`
 - MySQL / Redis / RabbitMQ / PostgreSQL 已启动
 
 启动 `ai-gateway`：
@@ -83,35 +115,74 @@ mvn -pl ai-gateway -am spring-boot:run
 mvn -pl app-server -am spring-boot:run
 ```
 
-运行测试：
+启动前端：
 
 ```bash
-mvn test
+npm install
+npm run dev
 ```
 
-## 6. 当前已实现内容
+## 8. 健康检查
 
-- 多模块 Maven 根工程
-- 统一返回结构 `ApiResponse<T>`
-- 统一结果码 `ResultCode`
-- 分页模型 `PageQuery` / `PageResult`
-- 审计字段基类 `BaseAuditEntity`
-- 通用枚举
-- `app-server` 基础安全、JWT、Redis、RabbitMQ、MyBatis-Plus、Flyway、健康检查
-- `app-server` 真实认证授权链路：登录、刷新、注销、当前用户、管理员用户列表、Redis refresh token 与 access token 拉黑
-- `ai-gateway` OpenAI compatible 配置、pgvector 连接、向量库启动配置、Rerank HTTP 客户端、健康检查
-- 本地 Docker 开发环境与服务镜像构建
+- `http://localhost:8080/api/health`
+- `http://localhost:8080/actuator/health`
+- `http://localhost:8090/actuator/health`
 
-## 7. 默认测试账号
+注意：
+
+- `http://localhost:8090/internal/ai/health` 是内部接口，需要携带 `X-Internal-Token`
+- 本地排查内部接口时可以使用：
+
+```bash
+curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/internal/ai/health
+```
+
+## 9. 当前已实现内容
+
+- 登录、刷新、注销、当前用户、Redis refresh token 与 access token blacklist
+- 基于角色并集生成 `capabilities`，前后端权限矩阵已对齐到能力模型
+- 诊断模板发布、diagnosis session、summary、结果页、进度保存与恢复
+- training plan、training session、错误本、复习计划、training progress 保存与恢复
+- analytics 学生概览/详情聚合链路
+- AI 诊断解释、训练推荐、教师干预建议、后台 AI 配置中心
+- app-server 内部知识导出
+- ai-gateway embedding / retrieve / rerank / reindex
+- RabbitMQ 驱动的知识同步：`LexicalKnowledgeChangedEvent -> ai-gateway targeted reindex`
+
+## 10. 事件边界
+
+- diagnosis completed：应用内事件，用于本服务 analytics/read model 更新
+- training completed：应用内事件，用于本服务 analytics/read model 更新
+- lexical knowledge changed：RabbitMQ 跨服务事件，用于驱动 `ai-gateway` 定向知识重建
+
+当前设计意图：
+
+- 不把 RabbitMQ 当作本地 analytics 总线
+- 只把 RabbitMQ 用在真实跨服务解耦场景
+
+## 11. 默认测试账号
+
+仅当 `APP_DEMO_DATA_ENABLED=true` 时存在：
 
 - 管理员：`admin` / `Admin@123456`
 - 教师：`teacher.zhang` / `Teacher@123456`
 - 学生：`student.li` / `Student@123456`
 - 学生：`student.wang` / `Student@123456`
 
-## 8. 当前未完成内容
+## 12. 前端工程约束
 
-- 登录、用户、班级、词表、诊断、训练、分析等业务接口
-- 审计日志落库与幂等性拦截器的完整链路
-- RAG 文档入库、召回、重排、教师建议问答接口
-- 前后端真实业务契约联调
+- 路由采用 `React.lazy` 做页面级懒加载
+- `vite.config.ts` 已做手动分包
+- 前端真实链路统一走 `src/lib/services.ts`
+- `src/hooks/useAnalytics.ts`、`src/hooks/useDashboard.ts`、`src/store/diagnosis.store.ts` 等旧实验流仍在仓库中，但不再是主业务链路
+
+## 13. 验证命令
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+mvn test
+```
+
+如果当前环境没有全局 `mvn`，Java 测试与启动命令无法执行，需要先安装 Maven。

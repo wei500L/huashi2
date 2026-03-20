@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -27,6 +28,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = InternalRagController.class)
+@TestPropertySource(properties = {
+        "platform.internal-api.enabled=true",
+        "platform.internal-api.token=test-internal-token"
+})
 class InternalRagControllerTest {
 
     @Autowired
@@ -58,6 +63,7 @@ class InternalRagControllerTest {
         ));
 
         mockMvc.perform(post("/internal/ai/rag/answer")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rag-answer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -90,6 +96,7 @@ class InternalRagControllerTest {
         ));
 
         mockMvc.perform(post("/internal/ai/rag/retrieve")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rag-retrieve")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -118,6 +125,7 @@ class InternalRagControllerTest {
         ));
 
         mockMvc.perform(post("/internal/ai/rag/explain-risk")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rag-risk")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -162,6 +170,7 @@ class InternalRagControllerTest {
         when(knowledgeIngestionService.submit(any())).thenReturn(new RagReindexResponse(7L, "PENDING"));
 
         mockMvc.perform(post("/internal/ai/rag/reindex")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rag-reindex")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -193,9 +202,24 @@ class InternalRagControllerTest {
         ));
 
         mockMvc.perform(get("/internal/ai/rag/reindex/jobs/7")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rag-job"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.jobId").value(7))
                 .andExpect(jsonPath("$.data.status").value("RUNNING"));
+    }
+
+    @Test
+    void shouldRejectMissingInternalToken() throws Exception {
+        mockMvc.perform(post("/internal/ai/rag/answer")
+                        .header("X-Trace-Id", "trace-rag-missing-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "query": "Why is coin/coin risky?"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 }

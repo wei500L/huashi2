@@ -82,4 +82,12 @@ class InternalKnowledgeControllerIntegrationTest extends AbstractWebIntegrationT
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
+
+    @Test
+    void shouldRejectMissingInternalKnowledgeToken() throws Exception {
+        mockMvc.perform(get("/internal/knowledge/lexical-pairs/export"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
 }

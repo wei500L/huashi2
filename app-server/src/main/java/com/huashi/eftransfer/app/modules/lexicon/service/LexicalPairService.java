@@ -18,6 +18,7 @@ import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairSenseMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairTagRelMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalTagMapper;
+import com.huashi.eftransfer.app.modules.lexicon.event.LexicalKnowledgeChangedEventPublisher;
 import com.huashi.eftransfer.app.modules.lexicon.support.LexicalRiskSupport;
 import com.huashi.eftransfer.app.modules.lexicon.support.SearchableTextBuilder;
 import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportFailureVO;
@@ -40,11 +41,14 @@ import com.huashi.eftransfer.shared.page.PageResult;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.slf4j.MDC;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -54,6 +58,8 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -65,6 +71,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -108,6 +115,7 @@ public class LexicalPairService {
     private final LexicalPairTagRelMapper lexicalPairTagRelMapper;
     private final LexicalListItemMapper lexicalListItemMapper;
     private final TransactionTemplate transactionTemplate;
+    private final LexicalKnowledgeChangedEventPublisher lexicalKnowledgeChangedEventPublisher;
 
     public LexicalPairService(
             LexicalPairMapper lexicalPairMapper,
@@ -116,7 +124,8 @@ public class LexicalPairService {
             LexicalTagMapper lexicalTagMapper,
             LexicalPairTagRelMapper lexicalPairTagRelMapper,
             LexicalListItemMapper lexicalListItemMapper,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            LexicalKnowledgeChangedEventPublisher lexicalKnowledgeChangedEventPublisher
     ) {
         this.lexicalPairMapper = lexicalPairMapper;
         this.lexicalPairSenseMapper = lexicalPairSenseMapper;
@@ -125,6 +134,7 @@ public class LexicalPairService {
         this.lexicalPairTagRelMapper = lexicalPairTagRelMapper;
         this.lexicalListItemMapper = lexicalListItemMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.lexicalKnowledgeChangedEventPublisher = lexicalKnowledgeChangedEventPublisher;
     }
 
     public PageResult<LexicalPairSummaryVO> pageQuery(LexicalPairPageQuery query) {
@@ -192,6 +202,7 @@ public class LexicalPairService {
     @Transactional
     public Long create(LexicalPairUpsertRequest request) {
         Long lexicalPairId = createInternal(request);
+        registerKnowledgeChangedEvent(List.of(lexicalPairId));
         log.info("event=lexical_pair_created pairId={} englishWord={} frenchWord={}",
                 lexicalPairId, request.englishWord(), request.frenchWord());
         return lexicalPairId;
@@ -224,6 +235,7 @@ public class LexicalPairService {
 
         replaceSenses(existing.getId(), request.senses());
         replaceTags(existing.getId(), normalizedTags);
+        registerKnowledgeChangedEvent(List.of(existing.getId()));
         log.info("event=lexical_pair_updated pairId={} englishWord={} frenchWord={}",
                 existing.getId(), existing.getEnglishWord(), existing.getFrenchWord());
         return existing.getId();
@@ -248,6 +260,7 @@ public class LexicalPairService {
         lexicalListItemMapper.delete(Wrappers.<LexicalListItemEntity>lambdaQuery()
                 .eq(LexicalListItemEntity::getLexicalPairId, lexicalPairId));
         lexicalPairMapper.deleteById(lexicalPairId);
+        registerKnowledgeChangedEvent(List.of(lexicalPairId));
         log.info("event=lexical_pair_deleted pairId={}", lexicalPairId);
     }
 
@@ -269,6 +282,7 @@ public class LexicalPairService {
         List<CsvImportFailureVO> failures = new ArrayList<>();
         int successCount = 0;
         Set<String> seenPairKeys = new LinkedHashSet<>();
+        Set<Long> changedPairIds = new LinkedHashSet<>();
 
         try (Reader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
              CSVParser parser = CSVFormat.DEFAULT.builder()
@@ -288,7 +302,10 @@ public class LexicalPairService {
                     if (!seenPairKeys.add(pairKey)) {
                         throw new BusinessException(ResultCode.CONFLICT, "Duplicate lexical pair in CSV file", 409);
                     }
-                    transactionTemplate.executeWithoutResult(status -> createInternal(request));
+                    Long lexicalPairId = transactionTemplate.execute(status -> createInternal(request));
+                    if (lexicalPairId != null) {
+                        changedPairIds.add(lexicalPairId);
+                    }
                     successCount++;
                 } catch (Exception exception) {
                     failures.add(new CsvImportFailureVO(
@@ -303,6 +320,9 @@ public class LexicalPairService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "Failed to read CSV file", 400);
         }
 
+        if (!changedPairIds.isEmpty()) {
+            publishKnowledgeChangedEvent(changedPairIds);
+        }
         log.info("event=lexical_pair_csv_import successCount={} failedCount={}", successCount, failures.size());
         return new CsvImportResultVO(successCount, failures.size(), failures);
     }
@@ -519,6 +539,39 @@ public class LexicalPairService {
             relation.setLexicalTagId(tagId);
             lexicalPairTagRelMapper.insert(relation);
         }
+    }
+
+    private void registerKnowledgeChangedEvent(Collection<Long> lexicalPairIds) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            publishKnowledgeChangedEvent(lexicalPairIds);
+            return;
+        }
+        List<Long> ids = lexicalPairIds.stream().distinct().toList();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publishKnowledgeChangedEvent(ids);
+            }
+        });
+    }
+
+    private void publishKnowledgeChangedEvent(Collection<Long> lexicalPairIds) {
+        List<String> sourceIds = lexicalPairIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::valueOf)
+                .distinct()
+                .toList();
+        if (sourceIds.isEmpty()) {
+            return;
+        }
+        lexicalKnowledgeChangedEventPublisher.publish(new com.huashi.eftransfer.shared.event.LexicalKnowledgeChangedEvent(
+                UUID.randomUUID().toString(),
+                1,
+                "LEXICAL_PAIR",
+                sourceIds,
+                OffsetDateTime.now(ZoneOffset.UTC),
+                MDC.get("traceId")
+        ));
     }
 
     private Map<Long, List<LexicalPairExampleEntity>> loadExampleMap(List<Long> senseIds) {

@@ -1,13 +1,17 @@
 package com.huashi.eftransfer.app.modules.training.controller;
 
+import com.huashi.eftransfer.app.modules.training.dto.SaveTrainingProgressRequest;
 import com.huashi.eftransfer.app.modules.training.dto.StartTrainingSessionRequest;
 import com.huashi.eftransfer.app.modules.training.dto.SubmitTrainingAnswerRequest;
+import com.huashi.eftransfer.app.modules.training.dto.TrainingSessionPageQuery;
 import com.huashi.eftransfer.app.modules.training.service.TrainingSessionService;
+import com.huashi.eftransfer.app.modules.training.vo.TrainingHistorySummaryVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingNextItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionCreatedVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionProgressVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionSummaryVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
+import com.huashi.eftransfer.shared.page.PageResult;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.validation.annotation.Validated;
@@ -34,9 +38,22 @@ public class TrainingSessionController {
         return ApiResponse.success(trainingSessionService.startSession(request), MDC.get("traceId"));
     }
 
+    @GetMapping
+    public ApiResponse<PageResult<TrainingHistorySummaryVO>> pageHistory(@Valid TrainingSessionPageQuery query) {
+        return ApiResponse.success(trainingSessionService.pageHistory(query), MDC.get("traceId"));
+    }
+
     @GetMapping("/{sessionId}/next-item")
     public ApiResponse<TrainingNextItemVO> getNextItem(@PathVariable Long sessionId) {
         return ApiResponse.success(trainingSessionService.getNextItem(sessionId), MDC.get("traceId"));
+    }
+
+    @PostMapping("/{sessionId}/progress")
+    public ApiResponse<TrainingSessionProgressVO> saveProgress(
+            @PathVariable Long sessionId,
+            @Valid @RequestBody SaveTrainingProgressRequest request
+    ) {
+        return ApiResponse.success(trainingSessionService.saveProgress(sessionId, request), MDC.get("traceId"));
     }
 
     @PostMapping("/{sessionId}/answers")

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
@@ -24,6 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = InternalAiConfigController.class)
+@TestPropertySource(properties = {
+        "platform.internal-api.enabled=true",
+        "platform.internal-api.token=test-internal-token"
+})
 class InternalAiConfigControllerTest {
 
     @Autowired
@@ -42,7 +47,8 @@ class InternalAiConfigControllerTest {
                 List.of("fallbackProvider is currently informational only; automatic failover is not implemented.")
         ));
 
-        mockMvc.perform(get("/internal/ai/config/effective"))
+        mockMvc.perform(get("/internal/ai/config/effective")
+                        .header("X-Internal-Token", "test-internal-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.source").value("DEFAULTS"))
                 .andExpect(jsonPath("$.data.version").value(1));
@@ -57,6 +63,7 @@ class InternalAiConfigControllerTest {
         ));
 
         mockMvc.perform(post("/internal/ai/config/validate")
+                        .header("X-Internal-Token", "test-internal-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

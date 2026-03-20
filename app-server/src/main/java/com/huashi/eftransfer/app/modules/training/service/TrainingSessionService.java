@@ -9,8 +9,10 @@ import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairSenseEntity;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairExampleMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairSenseMapper;
+import com.huashi.eftransfer.app.modules.training.dto.SaveTrainingProgressRequest;
 import com.huashi.eftransfer.app.modules.training.dto.StartTrainingSessionRequest;
 import com.huashi.eftransfer.app.modules.training.dto.SubmitTrainingAnswerRequest;
+import com.huashi.eftransfer.app.modules.training.dto.TrainingSessionPageQuery;
 import com.huashi.eftransfer.app.modules.training.entity.ReviewScheduleEntity;
 import com.huashi.eftransfer.app.modules.training.entity.TrainingItemResultEntity;
 import com.huashi.eftransfer.app.modules.training.entity.TrainingPlanEntity;
@@ -32,6 +34,7 @@ import com.huashi.eftransfer.app.modules.training.support.TrainingSessionSummary
 import com.huashi.eftransfer.app.modules.training.support.TrainingStimulusPayload;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingNextItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingExerciseContentVO;
+import com.huashi.eftransfer.app.modules.training.vo.TrainingHistorySummaryVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingOptionViewVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingQuestionItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingRiskWordVO;
@@ -52,6 +55,8 @@ import com.huashi.eftransfer.shared.enums.TrainingPlanStatus;
 import com.huashi.eftransfer.shared.enums.TrainingSessionStatus;
 import com.huashi.eftransfer.shared.enums.WrongBookMasteryStatus;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import com.huashi.eftransfer.shared.page.PageQuery;
+import com.huashi.eftransfer.shared.page.PageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -132,6 +137,7 @@ public class TrainingSessionService {
     public TrainingSessionCreatedVO startSession(StartTrainingSessionRequest request) {
         TrainingMode mode = parseTrainingMode(request.mode());
         TrainingPlanEntity plan = requireAccessiblePlan(request.planId());
+        requireNoActiveSession(plan.getOwnerUserId());
         List<TrainingPlanItemEntity> planItems = loadPlanItems(plan.getId(), mode);
         if (planItems.isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT, "Training plan does not contain items for the requested mode", 409);
@@ -213,6 +219,47 @@ public class TrainingSessionService {
         );
     }
 
+    public PageResult<TrainingHistorySummaryVO> pageHistory(TrainingSessionPageQuery query) {
+        PageQuery pageQuery = query.toPageQuery();
+        var wrapper = Wrappers.<TrainingSessionEntity>lambdaQuery()
+                .orderByDesc(TrainingSessionEntity::getStartedAt)
+                .orderByDesc(TrainingSessionEntity::getId);
+
+        if (query.status() != null && !query.status().isBlank()) {
+            wrapper.eq(TrainingSessionEntity::getStatus, parseSessionStatus(query.status()).name());
+        }
+        if (query.planId() != null) {
+            wrapper.eq(TrainingSessionEntity::getPlanId, query.planId());
+        }
+
+        Long ownerFilter = resolveHistoryOwnerFilter(query);
+        if (ownerFilter != null) {
+            wrapper.eq(TrainingSessionEntity::getOwnerUserId, ownerFilter);
+        }
+
+        long total = trainingSessionMapper.selectCount(wrapper);
+        List<TrainingSessionEntity> sessions = trainingSessionMapper.selectList(wrapper
+                .last("LIMIT " + pageQuery.pageSize() + " OFFSET " + pageQuery.offset()));
+
+        List<TrainingHistorySummaryVO> records = sessions.stream()
+                .map(session -> new TrainingHistorySummaryVO(
+                        session.getId(),
+                        session.getPlanId(),
+                        session.getOwnerUserId(),
+                        session.getStatus(),
+                        session.getMode(),
+                        session.getTotalItems(),
+                        session.getAnsweredItems(),
+                        session.getCurrentItemOrder(),
+                        session.getStartedAt(),
+                        session.getLastSavedAt(),
+                        session.getCompletedAt()
+                ))
+                .toList();
+
+        return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
+    }
+
     public TrainingNextItemVO getNextItem(Long sessionId) {
         TrainingSessionEntity session = requireAccessibleSession(sessionId);
         if (!TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
@@ -291,6 +338,17 @@ public class TrainingSessionService {
                         options
                 )
         );
+    }
+
+    @Transactional
+    public TrainingSessionProgressVO saveProgress(Long sessionId, SaveTrainingProgressRequest request) {
+        TrainingSessionEntity session = requireInProgressSession(sessionId);
+        session.setProgressSnapshotJson(trainingJsonCodec.write(request.progressSnapshot()));
+        session.setLastSavedAt(LocalDateTime.now());
+        trainingSessionMapper.updateById(session);
+        auditLogService.record("save_training_progress", "training_session", String.valueOf(sessionId), request, ResultCode.SUCCESS.code());
+        log.info("event=training_progress_saved sessionId={} answeredItems={}/{}", sessionId, session.getAnsweredItems(), session.getTotalItems());
+        return progressVO(session);
     }
 
     @Transactional
@@ -736,6 +794,17 @@ public class TrainingSessionService {
         return plan;
     }
 
+    private void requireNoActiveSession(Long ownerUserId) {
+        TrainingSessionEntity existing = trainingSessionMapper.selectOne(Wrappers.<TrainingSessionEntity>lambdaQuery()
+                .eq(TrainingSessionEntity::getOwnerUserId, ownerUserId)
+                .eq(TrainingSessionEntity::getStatus, TrainingSessionStatus.IN_PROGRESS.name())
+                .orderByDesc(TrainingSessionEntity::getStartedAt)
+                .last("LIMIT 1"));
+        if (existing != null) {
+            throw new BusinessException(ResultCode.CONFLICT, "Training session already in progress. Resume the active session before starting a new one.", 409);
+        }
+    }
+
     private TrainingSessionEntity requireAccessibleSession(Long sessionId) {
         TrainingSessionEntity session = trainingSessionMapper.selectById(sessionId);
         if (session == null) {
@@ -979,6 +1048,16 @@ public class TrainingSessionService {
         );
     }
 
+    private Long resolveHistoryOwnerFilter(TrainingSessionPageQuery query) {
+        if (isAdmin()) {
+            if (query.ownerUserId() != null) {
+                return query.ownerUserId();
+            }
+            return Boolean.TRUE.equals(query.mineOnly()) ? currentUserId() : null;
+        }
+        return currentUserId();
+    }
+
     private Long currentUserId() {
         return SecurityUtils.getCurrentUserId()
                 .orElseThrow(() -> new BusinessException(ResultCode.UNAUTHORIZED, "Authentication required", 401));
@@ -988,6 +1067,14 @@ public class TrainingSessionService {
         return SecurityUtils.getCurrentPrincipal()
                 .map(principal -> principal.roles().contains("ADMIN"))
                 .orElse(false);
+    }
+
+    private TrainingSessionStatus parseSessionStatus(String value) {
+        try {
+            return TrainingSessionStatus.valueOf(value.trim().toUpperCase());
+        } catch (RuntimeException exception) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported trainingSessionStatus: " + value, 400);
+        }
     }
 
     private record SessionPlanItem(

@@ -1,7 +1,6 @@
 package com.huashi.eftransfer.app.modules.internal.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.huashi.eftransfer.app.common.config.InternalKnowledgeProperties;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairExampleEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairSenseEntity;
@@ -32,7 +31,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -47,32 +45,19 @@ public class InternalKnowledgeService {
     private final LexicalPairExampleMapper lexicalPairExampleMapper;
     private final LexicalPairTagRelMapper lexicalPairTagRelMapper;
     private final LexicalTagMapper lexicalTagMapper;
-    private final InternalKnowledgeProperties properties;
 
     public InternalKnowledgeService(
             LexicalPairMapper lexicalPairMapper,
             LexicalPairSenseMapper lexicalPairSenseMapper,
             LexicalPairExampleMapper lexicalPairExampleMapper,
             LexicalPairTagRelMapper lexicalPairTagRelMapper,
-            LexicalTagMapper lexicalTagMapper,
-            InternalKnowledgeProperties properties
+            LexicalTagMapper lexicalTagMapper
     ) {
         this.lexicalPairMapper = lexicalPairMapper;
         this.lexicalPairSenseMapper = lexicalPairSenseMapper;
         this.lexicalPairExampleMapper = lexicalPairExampleMapper;
         this.lexicalPairTagRelMapper = lexicalPairTagRelMapper;
         this.lexicalTagMapper = lexicalTagMapper;
-        this.properties = properties;
-    }
-
-    public void validateToken(String token) {
-        String configuredToken = properties.getToken();
-        if (!StringUtils.hasText(configuredToken)) {
-            return;
-        }
-        if (!Objects.equals(configuredToken, token)) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "Invalid internal knowledge token", 403);
-        }
     }
 
     public LexicalKnowledgeExportPageResponse exportLexicalPairs(

@@ -14,6 +14,9 @@ public class AiGatewayClientProperties {
     @NotBlank
     private String baseUrl = "http://localhost:8090";
 
+    @NotBlank
+    private String internalToken;
+
     private Duration connectTimeout = Duration.ofSeconds(3);
 
     private Duration readTimeout = Duration.ofSeconds(5);
@@ -35,6 +38,14 @@ public class AiGatewayClientProperties {
 
     public Duration getConnectTimeout() {
         return connectTimeout;
+    }
+
+    public String getInternalToken() {
+        return internalToken;
+    }
+
+    public void setInternalToken(String internalToken) {
+        this.internalToken = internalToken;
     }
 
     public void setConnectTimeout(Duration connectTimeout) {

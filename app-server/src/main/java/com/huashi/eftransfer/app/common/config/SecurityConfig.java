@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.common.config;
 
 import com.huashi.eftransfer.app.common.security.JwtAuthenticationFilter;
+import com.huashi.eftransfer.app.common.security.InternalApiAuthenticationFilter;
 import com.huashi.eftransfer.app.common.security.handler.RestAccessDeniedHandler;
 import com.huashi.eftransfer.app.common.security.handler.RestAuthenticationEntryPoint;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
@@ -22,12 +23,13 @@ import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, InternalKnowledgeProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, InternalApiProperties.class})
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain appSecurityFilterChain(
             HttpSecurity http,
+            InternalApiAuthenticationFilter internalApiAuthenticationFilter,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             RestAuthenticationEntryPoint restAuthenticationEntryPoint,
             RestAccessDeniedHandler restAccessDeniedHandler
@@ -51,11 +53,14 @@ public class SecurityConfig {
                                 "/actuator/info"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/ai/**").hasRole("STUDENT")
+                        .requestMatchers("/api/ai/**").hasAnyRole("STUDENT", "ADMIN")
+                        .requestMatchers("/api/diagnosis/**").hasAnyRole("STUDENT", "ADMIN")
+                        .requestMatchers("/api/training/**").hasAnyRole("STUDENT", "ADMIN")
                         .requestMatchers("/api/teacher/**").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/student/**").hasAnyRole("STUDENT", "ADMIN")
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(internalApiAuthenticationFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

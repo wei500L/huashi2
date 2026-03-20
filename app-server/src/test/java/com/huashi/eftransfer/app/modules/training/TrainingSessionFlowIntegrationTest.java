@@ -178,6 +178,43 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andReturn();
         long trainingSessionId = readJson(sessionStart).path("data").path("sessionId").asLong();
 
+        mockMvc.perform(get("/api/training/sessions")
+                        .with(bearer(studentToken))
+                        .param("status", "IN_PROGRESS")
+                        .param("pageNo", "1")
+                        .param("pageSize", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].sessionId").value((int) trainingSessionId))
+                .andExpect(jsonPath("$.data.records[0].status").value("IN_PROGRESS"));
+
+        mockMvc.perform(post("/api/training/sessions/{sessionId}/progress", trainingSessionId)
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "progressSnapshot": {
+                                    "sessionId": %d,
+                                    "currentItemOrder": 1,
+                                    "answeredItems": 0
+                                  }
+                                }
+                                """.formatted(trainingSessionId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessionId").value((int) trainingSessionId))
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
+
+        mockMvc.perform(post("/api/training/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "planId": %d,
+                                  "mode": "FALSE_FRIEND_DISCRIM"
+                                }
+                                """.formatted(planId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
+
         List<TrainingItemResultEntity> itemResults = trainingItemResultMapper.selectList(Wrappers.<TrainingItemResultEntity>lambdaQuery()
                 .eq(TrainingItemResultEntity::getSessionId, trainingSessionId)
                 .orderByAsc(TrainingItemResultEntity::getPresentationOrder));

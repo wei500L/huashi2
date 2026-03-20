@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import type { EChartsOption } from 'echarts';
 import { Download, Users } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
@@ -57,7 +58,7 @@ const TeacherClassDetailPage: React.FC = () => {
         data: (riskDistributionQuery.data || []).map((item) => item.studentCount),
       },
     ],
-  };
+  } as EChartsOption;
 
   const errorDistributionOption = {
     tooltip: { trigger: 'item' },
@@ -68,7 +69,7 @@ const TeacherClassDetailPage: React.FC = () => {
         data: (errorDistributionQuery.data || []).map((item) => ({ name: item.label, value: item.count })),
       },
     ],
-  };
+  } as EChartsOption;
 
   const handleExport = async () => {
     const blob = await teacherAnalyticsService.exportClassCsv(classId);

@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -45,6 +46,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = InternalAiController.class)
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {
+        "platform.internal-api.enabled=true",
+        "platform.internal-api.token=test-internal-token"
+})
 @Import({
         GlobalExceptionHandler.class,
         TraceFilter.class,
@@ -135,6 +140,7 @@ class InternalAiControllerIntegrationTest {
                                 """)));
 
         mockMvc.perform(post("/internal/ai/chat")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-chat-int")
                         .contentType("application/json")
                         .content("""
@@ -183,6 +189,7 @@ class InternalAiControllerIntegrationTest {
                                 """)));
 
         mockMvc.perform(post("/internal/ai/chat/structured")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-structured-int")
                         .contentType("application/json")
                         .content("""
@@ -229,6 +236,7 @@ class InternalAiControllerIntegrationTest {
                                 """)));
 
         mockMvc.perform(post("/internal/ai/embed/batch")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-embed-int")
                         .contentType("application/json")
                         .content("""
@@ -264,6 +272,7 @@ class InternalAiControllerIntegrationTest {
                                 """)));
 
         mockMvc.perform(post("/internal/ai/rerank")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rerank-int")
                         .contentType("application/json")
                         .content("""
@@ -283,6 +292,7 @@ class InternalAiControllerIntegrationTest {
     @Test
     void shouldRejectRerankTopNGreaterThanDocumentsSize() throws Exception {
         mockMvc.perform(post("/internal/ai/rerank")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rerank-bad-request")
                         .contentType("application/json")
                         .content("""
@@ -315,6 +325,7 @@ class InternalAiControllerIntegrationTest {
                                 """)));
 
         mockMvc.perform(post("/internal/ai/chat")
+                        .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rate-limit")
                         .contentType("application/json")
                         .content("""
@@ -328,6 +339,22 @@ class InternalAiControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
                 .andExpect(jsonPath("$.message").value("too many requests"));
+    }
+
+    @Test
+    void shouldRejectMissingInternalToken() throws Exception {
+        mockMvc.perform(post("/internal/ai/chat")
+                        .header("X-Trace-Id", "trace-chat-missing-token")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "messages": [
+                                    {"role": "user", "content": "Say hi"}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @TestConfiguration

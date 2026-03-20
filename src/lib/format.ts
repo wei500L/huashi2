@@ -1,4 +1,5 @@
-import type { AnalyticsHeatmapVO, AnalyticsRadarMetricVO, AnalyticsScatterVO, AnalyticsTrendVO, Role } from './contracts';
+import type { EChartsOption } from 'echarts';
+import type { AnalyticsHeatmapVO, AnalyticsRadarMetricVO, AnalyticsScatterVO, AnalyticsTrendVO, Capability, CurrentUserVO } from './contracts';
 
 export function formatPercent(value: number, digits = 0): string {
   return `${(value * 100).toFixed(digits)}%`;
@@ -41,12 +42,20 @@ export function formatDate(value?: string | null): string {
   });
 }
 
-export function roleHomePath(role?: Role | null): string {
-  if (role === 'TEACHER') {
-    return '/teacher/classes';
+export function hasCapability(capabilities: Capability[] | null | undefined, capability: Capability): boolean {
+  return Array.isArray(capabilities) && capabilities.includes(capability);
+}
+
+export function userHasCapability(user: Pick<CurrentUserVO, 'capabilities'> | null | undefined, capability: Capability): boolean {
+  return hasCapability(user?.capabilities, capability);
+}
+
+export function homePathForCapabilities(capabilities?: Capability[] | null): string {
+  if (hasCapability(capabilities, 'ADMIN_CONSOLE')) {
+    return '/admin/users';
   }
-  if (role === 'ADMIN') {
-    return '/admin/config-center';
+  if (hasCapability(capabilities, 'TEACHING_WORKSPACE')) {
+    return '/teacher/classes';
   }
   return '/dashboard';
 }
@@ -92,7 +101,7 @@ export function riskTone(level?: string | null): string {
   }
 }
 
-export function buildTrendOption(trend?: AnalyticsTrendVO | null) {
+export function buildTrendOption(trend?: AnalyticsTrendVO | null): EChartsOption {
   if (!trend) {
     return {};
   }
@@ -120,10 +129,10 @@ export function buildTrendOption(trend?: AnalyticsTrendVO | null) {
       symbol: 'none',
       data: series.values,
     })),
-  };
+  } as unknown as EChartsOption;
 }
 
-export function buildRadarOption(radar?: AnalyticsRadarMetricVO[] | null) {
+export function buildRadarOption(radar?: AnalyticsRadarMetricVO[] | null): EChartsOption {
   if (!radar?.length) {
     return {};
   }
@@ -148,10 +157,10 @@ export function buildRadarOption(radar?: AnalyticsRadarMetricVO[] | null) {
         ],
       },
     ],
-  };
+  } as unknown as EChartsOption;
 }
 
-export function buildHeatmapOption(heatmap?: AnalyticsHeatmapVO | null) {
+export function buildHeatmapOption(heatmap?: AnalyticsHeatmapVO | null): EChartsOption {
   if (!heatmap) {
     return {};
   }
@@ -188,10 +197,10 @@ export function buildHeatmapOption(heatmap?: AnalyticsHeatmapVO | null) {
         label: { show: true, color: '#fff' },
       },
     ],
-  };
+  } as unknown as EChartsOption;
 }
 
-export function buildScatterOption(scatter?: AnalyticsScatterVO | null) {
+export function buildScatterOption(scatter?: AnalyticsScatterVO | null): EChartsOption {
   if (!scatter) {
     return {};
   }
@@ -218,5 +227,5 @@ export function buildScatterOption(scatter?: AnalyticsScatterVO | null) {
         symbolSize: (data: [number, number, number]) => Math.max(10, Math.min(30, data[2] * 2)),
       },
     ],
-  };
+  } as unknown as EChartsOption;
 }

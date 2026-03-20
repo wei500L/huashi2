@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { EChartsOption } from 'echarts';
 import { Download, Filter } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
@@ -70,7 +71,7 @@ const AnalyticsPage: React.FC = () => {
         data: (overviewQuery.data?.contextPerformance || []).map((item) => item.avgReactionTimeMs),
       },
     ],
-  };
+  } as EChartsOption;
 
   const errorDistributionOption = {
     tooltip: { trigger: 'item' },
@@ -81,7 +82,7 @@ const AnalyticsPage: React.FC = () => {
         data: (errorDistributionQuery.data || []).map((item) => ({ name: item.label, value: item.count })),
       },
     ],
-  };
+  } as EChartsOption;
 
   const handleExport = async () => {
     const blob = await studentService.exportCsv(range);

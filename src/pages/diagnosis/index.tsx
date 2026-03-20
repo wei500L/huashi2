@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Brain, CheckCircle2, ChevronRight, Play, Timer } from 'lucide-react';
+import { Brain, CheckCircle2, ChevronRight, Timer } from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
 import { PageHeader } from '@/components/common';
 import { aiService, diagnosisSessionService, diagnosisTemplateService } from '@/lib/services';

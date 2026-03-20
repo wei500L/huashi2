@@ -27,8 +27,8 @@ import { twMerge } from 'tailwind-merge';
 import { Magnetic } from '@/components/common';
 import { useAuthStore, useUIStore } from '@/store';
 import { aiService } from '@/lib/services';
-import { roleHomePath } from '@/lib/format';
-import type { Role } from '@/lib/contracts';
+import { hasCapability, homePathForCapabilities, userHasCapability } from '@/lib/format';
+import type { Capability, Role } from '@/lib/contracts';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -40,42 +40,34 @@ type NavItem = {
   icon: React.ComponentType<{ size?: number; className?: string }>;
 };
 
-function buildSections(role?: Role | null): Array<{ label: string; items: NavItem[] }> {
-  if (role === 'TEACHER') {
-    return [
-      {
-        label: 'Teaching',
-        items: [
-          { name: '班级总览', path: '/teacher/classes', icon: Users },
-          { name: '诊断模板', path: '/teacher/diagnosis-templates', icon: Brain },
-          { name: '词对管理', path: '/teacher/lexical-pairs', icon: BookOpen },
-          { name: '词表管理', path: '/teacher/lexical-lists', icon: BookCopy },
-          { name: '干预工作台', path: '/teacher/interventions', icon: Shield },
-        ],
-      },
-      {
-        label: 'System',
-        items: [{ name: '设置', path: '/settings', icon: Settings }],
-      },
-    ];
+function buildSections(capabilities?: Capability[] | null): Array<{ label: string; items: NavItem[] }> {
+  const sections: Array<{ label: string; items: NavItem[] }> = [];
+
+  if (hasCapability(capabilities, 'ADMIN_CONSOLE')) {
+    sections.push({
+      label: 'Admin',
+      items: [
+        { name: '用户管理', path: '/admin/users', icon: Users },
+        { name: '配置中心', path: '/admin/config-center', icon: Shield },
+      ],
+    });
   }
-  if (role === 'ADMIN') {
-    return [
-      {
-        label: 'Admin',
-        items: [
-          { name: '配置中心', path: '/admin/config-center', icon: Shield },
-          { name: '用户管理', path: '/admin/users', icon: Users },
-        ],
-      },
-      {
-        label: 'System',
-        items: [{ name: '设置', path: '/settings', icon: Settings }],
-      },
-    ];
+
+  if (hasCapability(capabilities, 'TEACHING_WORKSPACE')) {
+    sections.push({
+      label: 'Teaching',
+      items: [
+        { name: '班级总览', path: '/teacher/classes', icon: Users },
+        { name: '诊断模板', path: '/teacher/diagnosis-templates', icon: Brain },
+        { name: '词对管理', path: '/teacher/lexical-pairs', icon: BookOpen },
+        { name: '词表管理', path: '/teacher/lexical-lists', icon: BookCopy },
+        { name: '干预工作台', path: '/teacher/interventions', icon: Shield },
+      ],
+    });
   }
-  return [
-    {
+
+  if (hasCapability(capabilities, 'STUDENT_WORKSPACE')) {
+    sections.push({
       label: 'Core',
       items: [
         { name: '总览', path: '/dashboard', icon: LayoutDashboard },
@@ -84,12 +76,15 @@ function buildSections(role?: Role | null): Array<{ label: string; items: NavIte
         { name: '学情分析', path: '/analytics', icon: LineChart },
         { name: '错题与复习', path: '/errors', icon: Database },
       ],
-    },
-    {
-      label: 'System',
-      items: [{ name: '设置', path: '/settings', icon: Settings }],
-    },
-  ];
+    });
+  }
+
+  sections.push({
+    label: 'System',
+    items: [{ name: '设置', path: '/settings', icon: Settings }],
+  });
+
+  return sections;
 }
 
 function roleLabel(role?: Role | null): string {
@@ -105,7 +100,7 @@ function roleLabel(role?: Role | null): string {
 export const Sidebar: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
-  const sections = useMemo(() => buildSections(user?.primaryRole), [user?.primaryRole]);
+  const sections = useMemo(() => buildSections(user?.capabilities), [user?.capabilities]);
 
   return (
     <aside
@@ -116,7 +111,7 @@ export const Sidebar: React.FC = () => {
     >
       <div className="p-8 flex items-center justify-between relative z-10">
         {!isSidebarCollapsed && (
-          <Link to={roleHomePath(user?.primaryRole)} className="flex items-center gap-3">
+          <Link to={homePathForCapabilities(user?.capabilities)} className="flex items-center gap-3">
             <div className="relative w-9 h-9 flex items-center justify-center">
               <div className="absolute inset-0 bg-primary/15 rounded-xl rotate-6" />
               <div className="absolute inset-0 border border-primary/40 rounded-xl -rotate-6" />
@@ -194,7 +189,7 @@ export const Sidebar: React.FC = () => {
           <div className="px-4 py-3 rounded-2xl bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/5">
             <div className="text-sm font-black text-slate-900 dark:text-white/90">{user.displayName}</div>
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mt-1">
-              {roleLabel(user.primaryRole)}
+              {user.roles.map((role) => roleLabel(role)).join(' / ')}
             </div>
           </div>
         )}
@@ -224,7 +219,7 @@ const AssistantDrawer: React.FC = () => {
     setQuery(assistantDraft);
   }, [assistantDraft]);
 
-  if (user?.primaryRole !== 'STUDENT') {
+  if (!userHasCapability(user, 'STUDENT_WORKSPACE')) {
     return null;
   }
 
@@ -414,7 +409,7 @@ export const Topbar: React.FC = () => {
           </div>
           <div className="text-lg font-black text-slate-900 dark:text-white">{currentTitle}</div>
         </div>
-        {user?.primaryRole === 'STUDENT' && (
+        {userHasCapability(user, 'STUDENT_WORKSPACE') && (
           <div className="relative max-w-lg w-full hidden md:block group">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within:text-primary transition-colors duration-300"
@@ -439,7 +434,7 @@ export const Topbar: React.FC = () => {
         )}
       </div>
       <div className="flex items-center gap-5 relative z-10">
-        {user?.primaryRole === 'STUDENT' && (
+        {userHasCapability(user, 'STUDENT_WORKSPACE') && (
           <button
             type="button"
             onClick={() => openAssistant(search.trim())}

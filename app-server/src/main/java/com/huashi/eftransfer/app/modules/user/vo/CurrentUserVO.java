@@ -9,6 +9,7 @@ public record CurrentUserVO(
         String displayName,
         String primaryRole,
         Set<String> roles,
+        Set<String> capabilities,
         StudentProfileVO studentProfile,
         TeacherProfileVO teacherProfile
 ) {

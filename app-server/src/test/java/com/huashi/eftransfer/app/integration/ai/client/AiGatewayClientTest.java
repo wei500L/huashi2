@@ -552,6 +552,7 @@ class AiGatewayClientTest {
     private AiGatewayClientProperties defaultProperties() {
         AiGatewayClientProperties properties = new AiGatewayClientProperties();
         properties.setBaseUrl(baseUrl);
+        properties.setInternalToken("test-internal-token");
         properties.setMaxAttempts(2);
         properties.setRetryBackoff(Duration.ZERO);
         return properties;

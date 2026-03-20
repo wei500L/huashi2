@@ -45,6 +45,9 @@ public class TrainingSessionEntity extends BaseAuditEntity {
     @TableField("started_at")
     private LocalDateTime startedAt;
 
+    @TableField("last_saved_at")
+    private LocalDateTime lastSavedAt;
+
     @TableField("completed_at")
     private LocalDateTime completedAt;
 
@@ -158,5 +161,13 @@ public class TrainingSessionEntity extends BaseAuditEntity {
 
     public void setCompletedAt(LocalDateTime completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public LocalDateTime getLastSavedAt() {
+        return lastSavedAt;
+    }
+
+    public void setLastSavedAt(LocalDateTime lastSavedAt) {
+        this.lastSavedAt = lastSavedAt;
     }
 }

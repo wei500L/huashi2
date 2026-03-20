@@ -22,6 +22,8 @@ spring:
 app:
   redis:
     redisson-enabled: false
+  demo-data:
+    enabled: true
   events:
     rabbit-publish-enabled: false
   analytics:
@@ -30,15 +32,22 @@ app:
   ops:
     config:
       encryption-secret: 0123456789abcdef0123456789abcdef
-  internal:
-    knowledge:
-      token: test-internal-knowledge-token
   security:
     jwt:
       secret: 0123456789abcdef0123456789abcdef
       issuer: ef-transfer-platform-test
       access-token-ttl: PT30M
       refresh-token-ttl: PT24H
+
+platform:
+  internal-api:
+    enabled: true
+    token: test-internal-knowledge-token
+
+integration:
+  ai:
+    base-url: http://localhost:8090
+    internal-token: test-internal-knowledge-token
 
 management:
   health:

@@ -1,26 +1,27 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/layout';
 import { useAuthStore, useUIStore } from './store';
 import { SESSION_CHANGE_EVENT } from './lib/session';
-import { roleHomePath } from './lib/format';
-import Login from './pages/Login';
-import Dashboard from './pages/dashboard/index';
-import DiagnosisPage from './pages/diagnosis/index';
-import TrainingPage from './pages/training/index';
-import AnalyticsPage from './pages/analytics/index';
-import ErrorsPage from './pages/student/Errors';
-import SettingsPage from './pages/student/Settings';
-import TeacherClassesPage from './pages/teacher/Classes';
-import TeacherClassDetailPage from './pages/teacher/ClassDetail';
-import TeacherStudentDetailPage from './pages/teacher/StudentDetail';
-import TeacherTemplatesPage from './pages/teacher/Templates';
-import TeacherLexicalPairsPage from './pages/teacher/LexicalPairs';
-import TeacherLexicalListsPage from './pages/teacher/LexicalLists';
-import TeacherInterventionsPage from './pages/teacher/Interventions';
-import AdminUsersPage from './pages/admin/index';
-import AdminConfigCenterPage from './pages/admin/ConfigCenter';
-import type { Role } from './lib/contracts';
+import { homePathForCapabilities, userHasCapability } from './lib/format';
+import type { Capability } from './lib/contracts';
+
+const Login = React.lazy(() => import('./pages/Login'));
+const Dashboard = React.lazy(() => import('./pages/dashboard/index'));
+const DiagnosisPage = React.lazy(() => import('./pages/diagnosis/index'));
+const TrainingPage = React.lazy(() => import('./pages/training/index'));
+const AnalyticsPage = React.lazy(() => import('./pages/analytics/index'));
+const ErrorsPage = React.lazy(() => import('./pages/student/Errors'));
+const SettingsPage = React.lazy(() => import('./pages/student/Settings'));
+const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
+const TeacherClassDetailPage = React.lazy(() => import('./pages/teacher/ClassDetail'));
+const TeacherStudentDetailPage = React.lazy(() => import('./pages/teacher/StudentDetail'));
+const TeacherTemplatesPage = React.lazy(() => import('./pages/teacher/Templates'));
+const TeacherLexicalPairsPage = React.lazy(() => import('./pages/teacher/LexicalPairs'));
+const TeacherLexicalListsPage = React.lazy(() => import('./pages/teacher/LexicalLists'));
+const TeacherInterventionsPage = React.lazy(() => import('./pages/teacher/Interventions'));
+const AdminUsersPage = React.lazy(() => import('./pages/admin/index'));
+const AdminConfigCenterPage = React.lazy(() => import('./pages/admin/ConfigCenter'));
 
 const BootScreen: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -34,18 +35,20 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return authenticated ? <>{children}</> : <Navigate to="/login" replace state={{ from: location.pathname }} />;
 };
 
-const RequireRole: React.FC<{ roles: Role[]; children: React.ReactNode }> = ({ roles, children }) => {
+const RequireCapability: React.FC<{ capability: Capability; children: React.ReactNode }> = ({ capability, children }) => {
   const user = useAuthStore((state) => state.user);
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return roles.includes(user.primaryRole) ? <>{children}</> : <Navigate to={roleHomePath(user.primaryRole)} replace />;
+  return userHasCapability(user, capability) ? <>{children}</> : <Navigate to={homePathForCapabilities(user.capabilities)} replace />;
 };
 
 const HomeRedirect: React.FC = () => {
   const user = useAuthStore((state) => state.user);
-  return <Navigate to={roleHomePath(user?.primaryRole)} replace />;
+  return <Navigate to={homePathForCapabilities(user?.capabilities)} replace />;
 };
+
+const withSuspense = (node: React.ReactNode) => <Suspense fallback={<BootScreen />}>{node}</Suspense>;
 
 const App: React.FC = () => {
   const initialize = useAuthStore((state) => state.initialize);
@@ -79,7 +82,10 @@ const App: React.FC = () => {
 
   return (
     <Routes>
-      <Route path="/login" element={status === 'authenticated' && user ? <Navigate to={roleHomePath(user.primaryRole)} replace /> : <Login />} />
+      <Route
+        path="/login"
+        element={status === 'authenticated' && user ? <Navigate to={homePathForCapabilities(user.capabilities)} replace /> : withSuspense(<Login />)}
+      />
 
       <Route
         path="/"
@@ -94,122 +100,94 @@ const App: React.FC = () => {
         <Route
           path="dashboard"
           element={
-            <RequireRole roles={['STUDENT']}>
-              <Dashboard />
-            </RequireRole>
+            <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<Dashboard />)}</RequireCapability>
           }
         />
         <Route
           path="diagnosis"
           element={
-            <RequireRole roles={['STUDENT']}>
-              <DiagnosisPage />
-            </RequireRole>
+            <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<DiagnosisPage />)}</RequireCapability>
           }
         />
         <Route
           path="training"
           element={
-            <RequireRole roles={['STUDENT']}>
-              <TrainingPage />
-            </RequireRole>
+            <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<TrainingPage />)}</RequireCapability>
           }
         />
         <Route
           path="analytics"
           element={
-            <RequireRole roles={['STUDENT']}>
-              <AnalyticsPage />
-            </RequireRole>
+            <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<AnalyticsPage />)}</RequireCapability>
           }
         />
         <Route
           path="errors"
           element={
-            <RequireRole roles={['STUDENT']}>
-              <ErrorsPage />
-            </RequireRole>
+            <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<ErrorsPage />)}</RequireCapability>
           }
         />
 
         <Route
           path="teacher/classes"
           element={
-            <RequireRole roles={['TEACHER']}>
-              <TeacherClassesPage />
-            </RequireRole>
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherClassesPage />)}</RequireCapability>
           }
         />
         <Route
           path="teacher/classes/:classId"
           element={
-            <RequireRole roles={['TEACHER']}>
-              <TeacherClassDetailPage />
-            </RequireRole>
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherClassDetailPage />)}</RequireCapability>
           }
         />
         <Route
           path="teacher/classes/:classId/students/:studentUserId"
           element={
-            <RequireRole roles={['TEACHER']}>
-              <TeacherStudentDetailPage />
-            </RequireRole>
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherStudentDetailPage />)}</RequireCapability>
           }
         />
         <Route
           path="teacher/diagnosis-templates"
           element={
-            <RequireRole roles={['TEACHER']}>
-              <TeacherTemplatesPage />
-            </RequireRole>
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherTemplatesPage />)}</RequireCapability>
           }
         />
         <Route
           path="teacher/lexical-pairs"
           element={
-            <RequireRole roles={['TEACHER']}>
-              <TeacherLexicalPairsPage />
-            </RequireRole>
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherLexicalPairsPage />)}</RequireCapability>
           }
         />
         <Route
           path="teacher/lexical-lists"
           element={
-            <RequireRole roles={['TEACHER']}>
-              <TeacherLexicalListsPage />
-            </RequireRole>
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherLexicalListsPage />)}</RequireCapability>
           }
         />
         <Route
           path="teacher/interventions"
           element={
-            <RequireRole roles={['TEACHER']}>
-              <TeacherInterventionsPage />
-            </RequireRole>
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherInterventionsPage />)}</RequireCapability>
           }
         />
 
         <Route
           path="admin/config-center"
           element={
-            <RequireRole roles={['ADMIN']}>
-              <AdminConfigCenterPage />
-            </RequireRole>
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminConfigCenterPage />)}</RequireCapability>
           }
         />
 
         <Route
           path="admin/users"
           element={
-            <RequireRole roles={['ADMIN']}>
-              <AdminUsersPage />
-            </RequireRole>
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminUsersPage />)}</RequireCapability>
           }
         />
 
         <Route path="teacher" element={<Navigate to="/teacher/classes" replace />} />
         <Route path="monitor" element={<Navigate to="/teacher/interventions" replace />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings" element={withSuspense(<SettingsPage />)} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
