@@ -107,7 +107,7 @@ export const Sidebar: React.FC = () => {
   return (
     <aside
       className={cn(
-        'h-[calc(100vh-1.5rem)] my-3 ml-3 flex flex-col transition-all duration-700 z-50 liquid-glass-panel rounded-3xl edge-light fluid-texture',
+        'sidebar-shell h-[calc(100vh-1.5rem)] my-3 ml-3 flex flex-col transition-all duration-700 z-50 liquid-glass-panel rounded-3xl edge-light fluid-texture',
         isSidebarCollapsed ? 'w-20' : 'w-72'
       )}
     >
