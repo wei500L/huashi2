@@ -63,7 +63,10 @@ function buildSections(role?: Role | null): Array<{ label: string; items: NavIte
     return [
       {
         label: 'Admin',
-        items: [{ name: '用户管理', path: '/admin/users', icon: Users }],
+        items: [
+          { name: '配置中心', path: '/admin/config-center', icon: Shield },
+          { name: '用户管理', path: '/admin/users', icon: Users },
+        ],
       },
       {
         label: 'System',

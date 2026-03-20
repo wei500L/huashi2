@@ -1,16 +1,16 @@
 package com.huashi.eftransfer.ai.integration.provider;
 
-import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingItem;
 import com.huashi.eftransfer.shared.ai.EmbeddingRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
 import com.huashi.eftransfer.shared.ai.TokenUsage;
 import org.springframework.ai.embedding.Embedding;
-import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.stereotype.Component;
 
@@ -21,21 +21,18 @@ import java.util.stream.IntStream;
 @Component
 public class QwenEmbeddingProviderClient {
 
-    private final AiProviderProperties providerProperties;
-    private final EmbeddingModel embeddingModel;
+    private final AiRuntimeConfigService runtimeConfigService;
     private final ResilientAiExecutor resilientAiExecutor;
     private final AiProviderObservationService observationService;
     private final ProviderRequestContextHolder requestContextHolder;
 
     public QwenEmbeddingProviderClient(
-            AiProviderProperties providerProperties,
-            EmbeddingModel qwenEmbeddingModel,
+            AiRuntimeConfigService runtimeConfigService,
             ResilientAiExecutor resilientAiExecutor,
             AiProviderObservationService observationService,
             ProviderRequestContextHolder requestContextHolder
     ) {
-        this.providerProperties = providerProperties;
-        this.embeddingModel = qwenEmbeddingModel;
+        this.runtimeConfigService = runtimeConfigService;
         this.resilientAiExecutor = resilientAiExecutor;
         this.observationService = observationService;
         this.requestContextHolder = requestContextHolder;
@@ -56,12 +53,13 @@ public class QwenEmbeddingProviderClient {
     private EmbeddingResponse embedInternal(List<String> texts, String requestModel, Integer requestDimension) {
         String provider = "qwen";
         String model = resolveModel(requestModel);
-        int dimension = requestDimension != null ? requestDimension : defaultEmbedding().getDimension();
+        int dimension = requestDimension != null ? requestDimension : defaultEmbedding().dimension();
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
         try {
-            org.springframework.ai.embedding.EmbeddingResponse response = resilientAiExecutor.execute("embedding", () -> embeddingModel.call(
+            AiRuntimeBundle bundle = runtimeConfigService.current();
+            org.springframework.ai.embedding.EmbeddingResponse response = resilientAiExecutor.execute("embedding", () -> bundle.embeddingModel().call(
                     new org.springframework.ai.embedding.EmbeddingRequest(
                             texts,
                             OpenAiEmbeddingOptions.builder()
@@ -110,11 +108,11 @@ public class QwenEmbeddingProviderClient {
     }
 
     private String resolveModel(String requestModel) {
-        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultEmbedding().getModel();
+        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultEmbedding().model();
     }
 
-    private AiProviderProperties.EmbeddingProperties defaultEmbedding() {
-        return providerProperties.getProviderProperties("qwen").getEmbedding();
+    private com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig defaultEmbedding() {
+        return runtimeConfigService.current().config().provider().embedding();
     }
 
     private TokenUsage toUsage(org.springframework.ai.chat.metadata.Usage usage) {

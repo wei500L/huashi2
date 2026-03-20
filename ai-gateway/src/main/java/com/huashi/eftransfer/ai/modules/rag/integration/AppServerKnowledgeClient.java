@@ -1,13 +1,12 @@
 package com.huashi.eftransfer.ai.modules.rag.integration;
 
-import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriBuilder;
 
 import java.net.URI;
@@ -21,15 +20,10 @@ public class AppServerKnowledgeClient {
             new ParameterizedTypeReference<>() {
             };
 
-    private final RestClient knowledgeSourceRestClient;
-    private final RagProperties properties;
+    private final AiRuntimeConfigService runtimeConfigService;
 
-    public AppServerKnowledgeClient(
-            @Qualifier("knowledgeSourceRestClient") RestClient knowledgeSourceRestClient,
-            RagProperties properties
-    ) {
-        this.knowledgeSourceRestClient = knowledgeSourceRestClient;
-        this.properties = properties;
+    public AppServerKnowledgeClient(AiRuntimeConfigService runtimeConfigService) {
+        this.runtimeConfigService = runtimeConfigService;
     }
 
     public LexicalKnowledgeExportPageResponse exportLexicalPairs(
@@ -38,11 +32,12 @@ public class AppServerKnowledgeClient {
             int limit,
             List<String> sourceIds
     ) {
-        ApiResponse<LexicalKnowledgeExportPageResponse> response = knowledgeSourceRestClient.get()
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        ApiResponse<LexicalKnowledgeExportPageResponse> response = bundle.appServerRestClient().get()
                 .uri(uriBuilder -> buildExportUri(uriBuilder, updatedSince, cursor, limit, sourceIds))
                 .headers(headers -> {
-                    if (StringUtils.hasText(properties.getAppServer().getInternalToken())) {
-                        headers.set("X-Internal-Token", properties.getAppServer().getInternalToken());
+                    if (StringUtils.hasText(bundle.config().rag().appServer().internalToken())) {
+                        headers.set("X-Internal-Token", bundle.config().rag().appServer().internalToken());
                     }
                 })
                 .retrieve()

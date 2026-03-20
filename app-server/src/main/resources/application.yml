@@ -61,6 +61,9 @@ app:
   analytics:
     compensation:
       enabled: ${APP_ANALYTICS_COMPENSATION_ENABLED:true}
+  ops:
+    config:
+      encryption-secret: ${APP_OPS_CONFIG_ENCRYPTION_SECRET:}
   internal:
     knowledge:
       token: ${APP_INTERNAL_KNOWLEDGE_TOKEN:}

@@ -27,6 +27,9 @@ app:
   analytics:
     compensation:
       enabled: false
+  ops:
+    config:
+      encryption-secret: 0123456789abcdef0123456789abcdef
   internal:
     knowledge:
       token: test-internal-knowledge-token

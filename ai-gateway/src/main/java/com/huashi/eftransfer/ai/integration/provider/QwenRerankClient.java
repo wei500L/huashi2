@@ -1,17 +1,15 @@
 package com.huashi.eftransfer.ai.integration.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,21 +20,18 @@ import java.util.Map;
 @Component
 public class QwenRerankClient implements RerankClient {
 
-    private final RestClient qwenRerankRestClient;
-    private final AiProviderProperties providerProperties;
+    private final AiRuntimeConfigService runtimeConfigService;
     private final ResilientAiExecutor resilientAiExecutor;
     private final AiProviderObservationService observationService;
     private final ProviderRequestContextHolder requestContextHolder;
 
     public QwenRerankClient(
-            @Qualifier("qwenRerankRestClient") RestClient qwenRerankRestClient,
-            AiProviderProperties providerProperties,
+            AiRuntimeConfigService runtimeConfigService,
             ResilientAiExecutor resilientAiExecutor,
             AiProviderObservationService observationService,
             ProviderRequestContextHolder requestContextHolder
     ) {
-        this.qwenRerankRestClient = qwenRerankRestClient;
-        this.providerProperties = providerProperties;
+        this.runtimeConfigService = runtimeConfigService;
         this.resilientAiExecutor = resilientAiExecutor;
         this.observationService = observationService;
         this.requestContextHolder = requestContextHolder;
@@ -50,7 +45,7 @@ public class QwenRerankClient implements RerankClient {
         requestContextHolder.clear();
 
         try {
-            JsonNode response = resilientAiExecutor.execute("rerank", () -> qwenRerankRestClient.post()
+            JsonNode response = resilientAiExecutor.execute("rerank", () -> runtimeConfigService.current().rerankRestClient().post()
                     .uri("")
                     .body(buildPayload(request, model))
                     .retrieve()
@@ -156,6 +151,6 @@ public class QwenRerankClient implements RerankClient {
     }
 
     private String resolveModel(String requestModel) {
-        return StringUtils.hasText(requestModel) ? requestModel : providerProperties.getProviderProperties("qwen").getRerank().getModel();
+        return StringUtils.hasText(requestModel) ? requestModel : runtimeConfigService.current().config().provider().rerank().model();
     }
 }

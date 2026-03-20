@@ -55,14 +55,12 @@ public class RagConfiguration {
     @Primary
     public VectorStore ragHealthVectorStore(
             KnowledgeSearchService knowledgeSearchService,
-            RagRetrievalCapture ragRetrievalCapture,
-            RagProperties properties
+            RagRetrievalCapture ragRetrievalCapture
     ) {
         return new RagAdvisorVectorStore(
                 knowledgeSearchService,
                 ragRetrievalCapture,
-                RagSearchFilter.empty(),
-                properties
+                RagSearchFilter.empty()
         );
     }
 }

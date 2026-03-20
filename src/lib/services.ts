@@ -44,6 +44,13 @@ import type {
   AnalyticsRiskBucketVO,
   DiagnosisNextItemVO,
   DiagnosisTemplateUpsertRequest,
+  AdminAiConfigSaveRequest,
+  AdminAiConfigViewVO,
+  AiGatewayHealthResponse,
+  AiOpsConfigValidationResponse,
+  RagReindexJobResponse,
+  RagReindexRequest,
+  RagReindexResponse,
 } from './contracts';
 
 export const authService = {
@@ -178,4 +185,10 @@ export const lexicalListService = {
 
 export const adminService = {
   listUsers: () => apiGet<UserSummaryVO[]>('/admin/users'),
+  getAiConfig: () => apiGet<AdminAiConfigViewVO>('/admin/ai-config'),
+  validateAiConfig: (payload: AdminAiConfigSaveRequest) => apiPost<AiOpsConfigValidationResponse>('/admin/ai-config/validate', payload),
+  saveAiConfig: (payload: AdminAiConfigSaveRequest) => apiPut<AdminAiConfigViewVO>('/admin/ai-config', payload),
+  getAiHealth: () => apiGet<AiGatewayHealthResponse>('/admin/ai-config/health'),
+  triggerRagReindex: (payload: RagReindexRequest) => apiPost<RagReindexResponse>('/admin/ai-config/reindex', payload),
+  getRagReindexJob: (jobId: number) => apiGet<RagReindexJobResponse>(`/admin/ai-config/reindex-jobs/${jobId}`),
 };

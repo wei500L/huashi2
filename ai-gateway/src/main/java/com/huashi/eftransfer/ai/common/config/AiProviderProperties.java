@@ -1,22 +1,17 @@
 package com.huashi.eftransfer.ai.common.config;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@Validated
 @ConfigurationProperties(prefix = "ai.provider")
 public class AiProviderProperties {
 
-    @NotBlank
     private String activeProvider = "qwen";
 
-    @NotBlank
     private String fallbackProvider = "deepseek";
 
     @Valid
@@ -92,13 +87,10 @@ public class AiProviderProperties {
 
     public static class BaseModelProperties {
 
-        @NotBlank
         private String baseUrl;
 
-        @NotBlank
         private String apiKey;
 
-        @NotBlank
         private String model;
 
         private Duration timeout = Duration.ofSeconds(30);

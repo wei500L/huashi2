@@ -14,6 +14,7 @@ public record IngestionJobRecord(
         String lastCursor,
         OffsetDateTime lastSourceUpdatedAt,
         OffsetDateTime finishedAt,
-        Map<String, Object> stats
+        Map<String, Object> stats,
+        String errorMessage
 ) {
 }

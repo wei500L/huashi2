@@ -6,6 +6,7 @@ import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
 import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
@@ -13,6 +14,8 @@ import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,5 +51,10 @@ public class InternalRagController {
     @PostMapping("/reindex")
     public ApiResponse<RagReindexResponse> reindex(@Valid @RequestBody RagReindexRequest request) {
         return ApiResponse.success(knowledgeIngestionService.submit(request), MDC.get("traceId"));
+    }
+
+    @GetMapping("/reindex/jobs/{jobId}")
+    public ApiResponse<RagReindexJobResponse> getJob(@PathVariable("jobId") Long jobId) {
+        return ApiResponse.success(knowledgeIngestionService.getJob(jobId), MDC.get("traceId"));
     }
 }

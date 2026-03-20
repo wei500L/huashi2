@@ -3,8 +3,8 @@ package com.huashi.eftransfer.ai.modules.rag.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
-import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.rag.integration.AppServerKnowledgeClient;
 import com.huashi.eftransfer.ai.modules.rag.repository.IngestionJobRepository;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
@@ -19,6 +19,7 @@ import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExampleItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeSenseItem;
+import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
@@ -52,7 +53,7 @@ public class KnowledgeIngestionService {
     private final KnowledgeStoreRepository knowledgeStoreRepository;
     private final AppServerKnowledgeClient appServerKnowledgeClient;
     private final AiProviderRegistry aiProviderRegistry;
-    private final RagProperties ragProperties;
+    private final AiRuntimeConfigService runtimeConfigService;
     private final TaskExecutor ragTaskExecutor;
     private final ObjectMapper objectMapper;
 
@@ -61,7 +62,7 @@ public class KnowledgeIngestionService {
             KnowledgeStoreRepository knowledgeStoreRepository,
             AppServerKnowledgeClient appServerKnowledgeClient,
             AiProviderRegistry aiProviderRegistry,
-            RagProperties ragProperties,
+            AiRuntimeConfigService runtimeConfigService,
             TaskExecutor ragTaskExecutor,
             ObjectMapper objectMapper
     ) {
@@ -69,7 +70,7 @@ public class KnowledgeIngestionService {
         this.knowledgeStoreRepository = knowledgeStoreRepository;
         this.appServerKnowledgeClient = appServerKnowledgeClient;
         this.aiProviderRegistry = aiProviderRegistry;
-        this.ragProperties = ragProperties;
+        this.runtimeConfigService = runtimeConfigService;
         this.ragTaskExecutor = ragTaskExecutor;
         this.objectMapper = objectMapper;
     }
@@ -81,6 +82,26 @@ public class KnowledgeIngestionService {
         Long jobId = ingestionJobRepository.createPendingJob(JOB_TYPE, mode.name(), requestedSourceTypes, requestedSourceIds);
         ragTaskExecutor.execute(() -> runJob(jobId, mode, requestedSourceTypes, requestedSourceIds, Boolean.TRUE.equals(request.forceReembed())));
         return new RagReindexResponse(jobId, "PENDING");
+    }
+
+    public RagReindexJobResponse getJob(Long jobId) {
+        var job = ingestionJobRepository.findById(jobId);
+        if (job == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "RAG reindex job was not found", 404);
+        }
+        return new RagReindexJobResponse(
+                job.id(),
+                job.jobType(),
+                job.mode(),
+                job.status(),
+                job.sourceTypes(),
+                job.sourceIds(),
+                job.lastCursor(),
+                job.lastSourceUpdatedAt(),
+                job.finishedAt(),
+                job.stats(),
+                job.errorMessage()
+        );
     }
 
     private void runJob(
@@ -129,7 +150,7 @@ public class KnowledgeIngestionService {
             LexicalKnowledgeExportPageResponse response = appServerKnowledgeClient.exportLexicalPairs(
                     updatedSince,
                     cursor,
-                    ragProperties.getIngestion().getExportPageSize(),
+                    runtimeConfigService.current().config().rag().ingestion().exportPageSize(),
                     lexicalSourceIds
             );
 
@@ -249,7 +270,7 @@ public class KnowledgeIngestionService {
         if (pendingChunkEmbeddings.isEmpty()) {
             return;
         }
-        int batchSize = Math.max(1, ragProperties.getIngestion().getEmbeddingBatchSize());
+        int batchSize = Math.max(1, runtimeConfigService.current().config().rag().ingestion().embeddingBatchSize());
         for (int start = 0; start < pendingChunkEmbeddings.size(); start += batchSize) {
             List<PendingChunkEmbedding> batch = pendingChunkEmbeddings.subList(start, Math.min(start + batchSize, pendingChunkEmbeddings.size()));
             try {

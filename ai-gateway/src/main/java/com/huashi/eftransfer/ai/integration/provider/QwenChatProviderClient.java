@@ -2,10 +2,11 @@ package com.huashi.eftransfer.ai.integration.provider;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
 import com.huashi.eftransfer.shared.ai.ChatResponse;
@@ -30,26 +31,20 @@ import java.util.Map;
 @Component
 public class QwenChatProviderClient {
 
-    private final AiProviderProperties providerProperties;
-    private final ChatClient chatClient;
-    private final OpenAiChatModel chatModel;
+    private final AiRuntimeConfigService runtimeConfigService;
     private final ObjectMapper objectMapper;
     private final ResilientAiExecutor resilientAiExecutor;
     private final AiProviderObservationService observationService;
     private final ProviderRequestContextHolder requestContextHolder;
 
     public QwenChatProviderClient(
-            AiProviderProperties providerProperties,
-            ChatClient qwenChatClient,
-            OpenAiChatModel qwenChatModel,
+            AiRuntimeConfigService runtimeConfigService,
             ObjectMapper objectMapper,
             ResilientAiExecutor resilientAiExecutor,
             AiProviderObservationService observationService,
             ProviderRequestContextHolder requestContextHolder
     ) {
-        this.providerProperties = providerProperties;
-        this.chatClient = qwenChatClient;
-        this.chatModel = qwenChatModel;
+        this.runtimeConfigService = runtimeConfigService;
         this.objectMapper = objectMapper;
         this.resilientAiExecutor = resilientAiExecutor;
         this.observationService = observationService;
@@ -63,9 +58,10 @@ public class QwenChatProviderClient {
         requestContextHolder.clear();
 
         try {
+            AiRuntimeBundle bundle = runtimeConfigService.current();
             org.springframework.ai.chat.model.ChatResponse response = resilientAiExecutor.execute(
                     "chat",
-                    () -> chatClient.prompt(toPrompt(request, model)).call().chatResponse()
+                    () -> bundle.chatClient().prompt(toPrompt(request, model)).call().chatResponse()
             );
             ChatResponse chatResponse = new ChatResponse(
                     provider,
@@ -89,9 +85,10 @@ public class QwenChatProviderClient {
         requestContextHolder.clear();
 
         try {
+            AiRuntimeBundle bundle = runtimeConfigService.current();
             org.springframework.ai.chat.model.ChatResponse response = resilientAiExecutor.execute(
                     "chat",
-                    () -> chatModel.call(toStructuredPrompt(request, model))
+                    () -> bundle.chatModel().call(toStructuredPrompt(request, model))
             );
             String content = response.getResult().getOutput().getText();
             StructuredChatResponse structuredResponse = new StructuredChatResponse(
@@ -121,8 +118,8 @@ public class QwenChatProviderClient {
     private Prompt toPrompt(ChatRequest request, String model) {
         return new Prompt(toMessages(request.messages()), OpenAiChatOptions.builder()
                 .model(model)
-                .temperature(request.temperature() != null ? request.temperature() : defaultChat().getTemperature())
-                .maxTokens(request.maxTokens() != null ? request.maxTokens() : defaultChat().getMaxTokens())
+                .temperature(request.temperature() != null ? request.temperature() : defaultChat().temperature())
+                .maxTokens(request.maxTokens() != null ? request.maxTokens() : defaultChat().maxTokens())
                 .build());
     }
 
@@ -139,7 +136,7 @@ public class QwenChatProviderClient {
 
         return new Prompt(toMessages(request.messages()), OpenAiChatOptions.builder()
                 .model(model)
-                .temperature(request.temperature() != null ? request.temperature() : defaultChat().getTemperature())
+                .temperature(request.temperature() != null ? request.temperature() : defaultChat().temperature())
                 .responseFormat(responseFormat)
                 .build());
     }
@@ -157,11 +154,11 @@ public class QwenChatProviderClient {
     }
 
     private String resolveModel(String requestModel) {
-        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultChat().getModel();
+        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultChat().model();
     }
 
-    private AiProviderProperties.ChatProperties defaultChat() {
-        return providerProperties.getProviderProperties("qwen").getChat();
+    private com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig defaultChat() {
+        return runtimeConfigService.current().config().provider().chat();
     }
 
     private TokenUsage toUsage(org.springframework.ai.chat.metadata.Usage usage) {

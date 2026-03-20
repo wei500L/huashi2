@@ -46,7 +46,7 @@ export function roleHomePath(role?: Role | null): string {
     return '/teacher/classes';
   }
   if (role === 'ADMIN') {
-    return '/admin/users';
+    return '/admin/config-center';
   }
   return '/dashboard';
 }

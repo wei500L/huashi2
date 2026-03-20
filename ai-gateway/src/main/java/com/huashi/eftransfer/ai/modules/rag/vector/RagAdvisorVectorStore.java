@@ -1,6 +1,5 @@
 package com.huashi.eftransfer.ai.modules.rag.vector;
 
-import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeSearchService;
 import com.huashi.eftransfer.ai.modules.rag.service.RagRetrievalCapture;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievalResult;
@@ -21,8 +20,7 @@ public class RagAdvisorVectorStore implements VectorStore {
     public RagAdvisorVectorStore(
             KnowledgeSearchService knowledgeSearchService,
             RagRetrievalCapture ragRetrievalCapture,
-            RagSearchFilter ragSearchFilter,
-            RagProperties ragProperties
+            RagSearchFilter ragSearchFilter
     ) {
         this.knowledgeSearchService = knowledgeSearchService;
         this.ragRetrievalCapture = ragRetrievalCapture;

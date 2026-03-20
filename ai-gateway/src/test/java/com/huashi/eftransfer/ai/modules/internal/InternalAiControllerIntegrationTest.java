@@ -9,6 +9,8 @@ import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
 import com.huashi.eftransfer.ai.common.filter.TraceFilter;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.integration.provider.QwenAiProviderFacade;
 import com.huashi.eftransfer.ai.integration.provider.QwenChatProviderClient;
@@ -51,6 +53,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         ProviderErrorSupport.class,
         AiProviderObservationService.class,
         ResilientAiExecutor.class,
+        AiRuntimeBundleFactory.class,
+        AiRuntimeConfigService.class,
         AiProviderRegistry.class,
         QwenAiProviderFacade.class,
         QwenChatProviderClient.class,

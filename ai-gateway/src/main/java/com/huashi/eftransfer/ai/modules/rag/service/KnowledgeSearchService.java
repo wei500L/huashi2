@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.ai.modules.rag.service;
 
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
-import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSearchCandidate;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievedChunk;
@@ -26,19 +26,20 @@ public class KnowledgeSearchService {
 
     private final AiProviderRegistry aiProviderRegistry;
     private final KnowledgeStoreRepository knowledgeStoreRepository;
-    private final RagProperties ragProperties;
+    private final AiRuntimeConfigService runtimeConfigService;
 
     public KnowledgeSearchService(
             AiProviderRegistry aiProviderRegistry,
             KnowledgeStoreRepository knowledgeStoreRepository,
-            RagProperties ragProperties
+            AiRuntimeConfigService runtimeConfigService
     ) {
         this.aiProviderRegistry = aiProviderRegistry;
         this.knowledgeStoreRepository = knowledgeStoreRepository;
-        this.ragProperties = ragProperties;
+        this.runtimeConfigService = runtimeConfigService;
     }
 
     public RagRetrievalResult search(String query, RagSearchFilter filter) {
+        var retrieval = runtimeConfigService.current().config().rag().retrieval();
         EmbeddingResponse embeddingResponse = aiProviderRegistry.resolveActiveProvider()
                 .embed(new EmbeddingRequest(query, null, null));
         if (embeddingResponse.items() == null || embeddingResponse.items().isEmpty()) {
@@ -49,9 +50,9 @@ public class KnowledgeSearchService {
         List<KnowledgeSearchCandidate> recallCandidates = knowledgeStoreRepository.similaritySearch(
                 toVectorLiteral(queryEmbedding),
                 filter,
-                ragProperties.getRetrieval().getRecallTopK()
+                retrieval.recallTopK()
         ).stream()
-                .filter(candidate -> candidate.similarityScore() >= ragProperties.getRetrieval().getRecallThreshold())
+                .filter(candidate -> candidate.similarityScore() >= retrieval.recallThreshold())
                 .toList();
 
         if (recallCandidates.isEmpty()) {
@@ -65,7 +66,7 @@ public class KnowledgeSearchService {
                 null,
                 query,
                 rerankDocuments,
-                Math.min(ragProperties.getRetrieval().getRerankTopN(), rerankDocuments.size()),
+                Math.min(retrieval.rerankTopN(), rerankDocuments.size()),
                 Boolean.TRUE,
                 "Rank lexical transfer knowledge by relevance to the user query."
         ));
@@ -79,7 +80,7 @@ public class KnowledgeSearchService {
         if (rerankResponse.items() != null) {
             int citationIndex = 1;
             for (RerankItem rerankItem : rerankResponse.items()) {
-                if (rerankItem.relevanceScore() < ragProperties.getRetrieval().getRerankThreshold()) {
+                if (rerankItem.relevanceScore() < retrieval.rerankThreshold()) {
                     continue;
                 }
                 KnowledgeSearchCandidate candidate = candidateByIndex.get(rerankItem.index());
@@ -98,7 +99,7 @@ public class KnowledgeSearchService {
                         rerankItem.relevanceScore(),
                         candidate.metadata()
                 ));
-                if (finalChunks.size() >= ragProperties.getRetrieval().getFinalTopK()) {
+                if (finalChunks.size() >= retrieval.finalTopK()) {
                     break;
                 }
             }

@@ -2,7 +2,8 @@ package com.huashi.eftransfer.ai.modules.rag.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSourceTypes;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievalResult;
 import com.huashi.eftransfer.ai.modules.rag.support.RagSearchFilter;
@@ -15,7 +16,6 @@ import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
 import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
 import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.stereotype.Service;
@@ -46,37 +46,36 @@ public class RagService {
             Do not invent sources or unsupported claims.
             """;
 
-    private final ChatClient chatClient;
+    private final AiRuntimeConfigService runtimeConfigService;
     private final RagRetrievalCapture ragRetrievalCapture;
     private final KnowledgeSearchService knowledgeSearchService;
-    private final RagProperties ragProperties;
     private final ObjectMapper objectMapper;
 
     public RagService(
-            ChatClient qwenChatClient,
+            AiRuntimeConfigService runtimeConfigService,
             RagRetrievalCapture ragRetrievalCapture,
             KnowledgeSearchService knowledgeSearchService,
-            RagProperties ragProperties,
             ObjectMapper objectMapper
     ) {
-        this.chatClient = qwenChatClient;
+        this.runtimeConfigService = runtimeConfigService;
         this.ragRetrievalCapture = ragRetrievalCapture;
         this.knowledgeSearchService = knowledgeSearchService;
-        this.ragProperties = ragProperties;
         this.objectMapper = objectMapper;
     }
 
     public RagAnswerResponse answer(RagAnswerRequest request) {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        var retrieval = bundle.config().rag().retrieval();
         RagSearchFilter filter = new RagSearchFilter(normalizeSourceTypes(request.sourceTypes()), normalizeIds(request.sourceIds()));
         QuestionAnswerAdvisor advisor = QuestionAnswerAdvisor.builder(
-                        new RagAdvisorVectorStore(knowledgeSearchService, ragRetrievalCapture, filter, ragProperties))
+                        new RagAdvisorVectorStore(knowledgeSearchService, ragRetrievalCapture, filter))
                 .searchRequest(SearchRequest.builder()
-                        .topK(ragProperties.getRetrieval().getFinalTopK())
-                        .similarityThreshold(ragProperties.getRetrieval().getRecallThreshold())
+                        .topK(retrieval.finalTopK())
+                        .similarityThreshold(retrieval.recallThreshold())
                         .build())
                 .build();
 
-        String answer = chatClient.prompt()
+        String answer = bundle.chatClient().prompt()
                 .system(ANSWER_SYSTEM_PROMPT)
                 .advisors(advisor)
                 .user(request.query())
@@ -110,6 +109,8 @@ public class RagService {
     }
 
     public RagExplainRiskResponse explainRisk(RagExplainRiskRequest request) {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        var retrieval = bundle.config().rag().retrieval();
         RagSearchFilter filter = new RagSearchFilter(
                 Set.of(
                         KnowledgeSourceTypes.LEXICAL_PAIR,
@@ -124,14 +125,14 @@ public class RagService {
         );
         String prompt = buildExplainRiskPrompt(request);
         QuestionAnswerAdvisor advisor = QuestionAnswerAdvisor.builder(
-                        new RagAdvisorVectorStore(knowledgeSearchService, ragRetrievalCapture, filter, ragProperties))
+                        new RagAdvisorVectorStore(knowledgeSearchService, ragRetrievalCapture, filter))
                 .searchRequest(SearchRequest.builder()
-                        .topK(ragProperties.getRetrieval().getFinalTopK())
-                        .similarityThreshold(ragProperties.getRetrieval().getRecallThreshold())
+                        .topK(retrieval.finalTopK())
+                        .similarityThreshold(retrieval.recallThreshold())
                         .build())
                 .build();
 
-        String content = chatClient.prompt()
+        String content = bundle.chatClient().prompt()
                 .system(EXPLAIN_RISK_SYSTEM_PROMPT)
                 .advisors(advisor)
                 .user(prompt)

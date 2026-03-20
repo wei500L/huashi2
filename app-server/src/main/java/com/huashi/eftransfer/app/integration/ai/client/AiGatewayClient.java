@@ -13,10 +13,17 @@ import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
+import com.huashi.eftransfer.shared.ai.RagReindexRequest;
+import com.huashi.eftransfer.shared.ai.RagReindexResponse;
 import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
 import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +63,21 @@ public class AiGatewayClient {
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<RagExplainRiskResponse>> RAG_EXPLAIN_RISK_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<RagReindexResponse>> RAG_REINDEX_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<RagReindexJobResponse>> RAG_REINDEX_JOB_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigEffectiveResponse>> CONFIG_EFFECTIVE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigValidationResponse>> CONFIG_VALIDATE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigApplyResponse>> CONFIG_APPLY_TYPE =
             new ParameterizedTypeReference<>() {
             };
 
@@ -116,6 +138,42 @@ public class AiGatewayClient {
         return post("/internal/ai/rag/explain-risk", request, RAG_EXPLAIN_RISK_TYPE);
     }
 
+    public AiGatewayCallResult<RagReindexResponse> reindex(RagReindexRequest request) {
+        return post("/internal/ai/rag/reindex", request, RAG_REINDEX_TYPE);
+    }
+
+    public Optional<RagReindexJobResponse> fetchReindexJob(Long jobId) {
+        return getOptional("/internal/ai/rag/reindex/jobs/" + jobId, RAG_REINDEX_JOB_TYPE);
+    }
+
+    public Optional<AiOpsConfigEffectiveResponse> fetchEffectiveConfig() {
+        return getOptional("/internal/ai/config/effective", CONFIG_EFFECTIVE_TYPE);
+    }
+
+    public AiOpsConfigValidationResponse validateConfig(AiOpsConfigPayload payload) {
+        AiGatewayCallResult<AiOpsConfigValidationResponse> result = post(
+                "/internal/ai/config/validate",
+                payload,
+                CONFIG_VALIDATE_TYPE
+        );
+        if (!result.success() || result.data() == null) {
+            throw new IllegalStateException(result.failureMessage());
+        }
+        return result.data();
+    }
+
+    public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload) {
+        AiGatewayCallResult<AiOpsConfigApplyResponse> result = post(
+                "/internal/ai/config/apply",
+                payload,
+                CONFIG_APPLY_TYPE
+        );
+        if (!result.success() || result.data() == null) {
+            throw new IllegalStateException(result.failureMessage());
+        }
+        return result.data();
+    }
+
     private <T, R> AiGatewayCallResult<R> post(String uri, T request, ParameterizedTypeReference<ApiResponse<R>> responseType) {
         long startedAt = System.nanoTime();
         int attempts = 0;
@@ -158,6 +216,23 @@ public class AiGatewayClient {
         log.warn("event=ai_gateway_call_failed endpoint={} attempts={} reason={} message={}",
                 uri, attempts, lastReason, lastMessage);
         return AiGatewayCallResult.failure(lastReason, lastMessage, attempts, elapsedMillis(startedAt), uri);
+    }
+
+    private <R> Optional<R> getOptional(String uri, ParameterizedTypeReference<ApiResponse<R>> responseType) {
+        try {
+            ApiResponse<R> response = aiGatewayRestClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(responseType);
+
+            if (response == null || !response.success()) {
+                return Optional.empty();
+            }
+            return Optional.ofNullable(response.data());
+        } catch (RestClientException ex) {
+            log.warn("event=ai_gateway_get_failed endpoint={} reason={}", uri, ex.getMessage());
+            return Optional.empty();
+        }
     }
 
     private void backoff() {

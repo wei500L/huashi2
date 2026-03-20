@@ -976,3 +976,167 @@ export interface CreateLexicalListRequest {
 export interface AddLexicalListItemsRequest {
   lexicalPairIds: number[];
 }
+
+export interface AiOpsChatConfig {
+  baseUrl: string;
+  apiKey?: string | null;
+  model: string;
+  timeout: string;
+  temperature: number;
+  maxTokens: number;
+}
+
+export interface AiOpsEmbeddingConfig {
+  baseUrl: string;
+  apiKey?: string | null;
+  model: string;
+  timeout: string;
+  dimension: number;
+}
+
+export interface AiOpsRerankConfig {
+  baseUrl: string;
+  apiKey?: string | null;
+  model: string;
+  timeout: string;
+}
+
+export interface AiOpsProviderConfig {
+  activeProvider: string;
+  fallbackProvider: string;
+  chat: AiOpsChatConfig;
+  embedding: AiOpsEmbeddingConfig;
+  rerank: AiOpsRerankConfig;
+}
+
+export interface AiOpsResilienceConfig {
+  maxAttempts: number;
+  waitDuration: string;
+  failureRateThreshold: number;
+  slidingWindowSize: number;
+  openStateDuration: string;
+}
+
+export interface AiOpsRagAppServerConfig {
+  baseUrl: string;
+  internalToken?: string | null;
+  connectTimeout: string;
+  readTimeout: string;
+}
+
+export interface AiOpsRagIngestionConfig {
+  exportPageSize: number;
+  embeddingBatchSize: number;
+}
+
+export interface AiOpsRagRetrievalConfig {
+  recallTopK: number;
+  recallThreshold: number;
+  rerankTopN: number;
+  rerankThreshold: number;
+  finalTopK: number;
+}
+
+export interface AiOpsRagConfig {
+  appServer: AiOpsRagAppServerConfig;
+  ingestion: AiOpsRagIngestionConfig;
+  retrieval: AiOpsRagRetrievalConfig;
+}
+
+export interface AiOpsConfigPayload {
+  provider: AiOpsProviderConfig;
+  resilience: AiOpsResilienceConfig;
+  rag: AiOpsRagConfig;
+}
+
+export interface AiOpsConfigIssue {
+  field: string;
+  message: string;
+}
+
+export interface AiOpsConfigValidationResponse {
+  valid: boolean;
+  issues: AiOpsConfigIssue[];
+  notices: string[];
+}
+
+export interface AdminAiSecretFieldVO {
+  configured: boolean;
+  maskedValue: string;
+}
+
+export interface AdminAiSecretFieldsVO {
+  chatApiKey: AdminAiSecretFieldVO;
+  embeddingApiKey: AdminAiSecretFieldVO;
+  rerankApiKey: AdminAiSecretFieldVO;
+  appServerInternalToken: AdminAiSecretFieldVO;
+}
+
+export interface AdminAiConfigViewVO {
+  config: AiOpsConfigPayload;
+  secrets: AdminAiSecretFieldsVO;
+  source: string;
+  version?: number | null;
+  updatedAt?: string | null;
+  notices: string[];
+}
+
+export interface AdminAiSecretValueUpdate {
+  retainExisting?: boolean;
+  value?: string | null;
+}
+
+export interface AdminAiSecretUpdateGroup {
+  chatApiKey?: AdminAiSecretValueUpdate;
+  embeddingApiKey?: AdminAiSecretValueUpdate;
+  rerankApiKey?: AdminAiSecretValueUpdate;
+  appServerInternalToken?: AdminAiSecretValueUpdate;
+}
+
+export interface AdminAiConfigSaveRequest {
+  config: AiOpsConfigPayload;
+  secrets: AdminAiSecretUpdateGroup;
+}
+
+export interface AiGatewayHealthResponse {
+  service: string;
+  status: string;
+  provider: string;
+  fallbackProvider: string;
+  chatModel: string;
+  embeddingModel: string;
+  rerankModel: string;
+  databaseReady: boolean;
+  vectorStoreReady: boolean;
+  providerReady: boolean;
+  rerankReady: boolean;
+  vectorExtensionVersion: string;
+  activeProfiles: string[];
+  timestamp: string;
+}
+
+export interface RagReindexRequest {
+  mode?: string;
+  sourceTypes?: string[];
+  sourceIds?: string[];
+  forceReembed?: boolean;
+}
+
+export interface RagReindexResponse {
+  jobId: number;
+  status: string;
+}
+
+export interface RagReindexJobResponse {
+  jobId: number;
+  jobType: string;
+  mode: string;
+  status: string;
+  sourceTypes: string[];
+  sourceIds: string[];
+  lastCursor?: string | null;
+  lastSourceUpdatedAt?: string | null;
+  finishedAt?: string | null;
+  stats: Record<string, unknown>;
+  errorMessage?: string | null;
+}

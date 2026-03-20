@@ -126,7 +126,7 @@ public class IngestionJobRepository {
         List<IngestionJobRecord> jobs = jdbcTemplate.query(
                 """
                         SELECT id, job_type, mode, status, source_types::text AS source_types_json, source_ids::text AS source_ids_json,
-                               last_cursor, last_source_updated_at, finished_at, stats::text AS stats_json
+                               last_cursor, last_source_updated_at, finished_at, stats::text AS stats_json, error_message
                         FROM ingestion_job
                         WHERE status = ? AND job_type = ?
                         ORDER BY finished_at DESC NULLS LAST, id DESC
@@ -150,7 +150,7 @@ public class IngestionJobRepository {
         List<IngestionJobRecord> jobs = jdbcTemplate.query(
                 """
                         SELECT id, job_type, mode, status, source_types::text AS source_types_json, source_ids::text AS source_ids_json,
-                               last_cursor, last_source_updated_at, finished_at, stats::text AS stats_json
+                               last_cursor, last_source_updated_at, finished_at, stats::text AS stats_json, error_message
                         FROM ingestion_job
                         WHERE status = ? AND job_type = ?
                         ORDER BY finished_at DESC NULLS LAST, id DESC
@@ -159,6 +159,22 @@ public class IngestionJobRepository {
                 this::mapJobRecord,
                 IngestionJobStatus.SUCCEEDED.name(),
                 jobType
+        );
+        return jobs.isEmpty() ? null : jobs.getFirst();
+    }
+
+    public IngestionJobRecord findById(Long jobId) {
+        List<IngestionJobRecord> jobs = jdbcTemplate.query(
+                """
+                        SELECT id, job_type, mode, status, source_types::text AS source_types_json,
+                               source_ids::text AS source_ids_json, last_cursor, last_source_updated_at,
+                               finished_at, stats::text AS stats_json, error_message
+                        FROM ingestion_job
+                        WHERE id = ?
+                        LIMIT 1
+                        """,
+                this::mapJobRecord,
+                jobId
         );
         return jobs.isEmpty() ? null : jobs.getFirst();
     }
@@ -174,7 +190,8 @@ public class IngestionJobRepository {
                 rs.getString("last_cursor"),
                 toOffsetDateTime(rs.getTimestamp("last_source_updated_at")),
                 toOffsetDateTime(rs.getTimestamp("finished_at")),
-                readMap(rs.getString("stats_json"))
+                readMap(rs.getString("stats_json")),
+                rs.getString("error_message")
         );
     }
 

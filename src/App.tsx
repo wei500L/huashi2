@@ -19,6 +19,7 @@ import TeacherLexicalPairsPage from './pages/teacher/LexicalPairs';
 import TeacherLexicalListsPage from './pages/teacher/LexicalLists';
 import TeacherInterventionsPage from './pages/teacher/Interventions';
 import AdminUsersPage from './pages/admin/index';
+import AdminConfigCenterPage from './pages/admin/ConfigCenter';
 import type { Role } from './lib/contracts';
 
 const BootScreen: React.FC = () => (
@@ -184,6 +185,15 @@ const App: React.FC = () => {
           element={
             <RequireRole roles={['TEACHER']}>
               <TeacherInterventionsPage />
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="admin/config-center"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <AdminConfigCenterPage />
             </RequireRole>
           }
         />

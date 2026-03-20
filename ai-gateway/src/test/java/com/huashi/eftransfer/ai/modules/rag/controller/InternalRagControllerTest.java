@@ -6,6 +6,7 @@ import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagCitation;
 import com.huashi.eftransfer.shared.ai.RagContextChunk;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
 import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -172,5 +174,28 @@ class InternalRagControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.jobId").value(7))
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+
+    @Test
+    void shouldReturnReindexJobStatus() throws Exception {
+        when(knowledgeIngestionService.getJob(7L)).thenReturn(new RagReindexJobResponse(
+                7L,
+                "KNOWLEDGE_REINDEX",
+                "INCREMENTAL",
+                "RUNNING",
+                List.of("LEXICAL_PAIR"),
+                List.of(),
+                "cursor-1",
+                null,
+                null,
+                Map.of("documentsProcessed", 4),
+                null
+        ));
+
+        mockMvc.perform(get("/internal/ai/rag/reindex/jobs/7")
+                        .header("X-Trace-Id", "trace-rag-job"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobId").value(7))
+                .andExpect(jsonPath("$.data.status").value("RUNNING"));
     }
 }
