@@ -17,15 +17,6 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
   ai:
-    openai:
-      api-key: ${AI_OPENAI_API_KEY:no-key-configured}
-      base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
-      chat:
-        options:
-          model: ${AI_CHAT_MODEL:qwen-max}
-      embedding:
-        options:
-          model: ${AI_EMBEDDING_MODEL:text-embedding-v4}
     vectorstore:
       pgvector:
         initialize-schema: true
@@ -44,16 +35,34 @@ management:
 
 ai:
   provider:
-    provider: ${AI_PROVIDER:qwen}
+    active-provider: ${AI_PROVIDER:qwen}
     fallback-provider: ${AI_FALLBACK_PROVIDER:deepseek}
-    base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
-    api-key: ${AI_OPENAI_API_KEY:no-key-configured}
-    chat-model: ${AI_CHAT_MODEL:qwen-max}
-    embedding-model: ${AI_EMBEDDING_MODEL:text-embedding-v4}
-    rerank-model: ${AI_RERANK_MODEL:gte-rerank-v2}
-    rerank-url: ${AI_RERANK_URL:https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank}
-    connect-timeout: ${AI_PROVIDER_CONNECT_TIMEOUT:PT5S}
-    read-timeout: ${AI_PROVIDER_READ_TIMEOUT:PT15S}
+    providers:
+      qwen:
+        chat:
+          base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+          api-key: ${AI_OPENAI_API_KEY:}
+          model: ${AI_CHAT_MODEL:qwen-max}
+          timeout: ${AI_CHAT_TIMEOUT:PT30S}
+          temperature: ${AI_CHAT_TEMPERATURE:0.2}
+          max-tokens: ${AI_CHAT_MAX_TOKENS:2048}
+        embedding:
+          base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+          api-key: ${AI_OPENAI_API_KEY:}
+          model: ${AI_EMBEDDING_MODEL:text-embedding-v4}
+          timeout: ${AI_EMBEDDING_TIMEOUT:PT30S}
+          dimension: ${AI_EMBEDDING_DIMENSION:1024}
+        rerank:
+          base-url: ${AI_RERANK_URL:https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank}
+          api-key: ${AI_OPENAI_API_KEY:}
+          model: ${AI_RERANK_MODEL:gte-rerank-v2}
+          timeout: ${AI_RERANK_TIMEOUT:PT30S}
+  resilience:
+    max-attempts: ${AI_RETRY_MAX_ATTEMPTS:3}
+    wait-duration: ${AI_RETRY_WAIT_DURATION:PT0.5S}
+    failure-rate-threshold: ${AI_CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD:50}
+    sliding-window-size: ${AI_CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE:20}
+    open-state-duration: ${AI_CIRCUIT_BREAKER_OPEN_STATE_DURATION:PT30S}
 
 logging:
   level:

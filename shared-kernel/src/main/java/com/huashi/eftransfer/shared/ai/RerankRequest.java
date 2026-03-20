@@ -1,4 +1,4 @@
-package com.huashi.eftransfer.ai.integration.provider.dto;
+package com.huashi.eftransfer.shared.ai;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -11,8 +11,10 @@ public record RerankRequest(
         @NotBlank(message = "query must not be blank")
         String query,
         @NotEmpty(message = "documents must not be empty")
-        List<String> documents,
+        List<@NotBlank(message = "document item must not be blank") String> documents,
         @Min(value = 1, message = "topN must be greater than 0")
-        int topN
+        Integer topN,
+        Boolean returnDocuments,
+        String instruct
 ) {
 }

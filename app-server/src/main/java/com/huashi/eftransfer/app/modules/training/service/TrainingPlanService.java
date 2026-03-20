@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -188,7 +189,7 @@ public class TrainingPlanService {
         plan.setGeneratedAt(LocalDateTime.now());
         trainingPlanMapper.insert(plan);
 
-        int order = 1;
+        AtomicInteger order = new AtomicInteger(1);
         List<TrainingPlanItemEntity> planItems = recommendation.pairRecommendations().stream()
                 .map(pairRecommendation -> {
                     TrainingPlanItemEntity entity = new TrainingPlanItemEntity();
@@ -202,7 +203,7 @@ public class TrainingPlanService {
                     entity.setDominantErrorType(pairRecommendation.dominantErrorType());
                     entity.setTargetContextSupport(pairRecommendation.targetContextSupport());
                     entity.setExpectedExposures(pairRecommendation.expectedExposures());
-                    entity.setSortOrder(order++);
+                    entity.setSortOrder(order.getAndIncrement());
                     return entity;
                 })
                 .toList();

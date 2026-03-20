@@ -41,24 +41,35 @@ public class AiHealthService {
     }
 
     public AiHealthPayload getHealthPayload() {
+        AiProviderProperties.ProviderProperties activeProvider = providerProperties.getActiveProviderProperties();
         boolean databaseReady = isDatabaseReady();
         String vectorVersion = fetchVectorExtensionVersion();
         boolean vectorStoreReady = vectorStoreProvider.getIfAvailable() != null && !"UNAVAILABLE".equals(vectorVersion);
         boolean providerReady = chatModelProvider.getIfAvailable() != null
                 && embeddingModelProvider.getIfAvailable() != null
-                && !"no-key-configured".equals(providerProperties.getApiKey());
+                && activeProvider != null;
+        boolean rerankReady = activeProvider != null
+                && activeProvider.getRerank() != null
+                && activeProvider.getRerank().getBaseUrl() != null
+                && !activeProvider.getRerank().getBaseUrl().isBlank()
+                && activeProvider.getRerank().getApiKey() != null
+                && !activeProvider.getRerank().getApiKey().isBlank()
+                && activeProvider.getRerank().getModel() != null
+                && !activeProvider.getRerank().getModel().isBlank();
         List<String> profiles = Arrays.asList(environment.getActiveProfiles());
 
         return new AiHealthPayload(
                 "ai-gateway",
-                databaseReady ? "UP" : "DEGRADED",
-                providerProperties.getProvider(),
+                databaseReady && providerReady && rerankReady ? "UP" : "DEGRADED",
+                providerProperties.getActiveProvider(),
                 providerProperties.getFallbackProvider(),
-                providerProperties.getChatModel(),
-                providerProperties.getEmbeddingModel(),
+                activeProvider != null ? activeProvider.getChat().getModel() : null,
+                activeProvider != null ? activeProvider.getEmbedding().getModel() : null,
+                activeProvider != null ? activeProvider.getRerank().getModel() : null,
                 databaseReady,
                 vectorStoreReady,
                 providerReady,
+                rerankReady,
                 vectorVersion,
                 profiles.isEmpty() ? List.of("default") : profiles,
                 OffsetDateTime.now()

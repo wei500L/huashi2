@@ -10,9 +10,11 @@ public record AiHealthPayload(
         String fallbackProvider,
         String chatModel,
         String embeddingModel,
+        String rerankModel,
         boolean databaseReady,
         boolean vectorStoreReady,
         boolean providerReady,
+        boolean rerankReady,
         String vectorExtensionVersion,
         List<String> activeProfiles,
         OffsetDateTime timestamp

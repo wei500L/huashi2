@@ -2,74 +2,159 @@ package com.huashi.eftransfer.ai.integration.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
-import com.huashi.eftransfer.ai.integration.provider.dto.RerankRequest;
-import com.huashi.eftransfer.ai.integration.provider.dto.RerankResponse;
-import com.huashi.eftransfer.shared.api.ResultCode;
-import com.huashi.eftransfer.shared.exception.BusinessException;
+import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
+import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
+import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.shared.ai.RerankItem;
+import com.huashi.eftransfer.shared.ai.RerankRequest;
+import com.huashi.eftransfer.shared.ai.RerankResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Component
 public class QwenRerankClient implements RerankClient {
 
-    private final RestClient rerankRestClient;
+    private final RestClient qwenRerankRestClient;
     private final AiProviderProperties providerProperties;
+    private final ResilientAiExecutor resilientAiExecutor;
+    private final AiProviderObservationService observationService;
+    private final ProviderRequestContextHolder requestContextHolder;
 
-    public QwenRerankClient(RestClient rerankRestClient, AiProviderProperties providerProperties) {
-        this.rerankRestClient = rerankRestClient;
+    public QwenRerankClient(
+            RestClient qwenRerankRestClient,
+            AiProviderProperties providerProperties,
+            ResilientAiExecutor resilientAiExecutor,
+            AiProviderObservationService observationService,
+            ProviderRequestContextHolder requestContextHolder
+    ) {
+        this.qwenRerankRestClient = qwenRerankRestClient;
         this.providerProperties = providerProperties;
+        this.resilientAiExecutor = resilientAiExecutor;
+        this.observationService = observationService;
+        this.requestContextHolder = requestContextHolder;
     }
 
     @Override
     public RerankResponse rerank(RerankRequest request) {
-        if (!StringUtils.hasText(providerProperties.getRerankUrl())) {
-            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "Rerank URL is not configured");
-        }
+        String provider = "qwen";
+        String model = resolveModel(request.model());
+        long startNanos = System.nanoTime();
+        requestContextHolder.clear();
 
         try {
-            JsonNode response = rerankRestClient.post()
-                    .uri(providerProperties.getRerankUrl())
-                    .body(Map.of(
-                            "model", StringUtils.hasText(request.model()) ? request.model() : providerProperties.getRerankModel(),
-                            "query", request.query(),
-                            "documents", request.documents(),
-                            "top_n", request.topN()
-                    ))
+            JsonNode response = resilientAiExecutor.execute("rerank", () -> qwenRerankRestClient.post()
+                    .uri("")
+                    .body(buildPayload(request, model))
                     .retrieve()
-                    .body(JsonNode.class);
+                    .body(JsonNode.class));
 
-            if (response == null) {
-                throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "Empty rerank response");
-            }
-
-            JsonNode items = response.path("results");
-            if (items.isMissingNode() || !items.isArray()) {
-                items = response.path("data");
-            }
-
-            List<RerankResponse.RerankItem> reranked = new ArrayList<>();
-            for (JsonNode item : items) {
-                int index = item.path("index").asInt(-1);
-                double score = item.path("relevance_score").asDouble(item.path("score").asDouble(0.0D));
-                String document = index >= 0 && index < request.documents().size() ? request.documents().get(index) : "";
-                reranked.add(new RerankResponse.RerankItem(index, score, document));
-            }
-
-            reranked.sort(Comparator.comparing(RerankResponse.RerankItem::score).reversed());
-            return new RerankResponse(
-                    providerProperties.getProvider(),
-                    StringUtils.hasText(request.model()) ? request.model() : providerProperties.getRerankModel(),
-                    reranked
+            List<RerankItem> items = mapItems(request, response);
+            Integer totalTokens = resolveTotalTokens(response);
+            String requestId = resolveRequestId(response);
+            RerankResponse rerankResponse = new RerankResponse(
+                    provider,
+                    model,
+                    requestId != null ? requestId : requestContextHolder.getRequestId(),
+                    totalTokens,
+                    items
             );
-        } catch (RestClientException ex) {
-            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "Failed to call rerank provider: " + ex.getMessage());
+            observationService.recordSuccess(
+                    "rerank",
+                    provider,
+                    model,
+                    startNanos,
+                    rerankResponse.providerRequestId(),
+                    totalTokens == null ? null : new com.huashi.eftransfer.shared.ai.TokenUsage(totalTokens, null, totalTokens)
+            );
+            return rerankResponse;
+        } catch (Exception ex) {
+            throw observationService.recordFailure("rerank", provider, model, startNanos, ex);
         }
+    }
+
+    private Map<String, Object> buildPayload(RerankRequest request, String model) {
+        Integer topN = request.topN() != null ? request.topN() : request.documents().size();
+
+        if (model.startsWith("qwen3-rerank")) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("model", model);
+            payload.put("query", request.query());
+            payload.put("documents", request.documents());
+            payload.put("top_n", topN);
+            if (StringUtils.hasText(request.instruct())) {
+                payload.put("instruct", request.instruct());
+            }
+            return payload;
+        }
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", model);
+        payload.put("input", Map.of(
+                "query", request.query(),
+                "documents", request.documents()
+        ));
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("top_n", topN);
+        parameters.put("return_documents", request.returnDocuments() == null || request.returnDocuments());
+        if (StringUtils.hasText(request.instruct())) {
+            parameters.put("instruct", request.instruct());
+        }
+        payload.put("parameters", parameters);
+        return payload;
+    }
+
+    private List<RerankItem> mapItems(RerankRequest request, JsonNode response) {
+        JsonNode results = response.path("output").path("results");
+        if (results.isMissingNode() || !results.isArray()) {
+            results = response.path("results");
+        }
+
+        boolean returnDocuments = request.returnDocuments() == null || request.returnDocuments();
+        List<RerankItem> items = new ArrayList<>();
+        for (JsonNode item : results) {
+            int index = item.path("index").asInt(-1);
+            double score = item.path("relevance_score").asDouble(item.path("score").asDouble(0.0D));
+            String document = null;
+            if (returnDocuments) {
+                JsonNode documentNode = item.path("document");
+                document = documentNode.isTextual()
+                        ? documentNode.asText()
+                        : index >= 0 && index < request.documents().size() ? request.documents().get(index) : null;
+            }
+            items.add(new RerankItem(index, score, document));
+        }
+
+        items.sort(Comparator.comparing(RerankItem::relevanceScore).reversed());
+        return items;
+    }
+
+    private Integer resolveTotalTokens(JsonNode response) {
+        JsonNode usage = response.path("usage");
+        if (!usage.isMissingNode()) {
+            JsonNode totalTokens = usage.path("total_tokens");
+            if (totalTokens.isInt()) {
+                return totalTokens.asInt();
+            }
+        }
+        return null;
+    }
+
+    private String resolveRequestId(JsonNode response) {
+        JsonNode requestId = response.path("request_id");
+        if (!requestId.isMissingNode() && !requestId.isNull()) {
+            return requestId.asText();
+        }
+        return null;
+    }
+
+    private String resolveModel(String requestModel) {
+        return StringUtils.hasText(requestModel) ? requestModel : providerProperties.getProviderProperties("qwen").getRerank().getModel();
     }
 }

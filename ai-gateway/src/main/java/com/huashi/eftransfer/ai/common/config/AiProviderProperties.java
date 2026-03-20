@@ -1,48 +1,33 @@
 package com.huashi.eftransfer.ai.common.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Validated
 @ConfigurationProperties(prefix = "ai.provider")
 public class AiProviderProperties {
 
     @NotBlank
-    private String provider = "qwen";
+    private String activeProvider = "qwen";
 
     @NotBlank
     private String fallbackProvider = "deepseek";
 
-    @NotBlank
-    private String baseUrl = "https://dashscope.aliyuncs.com/compatible-mode";
+    @Valid
+    private Map<String, ProviderProperties> providers = new LinkedHashMap<>();
 
-    @NotBlank
-    private String apiKey = "no-key-configured";
-
-    @NotBlank
-    private String chatModel = "qwen-max";
-
-    @NotBlank
-    private String embeddingModel = "text-embedding-v4";
-
-    @NotBlank
-    private String rerankModel = "gte-rerank-v2";
-
-    private String rerankUrl = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank";
-
-    private Duration connectTimeout = Duration.ofSeconds(5);
-
-    private Duration readTimeout = Duration.ofSeconds(15);
-
-    public String getProvider() {
-        return provider;
+    public String getActiveProvider() {
+        return activeProvider;
     }
 
-    public void setProvider(String provider) {
-        this.provider = provider;
+    public void setActiveProvider(String activeProvider) {
+        this.activeProvider = activeProvider;
     }
 
     public String getFallbackProvider() {
@@ -53,67 +38,140 @@ public class AiProviderProperties {
         this.fallbackProvider = fallbackProvider;
     }
 
-    public String getBaseUrl() {
-        return baseUrl;
+    public Map<String, ProviderProperties> getProviders() {
+        return providers;
     }
 
-    public void setBaseUrl(String baseUrl) {
-        this.baseUrl = baseUrl;
+    public void setProviders(Map<String, ProviderProperties> providers) {
+        this.providers = providers;
     }
 
-    public String getApiKey() {
-        return apiKey;
+    public ProviderProperties getProviderProperties(String providerName) {
+        return providers.get(providerName);
     }
 
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
+    public ProviderProperties getActiveProviderProperties() {
+        return getProviderProperties(activeProvider);
     }
 
-    public String getChatModel() {
-        return chatModel;
+    public static class ProviderProperties {
+
+        @Valid
+        private ChatProperties chat = new ChatProperties();
+
+        @Valid
+        private EmbeddingProperties embedding = new EmbeddingProperties();
+
+        @Valid
+        private RerankProperties rerank = new RerankProperties();
+
+        public ChatProperties getChat() {
+            return chat;
+        }
+
+        public void setChat(ChatProperties chat) {
+            this.chat = chat;
+        }
+
+        public EmbeddingProperties getEmbedding() {
+            return embedding;
+        }
+
+        public void setEmbedding(EmbeddingProperties embedding) {
+            this.embedding = embedding;
+        }
+
+        public RerankProperties getRerank() {
+            return rerank;
+        }
+
+        public void setRerank(RerankProperties rerank) {
+            this.rerank = rerank;
+        }
     }
 
-    public void setChatModel(String chatModel) {
-        this.chatModel = chatModel;
+    public static class BaseModelProperties {
+
+        @NotBlank
+        private String baseUrl;
+
+        @NotBlank
+        private String apiKey;
+
+        @NotBlank
+        private String model;
+
+        private Duration timeout = Duration.ofSeconds(30);
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public String getModel() {
+            return model;
+        }
+
+        public void setModel(String model) {
+            this.model = model;
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
     }
 
-    public String getEmbeddingModel() {
-        return embeddingModel;
+    public static class ChatProperties extends BaseModelProperties {
+
+        private Double temperature = 0.2D;
+
+        private Integer maxTokens = 2048;
+
+        public Double getTemperature() {
+            return temperature;
+        }
+
+        public void setTemperature(Double temperature) {
+            this.temperature = temperature;
+        }
+
+        public Integer getMaxTokens() {
+            return maxTokens;
+        }
+
+        public void setMaxTokens(Integer maxTokens) {
+            this.maxTokens = maxTokens;
+        }
     }
 
-    public void setEmbeddingModel(String embeddingModel) {
-        this.embeddingModel = embeddingModel;
+    public static class EmbeddingProperties extends BaseModelProperties {
+
+        private Integer dimension = 1024;
+
+        public Integer getDimension() {
+            return dimension;
+        }
+
+        public void setDimension(Integer dimension) {
+            this.dimension = dimension;
+        }
     }
 
-    public String getRerankModel() {
-        return rerankModel;
-    }
-
-    public void setRerankModel(String rerankModel) {
-        this.rerankModel = rerankModel;
-    }
-
-    public String getRerankUrl() {
-        return rerankUrl;
-    }
-
-    public void setRerankUrl(String rerankUrl) {
-        this.rerankUrl = rerankUrl;
-    }
-
-    public Duration getConnectTimeout() {
-        return connectTimeout;
-    }
-
-    public void setConnectTimeout(Duration connectTimeout) {
-        this.connectTimeout = connectTimeout;
-    }
-
-    public Duration getReadTimeout() {
-        return readTimeout;
-    }
-
-    public void setReadTimeout(Duration readTimeout) {
-        this.readTimeout = readTimeout;
+    public static class RerankProperties extends BaseModelProperties {
     }
 }
