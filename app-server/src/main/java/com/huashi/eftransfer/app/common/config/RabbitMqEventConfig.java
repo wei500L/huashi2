@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.common.config;
 
+import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxService;
 import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEventPublisher;
 import com.huashi.eftransfer.app.modules.lexicon.event.LexicalKnowledgeChangedEventPublisher;
 import com.huashi.eftransfer.app.modules.training.event.ApplicationTrainingCompletedEventPublisher;
@@ -40,9 +41,11 @@ public class RabbitMqEventConfig {
     @Bean
     public LexicalKnowledgeChangedEventPublisher lexicalKnowledgeChangedEventPublisher(
             RabbitTemplate rabbitTemplate,
+            PlatformEventOutboxService outboxService,
             @Value("${app.events.rabbit-publish-enabled:true}") boolean rabbitPublishEnabled
     ) {
         rabbitTemplate.setMessageConverter(jackson2JsonMessageConverter());
-        return new LexicalKnowledgeChangedEventPublisher(rabbitTemplate, rabbitPublishEnabled);
+        rabbitTemplate.setMandatory(true);
+        return new LexicalKnowledgeChangedEventPublisher(outboxService, rabbitPublishEnabled);
     }
 }

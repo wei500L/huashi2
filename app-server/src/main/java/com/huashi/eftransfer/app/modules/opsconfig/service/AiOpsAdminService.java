@@ -1,15 +1,20 @@
 package com.huashi.eftransfer.app.modules.opsconfig.service;
 
+import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxRecord;
+import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxService;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
 import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretFieldsVO;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretUpdateGroup;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretFieldVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretFieldsVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretUpdateGroup;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretValueUpdate;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
 import com.huashi.eftransfer.app.modules.opsconfig.support.StoredAiOpsConfig;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
@@ -20,10 +25,9 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
-import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
-import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
@@ -32,7 +36,9 @@ import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -40,10 +46,16 @@ public class AiOpsAdminService {
 
     private final AiOpsConfigStorageService storageService;
     private final AiGatewayClient aiGatewayClient;
+    private final PlatformEventOutboxService outboxService;
 
-    public AiOpsAdminService(AiOpsConfigStorageService storageService, AiGatewayClient aiGatewayClient) {
+    public AiOpsAdminService(
+            AiOpsConfigStorageService storageService,
+            AiGatewayClient aiGatewayClient,
+            PlatformEventOutboxService outboxService
+    ) {
         this.storageService = storageService;
         this.aiGatewayClient = aiGatewayClient;
+        this.outboxService = outboxService;
     }
 
     public AdminAiConfigViewVO getCurrentConfig() {
@@ -140,6 +152,21 @@ public class AiOpsAdminService {
                 ));
     }
 
+    public List<AdminOutboxRecordVO> listOutbox(String status, Integer limit) {
+        int boundedLimit = limit == null ? 20 : Math.min(Math.max(limit, 1), 100);
+        return outboxService.list(status, boundedLimit).stream()
+                .map(this::toOutboxView)
+                .toList();
+    }
+
+    public AdminOutboxRecordVO replayOutbox(Long id) {
+        try {
+            return toOutboxView(outboxService.replay(id));
+        } catch (IllegalStateException ex) {
+            throw new BusinessException(ResultCode.NOT_FOUND, ex.getMessage(), 404);
+        }
+    }
+
     public AiOpsConfigEffectiveResponse getStoredConfigForInternalSync() {
         return storageService.load()
                 .map(stored -> new AiOpsConfigEffectiveResponse(
@@ -197,27 +224,7 @@ public class AiOpsAdminService {
                 new AiOpsProviderConfig(
                         payload.provider().activeProvider(),
                         payload.provider().fallbackProvider(),
-                        new AiOpsChatConfig(
-                                payload.provider().chat().baseUrl(),
-                                null,
-                                payload.provider().chat().model(),
-                                payload.provider().chat().timeout(),
-                                payload.provider().chat().temperature(),
-                                payload.provider().chat().maxTokens()
-                        ),
-                        new AiOpsEmbeddingConfig(
-                                payload.provider().embedding().baseUrl(),
-                                null,
-                                payload.provider().embedding().model(),
-                                payload.provider().embedding().timeout(),
-                                payload.provider().embedding().dimension()
-                        ),
-                        new AiOpsRerankConfig(
-                                payload.provider().rerank().baseUrl(),
-                                null,
-                                payload.provider().rerank().model(),
-                                payload.provider().rerank().timeout()
-                        )
+                        sanitizeProviders(payload.provider().providers())
                 ),
                 payload.resilience(),
                 new AiOpsRagConfig(
@@ -235,9 +242,7 @@ public class AiOpsAdminService {
 
     private AdminAiSecretFieldsVO buildSecrets(AiOpsConfigPayload payload) {
         return new AdminAiSecretFieldsVO(
-                mask(payload.provider().chat().apiKey()),
-                mask(payload.provider().embedding().apiKey()),
-                mask(payload.provider().rerank().apiKey()),
+                buildProviderSecrets(payload.provider().providers()),
                 mask(payload.rag().appServer().internalToken())
         );
     }
@@ -263,33 +268,15 @@ public class AiOpsAdminService {
             AdminAiSecretUpdateGroup secrets
     ) {
         AdminAiSecretUpdateGroup safeSecrets = secrets == null
-                ? new AdminAiSecretUpdateGroup(null, null, null, null)
+                ? new AdminAiSecretUpdateGroup(null, null)
                 : secrets;
+        Map<String, AiOpsProviderDefinition> requestProviders = requestPayload.provider().providers();
+        Map<String, AiOpsProviderDefinition> baseProviders = base.provider().providers();
         return new AiOpsConfigPayload(
                 new AiOpsProviderConfig(
                         requestPayload.provider().activeProvider(),
                         requestPayload.provider().fallbackProvider(),
-                        new AiOpsChatConfig(
-                                requestPayload.provider().chat().baseUrl(),
-                                resolveSecret(base.provider().chat().apiKey(), safeSecrets.chatApiKey()),
-                                requestPayload.provider().chat().model(),
-                                requestPayload.provider().chat().timeout(),
-                                requestPayload.provider().chat().temperature(),
-                                requestPayload.provider().chat().maxTokens()
-                        ),
-                        new AiOpsEmbeddingConfig(
-                                requestPayload.provider().embedding().baseUrl(),
-                                resolveSecret(base.provider().embedding().apiKey(), safeSecrets.embeddingApiKey()),
-                                requestPayload.provider().embedding().model(),
-                                requestPayload.provider().embedding().timeout(),
-                                requestPayload.provider().embedding().dimension()
-                        ),
-                        new AiOpsRerankConfig(
-                                requestPayload.provider().rerank().baseUrl(),
-                                resolveSecret(base.provider().rerank().apiKey(), safeSecrets.rerankApiKey()),
-                                requestPayload.provider().rerank().model(),
-                                requestPayload.provider().rerank().timeout()
-                        )
+                        mergeProviders(baseProviders, requestProviders, safeSecrets.providers())
                 ),
                 requestPayload.resilience(),
                 new AiOpsRagConfig(
@@ -299,19 +286,113 @@ public class AiOpsAdminService {
                                 requestPayload.rag().appServer().connectTimeout(),
                                 requestPayload.rag().appServer().readTimeout()
                         ),
-                        new AiOpsRagIngestionConfig(
-                                requestPayload.rag().ingestion().exportPageSize(),
-                                requestPayload.rag().ingestion().embeddingBatchSize()
-                        ),
-                        new AiOpsRagRetrievalConfig(
-                                requestPayload.rag().retrieval().recallTopK(),
-                                requestPayload.rag().retrieval().recallThreshold(),
-                                requestPayload.rag().retrieval().rerankTopN(),
-                                requestPayload.rag().retrieval().rerankThreshold(),
-                                requestPayload.rag().retrieval().finalTopK()
-                        )
+                        requestPayload.rag().ingestion(),
+                        requestPayload.rag().retrieval()
                 )
         );
+    }
+
+    private Map<String, AiOpsProviderDefinition> sanitizeProviders(Map<String, AiOpsProviderDefinition> providers) {
+        Map<String, AiOpsProviderDefinition> sanitized = new LinkedHashMap<>();
+        if (providers == null) {
+            return sanitized;
+        }
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : providers.entrySet()) {
+            AiOpsProviderDefinition definition = entry.getValue();
+            if (definition == null) {
+                continue;
+            }
+            sanitized.put(entry.getKey(), new AiOpsProviderDefinition(
+                    new AiOpsChatConfig(
+                            definition.chat().baseUrl(),
+                            null,
+                            definition.chat().model(),
+                            definition.chat().timeout(),
+                            definition.chat().temperature(),
+                            definition.chat().maxTokens()
+                    ),
+                    new AiOpsEmbeddingConfig(
+                            definition.embedding().baseUrl(),
+                            null,
+                            definition.embedding().model(),
+                            definition.embedding().timeout(),
+                            definition.embedding().dimension()
+                    ),
+                    new AiOpsRerankConfig(
+                            definition.rerank().baseUrl(),
+                            null,
+                            definition.rerank().model(),
+                            definition.rerank().timeout()
+                    )
+            ));
+        }
+        return sanitized;
+    }
+
+    private Map<String, AdminAiProviderSecretFieldsVO> buildProviderSecrets(Map<String, AiOpsProviderDefinition> providers) {
+        Map<String, AdminAiProviderSecretFieldsVO> result = new LinkedHashMap<>();
+        if (providers == null) {
+            return result;
+        }
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : providers.entrySet()) {
+            AiOpsProviderDefinition definition = entry.getValue();
+            if (definition == null) {
+                continue;
+            }
+            result.put(entry.getKey(), new AdminAiProviderSecretFieldsVO(
+                    mask(definition.chat().apiKey()),
+                    mask(definition.embedding().apiKey()),
+                    mask(definition.rerank().apiKey())
+            ));
+        }
+        return result;
+    }
+
+    private Map<String, AiOpsProviderDefinition> mergeProviders(
+            Map<String, AiOpsProviderDefinition> baseProviders,
+            Map<String, AiOpsProviderDefinition> requestProviders,
+            Map<String, AdminAiProviderSecretUpdateGroup> secretProviders
+    ) {
+        Map<String, AiOpsProviderDefinition> merged = new LinkedHashMap<>();
+        if (requestProviders == null) {
+            return merged;
+        }
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : requestProviders.entrySet()) {
+            String providerName = entry.getKey();
+            AiOpsProviderDefinition requested = entry.getValue();
+            if (requested == null) {
+                continue;
+            }
+            AiOpsProviderDefinition existing = baseProviders == null ? null : baseProviders.get(providerName);
+            AdminAiProviderSecretUpdateGroup secretGroup = secretProviders == null ? null : secretProviders.get(providerName);
+            merged.put(providerName, new AiOpsProviderDefinition(
+                    new AiOpsChatConfig(
+                            requested.chat().baseUrl(),
+                            resolveSecret(existing == null || existing.chat() == null ? null : existing.chat().apiKey(),
+                                    secretGroup == null ? null : secretGroup.chatApiKey()),
+                            requested.chat().model(),
+                            requested.chat().timeout(),
+                            requested.chat().temperature(),
+                            requested.chat().maxTokens()
+                    ),
+                    new AiOpsEmbeddingConfig(
+                            requested.embedding().baseUrl(),
+                            resolveSecret(existing == null || existing.embedding() == null ? null : existing.embedding().apiKey(),
+                                    secretGroup == null ? null : secretGroup.embeddingApiKey()),
+                            requested.embedding().model(),
+                            requested.embedding().timeout(),
+                            requested.embedding().dimension()
+                    ),
+                    new AiOpsRerankConfig(
+                            requested.rerank().baseUrl(),
+                            resolveSecret(existing == null || existing.rerank() == null ? null : existing.rerank().apiKey(),
+                                    secretGroup == null ? null : secretGroup.rerankApiKey()),
+                            requested.rerank().model(),
+                            requested.rerank().timeout()
+                    )
+            ));
+        }
+        return merged;
     }
 
     private String resolveSecret(String existingValue, AdminAiSecretValueUpdate update) {
@@ -319,5 +400,23 @@ public class AiOpsAdminService {
             return existingValue;
         }
         return update.value();
+    }
+
+    private AdminOutboxRecordVO toOutboxView(PlatformEventOutboxRecord record) {
+        return new AdminOutboxRecordVO(
+                record.id(),
+                record.eventId(),
+                record.eventType(),
+                record.routingKey(),
+                record.status().name(),
+                record.attemptCount(),
+                record.traceId(),
+                record.lastError(),
+                record.nextAttemptAt(),
+                record.processingStartedAt(),
+                record.publishedAt(),
+                record.createdAt(),
+                record.updatedAt()
+        );
     }
 }

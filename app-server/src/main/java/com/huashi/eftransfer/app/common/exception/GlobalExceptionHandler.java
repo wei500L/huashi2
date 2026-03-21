@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.failure(
                         ResultCode.INTERNAL_ERROR,
-                        "Unexpected error while handling request " + request.getRequestURI(),
+                        "Unexpected error while handling request",
                         traceId(request)
                     ));
     }

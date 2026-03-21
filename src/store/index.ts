@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CurrentUserVO, LoginResponse } from '@/lib/contracts';
+import type { SupportedLocale } from '@/lib/locale';
+import { readStoredLocale, writeStoredLocale } from '@/lib/locale';
 import { authService } from '@/lib/services';
 import { clearStoredSession, readStoredSession, writeStoredSession } from '@/lib/session';
 
@@ -95,11 +97,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
 interface UIStore {
   isSidebarCollapsed: boolean;
+  isMobileSidebarOpen: boolean;
   isDarkMode: boolean;
+  locale: SupportedLocale;
   isAssistantOpen: boolean;
   assistantDraft: string;
   toggleSidebar: () => void;
+  openMobileSidebar: () => void;
+  closeMobileSidebar: () => void;
   toggleDarkMode: () => void;
+  setLocale: (locale: SupportedLocale) => void;
   openAssistant: (seed?: string) => void;
   closeAssistant: () => void;
   setAssistantDraft: (value: string) => void;
@@ -109,11 +116,19 @@ export const useUIStore = create<UIStore>()(
   persist(
     (set) => ({
       isSidebarCollapsed: false,
+      isMobileSidebarOpen: false,
       isDarkMode: false,
+      locale: readStoredLocale(),
       isAssistantOpen: false,
       assistantDraft: '',
       toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
+      openMobileSidebar: () => set({ isMobileSidebarOpen: true }),
+      closeMobileSidebar: () => set({ isMobileSidebarOpen: false }),
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+      setLocale: (locale) => {
+        writeStoredLocale(locale);
+        set({ locale });
+      },
       openAssistant: (seed) => set((state) => ({
         isAssistantOpen: true,
         assistantDraft: seed ?? state.assistantDraft,

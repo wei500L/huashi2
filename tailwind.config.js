@@ -66,7 +66,8 @@ export default {
       },
       backgroundImage: {
         'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
-        'noise': "url('https://grainy-gradients.vercel.app/noise.svg')",
+        'noise':
+          'radial-gradient(circle at 20% 20%, rgba(15,23,42,0.08) 0 0.8px, transparent 1px), radial-gradient(circle at 80% 10%, rgba(59,130,246,0.08) 0 1px, transparent 1.2px), radial-gradient(circle at 45% 75%, rgba(148,163,184,0.08) 0 0.9px, transparent 1.1px)',
       },
       animation: {
         'fluid-flow': 'flow 15s ease-in-out infinite',

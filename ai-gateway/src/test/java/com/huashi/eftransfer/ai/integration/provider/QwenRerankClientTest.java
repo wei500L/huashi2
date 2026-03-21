@@ -71,10 +71,7 @@ class QwenRerankClientTest {
         ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(objectMapper);
         AiResilienceProperties resilienceProperties = new AiResilienceProperties();
         resilienceProperties.setMaxAttempts(1);
-        ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor(
-                configuration.retryRegistry(resilienceProperties, providerErrorSupport),
-                configuration.circuitBreakerRegistry(resilienceProperties, providerErrorSupport)
-        );
+        ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor();
         AiRuntimeBundleFactory bundleFactory = new AiRuntimeBundleFactory(RestClient.builder(), interceptor, providerErrorSupport);
         AiRuntimeBundle runtimeBundle = bundleFactory.fromProperties(
                 properties,
@@ -113,7 +110,7 @@ class QwenRerankClientTest {
                                 }
                                 """)));
 
-        RerankResponse response = rerankClient.rerank(new RerankRequest(
+        RerankResponse response = rerankClient.rerank("qwen", new RerankRequest(
                 null,
                 "hello",
                 List.of("doc-a", "doc-b"),
@@ -148,7 +145,7 @@ class QwenRerankClientTest {
                                 }
                                 """)));
 
-        RerankResponse response = rerankClient.rerank(new RerankRequest(
+        RerankResponse response = rerankClient.rerank("qwen", new RerankRequest(
                 "qwen3-rerank-plus",
                 "hello",
                 List.of("doc-a", "doc-b"),

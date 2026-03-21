@@ -10,6 +10,7 @@ public enum ResultCode {
     CONFLICT("CONFLICT", "Resource conflict"),
     INVALID_CREDENTIALS("INVALID_CREDENTIALS", "Invalid username/email or password"),
     ACCOUNT_DISABLED("ACCOUNT_DISABLED", "Account is disabled"),
+    ACCOUNT_LOCKED("ACCOUNT_LOCKED", "Account is temporarily locked"),
     TOKEN_INVALID("TOKEN_INVALID", "Token is invalid"),
     TOKEN_EXPIRED("TOKEN_EXPIRED", "Token has expired"),
     RATE_LIMITED("RATE_LIMITED", "Too many requests"),

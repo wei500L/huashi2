@@ -12,6 +12,8 @@ public record RefreshTokenSession(
         String accessTokenId,
         Instant accessTokenExpiresAt,
         Instant issuedAt,
-        Instant expiresAt
+        Instant expiresAt,
+        String userAgentFingerprint,
+        String issuedIpAddress
 ) {
 }

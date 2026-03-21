@@ -1,8 +1,11 @@
 import React, { Suspense } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppLayout } from './components/layout';
+import { RouteSkeleton } from './components/common';
+import i18n from './lib/i18n';
+import { buildDocumentTitle } from './lib/page-title';
+import { AUTH_EXPIRED_EVENT, SESSION_CHANGE_EVENT, hasPendingAuthExpired } from './lib/session';
 import { useAuthStore, useUIStore } from './store';
-import { SESSION_CHANGE_EVENT } from './lib/session';
 import { homePathForCapabilities, userHasCapability } from './lib/format';
 import type { Capability } from './lib/contracts';
 
@@ -24,16 +27,20 @@ const AdminUsersPage = React.lazy(() => import('./pages/admin/index'));
 const AdminConfigCenterPage = React.lazy(() => import('./pages/admin/ConfigCenter'));
 const AdminLexicalPairsPage = React.lazy(() => import('./pages/admin/LexicalPairs'));
 
-const BootScreen: React.FC = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="text-[10px] uppercase tracking-[0.4em] text-slate-400 dark:text-white/30">initializing session</div>
-  </div>
-);
+const BootScreen: React.FC = () => <RouteSkeleton />;
 
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const authenticated = useAuthStore((state) => state.status === 'authenticated' && !!state.session?.accessToken);
-  return authenticated ? <>{children}</> : <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  return authenticated ? (
+    <>{children}</>
+  ) : (
+    <Navigate
+      to="/login"
+      replace
+      state={hasPendingAuthExpired() ? { from: location.pathname, expired: true } : { from: location.pathname }}
+    />
+  );
 };
 
 const RequireCapability: React.FC<{ capability: Capability; children: React.ReactNode }> = ({ capability, children }) => {
@@ -52,11 +59,13 @@ const HomeRedirect: React.FC = () => {
 const withSuspense = (node: React.ReactNode) => <Suspense fallback={<BootScreen />}>{node}</Suspense>;
 
 const App: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const initialize = useAuthStore((state) => state.initialize);
   const syncFromStorage = useAuthStore((state) => state.syncFromStorage);
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
-  const { isDarkMode } = useUIStore();
+  const { isDarkMode, locale } = useUIStore();
 
   React.useEffect(() => {
     void initialize();
@@ -76,6 +85,25 @@ const App: React.FC = () => {
       root.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  React.useEffect(() => {
+    void i18n.changeLanguage(locale);
+  }, [locale]);
+
+  React.useEffect(() => {
+    window.document.title = buildDocumentTitle(location.pathname, i18n.t.bind(i18n));
+  }, [locale, location.pathname]);
+
+  React.useEffect(() => {
+    const handler = () => {
+      const nextState = location.pathname === '/login'
+        ? { expired: true }
+        : { from: location.pathname, expired: true };
+      navigate('/login', { replace: true, state: nextState });
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, handler);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
+  }, [location.pathname, navigate]);
 
   if (status === 'idle' || status === 'loading') {
     return <BootScreen />;

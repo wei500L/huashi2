@@ -8,6 +8,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -17,8 +18,6 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import com.sun.net.httpserver.HttpServer;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
-import io.github.resilience4j.retry.RetryRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -30,6 +29,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -102,9 +102,20 @@ class AppServerKnowledgeClientTest {
                         new AiOpsProviderConfig(
                                 "qwen",
                                 "deepseek",
-                                new AiOpsChatConfig("https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
-                                new AiOpsEmbeddingConfig("https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
-                                new AiOpsRerankConfig("https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
+                                Map.of(
+                                        "qwen",
+                                        new AiOpsProviderDefinition(
+                                                new AiOpsChatConfig("https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig("https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig("https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
+                                        ),
+                                        "deepseek",
+                                        new AiOpsProviderDefinition(
+                                                new AiOpsChatConfig("https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig("https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig("https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT30S")
+                                        )
+                                )
                         ),
                         new AiOpsResilienceConfig(3, "PT0.5S", 50.0f, 20, "PT30S"),
                         new AiOpsRagConfig(
@@ -113,16 +124,11 @@ class AppServerKnowledgeClientTest {
                                 new AiOpsRagRetrievalConfig(20, 0.55d, 8, 0.2d, 6)
                         )
                 ),
-                null,
-                null,
-                null,
-                null,
+                Map.of(),
                 RestClient.builder()
                         .baseUrl(baseUrl)
                         .defaultHeader(InternalApiHeaders.INTERNAL_TOKEN, "test-internal-token")
                         .build(),
-                RetryRegistry.ofDefaults(),
-                CircuitBreakerRegistry.ofDefaults(),
                 "TEST",
                 1L,
                 OffsetDateTime.now()

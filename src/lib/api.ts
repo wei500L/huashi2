@@ -5,7 +5,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 import type { ApiResponse, LoginResponse } from './contracts';
-import { clearStoredSession, readStoredSession, writeStoredSession } from './session';
+import { clearStoredSession, dispatchAuthExpired, readStoredSession, writeStoredSession } from './session';
 
 export class ApiError extends Error {
   status: number;
@@ -78,6 +78,7 @@ async function refreshSession(): Promise<LoginResponse | null> {
   const session = readStoredSession();
   if (!session?.refreshToken) {
     clearStoredSession();
+    dispatchAuthExpired();
     return null;
   }
   if (!refreshPromise) {
@@ -92,6 +93,7 @@ async function refreshSession(): Promise<LoginResponse | null> {
       })
       .catch((refreshError) => {
         clearStoredSession();
+        dispatchAuthExpired();
         throw normalizeApiError(refreshError);
       })
       .finally(() => {

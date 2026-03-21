@@ -5,6 +5,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.modules.rag.repository.IngestionJobRepository;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
 import com.huashi.eftransfer.ai.modules.health.dto.AiHealthPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -39,20 +40,23 @@ public class AiHealthService {
     public AiHealthPayload getHealthPayload() {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         var provider = bundle.config().provider();
+        AiOpsProviderDefinition activeProvider = provider.providers().get(provider.activeProvider());
         boolean databaseReady = isDatabaseReady();
         String vectorVersion = fetchVectorExtensionVersion();
         boolean vectorStoreReady = !"UNAVAILABLE".equals(vectorVersion)
                 && knowledgeStoreRepository.hasKnowledgeDocuments()
                 && ingestionJobRepository.findLatestSuccessfulJob("KNOWLEDGE_REINDEX") != null;
-        boolean providerReady = configured(provider.chat().baseUrl())
-                && configured(provider.chat().apiKey())
-                && configured(provider.chat().model())
-                && configured(provider.embedding().baseUrl())
-                && configured(provider.embedding().apiKey())
-                && configured(provider.embedding().model());
-        boolean rerankReady = configured(provider.rerank().baseUrl())
-                && configured(provider.rerank().apiKey())
-                && configured(provider.rerank().model());
+        boolean providerReady = activeProvider != null
+                && configured(activeProvider.chat().baseUrl())
+                && configured(activeProvider.chat().apiKey())
+                && configured(activeProvider.chat().model())
+                && configured(activeProvider.embedding().baseUrl())
+                && configured(activeProvider.embedding().apiKey())
+                && configured(activeProvider.embedding().model());
+        boolean rerankReady = activeProvider != null
+                && configured(activeProvider.rerank().baseUrl())
+                && configured(activeProvider.rerank().apiKey())
+                && configured(activeProvider.rerank().model());
         List<String> profiles = Arrays.asList(environment.getActiveProfiles());
 
         return new AiHealthPayload(
@@ -60,9 +64,9 @@ public class AiHealthService {
                 databaseReady && providerReady && rerankReady ? "UP" : "DEGRADED",
                 provider.activeProvider(),
                 provider.fallbackProvider(),
-                provider.chat().model(),
-                provider.embedding().model(),
-                provider.rerank().model(),
+                activeProvider == null ? null : activeProvider.chat().model(),
+                activeProvider == null ? null : activeProvider.embedding().model(),
+                activeProvider == null ? null : activeProvider.rerank().model(),
                 databaseReady,
                 vectorStoreReady,
                 providerReady,

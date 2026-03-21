@@ -26,6 +26,9 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
+import io.github.resilience4j.retry.RetryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -37,6 +40,8 @@ import org.springframework.web.client.RestClientResponseException;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 @Component
 public class AiGatewayClient {
@@ -84,10 +89,17 @@ public class AiGatewayClient {
 
     private final RestClient aiGatewayRestClient;
     private final AiGatewayClientProperties properties;
+    private final RetryRegistry retryRegistry;
 
     public AiGatewayClient(RestClient aiGatewayRestClient, AiGatewayClientProperties properties) {
         this.aiGatewayRestClient = aiGatewayRestClient;
         this.properties = properties;
+        this.retryRegistry = RetryRegistry.of(RetryConfig.custom()
+                .maxAttempts(properties.getMaxAttempts())
+                .waitDuration(normalizeWaitDuration(properties.getRetryBackoff()))
+                .retryOnException(this::isRetryableFailure)
+                .failAfterMaxAttempts(false)
+                .build());
     }
 
     public Optional<AiGatewayHealthResponse> fetchHealth() {
@@ -178,12 +190,10 @@ public class AiGatewayClient {
 
     private <T, R> AiGatewayCallResult<R> post(String uri, T request, ParameterizedTypeReference<ApiResponse<R>> responseType) {
         long startedAt = System.nanoTime();
-        int attempts = 0;
-        AiGatewayFailureReason lastReason = AiGatewayFailureReason.UNKNOWN;
-        String lastMessage = "Unknown ai-gateway failure";
-
-        while (attempts < properties.getMaxAttempts()) {
-            attempts++;
+        AtomicInteger attempts = new AtomicInteger();
+        Retry retry = retryRegistry.retry(uri);
+        Supplier<R> supplier = Retry.decorateSupplier(retry, () -> {
+            attempts.incrementAndGet();
             try {
                 ApiResponse<R> response = aiGatewayRestClient.post()
                         .uri(uri)
@@ -193,32 +203,34 @@ public class AiGatewayClient {
                         .body(responseType);
 
                 if (response == null || !response.success() || response.data() == null) {
-                    throw new IllegalStateException("Unexpected ai-gateway response for " + uri);
+                    throw new AiGatewayRequestFailure(
+                            AiGatewayFailureReason.INVALID_RESPONSE,
+                            "Unexpected ai-gateway response for " + uri,
+                            false
+                    );
                 }
-                return AiGatewayCallResult.success(response.data(), attempts, elapsedMillis(startedAt), uri);
-            } catch (IllegalStateException ex) {
-                lastReason = AiGatewayFailureReason.INVALID_RESPONSE;
-                lastMessage = ex.getMessage();
-                break;
+                return response.data();
             } catch (RestClientResponseException ex) {
-                lastReason = mapStatusReason(ex.getStatusCode().value(), uri);
-                lastMessage = ex.getMessage();
-                if (!isRetryableStatus(ex.getStatusCode().value()) || attempts >= properties.getMaxAttempts()) {
-                    break;
-                }
-                backoff();
+                throw new AiGatewayRequestFailure(
+                        mapStatusReason(ex.getStatusCode().value(), uri),
+                        ex.getMessage(),
+                        isRetryableStatus(ex.getStatusCode().value())
+                );
             } catch (RestClientException ex) {
-                lastReason = mapClientReason(ex, uri);
-                lastMessage = ex.getMessage();
-                if (!isRetryableException(ex) || attempts >= properties.getMaxAttempts()) {
-                    break;
-                }
-                backoff();
+                throw new AiGatewayRequestFailure(
+                        mapClientReason(ex, uri),
+                        ex.getMessage(),
+                        isRetryableException(ex)
+                );
             }
+        });
+        try {
+            return AiGatewayCallResult.success(supplier.get(), attempts.get(), elapsedMillis(startedAt), uri);
+        } catch (AiGatewayRequestFailure ex) {
+            log.warn("event=ai_gateway_call_failed endpoint={} attempts={} reason={} message={}",
+                    uri, attempts.get(), ex.reason(), ex.getMessage());
+            return AiGatewayCallResult.failure(ex.reason(), ex.getMessage(), attempts.get(), elapsedMillis(startedAt), uri);
         }
-        log.warn("event=ai_gateway_call_failed endpoint={} attempts={} reason={} message={}",
-                uri, attempts, lastReason, lastMessage);
-        return AiGatewayCallResult.failure(lastReason, lastMessage, attempts, elapsedMillis(startedAt), uri);
     }
 
     private <R> Optional<R> getOptional(String uri, ParameterizedTypeReference<ApiResponse<R>> responseType) {
@@ -239,16 +251,11 @@ public class AiGatewayClient {
         }
     }
 
-    private void backoff() {
-        Duration retryBackoff = properties.getRetryBackoff();
+    private Duration normalizeWaitDuration(Duration retryBackoff) {
         if (retryBackoff == null || retryBackoff.isZero() || retryBackoff.isNegative()) {
-            return;
+            return Duration.ofMillis(1);
         }
-        try {
-            Thread.sleep(retryBackoff.toMillis());
-        } catch (InterruptedException interruptedException) {
-            Thread.currentThread().interrupt();
-        }
+        return retryBackoff;
     }
 
     private boolean isRetryableStatus(int statusCode) {
@@ -289,7 +296,31 @@ public class AiGatewayClient {
         return AiGatewayFailureReason.UNKNOWN;
     }
 
+    private boolean isRetryableFailure(Throwable throwable) {
+        return throwable instanceof AiGatewayRequestFailure failure && failure.retryable();
+    }
+
     private long elapsedMillis(long startedAt) {
         return (System.nanoTime() - startedAt) / 1_000_000;
+    }
+
+    private static final class AiGatewayRequestFailure extends RuntimeException {
+
+        private final AiGatewayFailureReason reason;
+        private final boolean retryable;
+
+        private AiGatewayRequestFailure(AiGatewayFailureReason reason, String message, boolean retryable) {
+            super(message);
+            this.reason = reason;
+            this.retryable = retryable;
+        }
+
+        private AiGatewayFailureReason reason() {
+            return reason;
+        }
+
+        private boolean retryable() {
+            return retryable;
+        }
     }
 }

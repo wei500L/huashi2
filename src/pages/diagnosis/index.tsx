@@ -1,13 +1,13 @@
 import React from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Brain, CheckCircle2, ChevronRight, Timer } from 'lucide-react';
-import { PageHeader } from '@/components/common';
+import { PageHeader, PanelSkeleton } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
 import { aiService, diagnosisSessionService, diagnosisTemplateService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import type { DiagnosisOptionViewVO } from '@/lib/contracts';
-
-type Phase = 'boot' | 'select' | 'running' | 'result';
+import { diagnosisFlowReducer, initialDiagnosisFlowState } from './flow';
 
 function inferSemanticMatch(option: DiagnosisOptionViewVO): boolean {
   const key = option.key.toLowerCase();
@@ -19,14 +19,15 @@ function inferSemanticMatch(option: DiagnosisOptionViewVO): boolean {
 }
 
 const DiagnosisPage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [phase, setPhase] = React.useState<Phase>('boot');
-  const [sessionId, setSessionId] = React.useState<number | null>(null);
+  const [state, dispatch] = React.useReducer(diagnosisFlowReducer, initialDiagnosisFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
 
   const historyQuery = useQuery({
     queryKey: ['diagnosis-history', 'in-progress'],
-    queryFn: () => diagnosisSessionService.listHistory({ pageNo: 1, pageSize: 1, status: 'IN_PROGRESS' }),
+    queryFn: ({ signal }) =>
+      diagnosisSessionService.listHistory({ pageNo: 1, pageSize: 1, status: 'IN_PROGRESS' }, { signal }),
   });
 
   React.useEffect(() => {
@@ -35,46 +36,44 @@ const DiagnosisPage: React.FC = () => {
     }
     const inProgress = historyQuery.data.records[0];
     if (inProgress?.sessionId) {
-      setSessionId(inProgress.sessionId);
       shownAtRef.current = Date.now();
-      setPhase('running');
-    } else {
-      setPhase('select');
+      dispatch({ type: 'resumeSession', sessionId: inProgress.sessionId });
+      return;
     }
+    dispatch({ type: 'readyToSelect' });
   }, [historyQuery.data]);
 
   React.useEffect(() => {
     if (historyQuery.error) {
-      setPhase('select');
+      dispatch({ type: 'readyToSelect' });
     }
   }, [historyQuery.error]);
 
   const templatesQuery = useQuery({
     queryKey: ['student-diagnosis-templates'],
-    queryFn: () => diagnosisTemplateService.listPublished({ pageNo: 1, pageSize: 20 }),
-    enabled: phase === 'select',
+    queryFn: ({ signal }) => diagnosisTemplateService.listPublished({ pageNo: 1, pageSize: 20 }, { signal }),
+    enabled: state.phase === 'select',
   });
 
   const createSessionMutation = useMutation({
     mutationFn: (templateId: number) => diagnosisSessionService.create(templateId),
     onSuccess: (created) => {
-      setSessionId(created.sessionId);
-      setPhase('running');
       shownAtRef.current = Date.now();
+      dispatch({ type: 'startSession', sessionId: created.sessionId });
       void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
     },
   });
 
   const nextItemQuery = useQuery({
-    queryKey: ['diagnosis-next-item', sessionId],
-    queryFn: () => diagnosisSessionService.getNextItem(sessionId as number),
-    enabled: phase === 'running' && !!sessionId,
+    queryKey: ['diagnosis-next-item', state.sessionId],
+    queryFn: ({ signal }) => diagnosisSessionService.getNextItem(state.sessionId as number, { signal }),
+    enabled: state.phase === 'running' && !!state.sessionId,
   });
 
   const completeMutation = useMutation({
     mutationFn: (value: number) => diagnosisSessionService.complete(value),
     onSuccess: () => {
-      setPhase('result');
+      dispatch({ type: 'showResult' });
       void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
       void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
       void queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
@@ -88,7 +87,7 @@ const DiagnosisPage: React.FC = () => {
       selectedAnswerKey?: string;
       reactionTimeMs: number;
       hesitationTimeMs: number;
-    }) => diagnosisSessionService.submitAnswer(sessionId as number, payload),
+    }) => diagnosisSessionService.submitAnswer(state.sessionId as number, payload),
     onSuccess: async (progress) => {
       if (progress.completed || progress.answeredItems >= progress.totalItems) {
         await completeMutation.mutateAsync(progress.sessionId);
@@ -100,22 +99,23 @@ const DiagnosisPage: React.FC = () => {
   });
 
   const resultQuery = useQuery({
-    queryKey: ['diagnosis-result', sessionId],
-    queryFn: () => diagnosisSessionService.getResult(sessionId as number),
-    enabled: phase === 'result' && !!sessionId,
+    queryKey: ['diagnosis-result', state.sessionId],
+    queryFn: ({ signal }) => diagnosisSessionService.getResult(state.sessionId as number, { signal }),
+    enabled: state.phase === 'result' && !!state.sessionId,
   });
 
   const explanationQuery = useQuery({
-    queryKey: ['diagnosis-explanation', sessionId],
-    queryFn: () => aiService.explainDiagnosis(),
-    enabled: phase === 'result' && !!sessionId,
+    queryKey: ['diagnosis-explanation', state.sessionId],
+    queryFn: ({ signal }) => aiService.explainDiagnosis(undefined, { signal }),
+    enabled: state.phase === 'result' && !!state.sessionId,
     retry: false,
   });
 
   React.useEffect(() => {
-    if (!sessionId || phase !== 'running') {
+    if (!state.sessionId || state.phase !== 'running') {
       return;
     }
+    const sessionId = state.sessionId;
     const persist = () => {
       const snapshot = nextItemQuery.data
         ? {
@@ -138,7 +138,7 @@ const DiagnosisPage: React.FC = () => {
       window.removeEventListener('beforeunload', persist);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [nextItemQuery.data, phase, sessionId]);
+  }, [nextItemQuery.data, state.phase, state.sessionId]);
 
   const currentItem = nextItemQuery.data?.item;
   const submitAnswer = async (option: DiagnosisOptionViewVO) => {
@@ -158,6 +158,7 @@ const DiagnosisPage: React.FC = () => {
       });
       return;
     }
+
     await submitAnswerMutation.mutateAsync({
       itemResultId: currentItem.itemResultId,
       selectedAnswerKey: option.key,
@@ -166,93 +167,113 @@ const DiagnosisPage: React.FC = () => {
     });
   };
 
-  if (phase === 'boot' || historyQuery.isLoading) {
+  if (state.phase === 'boot' || historyQuery.isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">loading diagnosis session</div>
+      <div className="mx-auto max-w-5xl">
+        <PanelSkeleton className="min-h-[360px]" />
       </div>
     );
   }
 
-  if (phase === 'select') {
+  if (state.phase === 'select') {
     return (
       <div className="space-y-8">
-        <PageHeader title="智能诊断" subtitle="选择一个已发布模板，开始真实后端 session 流程。" />
+        <PageHeader title={t('diagnosis.selectTitle')} subtitle={t('diagnosis.selectSubtitle')} />
         <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
           <div className="max-w-3xl">
-            <div className="inline-flex p-4 rounded-3xl bg-primary/10 border border-primary/20">
+            <div className="inline-flex rounded-3xl border border-primary/20 bg-primary/10 p-4">
               <Brain size={32} className="text-primary" />
             </div>
-            <h2 className="mt-6 text-4xl font-black text-slate-900 dark:text-white">开始一轮新的迁移诊断</h2>
-            <p className="mt-4 text-slate-500 dark:text-white/50 leading-7">
-              系统会根据模板生成真实的诊断题流，并在完成后直接写入 summary、训练计划和分析聚合。
+            <h2 className="mt-6 text-4xl font-black text-slate-900 dark:text-white">
+              {t('diagnosis.startTitle')}
+            </h2>
+            <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">
+              {t('diagnosis.startDescription')}
             </p>
           </div>
         </section>
 
         {templatesQuery.error && (
-          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{templatesQuery.error.message}</div>
-        )}
-
-        {!templatesQuery.isLoading && !templatesQuery.data?.records.length && (
-          <div className="rounded-[2rem] border border-slate-200 dark:border-white/10 p-8 text-slate-500 dark:text-white/45">
-            当前没有已发布模板。请联系教师先发布模板。
+          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+            {templatesQuery.error.message}
           </div>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {(templatesQuery.data?.records || []).map((template) => (
-            <button
-              key={template.id}
-              type="button"
-              onClick={() => createSessionMutation.mutate(template.id)}
-              className="text-left liquid-glass rounded-[2.4rem] p-7 edge-light hover:border-primary/40 transition-all"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{template.status}</div>
-                  <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{template.templateName}</div>
-                  <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/45">{template.description || '无额外描述'}</div>
+        {templatesQuery.isLoading ? (
+          <PanelSkeleton />
+        ) : !templatesQuery.data?.records.length ? (
+          <div className="rounded-[2rem] border border-slate-200 p-8 text-slate-500 dark:border-white/10 dark:text-white/45">
+            {t('diagnosis.noTemplates')}
+          </div>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {templatesQuery.data.records.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                disabled={createSessionMutation.isPending}
+                onClick={() => createSessionMutation.mutate(template.id)}
+                className="text-left liquid-glass rounded-[2.4rem] p-7 edge-light transition-all hover:border-primary/40 disabled:opacity-60"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                      {template.status}
+                    </div>
+                    <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+                      {template.templateName}
+                    </div>
+                    <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/45">
+                      {template.description || t('diagnosis.noDescription')}
+                    </div>
+                  </div>
+                  <ChevronRight className="shrink-0 text-primary" />
                 </div>
-                <ChevronRight className="text-primary shrink-0" />
-              </div>
-              <div className="mt-6 flex gap-4 text-sm text-slate-500 dark:text-white/45">
-                <span>{template.itemCount} 题</span>
-                <span>{template.estimatedDurationMinutes} 分钟</span>
-              </div>
-            </button>
-          ))}
-        </div>
+                <div className="mt-6 flex gap-4 text-sm text-slate-500 dark:text-white/45">
+                  <span>{t('diagnosis.statusTemplateCount', { count: template.itemCount })}</span>
+                  <span>{t('diagnosis.statusDurationMinutes', { count: template.estimatedDurationMinutes })}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
-  if (phase === 'running') {
+  if (state.phase === 'running') {
     return (
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="mx-auto max-w-5xl space-y-8">
         <PageHeader
-          title="诊断进行中"
-          subtitle={sessionId ? `Session #${sessionId}` : '正在加载当前题目'}
+          title={t('diagnosis.runningTitle')}
+          subtitle={
+            state.sessionId
+              ? t('diagnosis.runningSessionSubtitle', { sessionId: state.sessionId })
+              : t('diagnosis.runningSubtitle')
+          }
         />
 
         {nextItemQuery.error && (
-          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{nextItemQuery.error.message}</div>
+          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+            {nextItemQuery.error.message}
+          </div>
         )}
 
         {nextItemQuery.isLoading || !currentItem ? (
-          <div className="min-h-[360px] rounded-[2.8rem] liquid-glass-panel flex items-center justify-center">
-            <div className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">loading next item</div>
-          </div>
+          <PanelSkeleton className="min-h-[360px]" />
         ) : (
           <>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-white/45">
                 <Timer size={16} />
                 <span>
-                  第 {nextItemQuery.data?.currentItemOrder}/{nextItemQuery.data?.totalItems} 题
+                  {t('diagnosis.progress', {
+                    current: nextItemQuery.data?.currentItemOrder || 0,
+                    total: nextItemQuery.data?.totalItems || 0,
+                  })}
                 </span>
               </div>
-              <div className="w-56 h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+              <div className="h-2 w-56 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
                 <div
                   className="h-full bg-gradient-to-r from-sky-500 to-blue-500"
                   style={{
@@ -266,27 +287,43 @@ const DiagnosisPage: React.FC = () => {
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 {currentItem.taskType} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
               </div>
-              <div className="mt-8 grid md:grid-cols-2 gap-6 items-start">
-                <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 p-8">
-                  <div className="text-sm uppercase tracking-[0.24em] text-sky-500 mb-3">English</div>
-                  <div className="text-4xl font-black text-slate-900 dark:text-white">{currentItem.englishWord}</div>
+              <div className="mt-8 grid items-start gap-6 md:grid-cols-2">
+                <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-8 dark:border-white/10 dark:bg-white/5">
+                  <div className="mb-3 text-sm uppercase tracking-[0.24em] text-sky-500">
+                    {t('diagnosis.english')}
+                  </div>
+                  <div className="text-4xl font-black text-slate-900 dark:text-white">
+                    {currentItem.englishWord}
+                  </div>
                 </div>
-                <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 p-8">
-                  <div className="text-sm uppercase tracking-[0.24em] text-rose-500 mb-3">French</div>
-                  <div className="text-4xl font-black text-slate-900 dark:text-white">{currentItem.frenchWord}</div>
+                <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-8 dark:border-white/10 dark:bg-white/5">
+                  <div className="mb-3 text-sm uppercase tracking-[0.24em] text-rose-500">
+                    {t('diagnosis.french')}
+                  </div>
+                  <div className="text-4xl font-black text-slate-900 dark:text-white">
+                    {currentItem.frenchWord}
+                  </div>
                 </div>
               </div>
 
-              {(currentItem.stimulus.promptText || currentItem.stimulus.instruction || currentItem.stimulus.contextSentence) && (
-                <div className="mt-8 rounded-[2rem] border border-dashed border-slate-300 dark:border-white/10 p-6 bg-white/40 dark:bg-white/5">
+              {(currentItem.stimulus.promptText ||
+                currentItem.stimulus.instruction ||
+                currentItem.stimulus.contextSentence) && (
+                <div className="mt-8 rounded-[2rem] border border-dashed border-slate-300 bg-white/40 p-6 dark:border-white/10 dark:bg-white/5">
                   {currentItem.stimulus.instruction && (
-                    <div className="text-sm font-bold text-slate-700 dark:text-white/75">{currentItem.stimulus.instruction}</div>
+                    <div className="text-sm font-bold text-slate-700 dark:text-white/75">
+                      {currentItem.stimulus.instruction}
+                    </div>
                   )}
                   {currentItem.stimulus.promptText && (
-                    <div className="mt-3 text-lg text-slate-800 dark:text-white/85">{currentItem.stimulus.promptText}</div>
+                    <div className="mt-3 text-lg text-slate-800 dark:text-white/85">
+                      {currentItem.stimulus.promptText}
+                    </div>
                   )}
                   {currentItem.stimulus.contextSentence && (
-                    <div className="mt-3 text-slate-500 dark:text-white/45 italic">{currentItem.stimulus.contextSentence}</div>
+                    <div className="mt-3 italic text-slate-500 dark:text-white/45">
+                      {currentItem.stimulus.contextSentence}
+                    </div>
                   )}
                 </div>
               )}
@@ -298,7 +335,7 @@ const DiagnosisPage: React.FC = () => {
                     type="button"
                     disabled={submitAnswerMutation.isPending || completeMutation.isPending}
                     onClick={() => void submitAnswer(option)}
-                    className="w-full rounded-[1.8rem] border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-5 py-4 text-left hover:border-primary/50 transition-all disabled:opacity-60"
+                    className="w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-5 py-4 text-left transition-all hover:border-primary/50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
                   >
                     <div className="flex items-center justify-between gap-4">
                       <span className="font-bold text-slate-900 dark:text-white">{option.label}</span>
@@ -326,117 +363,183 @@ const DiagnosisPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
-      <PageHeader title="诊断结果" subtitle={result ? `${result.templateName} · 完成于 ${formatDateTime(result.completedAt)}` : '正在加载结果'} />
+      <PageHeader
+        title={t('diagnosis.resultTitle')}
+        subtitle={
+          result
+            ? t('diagnosis.resultLoadedSubtitle', {
+                templateName: result.templateName,
+                completedAt: formatDateTime(result.completedAt),
+              })
+            : t('diagnosis.resultSubtitle')
+        }
+      />
 
       {resultQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{resultQuery.error.message}</div>
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+          {resultQuery.error.message}
+        </div>
       )}
+
+      {!result && resultQuery.isLoading ? (
+        <div className="grid gap-8">
+          <PanelSkeleton />
+          <PanelSkeleton />
+        </div>
+      ) : null}
 
       {result && (
         <>
           <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
-            <div className="flex flex-col lg:flex-row justify-between gap-8 items-start">
+            <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
               <div>
                 <div className="inline-flex items-center gap-3 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-emerald-500">
                   <CheckCircle2 size={14} />
-                  diagnosis completed
+                  {t('diagnosis.completedBadge')}
                 </div>
-                <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">已生成真实诊断 summary</h2>
-                <p className="mt-4 text-slate-500 dark:text-white/45 leading-7">
-                  本次结果已经进入训练计划和分析聚合链路。你现在可以直接转入训练，或者先阅读 AI 解释。
+                <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">
+                  {t('diagnosis.completedTitle')}
+                </h2>
+                <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
+                  {t('diagnosis.completedDescription')}
                 </p>
               </div>
-              <button type="button" onClick={() => setPhase('select')} className="btn-liquid px-6 py-3 text-white">
-                再做一轮诊断
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'reset' })}
+                className="btn-liquid px-6 py-3 text-white"
+              >
+                {t('diagnosis.restart')}
               </button>
             </div>
           </section>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-[2rem] liquid-glass p-6">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">正迁移得分</div>
-              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMaybePercent(result.metrics.positiveTransferScore)}</div>
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.metrics.positiveTransferScore')}
+              </div>
+              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+                {formatMaybePercent(result.metrics.positiveTransferScore)}
+              </div>
             </div>
             <div className="rounded-[2rem] liquid-glass p-6">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">负迁移风险</div>
-              <div className="mt-3 text-3xl font-black text-rose-500">{formatMaybePercent(result.metrics.negativeTransferRisk)}</div>
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.metrics.negativeTransferRisk')}
+              </div>
+              <div className="mt-3 text-3xl font-black text-rose-500">
+                {formatMaybePercent(result.metrics.negativeTransferRisk)}
+              </div>
             </div>
             <div className="rounded-[2rem] liquid-glass p-6">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">语义辨析</div>
-              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMaybePercent(result.metrics.semanticDiscrimination)}</div>
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.metrics.semanticDiscrimination')}
+              </div>
+              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+                {formatMaybePercent(result.metrics.semanticDiscrimination)}
+              </div>
             </div>
             <div className="rounded-[2rem] liquid-glass p-6">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">平均反应时</div>
-              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{formatMs(result.metrics.averageReactionTime)}</div>
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.metrics.averageReactionTime')}
+              </div>
+              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+                {formatMs(result.metrics.averageReactionTime)}
+              </div>
             </div>
           </div>
 
-          <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-8">
+          <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">radar profile</div>
+              <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.radarProfile')}
+              </div>
               <div className="h-[360px]">
                 <EChart option={radarOption} />
               </div>
             </section>
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">AI explain diagnosis</div>
+              <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.aiExplain')}
+              </div>
               {explanationQuery.isLoading ? (
-                <div className="text-sm text-slate-500 dark:text-white/45">正在生成解释...</div>
+                <PanelSkeleton className="min-h-[280px] p-0" />
               ) : explanationQuery.data ? (
                 <div className="space-y-4">
-                  <p className="text-base leading-7 text-slate-800 dark:text-white/85">{explanationQuery.data.explanation}</p>
-                  <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-                    <div className="text-sm font-bold text-slate-900 dark:text-white">教师/系统备注</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45 leading-6">{explanationQuery.data.teacherNote}</div>
+                  <p className="text-base leading-7 text-slate-800 dark:text-white/85">
+                    {explanationQuery.data.explanation}
+                  </p>
+                  <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">
+                      {t('diagnosis.teacherNote')}
+                    </div>
+                    <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">
+                      {explanationQuery.data.teacherNote}
+                    </div>
                   </div>
                 </div>
               ) : explanationQuery.error ? (
                 <div className="text-sm text-rose-500">{explanationQuery.error.message}</div>
               ) : (
-                <div className="text-sm text-slate-500 dark:text-white/45">暂无解释内容。</div>
+                <div className="text-sm text-slate-500 dark:text-white/45">{t('diagnosis.noExplanation')}</div>
               )}
             </section>
           </div>
 
-          <div className="grid xl:grid-cols-2 gap-8">
+          <div className="grid gap-8 xl:grid-cols-2">
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">高风险词对</div>
+              <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.highRiskPairs')}
+              </div>
               <div className="space-y-4">
                 {result.highRiskLexicalPairs.map((item) => (
-                  <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+                  <div
+                    key={item.lexicalPairId}
+                    className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
+                  >
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
-                        <div className="text-sm text-slate-500 dark:text-white/45 mt-2">
+                        <div className="font-black text-slate-900 dark:text-white">
+                          {item.englishWord} / {item.frenchWord}
+                        </div>
+                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                           {lexicalPairTypeLabel(item.lexicalPairType)} · {item.dominantErrorType}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="font-black text-rose-500">{formatMaybePercent(item.riskScore)}</div>
-                        <div className="text-xs text-slate-400 dark:text-white/30">{formatMs(item.averageReactionTime)}</div>
+                        <div className="text-xs text-slate-400 dark:text-white/30">
+                          {formatMs(item.averageReactionTime)}
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             </section>
+
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">题目明细</div>
-              <div className="space-y-4 max-h-[540px] overflow-y-auto no-scrollbar">
+              <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+                {t('diagnosis.answerBreakdown')}
+              </div>
+              <div className="space-y-4">
                 {result.items.map((item) => (
-                  <div key={item.itemResultId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-                    <div className="flex items-center justify-between gap-4">
+                  <div
+                    key={item.itemResultId}
+                    className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
+                  >
+                    <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="font-bold text-slate-900 dark:text-white">
-                          #{item.presentationOrder} {item.englishWord} / {item.frenchWord}
+                        <div className="font-black text-slate-900 dark:text-white">
+                          {item.englishWord} / {item.frenchWord}
                         </div>
-                        <div className="text-sm text-slate-500 dark:text-white/45 mt-2">
-                          {item.detectedErrorType} · {item.correct ? '正确' : '错误'}
+                        <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">
+                          {item.taskType} · {item.detectedErrorType} · {formatMaybePercent(item.transferRiskScore)}
                         </div>
                       </div>
                       <div className="text-right text-sm text-slate-500 dark:text-white/45">
+                        <div>{item.correct ? t('diagnosis.correct') : t('diagnosis.incorrect')}</div>
                         <div>{formatMs(item.reactionTimeMs)}</div>
-                        <div>{formatMaybePercent(item.transferRiskScore)}</div>
                       </div>
                     </div>
                   </div>

@@ -1034,12 +1034,16 @@ export interface AiOpsRerankConfig {
   timeout: string;
 }
 
-export interface AiOpsProviderConfig {
-  activeProvider: string;
-  fallbackProvider: string;
+export interface AiOpsProviderDefinition {
   chat: AiOpsChatConfig;
   embedding: AiOpsEmbeddingConfig;
   rerank: AiOpsRerankConfig;
+}
+
+export interface AiOpsProviderConfig {
+  activeProvider: string;
+  fallbackProvider: string;
+  providers: Record<string, AiOpsProviderDefinition>;
 }
 
 export interface AiOpsResilienceConfig {
@@ -1098,10 +1102,14 @@ export interface AdminAiSecretFieldVO {
   maskedValue: string;
 }
 
-export interface AdminAiSecretFieldsVO {
+export interface AdminAiProviderSecretFieldsVO {
   chatApiKey: AdminAiSecretFieldVO;
   embeddingApiKey: AdminAiSecretFieldVO;
   rerankApiKey: AdminAiSecretFieldVO;
+}
+
+export interface AdminAiSecretFieldsVO {
+  providers: Record<string, AdminAiProviderSecretFieldsVO>;
   appServerInternalToken: AdminAiSecretFieldVO;
 }
 
@@ -1119,16 +1127,36 @@ export interface AdminAiSecretValueUpdate {
   value?: string | null;
 }
 
-export interface AdminAiSecretUpdateGroup {
+export interface AdminAiProviderSecretUpdateGroup {
   chatApiKey?: AdminAiSecretValueUpdate;
   embeddingApiKey?: AdminAiSecretValueUpdate;
   rerankApiKey?: AdminAiSecretValueUpdate;
+}
+
+export interface AdminAiSecretUpdateGroup {
+  providers?: Record<string, AdminAiProviderSecretUpdateGroup>;
   appServerInternalToken?: AdminAiSecretValueUpdate;
 }
 
 export interface AdminAiConfigSaveRequest {
   config: AiOpsConfigPayload;
   secrets: AdminAiSecretUpdateGroup;
+}
+
+export interface AdminOutboxRecordVO {
+  id: number;
+  eventId: string;
+  eventType: string;
+  routingKey: string;
+  status: string;
+  attemptCount: number;
+  traceId?: string | null;
+  lastError?: string | null;
+  nextAttemptAt?: string | null;
+  processingStartedAt?: string | null;
+  publishedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface AiGatewayHealthResponse {

@@ -1,4 +1,4 @@
-package com.huashi.eftransfer.shared.model;
+package com.huashi.eftransfer.app.common.persistence;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiProviderRuntime;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
@@ -38,14 +40,15 @@ public class QwenRerankClient implements RerankClient {
     }
 
     @Override
-    public RerankResponse rerank(RerankRequest request) {
-        String provider = "qwen";
-        String model = resolveModel(request.model());
+    public RerankResponse rerank(String providerName, RerankRequest request) {
+        String provider = providerName;
+        String model = resolveModel(providerName, request.model());
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
         try {
-            JsonNode response = resilientAiExecutor.execute("rerank", () -> runtimeConfigService.current().rerankRestClient().post()
+            AiProviderRuntime runtime = providerRuntime(providerName);
+            JsonNode response = resilientAiExecutor.execute(runtime, "rerank", () -> runtime.rerankRestClient().post()
                     .uri("")
                     .body(buildPayload(request, model))
                     .retrieve()
@@ -150,7 +153,16 @@ public class QwenRerankClient implements RerankClient {
         return null;
     }
 
-    private String resolveModel(String requestModel) {
-        return StringUtils.hasText(requestModel) ? requestModel : runtimeConfigService.current().config().provider().rerank().model();
+    private String resolveModel(String providerName, String requestModel) {
+        return StringUtils.hasText(requestModel) ? requestModel : providerRuntime(providerName).definition().rerank().model();
+    }
+
+    private AiProviderRuntime providerRuntime(String providerName) {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        AiProviderRuntime runtime = bundle.providerRuntime(providerName);
+        if (runtime == null) {
+            throw new IllegalStateException("No configured AI provider runtime for " + providerName);
+        }
+        return runtime;
     }
 }

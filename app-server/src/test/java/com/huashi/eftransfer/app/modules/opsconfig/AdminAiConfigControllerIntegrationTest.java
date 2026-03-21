@@ -18,6 +18,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -70,18 +71,27 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
                                 "secrets", Map.of(
-                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
-                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
-                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001"),
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
                                         "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
                                 )
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.config.provider.chat.apiKey").value(org.hamcrest.Matchers.nullValue()))
-                .andExpect(jsonPath("$.data.secrets.chatApiKey.configured").value(true));
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.apiKey").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.secrets.providers.qwen.chatApiKey.configured").value(true));
 
         assertThat(storageService.load()).isPresent();
-        assertThat(storageService.load().orElseThrow().config().provider().chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
 
         mockMvc.perform(put("/api/admin/ai-config")
                         .with(bearer(adminToken))
@@ -89,17 +99,26 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
                                 "secrets", Map.of(
-                                        "chatApiKey", Map.of("retainExisting", true),
-                                        "embeddingApiKey", Map.of("retainExisting", true),
-                                        "rerankApiKey", Map.of("retainExisting", true),
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                )
+                                        ),
                                         "appServerInternalToken", Map.of("retainExisting", true)
                                 )
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.secrets.chatApiKey.maskedValue").value(org.hamcrest.Matchers.containsString("cha")));
+                .andExpect(jsonPath("$.data.secrets.providers.qwen.chatApiKey.maskedValue").value(org.hamcrest.Matchers.containsString("cha")));
 
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().chat().apiKey()).isEqualTo("chat-secret-001");
-        assertThat(storageService.load().orElseThrow().config().provider().chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
     }
 
     @Test
@@ -132,9 +151,18 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
                                 "secrets", Map.of(
-                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
-                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
-                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001"),
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
                                         "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
                                 )
                         ))))
@@ -148,26 +176,55 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 new AiOpsProviderConfig(
                         "qwen",
                         "deepseek",
-                        new AiOpsChatConfig(
-                                "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                                chatApiKey,
-                                "qwen-max",
-                                "PT30S",
-                                0.2d,
-                                2048
-                        ),
-                        new AiOpsEmbeddingConfig(
-                                "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                                "embed-secret-001",
-                                "text-embedding-v4",
-                                "PT30S",
-                                1024
-                        ),
-                        new AiOpsRerankConfig(
-                                "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
-                                "rerank-secret-001",
-                                "gte-rerank-v2",
-                                "PT30S"
+                        Map.of(
+                                "qwen",
+                                new AiOpsProviderDefinition(
+                                        new AiOpsChatConfig(
+                                                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                                                chatApiKey,
+                                                "qwen-max",
+                                                "PT30S",
+                                                0.2d,
+                                                2048
+                                        ),
+                                        new AiOpsEmbeddingConfig(
+                                                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                                                "embed-secret-001",
+                                                "text-embedding-v4",
+                                                "PT30S",
+                                                1024
+                                        ),
+                                        new AiOpsRerankConfig(
+                                                "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+                                                "rerank-secret-001",
+                                                "gte-rerank-v2",
+                                                "PT30S"
+                                        )
+                                ),
+                                "deepseek",
+                                new AiOpsProviderDefinition(
+                                        new AiOpsChatConfig(
+                                                "https://api.deepseek.com/v1",
+                                                "chat-secret-002",
+                                                "deepseek-chat",
+                                                "PT30S",
+                                                0.2d,
+                                                2048
+                                        ),
+                                        new AiOpsEmbeddingConfig(
+                                                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                                                "embed-secret-002",
+                                                "text-embedding-v4",
+                                                "PT30S",
+                                                1024
+                                        ),
+                                        new AiOpsRerankConfig(
+                                                "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+                                                "rerank-secret-002",
+                                                "gte-rerank-v2",
+                                                "PT30S"
+                                        )
+                                )
                         )
                 ),
                 new AiOpsResilienceConfig(3, "PT0.5S", 50.0f, 20, "PT30S"),

@@ -35,26 +35,26 @@ public class QwenAiProviderFacade implements AiProviderFacade {
 
     @Override
     public ChatResponse chat(ChatRequest request) {
-        return chatProviderClient.chat(request);
+        return chatProviderClient.chat(providerName(), request);
     }
 
     @Override
     public StructuredChatResponse structuredChat(StructuredChatRequest request) {
-        return chatProviderClient.structuredChat(request);
+        return chatProviderClient.structuredChat(providerName(), request);
     }
 
     @Override
     public EmbeddingResponse embed(EmbeddingRequest request) {
-        return embeddingProviderClient.embed(request);
+        return embeddingProviderClient.embed(providerName(), request);
     }
 
     @Override
     public EmbeddingResponse embedBatch(EmbeddingBatchRequest request) {
-        return embeddingProviderClient.embedBatch(request);
+        return embeddingProviderClient.embedBatch(providerName(), request);
     }
 
     @Override
     public RerankResponse rerank(RerankRequest request) {
-        return rerankClient.rerank(request);
+        return rerankClient.rerank(providerName(), request);
     }
 }

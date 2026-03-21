@@ -1,10 +1,10 @@
 package com.huashi.eftransfer.shared.ai.config;
 
+import java.util.Map;
+
 public record AiOpsProviderConfig(
         String activeProvider,
         String fallbackProvider,
-        AiOpsChatConfig chat,
-        AiOpsEmbeddingConfig embedding,
-        AiOpsRerankConfig rerank
+        Map<String, AiOpsProviderDefinition> providers
 ) {
 }

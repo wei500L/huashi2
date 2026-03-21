@@ -15,13 +15,13 @@ const TeacherStudentDetailPage: React.FC = () => {
 
   const detailQuery = useQuery({
     queryKey: ['teacher-student-detail', classId, studentUserId],
-    queryFn: () => teacherAnalyticsService.getStudentDetail(classId, studentUserId),
+    queryFn: ({ signal }) => teacherAnalyticsService.getStudentDetail(classId, studentUserId, { signal }),
     enabled: Number.isFinite(classId) && Number.isFinite(studentUserId),
   });
 
   const interventionsQuery = useQuery({
     queryKey: ['teacher-interventions', classId],
-    queryFn: () => teacherInterventionService.list({ classId, pageNo: 1, pageSize: 20 }),
+    queryFn: ({ signal }) => teacherInterventionService.list({ classId, pageNo: 1, pageSize: 20 }, { signal }),
     enabled: Number.isFinite(classId),
   });
 

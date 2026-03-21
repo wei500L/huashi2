@@ -7,7 +7,8 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.util.Objects;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 @Component
 public class InternalApiTokenAuthenticator {
@@ -29,8 +30,15 @@ public class InternalApiTokenAuthenticator {
         if (!properties.isEnabled()) {
             return;
         }
-        if (!StringUtils.hasText(token) || !Objects.equals(properties.getToken(), token)) {
+        if (!StringUtils.hasText(token) || !constantTimeEquals(properties.getToken(), token)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "Invalid internal API token", 403);
         }
+    }
+
+    private boolean constantTimeEquals(String expectedToken, String actualToken) {
+        return MessageDigest.isEqual(
+                expectedToken.getBytes(StandardCharsets.UTF_8),
+                actualToken.getBytes(StandardCharsets.UTF_8)
+        );
     }
 }

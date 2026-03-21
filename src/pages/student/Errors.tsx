@@ -7,11 +7,11 @@ import { formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
 const ErrorsPage: React.FC = () => {
   const wrongBookQuery = useQuery({
     queryKey: ['wrong-book'],
-    queryFn: () => trainingService.getWrongBook(),
+    queryFn: ({ signal }) => trainingService.getWrongBook({ signal }),
   });
   const reviewScheduleQuery = useQuery({
     queryKey: ['review-schedule', true],
-    queryFn: () => trainingService.getReviewSchedule(true),
+    queryFn: ({ signal }) => trainingService.getReviewSchedule(true, { signal }),
   });
 
   return (

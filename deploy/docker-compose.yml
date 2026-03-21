@@ -27,13 +27,18 @@ services:
     image: redis:8-bookworm
     container_name: ef-transfer-redis
     restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - "${REDIS_PORT}:6379"
+      - "127.0.0.1:${REDIS_PORT}:6379"
     volumes:
       - redis-data:/data
-    command: ["redis-server", "--appendonly", "yes"]
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$REDIS_PASSWORD\" ping | grep PONG"]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -125,6 +130,12 @@ services:
       PLATFORM_INTERNAL_API_TOKEN: ${PLATFORM_INTERNAL_API_TOKEN}
     ports:
       - "${AI_GATEWAY_PORT}:8090"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8090/actuator/health | grep '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   app-server:
     build:
@@ -140,7 +151,7 @@ services:
       rabbitmq:
         condition: service_healthy
       ai-gateway:
-        condition: service_started
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: local
       APP_SERVER_PORT: 8080
@@ -158,10 +169,21 @@ services:
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       RABBITMQ_VHOST: ${RABBITMQ_VHOST}
-      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      APP_OPS_CONFIG_ENCRYPTION_SECRET: ${APP_OPS_CONFIG_ENCRYPTION_SECRET}
+      APP_JWT_ACTIVE_KID: ${APP_JWT_ACTIVE_KID}
+      APP_JWT_KEYS_0_KID: ${APP_JWT_KEYS_0_KID}
+      APP_JWT_KEYS_0_SECRET: ${APP_JWT_KEYS_0_SECRET}
+      APP_JWT_KEYS_1_KID: ${APP_JWT_KEYS_1_KID}
+      APP_JWT_KEYS_1_SECRET: ${APP_JWT_KEYS_1_SECRET}
+      APP_JWT_LEGACY_SECRET: ${APP_JWT_LEGACY_SECRET}
       APP_JWT_ISSUER: ${APP_JWT_ISSUER}
       APP_JWT_ACCESS_TTL: ${APP_JWT_ACCESS_TTL}
       APP_JWT_REFRESH_TTL: ${APP_JWT_REFRESH_TTL}
+      APP_DB_POOL_MAX_SIZE: ${APP_DB_POOL_MAX_SIZE}
+      APP_DB_POOL_MIN_IDLE: ${APP_DB_POOL_MIN_IDLE}
+      APP_DB_POOL_CONNECTION_TIMEOUT: ${APP_DB_POOL_CONNECTION_TIMEOUT}
+      APP_DB_POOL_IDLE_TIMEOUT: ${APP_DB_POOL_IDLE_TIMEOUT}
+      APP_DB_POOL_MAX_LIFETIME: ${APP_DB_POOL_MAX_LIFETIME}
       APP_DEMO_DATA_ENABLED: ${APP_DEMO_DATA_ENABLED:-false}
       PLATFORM_INTERNAL_API_ENABLED: true
       PLATFORM_INTERNAL_API_TOKEN: ${PLATFORM_INTERNAL_API_TOKEN}
@@ -170,6 +192,12 @@ services:
       AI_GATEWAY_READ_TIMEOUT: ${AI_GATEWAY_READ_TIMEOUT}
     ports:
       - "${APP_SERVER_PORT}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/actuator/health | grep '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
 volumes:
   mysql-data:

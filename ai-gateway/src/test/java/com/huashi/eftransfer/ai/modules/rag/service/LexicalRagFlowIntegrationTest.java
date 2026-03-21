@@ -3,7 +3,6 @@ package com.huashi.eftransfer.ai.modules.rag.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
-import com.huashi.eftransfer.ai.integration.provider.AiProviderFacade;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.rag.integration.AppServerKnowledgeClient;
@@ -14,14 +13,13 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
-import com.huashi.eftransfer.shared.ai.ChatRequest;
-import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingItem;
 import com.huashi.eftransfer.shared.ai.EmbeddingRequest;
@@ -36,8 +34,6 @@ import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
-import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
-import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.huashi.eftransfer.shared.ai.TokenUsage;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
@@ -45,7 +41,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.scheduling.concurrent.ConcurrentTaskExecutor;
@@ -102,10 +97,15 @@ class LexicalRagFlowIntegrationTest {
         appServerKnowledgeClient = Mockito.mock(AppServerKnowledgeClient.class);
 
         RagProperties ragProperties = ragProperties();
-        StubAiProviderFacade stubProvider = new StubAiProviderFacade();
         AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
         when(runtimeConfigService.current()).thenReturn(runtimeBundle(ragProperties));
-        AiProviderRegistry aiProviderRegistry = new AiProviderRegistry(runtimeConfigService, List.of(stubProvider));
+        AiProviderRegistry aiProviderRegistry = mock(AiProviderRegistry.class);
+        when(aiProviderRegistry.embed(any())).thenAnswer(invocation -> {
+            EmbeddingRequest request = invocation.getArgument(0);
+            return embeddingResponse(new EmbeddingBatchRequest(List.of(request.text()), request.model(), request.dimension()));
+        });
+        when(aiProviderRegistry.embedBatch(any())).thenAnswer(invocation -> embeddingResponse(invocation.getArgument(0)));
+        when(aiProviderRegistry.rerank(any())).thenAnswer(invocation -> rerankResponse(invocation.getArgument(0)));
 
         knowledgeIngestionService = new KnowledgeIngestionService(
                 ingestionJobRepository,
@@ -132,7 +132,7 @@ class LexicalRagFlowIntegrationTest {
 
     @BeforeEach
     void cleanTables() {
-        jdbcTemplate.execute("TRUNCATE TABLE chunk_embedding, knowledge_chunk, knowledge_document, ingestion_job, rag_knowledge_document RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE chunk_embedding, knowledge_chunk, knowledge_document, ingestion_job RESTART IDENTITY CASCADE");
     }
 
     @Test
@@ -207,9 +207,20 @@ class LexicalRagFlowIntegrationTest {
                         new AiOpsProviderConfig(
                                 "qwen",
                                 "deepseek",
-                                new AiOpsChatConfig("https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
-                                new AiOpsEmbeddingConfig("https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
-                                new AiOpsRerankConfig("https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                                Map.of(
+                                        "qwen",
+                                        new AiOpsProviderDefinition(
+                                                new AiOpsChatConfig("https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig("https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig("https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                                        ),
+                                        "deepseek",
+                                        new AiOpsProviderDefinition(
+                                                new AiOpsChatConfig("https://example.com/v1", "backup-api-key", "deepseek-chat", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig("https://example.com/v1", "backup-api-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig("https://example.com", "backup-api-key", "gte-rerank-v2", "PT30S")
+                                        )
+                                )
                         ),
                         new AiOpsResilienceConfig(1, "PT0.1S", 50.0f, 10, "PT5S"),
                         new AiOpsRagConfig(
@@ -232,12 +243,7 @@ class LexicalRagFlowIntegrationTest {
                                 )
                         )
                 ),
-                mock(ChatClient.class),
-                null,
-                null,
-                null,
-                null,
-                null,
+                Map.of(),
                 null,
                 "TEST",
                 1L,
@@ -291,84 +297,59 @@ class LexicalRagFlowIntegrationTest {
         );
     }
 
-    private static class StubAiProviderFacade implements AiProviderFacade {
+    private static EmbeddingResponse embeddingResponse(EmbeddingBatchRequest request) {
+        List<EmbeddingItem> items = request.texts().stream()
+                .map(LexicalRagFlowIntegrationTest::embeddingForText)
+                .map(embedding -> new EmbeddingItem(0, null, embedding))
+                .toList();
+        List<EmbeddingItem> indexedItems = java.util.stream.IntStream.range(0, request.texts().size())
+                .mapToObj(index -> new EmbeddingItem(index, request.texts().get(index), items.get(index).embedding()))
+                .toList();
+        int dimension = indexedItems.isEmpty() ? 1024 : indexedItems.get(0).embedding().size();
+        return new EmbeddingResponse(
+                "stub",
+                "stub-embedding-model",
+                dimension,
+                "stub-embedding-request",
+                new TokenUsage(request.texts().size(), 0, request.texts().size()),
+                indexedItems
+        );
+    }
 
-        @Override
-        public String providerName() {
-            return "qwen";
-        }
+    private static RerankResponse rerankResponse(RerankRequest request) {
+        List<RerankItem> items = java.util.stream.IntStream.range(0, request.documents().size())
+                .mapToObj(index -> new RerankItem(index, rerankScore(request.documents().get(index)), request.documents().get(index)))
+                .sorted(Comparator.comparing(RerankItem::relevanceScore).reversed())
+                .limit(request.topN() == null ? request.documents().size() : request.topN())
+                .toList();
+        return new RerankResponse("stub", "stub-rerank-model", "stub-rerank-request", 9, items);
+    }
 
-        @Override
-        public ChatResponse chat(ChatRequest request) {
-            throw new UnsupportedOperationException("chat is not used in this test");
+    private static List<Double> embeddingForText(String text) {
+        String normalized = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        if (normalized.contains("coin")) {
+            return vector(1);
         }
+        if (normalized.contains("table")) {
+            return vector(2);
+        }
+        return vector(3);
+    }
 
-        @Override
-        public StructuredChatResponse structuredChat(StructuredChatRequest request) {
-            throw new UnsupportedOperationException("structuredChat is not used in this test");
+    private static double rerankScore(String document) {
+        if (document.contains("Example")) {
+            return 0.95d;
         }
+        if (document.contains("Sense")) {
+            return 0.90d;
+        }
+        return 0.85d;
+    }
 
-        @Override
-        public EmbeddingResponse embed(EmbeddingRequest request) {
-            return embedBatch(new EmbeddingBatchRequest(List.of(request.text()), request.model(), request.dimension()));
-        }
-
-        @Override
-        public EmbeddingResponse embedBatch(EmbeddingBatchRequest request) {
-            List<EmbeddingItem> items = request.texts().stream()
-                    .map(this::embeddingForText)
-                    .map(embedding -> new EmbeddingItem(0, null, embedding))
-                    .toList();
-            List<EmbeddingItem> indexedItems = java.util.stream.IntStream.range(0, request.texts().size())
-                    .mapToObj(index -> new EmbeddingItem(index, request.texts().get(index), items.get(index).embedding()))
-                    .toList();
-            int dimension = indexedItems.isEmpty() ? 1024 : indexedItems.get(0).embedding().size();
-            return new EmbeddingResponse(
-                    "stub",
-                    "stub-embedding-model",
-                    dimension,
-                    "stub-embedding-request",
-                    new TokenUsage(request.texts().size(), 0, request.texts().size()),
-                    indexedItems
-            );
-        }
-
-        @Override
-        public RerankResponse rerank(RerankRequest request) {
-            List<RerankItem> items = java.util.stream.IntStream.range(0, request.documents().size())
-                    .mapToObj(index -> new RerankItem(index, rerankScore(request.documents().get(index)), request.documents().get(index)))
-                    .sorted(Comparator.comparing(RerankItem::relevanceScore).reversed())
-                    .limit(request.topN() == null ? request.documents().size() : request.topN())
-                    .toList();
-            return new RerankResponse("stub", "stub-rerank-model", "stub-rerank-request", 9, items);
-        }
-
-        private List<Double> embeddingForText(String text) {
-            String normalized = text == null ? "" : text.toLowerCase(Locale.ROOT);
-            if (normalized.contains("coin")) {
-                return vector(1);
-            }
-            if (normalized.contains("table")) {
-                return vector(2);
-            }
-            return vector(3);
-        }
-
-        private double rerankScore(String document) {
-            if (document.contains("Example")) {
-                return 0.95d;
-            }
-            if (document.contains("Sense")) {
-                return 0.90d;
-            }
-            return 0.85d;
-        }
-
-        private List<Double> vector(int axis) {
-            Double[] values = new Double[1024];
-            java.util.Arrays.fill(values, 0.0d);
-            values[Math.max(0, Math.min(1023, axis - 1))] = 1.0d;
-            return List.of(values);
-        }
+    private static List<Double> vector(int axis) {
+        Double[] values = new Double[1024];
+        java.util.Arrays.fill(values, 0.0d);
+        values[Math.max(0, Math.min(1023, axis - 1))] = 1.0d;
+        return List.of(values);
     }
 }

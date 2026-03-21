@@ -3,7 +3,6 @@ package com.huashi.eftransfer.ai.modules.rag.repository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
-import com.huashi.eftransfer.ai.integration.provider.AiProviderFacade;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeSearchService;
@@ -16,6 +15,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -89,7 +89,7 @@ class KnowledgeStoreRepositoryTest {
 
     @BeforeEach
     void cleanTables() {
-        jdbcTemplate.execute("TRUNCATE TABLE chunk_embedding, knowledge_chunk, knowledge_document, ingestion_job, rag_knowledge_document RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE chunk_embedding, knowledge_chunk, knowledge_document, ingestion_job RESTART IDENTITY CASCADE");
     }
 
     @Test
@@ -122,10 +122,8 @@ class KnowledgeStoreRepositoryTest {
         seedChunk("sense:2001", "2001", KnowledgeSourceTypes.LEXICAL_SENSE, "coin / coin - Sense 1", "Money sense definition", vector(2));
         seedChunk("error:false_friend_confusion", "false_friend_confusion", KnowledgeSourceTypes.ERROR_TYPE, "False Friend Confusion", "This explains false friend confusion in detail.", vector(3));
 
-        AiProviderFacade provider = mock(AiProviderFacade.class);
         AiProviderRegistry providerRegistry = mock(AiProviderRegistry.class);
-        when(providerRegistry.resolveActiveProvider()).thenReturn(provider);
-        when(provider.embed(any())).thenReturn(new EmbeddingResponse(
+        when(providerRegistry.embed(any())).thenReturn(new EmbeddingResponse(
                 "qwen",
                 "text-embedding-v4",
                 1024,
@@ -133,7 +131,7 @@ class KnowledgeStoreRepositoryTest {
                 null,
                 List.of(new EmbeddingItem(0, "query", vector(1)))
         ));
-        when(provider.rerank(any())).thenReturn(new RerankResponse(
+        when(providerRegistry.rerank(any())).thenReturn(new RerankResponse(
                 "qwen",
                 "gte-rerank-v2",
                 "rerank-test",
@@ -173,9 +171,20 @@ class KnowledgeStoreRepositoryTest {
                         new AiOpsProviderConfig(
                                 "qwen",
                                 "deepseek",
-                                new AiOpsChatConfig("https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
-                                new AiOpsEmbeddingConfig("https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
-                                new AiOpsRerankConfig("https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                                Map.of(
+                                        "qwen",
+                                        new AiOpsProviderDefinition(
+                                                new AiOpsChatConfig("https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig("https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig("https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                                        ),
+                                        "deepseek",
+                                        new AiOpsProviderDefinition(
+                                                new AiOpsChatConfig("https://example.com/v1", "backup-api-key", "deepseek-chat", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig("https://example.com/v1", "backup-api-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig("https://example.com", "backup-api-key", "gte-rerank-v2", "PT30S")
+                                        )
+                                )
                         ),
                         new AiOpsResilienceConfig(1, "PT0.1S", 50.0f, 10, "PT5S"),
                         new AiOpsRagConfig(
@@ -198,12 +207,7 @@ class KnowledgeStoreRepositoryTest {
                                 )
                         )
                 ),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
+                Map.of(),
                 null,
                 "TEST",
                 1L,

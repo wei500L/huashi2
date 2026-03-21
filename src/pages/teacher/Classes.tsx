@@ -9,7 +9,7 @@ const TeacherClassesPage: React.FC = () => {
   const navigate = useNavigate();
   const classesQuery = useQuery({
     queryKey: ['teacher-classes'],
-    queryFn: () => teacherAnalyticsService.listClasses(),
+    queryFn: ({ signal }) => teacherAnalyticsService.listClasses({ signal }),
   });
 
   return (

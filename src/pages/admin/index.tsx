@@ -9,12 +9,12 @@ import { adminService, lexicalPairService } from '@/lib/services';
 const AdminUsersPage: React.FC = () => {
   const usersQuery = useQuery({
     queryKey: ['admin-users'],
-    queryFn: () => adminService.listUsers(),
+    queryFn: ({ signal }) => adminService.listUsers({ signal }),
   });
 
   const overviewQuery = useQuery({
     queryKey: ['lexical-pair-overview'],
-    queryFn: () => lexicalPairService.getOverview(),
+    queryFn: ({ signal }) => lexicalPairService.getOverview({ signal }),
   });
 
   return (

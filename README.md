@@ -33,7 +33,9 @@
 - `X-Internal-Token` 是内部接口统一鉴权头
 - `PLATFORM_INTERNAL_API_ENABLED=true` 时，`/internal/**` 一律 fail-close
 - `PLATFORM_INTERNAL_API_TOKEN` 由 `app-server` 与 `ai-gateway` 共享，缺失时 `ai-gateway` 的 app-server 内部调用配置不会通过校验
-- `APP_JWT_SECRET` 不再有不安全默认值
+- `APP_JWT_ACTIVE_KID` 与 `APP_JWT_KEYS_*` 控制当前签名 key ring；新 access token 始终带 `kid`
+- `APP_JWT_LEGACY_SECRET` 仅用于旧 token 兼容验签窗口
+- `APP_OPS_CONFIG_ENCRYPTION_SECRET` 与 JWT 密钥职责分离，非 `local/test` 缺失时 `app-server` 不会启动
 - demo 用户初始化仅在 `local/test` profile 且 `APP_DEMO_DATA_ENABLED=true` 时启用
 
 ## 本地启动
@@ -47,9 +49,25 @@ cp .env.example .env
 
 至少补齐：
 
-- `APP_JWT_SECRET`
+- `APP_OPS_CONFIG_ENCRYPTION_SECRET`
+- `APP_JWT_ACTIVE_KID`
+- `APP_JWT_KEYS_0_KID`
+- `APP_JWT_KEYS_0_SECRET`
+- `APP_JWT_KEYS_1_KID`
+- `APP_JWT_KEYS_1_SECRET`
+- `APP_JWT_LEGACY_SECRET`（仅在旧 token 兼容窗口需要时填写）
 - `PLATFORM_INTERNAL_API_TOKEN`
+- `REDIS_PASSWORD`
 - AI 供应商相关变量：`AI_OPENAI_API_KEY`、`AI_OPENAI_BASE_URL`、`AI_CHAT_MODEL`、`AI_EMBEDDING_MODEL`、`AI_RERANK_URL`、`AI_RERANK_MODEL`
+
+JWT key 需要使用随机高熵值，示例可用：`openssl rand -base64 48`
+
+生产环境额外建议：
+
+- `APP_DB_SSL_MODE=REQUIRED`
+- `APP_AUTH_LOCKOUT_ENABLED=true`
+- `APP_AUTH_LOCKOUT_THRESHOLD=5`
+- `APP_AUTH_LOCKOUT_DURATION=PT15M`
 
 ### 2. 启动依赖
 
@@ -91,8 +109,24 @@ npm run build:analyze
 
 - 对外健康检查：`http://localhost:8080/api/health`
 - Actuator：`http://localhost:8080/actuator/health`
+- OpenAPI：`http://localhost:8080/swagger-ui.html`
+- OpenAPI：`http://localhost:8080/v3/api-docs`
 - Actuator：`http://localhost:8090/actuator/health`
 - `http://localhost:8090/internal/ai/health` 为内部接口，需要 `X-Internal-Token`
+
+Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健康检查，并以非 root 用户运行镜像。
+
+## 备份脚本
+
+- `deploy/scripts/backup-mysql.sh`
+- `deploy/scripts/backup-postgres.sh`
+- `deploy/scripts/backup-all.sh`
+
+默认读取 `deploy/.env`，备份输出到 `BACKUP_DIR`，保留天数由 `BACKUP_RETENTION_DAYS` 控制。示例 cron：
+
+```bash
+0 2 * * * cd /path/to/repo && ./deploy/scripts/backup-all.sh
+```
 
 ## 当前架构决策
 

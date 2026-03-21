@@ -1,12 +1,55 @@
 import React, { useEffect, useState } from 'react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { LucideIcon } from 'lucide-react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export const RouteSkeleton: React.FC = () => (
+  <div className="min-h-screen bg-background px-6 py-10">
+    <div className="mx-auto max-w-6xl space-y-8">
+      <div className="space-y-3">
+        <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/80 dark:bg-white/10" />
+        <div className="h-10 w-72 animate-pulse rounded-full bg-slate-200/80 dark:bg-white/10" />
+        <div className="h-4 w-[28rem] animate-pulse rounded-full bg-slate-200/70 dark:bg-white/10" />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="h-72 animate-pulse rounded-[2.5rem] border border-slate-200/80 bg-white/60 dark:border-white/10 dark:bg-white/5" />
+        <div className="grid gap-6">
+          <div className="h-32 animate-pulse rounded-[2.2rem] border border-slate-200/80 bg-white/60 dark:border-white/10 dark:bg-white/5" />
+          <div className="h-32 animate-pulse rounded-[2.2rem] border border-slate-200/80 bg-white/60 dark:border-white/10 dark:bg-white/5" />
+        </div>
+      </div>
+      <div className="grid gap-6 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-28 animate-pulse rounded-[2rem] border border-slate-200/80 bg-white/60 dark:border-white/10 dark:bg-white/5"
+          />
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+export const PanelSkeleton: React.FC<{ className?: string }> = ({ className }) => (
+  <div className={cn('rounded-[2.8rem] liquid-glass-panel p-8', className)}>
+    <div className="space-y-5">
+      <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/80 dark:bg-white/10" />
+      <div className="grid gap-5 md:grid-cols-2">
+        <div className="h-32 animate-pulse rounded-[2rem] border border-slate-200/80 bg-white/65 dark:border-white/10 dark:bg-white/5" />
+        <div className="h-32 animate-pulse rounded-[2rem] border border-slate-200/80 bg-white/65 dark:border-white/10 dark:bg-white/5" />
+      </div>
+      <div className="h-20 animate-pulse rounded-[2rem] border border-slate-200/80 bg-white/55 dark:border-white/10 dark:bg-white/5" />
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-16 animate-pulse rounded-[1.6rem] border border-slate-200/80 bg-white/65 dark:border-white/10 dark:bg-white/5"
+          />
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 // Magnetic Interaction Component - Performance Optimized
 export const Magnetic: React.FC<{ children: React.ReactElement; strength?: number }> = ({ children, strength = 0.3 }) => {

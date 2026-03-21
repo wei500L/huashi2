@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => ({
           if (/node_modules\/(react|react-dom|scheduler|loose-envify|object-assign|js-tokens)\//.test(id)) {
             return 'react-vendor';
           }
+          return 'vendor';
         },
       },
     },
@@ -54,5 +55,10 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.ts',
   },
 }));

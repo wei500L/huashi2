@@ -1,14 +1,9 @@
 import React from 'react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EChart } from '@/components/common/EChart';
 import type { AppChartOption } from '@/lib/echarts';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '@/lib/utils';
 
 interface ChartCardProps {
   title: string;

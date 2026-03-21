@@ -325,7 +325,7 @@ public class KnowledgeIngestionService {
     }
 
     private void writeEmbeddingBatch(List<PendingChunkEmbedding> batch, StatsAccumulator stats) {
-        EmbeddingResponse response = aiProviderRegistry.resolveActiveProvider().embedBatch(new EmbeddingBatchRequest(
+        EmbeddingResponse response = aiProviderRegistry.embedBatch(new EmbeddingBatchRequest(
                 batch.stream().map(PendingChunkEmbedding::content).toList(),
                 null,
                 null

@@ -2,12 +2,12 @@ package com.huashi.eftransfer.ai.common.runtime;
 
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
-import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
@@ -26,6 +26,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -41,7 +42,6 @@ public class AiRuntimeConfigService {
     private final AiResilienceProperties resilienceProperties;
     private final RagProperties ragProperties;
     private final AiRuntimeBundleFactory bundleFactory;
-    private final ResilientAiExecutor resilientAiExecutor;
     private final AtomicReference<AiRuntimeBundle> currentBundle = new AtomicReference<>();
     private final AtomicLong versionCounter = new AtomicLong();
 
@@ -49,14 +49,12 @@ public class AiRuntimeConfigService {
             AiProviderProperties providerProperties,
             AiResilienceProperties resilienceProperties,
             RagProperties ragProperties,
-            AiRuntimeBundleFactory bundleFactory,
-            ResilientAiExecutor resilientAiExecutor
+            AiRuntimeBundleFactory bundleFactory
     ) {
         this.providerProperties = providerProperties;
         this.resilienceProperties = resilienceProperties;
         this.ragProperties = ragProperties;
         this.bundleFactory = bundleFactory;
-        this.resilientAiExecutor = resilientAiExecutor;
     }
 
     @PostConstruct
@@ -69,7 +67,6 @@ public class AiRuntimeConfigService {
                 versionCounter.incrementAndGet()
         );
         currentBundle.set(bundle);
-        resilientAiExecutor.updateRegistries(bundle.retryRegistry(), bundle.circuitBreakerRegistry());
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -159,49 +156,25 @@ public class AiRuntimeConfigService {
         if (version != null) {
             versionCounter.updateAndGet(previous -> Math.max(previous, version));
         }
-        resilientAiExecutor.updateRegistries(bundle.retryRegistry(), bundle.circuitBreakerRegistry());
         return effective();
     }
 
     private void validateProvider(AiOpsConfigPayload payload, List<AiOpsConfigIssue> issues) {
-        if (payload.provider().chat() == null) {
-            issues.add(new AiOpsConfigIssue("provider.chat", "chat section is required"));
-            return;
-        }
-        if (payload.provider().embedding() == null) {
-            issues.add(new AiOpsConfigIssue("provider.embedding", "embedding section is required"));
-            return;
-        }
-        if (payload.provider().rerank() == null) {
-            issues.add(new AiOpsConfigIssue("provider.rerank", "rerank section is required"));
-            return;
-        }
-        requireEquals("provider.activeProvider", payload.provider().activeProvider(), "qwen", issues,
-                "Only qwen is currently implemented as active provider");
+        requireText("provider.activeProvider", payload.provider().activeProvider(), issues);
         requireText("provider.fallbackProvider", payload.provider().fallbackProvider(), issues);
-        validateUrl("provider.chat.baseUrl", payload.provider().chat().baseUrl(), issues);
-        requireText("provider.chat.apiKey", payload.provider().chat().apiKey(), issues);
-        requireText("provider.chat.model", payload.provider().chat().model(), issues);
-        validateDuration("provider.chat.timeout", payload.provider().chat().timeout(), issues);
-        validateRange("provider.chat.temperature", payload.provider().chat().temperature(), 0.0d, 2.0d, issues);
-        validatePositive("provider.chat.maxTokens", payload.provider().chat().maxTokens(), issues);
-
-        validateUrl("provider.embedding.baseUrl", payload.provider().embedding().baseUrl(), issues);
-        requireText("provider.embedding.apiKey", payload.provider().embedding().apiKey(), issues);
-        requireText("provider.embedding.model", payload.provider().embedding().model(), issues);
-        validateDuration("provider.embedding.timeout", payload.provider().embedding().timeout(), issues);
-        validatePositive("provider.embedding.dimension", payload.provider().embedding().dimension(), issues);
-        if (payload.provider().embedding().dimension() != null && payload.provider().embedding().dimension() != 1024) {
-            issues.add(new AiOpsConfigIssue(
-                    "provider.embedding.dimension",
-                    "Current pgvector schema is fixed at 1024 dimensions"
-            ));
+        if (payload.provider().providers() == null || payload.provider().providers().isEmpty()) {
+            issues.add(new AiOpsConfigIssue("provider.providers", "at least one provider definition is required"));
+            return;
         }
-
-        validateUrl("provider.rerank.baseUrl", payload.provider().rerank().baseUrl(), issues);
-        requireText("provider.rerank.apiKey", payload.provider().rerank().apiKey(), issues);
-        requireText("provider.rerank.model", payload.provider().rerank().model(), issues);
-        validateDuration("provider.rerank.timeout", payload.provider().rerank().timeout(), issues);
+        validateProviderReference("provider.activeProvider", payload.provider().activeProvider(), payload.provider().providers(), issues);
+        validateProviderReference("provider.fallbackProvider", payload.provider().fallbackProvider(), payload.provider().providers(), issues);
+        if (StringUtils.hasText(payload.provider().activeProvider())
+                && payload.provider().activeProvider().equalsIgnoreCase(payload.provider().fallbackProvider())) {
+            issues.add(new AiOpsConfigIssue("provider.fallbackProvider", "fallbackProvider must be different from activeProvider"));
+        }
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : payload.provider().providers().entrySet()) {
+            validateProviderDefinition(entry.getKey(), entry.getValue(), issues);
+        }
     }
 
     private void validateResilience(AiOpsConfigPayload payload, List<AiOpsConfigIssue> issues) {
@@ -262,21 +235,12 @@ public class AiRuntimeConfigService {
     }
 
     private List<String> validationNotices(AiOpsConfigPayload payload) {
-        if (payload == null) {
-            return List.of();
-        }
-        return List.of("fallbackProvider is currently informational only; automatic failover is not implemented.");
+        return List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.");
     }
 
     private void requireText(String field, String value, List<AiOpsConfigIssue> issues) {
         if (!StringUtils.hasText(value)) {
             issues.add(new AiOpsConfigIssue(field, "value is required"));
-        }
-    }
-
-    private void requireEquals(String field, String value, String expected, List<AiOpsConfigIssue> issues, String message) {
-        if (!expected.equalsIgnoreCase(value == null ? "" : value)) {
-            issues.add(new AiOpsConfigIssue(field, message));
         }
     }
 
@@ -324,6 +288,65 @@ public class AiRuntimeConfigService {
     private void validateRange(String field, Double value, double min, double max, List<AiOpsConfigIssue> issues) {
         if (value == null || value < min || value > max) {
             issues.add(new AiOpsConfigIssue(field, "must be between " + min + " and " + max));
+        }
+    }
+
+    private void validateProviderReference(
+            String field,
+            String providerName,
+            Map<String, AiOpsProviderDefinition> providers,
+            List<AiOpsConfigIssue> issues
+    ) {
+        if (!StringUtils.hasText(providerName)) {
+            return;
+        }
+        if (!providers.containsKey(providerName)) {
+            issues.add(new AiOpsConfigIssue(field, "must reference a configured provider"));
+        }
+    }
+
+    private void validateProviderDefinition(
+            String providerName,
+            AiOpsProviderDefinition definition,
+            List<AiOpsConfigIssue> issues
+    ) {
+        String prefix = "provider.providers." + providerName;
+        if (definition == null) {
+            issues.add(new AiOpsConfigIssue(prefix, "provider definition is required"));
+            return;
+        }
+        if (definition.chat() == null) {
+            issues.add(new AiOpsConfigIssue(prefix + ".chat", "chat section is required"));
+        } else {
+            validateUrl(prefix + ".chat.baseUrl", definition.chat().baseUrl(), issues);
+            requireText(prefix + ".chat.apiKey", definition.chat().apiKey(), issues);
+            requireText(prefix + ".chat.model", definition.chat().model(), issues);
+            validateDuration(prefix + ".chat.timeout", definition.chat().timeout(), issues);
+            validateRange(prefix + ".chat.temperature", definition.chat().temperature(), 0.0d, 2.0d, issues);
+            validatePositive(prefix + ".chat.maxTokens", definition.chat().maxTokens(), issues);
+        }
+        if (definition.embedding() == null) {
+            issues.add(new AiOpsConfigIssue(prefix + ".embedding", "embedding section is required"));
+        } else {
+            validateUrl(prefix + ".embedding.baseUrl", definition.embedding().baseUrl(), issues);
+            requireText(prefix + ".embedding.apiKey", definition.embedding().apiKey(), issues);
+            requireText(prefix + ".embedding.model", definition.embedding().model(), issues);
+            validateDuration(prefix + ".embedding.timeout", definition.embedding().timeout(), issues);
+            validatePositive(prefix + ".embedding.dimension", definition.embedding().dimension(), issues);
+            if (definition.embedding().dimension() != null && definition.embedding().dimension() != 1024) {
+                issues.add(new AiOpsConfigIssue(
+                        prefix + ".embedding.dimension",
+                        "Current pgvector schema is fixed at 1024 dimensions"
+                ));
+            }
+        }
+        if (definition.rerank() == null) {
+            issues.add(new AiOpsConfigIssue(prefix + ".rerank", "rerank section is required"));
+        } else {
+            validateUrl(prefix + ".rerank.baseUrl", definition.rerank().baseUrl(), issues);
+            requireText(prefix + ".rerank.apiKey", definition.rerank().apiKey(), issues);
+            requireText(prefix + ".rerank.model", definition.rerank().model(), issues);
+            validateDuration(prefix + ".rerank.timeout", definition.rerank().timeout(), issues);
         }
     }
 }

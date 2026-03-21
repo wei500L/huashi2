@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.app.modules.lexicon.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.huashi.eftransfer.shared.model.BaseAuditEntity;
+import com.huashi.eftransfer.app.common.persistence.BaseAuditEntity;
 
 @TableName("lexical_tag")
 public class LexicalTagEntity extends BaseAuditEntity {

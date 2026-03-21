@@ -2,7 +2,7 @@ package com.huashi.eftransfer.app.modules.diagnosis.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.huashi.eftransfer.shared.model.BaseAuditEntity;
+import com.huashi.eftransfer.app.common.persistence.BaseAuditEntity;
 
 @TableName("diagnosis_template")
 public class DiagnosisTemplateEntity extends BaseAuditEntity {

@@ -8,6 +8,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -38,6 +39,8 @@ import org.springframework.web.client.RestClient;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Component
 public class AiRuntimeBundleFactory {
@@ -63,36 +66,19 @@ public class AiRuntimeBundleFactory {
             String source,
             Long version
     ) {
-        AiProviderProperties.ProviderProperties qwen = providerProperties.getProviderProperties("qwen");
-        if (qwen == null) {
-            qwen = new AiProviderProperties.ProviderProperties();
+        Map<String, AiOpsProviderDefinition> providerDefinitions = new LinkedHashMap<>();
+        for (Map.Entry<String, AiProviderProperties.ProviderProperties> entry : providerProperties.getProviders().entrySet()) {
+            providerDefinitions.put(entry.getKey(), toProviderDefinition(entry.getValue()));
         }
+        ensureProviderDefinition(providerDefinitions, providerProperties, providerProperties.getActiveProvider());
+        ensureProviderDefinition(providerDefinitions, providerProperties, providerProperties.getFallbackProvider());
+
         return build(
                 new AiOpsConfigPayload(
                         new AiOpsProviderConfig(
                                 providerProperties.getActiveProvider(),
                                 providerProperties.getFallbackProvider(),
-                                new AiOpsChatConfig(
-                                        qwen.getChat().getBaseUrl(),
-                                        qwen.getChat().getApiKey(),
-                                        qwen.getChat().getModel(),
-                                        formatDuration(qwen.getChat().getTimeout()),
-                                        qwen.getChat().getTemperature(),
-                                        qwen.getChat().getMaxTokens()
-                                ),
-                                new AiOpsEmbeddingConfig(
-                                        qwen.getEmbedding().getBaseUrl(),
-                                        qwen.getEmbedding().getApiKey(),
-                                        qwen.getEmbedding().getModel(),
-                                        formatDuration(qwen.getEmbedding().getTimeout()),
-                                        qwen.getEmbedding().getDimension()
-                                ),
-                                new AiOpsRerankConfig(
-                                        qwen.getRerank().getBaseUrl(),
-                                        qwen.getRerank().getApiKey(),
-                                        qwen.getRerank().getModel(),
-                                        formatDuration(qwen.getRerank().getTimeout())
-                                )
+                                providerDefinitions
                         ),
                         new AiOpsResilienceConfig(
                                 resilienceProperties.getMaxAttempts(),
@@ -127,9 +113,32 @@ public class AiRuntimeBundleFactory {
     }
 
     public AiRuntimeBundle build(AiOpsConfigPayload payload, String source, Long version) {
-        AiOpsChatConfig chatConfig = payload.provider().chat();
-        AiOpsEmbeddingConfig embeddingConfig = payload.provider().embedding();
-        AiOpsRerankConfig rerankConfig = payload.provider().rerank();
+        Map<String, AiProviderRuntime> providerRuntimes = new LinkedHashMap<>();
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : payload.provider().providers().entrySet()) {
+            if (entry.getValue() == null) {
+                continue;
+            }
+            providerRuntimes.put(entry.getKey(), buildProviderRuntime(entry.getKey(), entry.getValue(), payload.resilience()));
+        }
+
+        return new AiRuntimeBundle(
+                payload,
+                providerRuntimes,
+                appServerRestClient(payload.rag().appServer()),
+                source,
+                version,
+                OffsetDateTime.now()
+        );
+    }
+
+    private AiProviderRuntime buildProviderRuntime(
+            String providerName,
+            AiOpsProviderDefinition definition,
+            AiOpsResilienceConfig resilience
+    ) {
+        AiOpsChatConfig chatConfig = definition.chat();
+        AiOpsEmbeddingConfig embeddingConfig = definition.embedding();
+        AiOpsRerankConfig rerankConfig = definition.rerank();
 
         OpenAiApi chatApi = OpenAiApi.builder()
                 .baseUrl(normalizeOpenAiBaseUrl(chatConfig.baseUrl()))
@@ -178,7 +187,6 @@ public class AiRuntimeBundleFactory {
             rerankBuilder.baseUrl(rerankConfig.baseUrl());
         }
 
-        AiOpsResilienceConfig resilience = payload.resilience();
         RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
                 .maxAttempts(resilience.maxAttempts())
                 .waitDuration(parseDuration(resilience.waitDuration()))
@@ -193,18 +201,15 @@ public class AiRuntimeBundleFactory {
                 .recordException(providerErrorSupport::shouldRecordForCircuitBreaker)
                 .build());
 
-        return new AiRuntimeBundle(
-                payload,
+        return new AiProviderRuntime(
+                providerName,
+                definition,
                 org.springframework.ai.chat.client.ChatClient.builder(chatModel).build(),
                 chatModel,
                 embeddingModel,
                 rerankBuilder.build(),
-                appServerRestClient(payload.rag().appServer()),
                 retryRegistry,
-                circuitBreakerRegistry,
-                source,
-                version,
-                OffsetDateTime.now()
+                circuitBreakerRegistry
         );
     }
 
@@ -247,6 +252,46 @@ public class AiRuntimeBundleFactory {
             builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
         }
         return builder;
+    }
+
+    private AiOpsProviderDefinition toProviderDefinition(AiProviderProperties.ProviderProperties providerProperties) {
+        return new AiOpsProviderDefinition(
+                new AiOpsChatConfig(
+                        providerProperties.getChat().getBaseUrl(),
+                        providerProperties.getChat().getApiKey(),
+                        providerProperties.getChat().getModel(),
+                        formatDuration(providerProperties.getChat().getTimeout()),
+                        providerProperties.getChat().getTemperature(),
+                        providerProperties.getChat().getMaxTokens()
+                ),
+                new AiOpsEmbeddingConfig(
+                        providerProperties.getEmbedding().getBaseUrl(),
+                        providerProperties.getEmbedding().getApiKey(),
+                        providerProperties.getEmbedding().getModel(),
+                        formatDuration(providerProperties.getEmbedding().getTimeout()),
+                        providerProperties.getEmbedding().getDimension()
+                ),
+                new AiOpsRerankConfig(
+                        providerProperties.getRerank().getBaseUrl(),
+                        providerProperties.getRerank().getApiKey(),
+                        providerProperties.getRerank().getModel(),
+                        formatDuration(providerProperties.getRerank().getTimeout())
+                )
+        );
+    }
+
+    private void ensureProviderDefinition(
+            Map<String, AiOpsProviderDefinition> providerDefinitions,
+            AiProviderProperties properties,
+            String providerName
+    ) {
+        if (!StringUtils.hasText(providerName) || providerDefinitions.containsKey(providerName)) {
+            return;
+        }
+        AiProviderProperties.ProviderProperties providerProperties = properties.getProviderProperties(providerName);
+        providerDefinitions.put(providerName, toProviderDefinition(
+                providerProperties == null ? new AiProviderProperties.ProviderProperties() : providerProperties
+        ));
     }
 
     private String normalizeOpenAiBaseUrl(String baseUrl) {

@@ -40,8 +40,7 @@ public class KnowledgeSearchService {
 
     public RagRetrievalResult search(String query, RagSearchFilter filter) {
         var retrieval = runtimeConfigService.current().config().rag().retrieval();
-        EmbeddingResponse embeddingResponse = aiProviderRegistry.resolveActiveProvider()
-                .embed(new EmbeddingRequest(query, null, null));
+        EmbeddingResponse embeddingResponse = aiProviderRegistry.embed(new EmbeddingRequest(query, null, null));
         if (embeddingResponse.items() == null || embeddingResponse.items().isEmpty()) {
             return RagRetrievalResult.empty(query);
         }
@@ -62,7 +61,7 @@ public class KnowledgeSearchService {
         List<String> rerankDocuments = recallCandidates.stream()
                 .map(this::toRerankDocument)
                 .toList();
-        RerankResponse rerankResponse = aiProviderRegistry.resolveActiveProvider().rerank(new RerankRequest(
+        RerankResponse rerankResponse = aiProviderRegistry.rerank(new RerankRequest(
                 null,
                 query,
                 rerankDocuments,

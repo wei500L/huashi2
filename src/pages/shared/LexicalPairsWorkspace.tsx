@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
+import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, userHasCapability } from '@/lib/format';
 import type {
   CsvImportFailureVO,
@@ -607,6 +608,10 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const meta = workspaceMeta[mode];
   const canAccessAdminConsole = userHasCapability(user, 'ADMIN_CONSOLE');
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const deleteDialogRef = React.useRef<HTMLDivElement | null>(null);
+  const deleteCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const deleteDialogTitleId = React.useId();
+  const deleteDialogDescriptionId = React.useId();
   const [filters, setFilters] = React.useState<FilterState>(defaultFilters);
   const deferredKeyword = React.useDeferredValue(filters.keyword);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
@@ -625,22 +630,31 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const [reindexJobId, setReindexJobId] = React.useState<number | null>(null);
   const [pollReindexJob, setPollReindexJob] = React.useState(false);
   const [reindexFeedback, setReindexFeedback] = React.useState<string | null>(null);
+  const closeDeleteDialog = React.useCallback(() => setPendingDeleteId(null), []);
+
+  useBodyScrollLock(pendingDeleteId !== null);
+  useDialogAccessibility({
+    open: pendingDeleteId !== null,
+    containerRef: deleteDialogRef,
+    initialFocusRef: deleteCancelButtonRef,
+    onClose: closeDeleteDialog,
+  });
 
   const templateQuery = useQuery({
     queryKey: ['lexical-pair-import-template'],
-    queryFn: () => lexicalPairService.getImportTemplate(),
+    queryFn: ({ signal }) => lexicalPairService.getImportTemplate({ signal }),
     staleTime: 5 * 60 * 1000,
   });
 
   const overviewQuery = useQuery({
     queryKey: ['lexical-pair-overview'],
-    queryFn: () => lexicalPairService.getOverview(),
+    queryFn: ({ signal }) => lexicalPairService.getOverview({ signal }),
     enabled: mode === 'admin' || canAccessAdminConsole,
   });
 
   const listQuery = useQuery({
     queryKey: ['lexical-pairs', deferredKeyword, filters.lexicalPairType, filters.active, filters.embeddingStatus, pageNo, pageSize],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       lexicalPairService.pageQuery({
         pageNo,
         pageSize,
@@ -648,7 +662,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
         lexicalPairType: filters.lexicalPairType === 'ALL' ? undefined : filters.lexicalPairType,
         active: filters.active === 'ALL' ? undefined : filters.active === 'ACTIVE',
         embeddingStatus: filters.embeddingStatus === 'ALL' ? undefined : filters.embeddingStatus,
-      }),
+      }, { signal }),
   });
 
   React.useEffect(() => {
@@ -657,7 +671,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
 
   const detailQuery = useQuery({
     queryKey: ['lexical-pair-detail', selectedId],
-    queryFn: () => lexicalPairService.getDetail(selectedId as number),
+    queryFn: ({ signal }) => lexicalPairService.getDetail(selectedId as number, { signal }),
     enabled: selectedId !== null,
   });
 
@@ -759,7 +773,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
 
   const reindexJobQuery = useQuery({
     queryKey: ['inline-lexical-reindex-job', reindexJobId],
-    queryFn: () => adminService.getRagReindexJob(reindexJobId as number),
+    queryFn: ({ signal }) => adminService.getRagReindexJob(reindexJobId as number, { signal }),
     enabled: reindexJobId !== null,
     refetchInterval: pollReindexJob ? 2000 : false,
   });
@@ -1889,25 +1903,33 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
 
       {pendingDeleteId !== null && (
         <>
-          <button
-            type="button"
-            aria-label="关闭删除确认"
-            onClick={() => setPendingDeleteId(null)}
+          <div
+            aria-hidden="true"
+            onClick={closeDeleteDialog}
             className="fixed inset-0 z-[60] bg-slate-950/45 backdrop-blur-sm"
           />
           <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
-            <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-white/90 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.28)] backdrop-blur-xl dark:bg-slate-950/90">
+            <div
+              ref={deleteDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={deleteDialogTitleId}
+              aria-describedby={deleteDialogDescriptionId}
+              tabIndex={-1}
+              className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-white/90 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.28)] backdrop-blur-xl dark:bg-slate-950/90"
+            >
               <div className="text-[11px] uppercase tracking-[0.28em] text-rose-500">Danger Zone</div>
-              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">确认删除当前词对？</div>
-              <div className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">
+              <div id={deleteDialogTitleId} className="mt-3 text-2xl font-black text-slate-900 dark:text-white">确认删除当前词对？</div>
+              <div id={deleteDialogDescriptionId} className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">
                 词对 <span className="font-bold text-slate-900 dark:text-white">{editor.englishWord || '--'} / {editor.frenchWord || '--'}</span> 将被删除。
                 这个操作会移除词对及其义项、例句和关联关系，误删后需要重新录入。
               </div>
 
               <div className="mt-6 flex flex-wrap justify-end gap-3">
                 <button
+                  ref={deleteCancelButtonRef}
                   type="button"
-                  onClick={() => setPendingDeleteId(null)}
+                  onClick={closeDeleteDialog}
                   className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:text-white/45"
                 >
                   取消

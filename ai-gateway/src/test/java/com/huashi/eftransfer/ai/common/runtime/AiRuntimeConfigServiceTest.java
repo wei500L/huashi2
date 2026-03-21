@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
 import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
-import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
@@ -12,6 +11,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -21,8 +21,6 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import com.sun.net.httpserver.HttpServer;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
-import io.github.resilience4j.retry.RetryRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -34,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -123,6 +122,7 @@ class AiRuntimeConfigServiceTest {
         qwen.getRerank().setApiKey("rerank-key");
         qwen.getRerank().setModel("gte-rerank-v2");
         providerProperties.getProviders().put("qwen", qwen);
+        providerProperties.getProviders().put("deepseek", qwen);
 
         AiResilienceProperties resilienceProperties = new AiResilienceProperties();
         RagProperties ragProperties = new RagProperties();
@@ -134,16 +134,11 @@ class AiRuntimeConfigServiceTest {
                 (request, body, execution) -> execution.execute(request, body),
                 new ProviderErrorSupport(objectMapper)
         );
-        ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor(
-                RetryRegistry.ofDefaults(),
-                CircuitBreakerRegistry.ofDefaults()
-        );
         AiRuntimeConfigService service = new AiRuntimeConfigService(
                 providerProperties,
                 resilienceProperties,
                 ragProperties,
-                bundleFactory,
-                resilientAiExecutor
+                bundleFactory
         );
         ReflectionTestUtils.invokeMethod(service, "initialize");
         return service;
@@ -154,9 +149,20 @@ class AiRuntimeConfigServiceTest {
                 new AiOpsProviderConfig(
                         "qwen",
                         "deepseek",
-                        new AiOpsChatConfig("https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
-                        new AiOpsEmbeddingConfig("https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
-                        new AiOpsRerankConfig("https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
+                        Map.of(
+                                "qwen",
+                                new AiOpsProviderDefinition(
+                                        new AiOpsChatConfig("https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
+                                        new AiOpsEmbeddingConfig("https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
+                                        new AiOpsRerankConfig("https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
+                                ),
+                                "deepseek",
+                                new AiOpsProviderDefinition(
+                                        new AiOpsChatConfig("https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT30S", 0.2d, 1024),
+                                        new AiOpsEmbeddingConfig("https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT30S", 1024),
+                                        new AiOpsRerankConfig("https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT30S")
+                                )
+                        )
                 ),
                 new AiOpsResilienceConfig(3, "PT0.5S", 50.0f, 20, "PT30S"),
                 new AiOpsRagConfig(

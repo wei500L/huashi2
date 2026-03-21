@@ -21,27 +21,27 @@ const AnalyticsPage: React.FC = () => {
 
   const overviewQuery = useQuery({
     queryKey: ['student-overview'],
-    queryFn: () => studentService.getOverview(),
+    queryFn: ({ signal }) => studentService.getOverview({ signal }),
   });
   const trendsQuery = useQuery({
     queryKey: ['student-trends', range],
-    queryFn: () => studentService.getTrends(range),
+    queryFn: ({ signal }) => studentService.getTrends(range, 'day', { signal }),
   });
   const heatmapQuery = useQuery({
     queryKey: ['student-heatmap', range],
-    queryFn: () => studentService.getHeatmap(range),
+    queryFn: ({ signal }) => studentService.getHeatmap(range, { signal }),
   });
   const scatterQuery = useQuery({
     queryKey: ['student-scatter', range],
-    queryFn: () => studentService.getScatter(range),
+    queryFn: ({ signal }) => studentService.getScatter(range, { signal }),
   });
   const highRiskPairsQuery = useQuery({
     queryKey: ['student-high-risk-pairs', range, 8],
-    queryFn: () => studentService.getHighRiskPairs(range, 8),
+    queryFn: ({ signal }) => studentService.getHighRiskPairs(range, 8, { signal }),
   });
   const errorDistributionQuery = useQuery({
     queryKey: ['student-error-distribution', range],
-    queryFn: () => studentService.getErrorDistribution(range),
+    queryFn: ({ signal }) => studentService.getErrorDistribution(range, { signal }),
   });
 
   const contextOption: AppChartOption = {

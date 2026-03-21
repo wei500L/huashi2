@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiProviderRuntime;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.ChatMessage;
@@ -51,17 +52,18 @@ public class QwenChatProviderClient {
         this.requestContextHolder = requestContextHolder;
     }
 
-    public ChatResponse chat(ChatRequest request) {
-        String provider = "qwen";
-        String model = resolveModel(request.model());
+    public ChatResponse chat(String providerName, ChatRequest request) {
+        String provider = providerName;
+        String model = resolveModel(providerName, request.model());
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
         try {
-            AiRuntimeBundle bundle = runtimeConfigService.current();
+            AiProviderRuntime runtime = providerRuntime(providerName);
             org.springframework.ai.chat.model.ChatResponse response = resilientAiExecutor.execute(
+                    runtime,
                     "chat",
-                    () -> bundle.chatClient().prompt(toPrompt(request, model)).call().chatResponse()
+                    () -> runtime.chatClient().prompt(toPrompt(providerName, request, model)).call().chatResponse()
             );
             ChatResponse chatResponse = new ChatResponse(
                     provider,
@@ -78,17 +80,18 @@ public class QwenChatProviderClient {
         }
     }
 
-    public StructuredChatResponse structuredChat(StructuredChatRequest request) {
-        String provider = "qwen";
-        String model = resolveModel(request.model());
+    public StructuredChatResponse structuredChat(String providerName, StructuredChatRequest request) {
+        String provider = providerName;
+        String model = resolveModel(providerName, request.model());
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
         try {
-            AiRuntimeBundle bundle = runtimeConfigService.current();
+            AiProviderRuntime runtime = providerRuntime(providerName);
             org.springframework.ai.chat.model.ChatResponse response = resilientAiExecutor.execute(
+                    runtime,
                     "chat",
-                    () -> bundle.chatModel().call(toStructuredPrompt(request, model))
+                    () -> runtime.chatModel().call(toStructuredPrompt(providerName, request, model))
             );
             String content = response.getResult().getOutput().getText();
             StructuredChatResponse structuredResponse = new StructuredChatResponse(
@@ -115,15 +118,15 @@ public class QwenChatProviderClient {
         }
     }
 
-    private Prompt toPrompt(ChatRequest request, String model) {
+    private Prompt toPrompt(String providerName, ChatRequest request, String model) {
         return new Prompt(toMessages(request.messages()), OpenAiChatOptions.builder()
                 .model(model)
-                .temperature(request.temperature() != null ? request.temperature() : defaultChat().temperature())
-                .maxTokens(request.maxTokens() != null ? request.maxTokens() : defaultChat().maxTokens())
+                .temperature(request.temperature() != null ? request.temperature() : defaultChat(providerName).temperature())
+                .maxTokens(request.maxTokens() != null ? request.maxTokens() : defaultChat(providerName).maxTokens())
                 .build());
     }
 
-    private Prompt toStructuredPrompt(StructuredChatRequest request, String model) {
+    private Prompt toStructuredPrompt(String providerName, StructuredChatRequest request, String model) {
         boolean strict = request.strict() == null || request.strict();
         ResponseFormat responseFormat = ResponseFormat.builder()
                 .type(ResponseFormat.Type.JSON_SCHEMA)
@@ -136,7 +139,7 @@ public class QwenChatProviderClient {
 
         return new Prompt(toMessages(request.messages()), OpenAiChatOptions.builder()
                 .model(model)
-                .temperature(request.temperature() != null ? request.temperature() : defaultChat().temperature())
+                .temperature(request.temperature() != null ? request.temperature() : defaultChat(providerName).temperature())
                 .responseFormat(responseFormat)
                 .build());
     }
@@ -154,11 +157,27 @@ public class QwenChatProviderClient {
     }
 
     private String resolveModel(String requestModel) {
-        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultChat().model();
+        return resolveModel(null, requestModel);
     }
 
-    private com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig defaultChat() {
-        return runtimeConfigService.current().config().provider().chat();
+    private String resolveModel(String providerName, String requestModel) {
+        if (requestModel != null && !requestModel.isBlank()) {
+            return requestModel;
+        }
+        return defaultChat(providerName).model();
+    }
+
+    private com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig defaultChat(String providerName) {
+        return providerRuntime(providerName).definition().chat();
+    }
+
+    private AiProviderRuntime providerRuntime(String providerName) {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        AiProviderRuntime runtime = bundle.providerRuntime(providerName);
+        if (runtime == null) {
+            throw new IllegalStateException("No configured AI provider runtime for " + providerName);
+        }
+        return runtime;
     }
 
     private TokenUsage toUsage(org.springframework.ai.chat.metadata.Usage usage) {

@@ -3,6 +3,7 @@ package com.huashi.eftransfer.ai.integration.provider;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiProviderRuntime;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
@@ -38,28 +39,29 @@ public class QwenEmbeddingProviderClient {
         this.requestContextHolder = requestContextHolder;
     }
 
-    public EmbeddingResponse embed(EmbeddingRequest request) {
+    public EmbeddingResponse embed(String providerName, EmbeddingRequest request) {
         return embedInternal(
+                providerName,
                 List.of(request.text()),
                 request.model(),
                 request.dimension()
         );
     }
 
-    public EmbeddingResponse embedBatch(EmbeddingBatchRequest request) {
-        return embedInternal(request.texts(), request.model(), request.dimension());
+    public EmbeddingResponse embedBatch(String providerName, EmbeddingBatchRequest request) {
+        return embedInternal(providerName, request.texts(), request.model(), request.dimension());
     }
 
-    private EmbeddingResponse embedInternal(List<String> texts, String requestModel, Integer requestDimension) {
-        String provider = "qwen";
-        String model = resolveModel(requestModel);
-        int dimension = requestDimension != null ? requestDimension : defaultEmbedding().dimension();
+    private EmbeddingResponse embedInternal(String providerName, List<String> texts, String requestModel, Integer requestDimension) {
+        String provider = providerName;
+        String model = resolveModel(providerName, requestModel);
+        int dimension = requestDimension != null ? requestDimension : defaultEmbedding(providerName).dimension();
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
         try {
-            AiRuntimeBundle bundle = runtimeConfigService.current();
-            org.springframework.ai.embedding.EmbeddingResponse response = resilientAiExecutor.execute("embedding", () -> bundle.embeddingModel().call(
+            AiProviderRuntime runtime = providerRuntime(providerName);
+            org.springframework.ai.embedding.EmbeddingResponse response = resilientAiExecutor.execute(runtime, "embedding", () -> runtime.embeddingModel().call(
                     new org.springframework.ai.embedding.EmbeddingRequest(
                             texts,
                             OpenAiEmbeddingOptions.builder()
@@ -107,12 +109,21 @@ public class QwenEmbeddingProviderClient {
                 .toList();
     }
 
-    private String resolveModel(String requestModel) {
-        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultEmbedding().model();
+    private String resolveModel(String providerName, String requestModel) {
+        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultEmbedding(providerName).model();
     }
 
-    private com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig defaultEmbedding() {
-        return runtimeConfigService.current().config().provider().embedding();
+    private com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig defaultEmbedding(String providerName) {
+        return providerRuntime(providerName).definition().embedding();
+    }
+
+    private AiProviderRuntime providerRuntime(String providerName) {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        AiProviderRuntime runtime = bundle.providerRuntime(providerName);
+        if (runtime == null) {
+            throw new IllegalStateException("No configured AI provider runtime for " + providerName);
+        }
+        return runtime;
     }
 
     private TokenUsage toUsage(org.springframework.ai.chat.metadata.Usage usage) {

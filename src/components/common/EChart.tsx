@@ -1,12 +1,7 @@
 import React from 'react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { chartThemeName, echarts, type AppChartOption } from '@/lib/echarts';
+import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 type EChartProps = {
   option: AppChartOption;

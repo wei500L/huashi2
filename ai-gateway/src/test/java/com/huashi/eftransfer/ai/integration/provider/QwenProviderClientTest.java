@@ -77,10 +77,7 @@ class QwenProviderClientTest {
         ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(objectMapper);
         AiResilienceProperties resilienceProperties = new AiResilienceProperties();
         resilienceProperties.setMaxAttempts(1);
-        ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor(
-                configuration.retryRegistry(resilienceProperties, providerErrorSupport),
-                configuration.circuitBreakerRegistry(resilienceProperties, providerErrorSupport)
-        );
+        ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor();
         AiProviderObservationService observationService = new AiProviderObservationService(
                 new SimpleMeterRegistry(),
                 providerErrorSupport,
@@ -142,7 +139,7 @@ class QwenProviderClientTest {
                                 }
                                 """)));
 
-        ChatResponse response = chatProviderClient.chat(new ChatRequest(
+        ChatResponse response = chatProviderClient.chat("qwen", new ChatRequest(
                 List.of(new ChatMessage("user", "Say hello")),
                 null,
                 null,
@@ -190,7 +187,7 @@ class QwenProviderClientTest {
                                 }
                                 """)));
 
-        EmbeddingResponse response = embeddingProviderClient.embedBatch(new EmbeddingBatchRequest(
+        EmbeddingResponse response = embeddingProviderClient.embedBatch("qwen", new EmbeddingBatchRequest(
                 List.of("alpha", "beta"),
                 null,
                 3
@@ -217,7 +214,6 @@ class QwenProviderClientTest {
     private AiProviderProperties buildProperties() {
         AiProviderProperties properties = new AiProviderProperties();
         properties.setActiveProvider("qwen");
-        properties.setFallbackProvider("deepseek");
 
         AiProviderProperties.ChatProperties chatProperties = new AiProviderProperties.ChatProperties();
         chatProperties.setBaseUrl(wireMockServer.baseUrl() + "/v1");

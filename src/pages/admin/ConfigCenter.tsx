@@ -7,23 +7,30 @@ import { adminService } from '@/lib/services';
 import type {
   AdminAiConfigSaveRequest,
   AdminAiConfigViewVO,
-  AdminAiSecretFieldsVO,
+  AdminAiSecretFieldVO,
+  AdminOutboxRecordVO,
   AiGatewayHealthResponse,
   AiOpsConfigPayload,
   AiOpsConfigValidationResponse,
+  AiOpsProviderDefinition,
   RagReindexJobResponse,
   RagReindexRequest,
 } from '@/lib/contracts';
 
 type ConfigTab = 'provider' | 'resilience' | 'rag' | 'operations';
-type SecretKey = keyof AdminAiSecretFieldsVO;
+type ProviderSecretKey = 'chatApiKey' | 'embeddingApiKey' | 'rerankApiKey';
 
 type SecretEditorState = {
   retainExisting: boolean;
   value: string;
 };
 
-type SecretEditorMap = Record<SecretKey, SecretEditorState>;
+type ProviderSecretEditorMap = Record<ProviderSecretKey, SecretEditorState>;
+
+type SecretEditorMap = {
+  providers: Record<string, ProviderSecretEditorMap>;
+  appServerInternalToken: SecretEditorState;
+};
 
 const tabs: Array<{ key: ConfigTab; label: string }> = [
   { key: 'provider', label: '模型接入' },
@@ -32,11 +39,15 @@ const tabs: Array<{ key: ConfigTab; label: string }> = [
   { key: 'operations', label: '运维操作' },
 ];
 
-const secretMeta: Record<SecretKey, { label: string; hint: string }> = {
-  chatApiKey: { label: 'Chat API Key', hint: '主模型的访问密钥。当前 activeProvider 仅支持 qwen。' },
-  embeddingApiKey: { label: 'Embedding API Key', hint: '向量化服务密钥。当前 pgvector schema 固定为 1024 维。' },
-  rerankApiKey: { label: 'Rerank API Key', hint: '重排序模型密钥。通常与 DashScope 或兼容接口保持一致。' },
-  appServerInternalToken: { label: 'App Server Internal Token', hint: 'ai-gateway 拉取词条导出、配置和回源数据时使用的内部令牌。' },
+const providerSecretMeta: Record<ProviderSecretKey, { label: string; hint: string }> = {
+  chatApiKey: { label: 'Chat API Key', hint: '当前 provider 的文本生成密钥。active 与 fallback 会各自独立生效。' },
+  embeddingApiKey: { label: 'Embedding API Key', hint: '当前 provider 的向量化服务密钥。当前 pgvector schema 固定为 1024 维。' },
+  rerankApiKey: { label: 'Rerank API Key', hint: '当前 provider 的重排服务密钥。会随 provider failover 一起切换。' },
+};
+
+const appServerSecretMeta = {
+  label: 'App Server Internal Token',
+  hint: 'ai-gateway 拉取词条导出、配置和回源数据时使用的内部令牌。',
 };
 
 const finalStatuses = new Set(['SUCCEEDED', 'FAILED']);
@@ -47,6 +58,7 @@ const fieldTokenLabels: Record<string, string> = {
   provider: 'Provider',
   activeProvider: '当前 Provider',
   fallbackProvider: '备用 Provider',
+  providers: 'Provider 定义',
   chat: 'Chat',
   embedding: 'Embedding',
   rerank: 'Rerank',
@@ -84,10 +96,10 @@ const fieldTokenLabels: Record<string, string> = {
 };
 
 const tabDescriptions: Record<ConfigTab, string> = {
-  provider: '配置模型服务地址、模型名和密钥。只有这里的参数会直接影响模型调用链路。',
-  resilience: '控制 retry 与 circuit breaker，适合处理临时抖动和熔断恢复。',
+  provider: '配置 active / fallback provider，以及每个 provider 独立的 chat、embedding、rerank 参数和密钥。',
+  resilience: '控制 retry 与 circuit breaker，决定可重试故障时是否切备用 provider。',
   rag: '控制 app-server 回源、嵌入批次以及召回阈值，影响检索质量与吞吐。',
-  operations: '用于连接检查和 RAG reindex，适合语料导入后的运维收尾。',
+  operations: '用于健康检查、producer outbox 重放和 RAG reindex，适合配置变更后的运维验证。',
 };
 
 const statLabelMap: Record<string, string> = {
@@ -107,12 +119,28 @@ function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
+function createSecretEditor(configured: boolean): SecretEditorState {
+  return { retainExisting: configured, value: '' };
+}
+
+function createProviderSecretEditors(view: AdminAiConfigViewVO, providerName: string): ProviderSecretEditorMap {
+  const providerSecrets = view.secrets.providers?.[providerName];
   return {
-    chatApiKey: { retainExisting: view.secrets.chatApiKey.configured, value: '' },
-    embeddingApiKey: { retainExisting: view.secrets.embeddingApiKey.configured, value: '' },
-    rerankApiKey: { retainExisting: view.secrets.rerankApiKey.configured, value: '' },
-    appServerInternalToken: { retainExisting: view.secrets.appServerInternalToken.configured, value: '' },
+    chatApiKey: createSecretEditor(Boolean(providerSecrets?.chatApiKey.configured)),
+    embeddingApiKey: createSecretEditor(Boolean(providerSecrets?.embeddingApiKey.configured)),
+    rerankApiKey: createSecretEditor(Boolean(providerSecrets?.rerankApiKey.configured)),
+  };
+}
+
+function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
+  const providerNames = Array.from(new Set([
+    ...Object.keys(view.config.provider.providers || {}),
+    ...Object.keys(view.secrets.providers || {}),
+  ]));
+
+  return {
+    providers: Object.fromEntries(providerNames.map((providerName) => [providerName, createProviderSecretEditors(view, providerName)])),
+    appServerInternalToken: createSecretEditor(view.secrets.appServerInternalToken.configured),
   };
 }
 
@@ -120,9 +148,16 @@ function buildSavePayload(config: AiOpsConfigPayload, secrets: SecretEditorMap):
   return {
     config,
     secrets: {
-      chatApiKey: secrets.chatApiKey,
-      embeddingApiKey: secrets.embeddingApiKey,
-      rerankApiKey: secrets.rerankApiKey,
+      providers: Object.fromEntries(
+        Object.entries(secrets.providers).map(([providerName, providerSecrets]) => [
+          providerName,
+          {
+            chatApiKey: providerSecrets.chatApiKey,
+            embeddingApiKey: providerSecrets.embeddingApiKey,
+            rerankApiKey: providerSecrets.rerankApiKey,
+          },
+        ])
+      ),
       appServerInternalToken: secrets.appServerInternalToken,
     },
   };
@@ -324,11 +359,42 @@ function formatStats(stats?: Record<string, unknown> | null): Array<{ key: strin
   }));
 }
 
+function statusTone(status: string): 'success' | 'warning' | 'info' | 'neutral' {
+  const normalized = status.toUpperCase();
+  if (normalized === 'PUBLISHED') {
+    return 'success';
+  }
+  if (normalized === 'FAILED') {
+    return 'warning';
+  }
+  if (normalized === 'IN_PROGRESS' || normalized === 'PENDING') {
+    return 'info';
+  }
+  return 'neutral';
+}
+
+function statusClasses(tone: 'success' | 'warning' | 'info' | 'neutral'): string {
+  if (tone === 'success') {
+    return 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400';
+  }
+  if (tone === 'warning') {
+    return 'border-rose-500/20 bg-rose-500/5 text-rose-500';
+  }
+  if (tone === 'info') {
+    return 'border-sky-500/20 bg-sky-500/5 text-sky-600 dark:text-sky-300';
+  }
+  return 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45';
+}
+
+function getProviderSecretField(view: AdminAiConfigViewVO, providerName: string, key: ProviderSecretKey): AdminAiSecretFieldVO | null {
+  return view.secrets.providers?.[providerName]?.[key] || null;
+}
+
 const AdminConfigCenterPage: React.FC = () => {
   const queryClient = useQueryClient();
   const configQuery = useQuery({
     queryKey: ['admin-ai-config'],
-    queryFn: () => adminService.getAiConfig(),
+    queryFn: ({ signal }) => adminService.getAiConfig({ signal }),
   });
 
   const [activeTab, setActiveTab] = React.useState<ConfigTab>('provider');
@@ -346,6 +412,9 @@ const AdminConfigCenterPage: React.FC = () => {
   });
   const [jobId, setJobId] = React.useState<number | null>(null);
   const [pollJob, setPollJob] = React.useState(false);
+  const [outboxStatus, setOutboxStatus] = React.useState('FAILED');
+  const [outboxLimit, setOutboxLimit] = React.useState('20');
+  const [replayingOutboxId, setReplayingOutboxId] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (!configQuery.data) {
@@ -407,11 +476,39 @@ const AdminConfigCenterPage: React.FC = () => {
     onError: (error: Error) => setFeedback({ tone: 'error', message: translateConfigMessage(error.message) }),
   });
 
+  const replayOutboxMutation = useMutation({
+    mutationFn: (id: number) => adminService.replayOutboxRecord(id),
+    onMutate: (id) => {
+      setReplayingOutboxId(id);
+    },
+    onSuccess: (record) => {
+      setFeedback({ tone: 'success', message: `Outbox 事件 #${record.id} 已重置为 ${record.status}，等待 relay 重发。` });
+      void queryClient.invalidateQueries({ queryKey: ['admin-ai-outbox'] });
+    },
+    onError: (error: Error) => {
+      setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
+    },
+    onSettled: () => {
+      setReplayingOutboxId(null);
+    },
+  });
+
   const reindexJobQuery = useQuery({
     queryKey: ['admin-ai-reindex-job', jobId],
-    queryFn: () => adminService.getRagReindexJob(jobId as number),
+    queryFn: ({ signal }) => adminService.getRagReindexJob(jobId as number, { signal }),
     enabled: jobId !== null,
     refetchInterval: pollJob ? 2000 : false,
+  });
+
+  const outboxQuery = useQuery({
+    queryKey: ['admin-ai-outbox', outboxStatus, outboxLimit],
+    queryFn: ({ signal }) =>
+      adminService.getOutboxRecords(
+        outboxStatus || undefined,
+        Number(outboxLimit) > 0 ? Number(outboxLimit) : 20,
+        { signal }
+      ),
+    refetchInterval: activeTab === 'operations' ? 5000 : false,
   });
 
   React.useEffect(() => {
@@ -433,13 +530,61 @@ const AdminConfigCenterPage: React.FC = () => {
     setConfig((current) => (current ? updater(current) : current));
   }, []);
 
-  const updateSecret = React.useCallback((key: SecretKey, patch: Partial<SecretEditorState>) => {
+  const updateProviderDefinition = React.useCallback((
+    providerName: string,
+    updater: (current: AiOpsProviderDefinition) => AiOpsProviderDefinition
+  ) => {
+    updateConfig((current) => {
+      const existing = current.provider.providers[providerName];
+      if (!existing) {
+        return current;
+      }
+      return {
+        ...current,
+        provider: {
+          ...current.provider,
+          providers: {
+            ...current.provider.providers,
+            [providerName]: updater(existing),
+          },
+        },
+      };
+    });
+  }, [updateConfig]);
+
+  const updateProviderSecret = React.useCallback((providerName: string, key: ProviderSecretKey, patch: Partial<SecretEditorState>) => {
+    setSecrets((current) => {
+      if (!current) {
+        return current;
+      }
+      const providerSecrets = current.providers[providerName] || {
+        chatApiKey: createSecretEditor(false),
+        embeddingApiKey: createSecretEditor(false),
+        rerankApiKey: createSecretEditor(false),
+      };
+      return {
+        ...current,
+        providers: {
+          ...current.providers,
+          [providerName]: {
+            ...providerSecrets,
+            [key]: {
+              ...providerSecrets[key],
+              ...patch,
+            },
+          },
+        },
+      };
+    });
+  }, []);
+
+  const updateAppServerSecret = React.useCallback((patch: Partial<SecretEditorState>) => {
     setSecrets((current) =>
       current
         ? {
             ...current,
-            [key]: {
-              ...current[key],
+            appServerInternalToken: {
+              ...current.appServerInternalToken,
               ...patch,
             },
           }
@@ -498,6 +643,8 @@ const AdminConfigCenterPage: React.FC = () => {
   }
 
   const view = configQuery.data as AdminAiConfigViewVO;
+  const providerEntries = Object.entries(config.provider.providers || {});
+  const activeProviderDefinition = config.provider.providers?.[config.provider.activeProvider];
   const sourceMeta = `来源 ${view.source} · 版本 ${view.version ?? '--'} · 更新时间 ${formatDateTime(view.updatedAt)}`;
   const activeTabDescription = tabDescriptions[activeTab];
   const busyMessage = saveMutation.isPending
@@ -508,15 +655,18 @@ const AdminConfigCenterPage: React.FC = () => {
         ? `RAG reindex #${reindexJobQuery.data.jobId} 正在执行，页面每 2 秒自动刷新一次状态。`
         : pollJob && jobId !== null
           ? `RAG reindex #${jobId} 正在执行，页面每 2 秒自动刷新一次状态。`
-          : null;
+          : outboxQuery.isFetching && activeTab === 'operations'
+            ? '正在刷新 producer outbox 状态。'
+            : null;
   const reindexStatusMeta = buildReindexStatusMeta(reindexJobQuery.data);
   const reindexStats = formatStats(reindexJobQuery.data?.stats);
+  const outboxRecords = outboxQuery.data || [];
 
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
         title="运维管理员配置中心"
-        subtitle="数据库配置覆盖默认 yml / env。推荐流程是先编辑、再校验、最后保存并做健康检查或 reindex 验证。"
+        subtitle="数据库配置覆盖默认 yml / env。推荐流程是先编辑、再校验、最后保存并做健康检查、outbox 检查或 reindex 验证。"
         actions={
           <div className="flex flex-wrap gap-3">
             {!editing && (
@@ -573,8 +723,10 @@ const AdminConfigCenterPage: React.FC = () => {
             <div className="text-sm text-slate-600 dark:text-white/55 mt-2">{sourceMeta}</div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <HealthBadge healthy={config.provider.activeProvider === 'qwen'} label={`activeProvider: ${config.provider.activeProvider}`} />
-            <HealthBadge healthy={config.provider.embedding.dimension === 1024} label={`embedding: ${config.provider.embedding.dimension} dim`} />
+            <HealthBadge healthy={Boolean(config.provider.activeProvider)} label={`activeProvider: ${config.provider.activeProvider || '--'}`} />
+            <HealthBadge healthy={Boolean(config.provider.fallbackProvider) && config.provider.fallbackProvider !== config.provider.activeProvider} label={`fallbackProvider: ${config.provider.fallbackProvider || '--'}`} />
+            <HealthBadge healthy={(activeProviderDefinition?.embedding.dimension ?? 0) === 1024} label={`active embedding: ${activeProviderDefinition?.embedding.dimension ?? '--'} dim`} />
+            <HealthBadge healthy={providerEntries.length > 0} label={`providers: ${providerEntries.length}`} />
           </div>
         </div>
 
@@ -582,7 +734,7 @@ const AdminConfigCenterPage: React.FC = () => {
           <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Recommended Flow</div>
             <div className="mt-4 grid gap-3 md:grid-cols-4 text-sm">
-              {['1. 进入编辑', '2. 校验配置', '3. 保存并生效', '4. 健康检查 / Reindex 验证'].map((item) => (
+              {['1. 进入编辑', '2. 校验配置', '3. 保存并生效', '4. 健康检查 / Outbox / Reindex 验证'].map((item) => (
                 <div
                   key={item}
                   className="rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-4 text-slate-600 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/55"
@@ -657,16 +809,16 @@ const AdminConfigCenterPage: React.FC = () => {
       </section>
 
       {activeTab === 'provider' && (
-        <SectionCard title="模型接入配置" description="决定 ai-gateway 实际调用的模型服务地址、模型名和密钥。修改后会直接影响在线生成链路。">
+        <SectionCard title="模型接入配置" description="active / fallback provider 现在都是运行时真实生效的配置。每个 provider 拥有独立的 chat、embedding、rerank 参数和密钥。">
           <FieldGrid>
-            <FieldCard label="当前 Provider" hint="当前仓库真实接入只有 qwen。这里填其他值通常没有实际效果。">
+            <FieldCard label="当前 Provider" hint="请求会先打到这个 provider。发生可重试故障、熔断打开等情况时，才会尝试 fallback。">
               <TextInput
                 value={config.provider.activeProvider}
                 onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, activeProvider: value } }))}
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="备用 Provider" hint="当前仅作配置保留，不代表系统已经具备自动 failover 能力。">
+            <FieldCard label="备用 Provider" hint="仅在 active provider 遇到 retryable 失败、429/5xx 或 circuit open 时尝试一次切换。">
               <TextInput
                 value={config.provider.fallbackProvider}
                 onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, fallbackProvider: value } }))}
@@ -675,180 +827,224 @@ const AdminConfigCenterPage: React.FC = () => {
             </FieldCard>
           </FieldGrid>
 
-          <FieldGrid>
-            <FieldCard label="Chat 接口地址" hint="用于文本生成。应填写模型服务的根地址或兼容 OpenAI 的 base URL。">
-              <TextInput
-                value={config.provider.chat.baseUrl}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, chat: { ...current.provider.chat, baseUrl: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label={secretMeta.chatApiKey.label} hint={secretMeta.chatApiKey.hint}>
-              <div className="space-y-3">
-                <div className="text-xs text-slate-500 dark:text-white/35">
-                  当前状态: {view.secrets.chatApiKey.configured ? view.secrets.chatApiKey.maskedValue : '未配置'}
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={secrets.chatApiKey.retainExisting}
-                    disabled={!editing}
-                    onChange={(event) => updateSecret('chatApiKey', { retainExisting: event.target.checked, value: event.target.checked ? '' : secrets.chatApiKey.value })}
-                  />
-                  <span>保留原值</span>
-                </div>
-                <TextInput
-                  type="password"
-                  value={secrets.chatApiKey.value}
-                  onChange={(value) => updateSecret('chatApiKey', { value, retainExisting: false })}
-                  disabled={!editing || secrets.chatApiKey.retainExisting}
-                  placeholder="仅在需要覆盖时填写新值"
-                />
-              </div>
-            </FieldCard>
-            <FieldCard label="Chat 模型名" hint="例如通义千问的具体模型标识。模型名错误会直接导致运行时调用失败。">
-              <TextInput
-                value={config.provider.chat.model}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, chat: { ...current.provider.chat, model: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label="Chat 超时" hint="使用 Duration 格式，例如 30s。过短会造成高峰期误判超时。">
-              <TextInput
-                value={config.provider.chat.timeout}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, chat: { ...current.provider.chat, timeout: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label="生成温度" hint="值越高越发散。对诊断/教学类输出通常建议保持低温。">
-              <TextInput
-                type="number"
-                step="0.1"
-                value={config.provider.chat.temperature}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, chat: { ...current.provider.chat, temperature: Number(value) } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label="最大输出 Tokens" hint="限制单次回答长度。值过低会造成回答截断，值过高会增加耗时和成本。">
-              <TextInput
-                type="number"
-                value={config.provider.chat.maxTokens}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, chat: { ...current.provider.chat, maxTokens: Number(value) } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-          </FieldGrid>
+          {providerEntries.length === 0 && (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
+              当前配置没有任何 provider 定义，保存前至少需要补齐一套 provider.providers 配置。
+            </div>
+          )}
 
-          <FieldGrid>
-            <FieldCard label="Embedding 接口地址" hint="用于向量化。这里变更后会影响 RAG 导入和检索的一致性。">
-              <TextInput
-                value={config.provider.embedding.baseUrl}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, embedding: { ...current.provider.embedding, baseUrl: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label={secretMeta.embeddingApiKey.label} hint={secretMeta.embeddingApiKey.hint}>
-              <div className="space-y-3">
-                <div className="text-xs text-slate-500 dark:text-white/35">
-                  当前状态: {view.secrets.embeddingApiKey.configured ? view.secrets.embeddingApiKey.maskedValue : '未配置'}
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={secrets.embeddingApiKey.retainExisting}
-                    disabled={!editing}
-                    onChange={(event) => updateSecret('embeddingApiKey', { retainExisting: event.target.checked, value: event.target.checked ? '' : secrets.embeddingApiKey.value })}
-                  />
-                  <span>保留原值</span>
-                </div>
-                <TextInput
-                  type="password"
-                  value={secrets.embeddingApiKey.value}
-                  onChange={(value) => updateSecret('embeddingApiKey', { value, retainExisting: false })}
-                  disabled={!editing || secrets.embeddingApiKey.retainExisting}
-                  placeholder="仅在需要覆盖时填写新值"
-                />
-              </div>
-            </FieldCard>
-            <FieldCard label="Embedding 模型名" hint="必须和当前向量维度配置匹配，否则向量入库会失败。">
-              <TextInput
-                value={config.provider.embedding.model}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, embedding: { ...current.provider.embedding, model: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label="Embedding 超时" hint="使用 Duration 格式，例如 30s。批量导入时建议适度放宽。">
-              <TextInput
-                value={config.provider.embedding.timeout}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, embedding: { ...current.provider.embedding, timeout: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label="向量维度" hint="当前版本数据库 schema 固定为 1024。修改成其他值会被校验拒绝。">
-              <TextInput
-                type="number"
-                value={config.provider.embedding.dimension}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, embedding: { ...current.provider.embedding, dimension: Number(value) } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-          </FieldGrid>
+          {providerEntries.map(([providerName, definition]) => {
+            const providerSecrets = secrets.providers[providerName];
+            const providerTone = providerName === config.provider.activeProvider
+              ? 'border-primary/20 bg-primary/5 text-primary'
+              : providerName === config.provider.fallbackProvider
+                ? 'border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400'
+                : 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45';
 
-          <FieldGrid>
-            <FieldCard label="Rerank 接口地址" hint="用于召回后的重排序。若关闭或异常，会明显影响最终检索质量。">
-              <TextInput
-                value={config.provider.rerank.baseUrl}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, rerank: { ...current.provider.rerank, baseUrl: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label={secretMeta.rerankApiKey.label} hint={secretMeta.rerankApiKey.hint}>
-              <div className="space-y-3">
-                <div className="text-xs text-slate-500 dark:text-white/35">
-                  当前状态: {view.secrets.rerankApiKey.configured ? view.secrets.rerankApiKey.maskedValue : '未配置'}
+            return (
+              <div key={providerName} className="rounded-[1.9rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03] space-y-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Provider Definition</div>
+                    <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">{providerName}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <div className={`rounded-2xl border px-3 py-2 text-xs font-bold ${providerTone}`}>{providerName}</div>
+                    {providerName === config.provider.activeProvider && (
+                      <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-bold text-primary">ACTIVE</div>
+                    )}
+                    {providerName === config.provider.fallbackProvider && (
+                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs font-bold text-amber-600 dark:text-amber-400">FALLBACK</div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={secrets.rerankApiKey.retainExisting}
-                    disabled={!editing}
-                    onChange={(event) => updateSecret('rerankApiKey', { retainExisting: event.target.checked, value: event.target.checked ? '' : secrets.rerankApiKey.value })}
-                  />
-                  <span>保留原值</span>
-                </div>
-                <TextInput
-                  type="password"
-                  value={secrets.rerankApiKey.value}
-                  onChange={(value) => updateSecret('rerankApiKey', { value, retainExisting: false })}
-                  disabled={!editing || secrets.rerankApiKey.retainExisting}
-                  placeholder="仅在需要覆盖时填写新值"
-                />
+
+                <FieldGrid>
+                  <FieldCard label="Chat 接口地址" hint="用于文本生成。应填写模型服务的根地址或兼容 OpenAI 的 base URL。">
+                    <TextInput
+                      value={definition.chat.baseUrl}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, baseUrl: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label={providerSecretMeta.chatApiKey.label} hint={providerSecretMeta.chatApiKey.hint}>
+                    <div className="space-y-3">
+                      <div className="text-xs text-slate-500 dark:text-white/35">
+                        当前状态: {getProviderSecretField(view, providerName, 'chatApiKey')?.configured ? getProviderSecretField(view, providerName, 'chatApiKey')?.maskedValue : '未配置'}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={providerSecrets?.chatApiKey.retainExisting ?? false}
+                          disabled={!editing}
+                          onChange={(event) => updateProviderSecret(providerName, 'chatApiKey', {
+                            retainExisting: event.target.checked,
+                            value: event.target.checked ? '' : providerSecrets?.chatApiKey.value || '',
+                          })}
+                        />
+                        <span>保留原值</span>
+                      </div>
+                      <TextInput
+                        type="password"
+                        value={providerSecrets?.chatApiKey.value || ''}
+                        onChange={(value) => updateProviderSecret(providerName, 'chatApiKey', { value, retainExisting: false })}
+                        disabled={!editing || Boolean(providerSecrets?.chatApiKey.retainExisting)}
+                        placeholder="仅在需要覆盖时填写新值"
+                      />
+                    </div>
+                  </FieldCard>
+                  <FieldCard label="Chat 模型名" hint="例如通义千问的具体模型标识。模型名错误会直接导致运行时调用失败。">
+                    <TextInput
+                      value={definition.chat.model}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, model: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label="Chat 超时" hint="使用 Duration 格式，例如 30s。过短会造成高峰期误判超时。">
+                    <TextInput
+                      value={definition.chat.timeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, timeout: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label="生成温度" hint="值越高越发散。对诊断/教学类输出通常建议保持低温。">
+                    <TextInput
+                      type="number"
+                      step="0.1"
+                      value={definition.chat.temperature}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, temperature: Number(value) } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label="最大输出 Tokens" hint="限制单次回答长度。值过低会造成回答截断，值过高会增加耗时和成本。">
+                    <TextInput
+                      type="number"
+                      value={definition.chat.maxTokens}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, maxTokens: Number(value) } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                </FieldGrid>
+
+                <FieldGrid>
+                  <FieldCard label="Embedding 接口地址" hint="用于向量化。这里变更后会影响 RAG 导入和检索的一致性。">
+                    <TextInput
+                      value={definition.embedding.baseUrl}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, baseUrl: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label={providerSecretMeta.embeddingApiKey.label} hint={providerSecretMeta.embeddingApiKey.hint}>
+                    <div className="space-y-3">
+                      <div className="text-xs text-slate-500 dark:text-white/35">
+                        当前状态: {getProviderSecretField(view, providerName, 'embeddingApiKey')?.configured ? getProviderSecretField(view, providerName, 'embeddingApiKey')?.maskedValue : '未配置'}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={providerSecrets?.embeddingApiKey.retainExisting ?? false}
+                          disabled={!editing}
+                          onChange={(event) => updateProviderSecret(providerName, 'embeddingApiKey', {
+                            retainExisting: event.target.checked,
+                            value: event.target.checked ? '' : providerSecrets?.embeddingApiKey.value || '',
+                          })}
+                        />
+                        <span>保留原值</span>
+                      </div>
+                      <TextInput
+                        type="password"
+                        value={providerSecrets?.embeddingApiKey.value || ''}
+                        onChange={(value) => updateProviderSecret(providerName, 'embeddingApiKey', { value, retainExisting: false })}
+                        disabled={!editing || Boolean(providerSecrets?.embeddingApiKey.retainExisting)}
+                        placeholder="仅在需要覆盖时填写新值"
+                      />
+                    </div>
+                  </FieldCard>
+                  <FieldCard label="Embedding 模型名" hint="必须和当前向量维度配置匹配，否则向量入库会失败。">
+                    <TextInput
+                      value={definition.embedding.model}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, model: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label="Embedding 超时" hint="使用 Duration 格式，例如 30s。批量导入时建议适度放宽。">
+                    <TextInput
+                      value={definition.embedding.timeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, timeout: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label="向量维度" hint="当前版本数据库 schema 固定为 1024。修改成其他值会被校验拒绝。">
+                    <TextInput
+                      type="number"
+                      value={definition.embedding.dimension}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, dimension: Number(value) } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                </FieldGrid>
+
+                <FieldGrid>
+                  <FieldCard label="Rerank 接口地址" hint="用于召回后的重排序。若关闭或异常，会明显影响最终检索质量。">
+                    <TextInput
+                      value={definition.rerank.baseUrl}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, baseUrl: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label={providerSecretMeta.rerankApiKey.label} hint={providerSecretMeta.rerankApiKey.hint}>
+                    <div className="space-y-3">
+                      <div className="text-xs text-slate-500 dark:text-white/35">
+                        当前状态: {getProviderSecretField(view, providerName, 'rerankApiKey')?.configured ? getProviderSecretField(view, providerName, 'rerankApiKey')?.maskedValue : '未配置'}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={providerSecrets?.rerankApiKey.retainExisting ?? false}
+                          disabled={!editing}
+                          onChange={(event) => updateProviderSecret(providerName, 'rerankApiKey', {
+                            retainExisting: event.target.checked,
+                            value: event.target.checked ? '' : providerSecrets?.rerankApiKey.value || '',
+                          })}
+                        />
+                        <span>保留原值</span>
+                      </div>
+                      <TextInput
+                        type="password"
+                        value={providerSecrets?.rerankApiKey.value || ''}
+                        onChange={(value) => updateProviderSecret(providerName, 'rerankApiKey', { value, retainExisting: false })}
+                        disabled={!editing || Boolean(providerSecrets?.rerankApiKey.retainExisting)}
+                        placeholder="仅在需要覆盖时填写新值"
+                      />
+                    </div>
+                  </FieldCard>
+                  <FieldCard label="Rerank 模型名" hint="建议与当前服务可用模型保持一致，否则健康检查会提示降级。">
+                    <TextInput
+                      value={definition.rerank.model}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, model: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                  <FieldCard label="Rerank 超时" hint="使用 Duration 格式，例如 15s。阈值过低会影响召回后精排稳定性。">
+                    <TextInput
+                      value={definition.rerank.timeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, timeout: value } }))}
+                      disabled={!editing}
+                    />
+                  </FieldCard>
+                </FieldGrid>
               </div>
-            </FieldCard>
-            <FieldCard label="Rerank 模型名" hint="建议与当前服务可用模型保持一致，否则健康检查会提示降级。">
-              <TextInput
-                value={config.provider.rerank.model}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, rerank: { ...current.provider.rerank, model: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-            <FieldCard label="Rerank 超时" hint="使用 Duration 格式，例如 15s。阈值过低会影响召回后精排稳定性。">
-              <TextInput
-                value={config.provider.rerank.timeout}
-                onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, rerank: { ...current.provider.rerank, timeout: value } } }))}
-                disabled={!editing}
-              />
-            </FieldCard>
-          </FieldGrid>
+            );
+          })}
         </SectionCard>
       )}
 
       {activeTab === 'resilience' && (
-        <SectionCard title="稳定性配置" description="这些参数会在保存后直接刷新 ai-gateway 内部 retry / circuit breaker 注册表，建议小步调整。">
+        <SectionCard title="稳定性配置" description="这些参数会在保存后直接刷新 ai-gateway 内部 retry / circuit breaker 注册表，并参与 active 到 fallback 的自动切换判断。">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Circuit Breaker 是什么</div>
-              <div className="mt-2">当某个模型服务持续失败时，熔断器会暂时停止继续打流量，避免把故障放大。</div>
+              <div className="mt-2">当某个模型服务持续失败时，熔断器会暂时停止继续打流量，并把请求切到 fallback provider。</div>
             </div>
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Failure Rate Threshold 怎么看</div>
@@ -931,7 +1127,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label={secretMeta.appServerInternalToken.label} hint={secretMeta.appServerInternalToken.hint}>
+            <FieldCard label={appServerSecretMeta.label} hint={appServerSecretMeta.hint}>
               <div className="space-y-3">
                 <div className="text-xs text-slate-500 dark:text-white/35">
                   当前状态: {view.secrets.appServerInternalToken.configured ? view.secrets.appServerInternalToken.maskedValue : '未配置'}
@@ -941,14 +1137,14 @@ const AdminConfigCenterPage: React.FC = () => {
                     type="checkbox"
                     checked={secrets.appServerInternalToken.retainExisting}
                     disabled={!editing}
-                    onChange={(event) => updateSecret('appServerInternalToken', { retainExisting: event.target.checked, value: event.target.checked ? '' : secrets.appServerInternalToken.value })}
+                    onChange={(event) => updateAppServerSecret({ retainExisting: event.target.checked, value: event.target.checked ? '' : secrets.appServerInternalToken.value })}
                   />
                   <span>保留原值</span>
                 </div>
                 <TextInput
                   type="password"
                   value={secrets.appServerInternalToken.value}
-                  onChange={(value) => updateSecret('appServerInternalToken', { value, retainExisting: false })}
+                  onChange={(value) => updateAppServerSecret({ value, retainExisting: false })}
                   disabled={!editing || secrets.appServerInternalToken.retainExisting}
                   placeholder="仅在需要覆盖时填写新值"
                 />
@@ -1054,237 +1250,340 @@ const AdminConfigCenterPage: React.FC = () => {
       )}
 
       {activeTab === 'operations' && (
-        <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
-          <SectionCard title="健康检查" description="按钮会读取 ai-gateway 当前运行态健康信息，不会触发计费型模型调用，适合保存后立即验证。">
-            <div className="flex flex-wrap gap-3">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+            <SectionCard title="健康检查" description="按钮会读取 ai-gateway 当前运行态健康信息，不会触发计费型模型调用，适合保存后立即验证。">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => healthMutation.mutate()}
+                  disabled={healthMutation.isPending}
+                  className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2"
+                >
+                  <ShieldCheck size={16} />
+                  {healthMutation.isPending ? '检查中...' : '测试连接 / 健康检查'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void queryClient.invalidateQueries({ queryKey: ['admin-ai-config'] })}
+                  className="rounded-2xl border border-slate-200 dark:border-white/10 px-5 py-3 text-sm font-bold text-slate-600 dark:text-white/70 bg-white/70 dark:bg-white/[0.04] inline-flex items-center gap-2"
+                >
+                  <RefreshCw size={16} />
+                  刷新配置
+                </button>
+              </div>
+
+              {healthMutation.error && (
+                <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
+                  {healthMutation.error.message}
+                </div>
+              )}
+
+              {healthState && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <HealthBadge healthy={healthState.status === 'UP'} label={`整体状态: ${healthState.status}`} />
+                  <HealthBadge healthy={healthState.databaseReady} label={`Database: ${healthState.databaseReady ? 'READY' : 'DOWN'}`} />
+                  <HealthBadge healthy={healthState.providerReady} label={`Provider: ${healthState.providerReady ? 'READY' : 'DEGRADED'}`} />
+                  <HealthBadge healthy={healthState.rerankReady} label={`Rerank: ${healthState.rerankReady ? 'READY' : 'DEGRADED'}`} />
+                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Runtime Models</div>
+                    <div>Chat: {healthState.chatModel}</div>
+                    <div>Embedding: {healthState.embeddingModel}</div>
+                    <div>Rerank: {healthState.rerankModel}</div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Environment</div>
+                    <div>Provider: {healthState.provider}</div>
+                    <div>Fallback: {healthState.fallbackProvider}</div>
+                    <div>Profiles: {healthState.activeProfiles.join(', ') || '--'}</div>
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard title="RAG Reindex" description="CSV 导入并不会自动触发向量重建。这里提供手动 reindex 入口，用于词条导入后的运维操作。">
+              <div className="grid gap-3 md:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReindexForm({
+                      mode: 'INCREMENTAL',
+                      sourceTypes: ['LEXICAL_PAIR'],
+                      sourceIds: [],
+                      forceReembed: false,
+                    })
+                  }
+                  className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55"
+                >
+                  <div className="font-bold text-slate-900 dark:text-white">推荐：增量同步</div>
+                  <div className="mt-2">用于刚导入一批新语料后的常规更新。</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReindexForm({
+                      mode: 'FULL',
+                      sourceTypes: ['LEXICAL_PAIR'],
+                      sourceIds: [],
+                      forceReembed: false,
+                    })
+                  }
+                  className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55"
+                >
+                  <div className="font-bold text-slate-900 dark:text-white">全量重建</div>
+                  <div className="mt-2">适合模型或阈值发生较大变化后的完整重建。</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReindexForm((current) => ({
+                      ...current,
+                      mode: current.mode || 'INCREMENTAL',
+                      sourceTypes: current.sourceTypes?.length ? current.sourceTypes : ['LEXICAL_PAIR'],
+                      forceReembed: true,
+                    }))
+                  }
+                  className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55"
+                >
+                  <div className="font-bold text-slate-900 dark:text-white">强制重嵌入</div>
+                  <div className="mt-2">忽略已有 hash，适合替换 embedding 模型后使用。</div>
+                </button>
+              </div>
+
+              <FieldGrid>
+                <FieldCard label="执行模式" hint="推荐优先使用 INCREMENTAL；只有在索引结构或模型明显变更时再做 FULL。">
+                  <SelectInput
+                    value={reindexForm.mode || 'INCREMENTAL'}
+                    onChange={(value) => setReindexForm((current) => ({ ...current, mode: value }))}
+                    options={[
+                      { value: 'INCREMENTAL', label: 'INCREMENTAL 增量更新' },
+                      { value: 'FULL', label: 'FULL 全量重建' },
+                    ]}
+                  />
+                </FieldCard>
+                <FieldCard label="数据源类型" hint="逗号分隔，例如 LEXICAL_PAIR,LEXICAL_SENSE。通常只填 LEXICAL_PAIR 即可。">
+                  <TextInput
+                    value={(reindexForm.sourceTypes || []).join(',')}
+                    onChange={(value) =>
+                      setReindexForm((current) => ({
+                        ...current,
+                        sourceTypes: value
+                          .split(',')
+                          .map((item) => item.trim())
+                          .filter(Boolean),
+                      }))
+                    }
+                  />
+                </FieldCard>
+                <FieldCard label="数据源 ID" hint="可选，逗号分隔。为空时按 source type 全量处理；适合只补建某几条词对。">
+                  <TextInput
+                    value={(reindexForm.sourceIds || []).join(',')}
+                    onChange={(value) =>
+                      setReindexForm((current) => ({
+                        ...current,
+                        sourceIds: value
+                          .split(',')
+                          .map((item) => item.trim())
+                          .filter(Boolean),
+                      }))
+                    }
+                  />
+                </FieldCard>
+                <FieldCard label="强制重嵌入" hint="勾选后会忽略 chunk hash，适合切换 embedding 模型后使用。">
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(reindexForm.forceReembed)}
+                      onChange={(event) => setReindexForm((current) => ({ ...current, forceReembed: event.target.checked }))}
+                    />
+                    <span>忽略 chunk hash，强制重算 embedding</span>
+                  </div>
+                </FieldCard>
+              </FieldGrid>
+
               <button
                 type="button"
-                onClick={() => healthMutation.mutate()}
-                disabled={healthMutation.isPending}
+                onClick={() => reindexMutation.mutate(reindexForm)}
+                disabled={reindexMutation.isPending}
                 className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2"
               >
-                <ShieldCheck size={16} />
-                {healthMutation.isPending ? '检查中...' : '测试连接 / 健康检查'}
+                <Play size={16} />
+                {reindexMutation.isPending ? '提交中...' : '触发 RAG Reindex'}
               </button>
+
+              {reindexJobQuery.data && (
+                <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] p-5 space-y-5 text-sm text-slate-600 dark:text-white/60">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="font-black text-slate-900 dark:text-white">任务 #{reindexJobQuery.data.jobId}</div>
+                    <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{reindexJobQuery.data.status}</div>
+                  </div>
+
+                  <div className="rounded-[1.4rem] border border-slate-200/70 dark:border-white/10 bg-white/75 dark:bg-slate-950/25 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-bold text-slate-900 dark:text-white">{reindexStatusMeta.label}</div>
+                      <div className="text-xs text-slate-400 dark:text-white/30">{reindexStatusMeta.progress}%</div>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          reindexStatusMeta.tone === 'success'
+                            ? 'bg-emerald-500'
+                            : reindexStatusMeta.tone === 'warning'
+                              ? 'bg-rose-500'
+                              : 'bg-sky-500'
+                        }`}
+                        style={{ width: `${reindexStatusMeta.progress}%` }}
+                      />
+                    </div>
+                    <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{reindexStatusMeta.description}</div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {['已提交', '执行中', reindexJobQuery.data.status === 'FAILED' ? '失败' : '完成'].map((step, index) => {
+                      const stepDone =
+                        index === 0
+                          ? reindexStatusMeta.progress > 0
+                          : index === 1
+                            ? reindexStatusMeta.progress >= 68
+                            : finalStatuses.has(reindexJobQuery.data.status);
+                      return (
+                        <div
+                          key={step}
+                          className={`rounded-2xl border px-4 py-3 ${
+                            stepDone
+                              ? 'border-primary/20 bg-primary/5 text-primary'
+                              : 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45'
+                          }`}
+                        >
+                          {step}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div>Mode: {reindexJobQuery.data.mode}</div>
+                  <div>Source Types: {(reindexJobQuery.data.sourceTypes || []).join(', ') || '--'}</div>
+                  <div>Source IDs: {(reindexJobQuery.data.sourceIds || []).join(', ') || '--'}</div>
+                  <div>Cursor: {reindexJobQuery.data.lastCursor || '--'}</div>
+                  <div>Last Source Update: {formatDateTime(reindexJobQuery.data.lastSourceUpdatedAt)}</div>
+                  <div>Finished At: {formatDateTime(reindexJobQuery.data.finishedAt)}</div>
+
+                  {!!reindexStats.length && (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {reindexStats.map((item) => (
+                        <div key={item.key} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/75 dark:bg-slate-950/20">
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{item.label}</div>
+                          <div className="mt-2 font-bold text-slate-900 dark:text-white break-all">{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {reindexJobQuery.data.errorMessage && (
+                    <div className="text-rose-500">Error: {translateConfigMessage(reindexJobQuery.data.errorMessage)}</div>
+                  )}
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+          <SectionCard title="Producer Outbox" description="这里展示生产侧待发送 / 失败事件，并提供人工重放入口，避免词汇知识同步静默丢失。">
+            <div className="flex flex-wrap gap-3">
+              <div className="min-w-[220px]">
+                <SelectInput
+                  value={outboxStatus}
+                  onChange={setOutboxStatus}
+                  options={[
+                    { value: '', label: '全部状态' },
+                    { value: 'FAILED', label: 'FAILED' },
+                    { value: 'PENDING', label: 'PENDING' },
+                    { value: 'IN_PROGRESS', label: 'IN_PROGRESS' },
+                    { value: 'PUBLISHED', label: 'PUBLISHED' },
+                  ]}
+                />
+              </div>
+              <div className="w-28">
+                <TextInput value={outboxLimit} onChange={setOutboxLimit} type="number" />
+              </div>
               <button
                 type="button"
-                onClick={() => void queryClient.invalidateQueries({ queryKey: ['admin-ai-config'] })}
+                onClick={() => void queryClient.invalidateQueries({ queryKey: ['admin-ai-outbox'] })}
                 className="rounded-2xl border border-slate-200 dark:border-white/10 px-5 py-3 text-sm font-bold text-slate-600 dark:text-white/70 bg-white/70 dark:bg-white/[0.04] inline-flex items-center gap-2"
               >
                 <RefreshCw size={16} />
-                刷新配置
+                刷新 Outbox
               </button>
             </div>
 
-            {healthMutation.error && (
+            {outboxQuery.error && (
               <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
-                {healthMutation.error.message}
+                {outboxQuery.error.message}
               </div>
             )}
 
-            {healthState && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <HealthBadge healthy={healthState.status === 'UP'} label={`整体状态: ${healthState.status}`} />
-                <HealthBadge healthy={healthState.databaseReady} label={`Database: ${healthState.databaseReady ? 'READY' : 'DOWN'}`} />
-                <HealthBadge healthy={healthState.providerReady} label={`Provider: ${healthState.providerReady ? 'READY' : 'DEGRADED'}`} />
-                <HealthBadge healthy={healthState.rerankReady} label={`Rerank: ${healthState.rerankReady ? 'READY' : 'DEGRADED'}`} />
-                <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
-                  <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Runtime Models</div>
-                  <div>Chat: {healthState.chatModel}</div>
-                  <div>Embedding: {healthState.embeddingModel}</div>
-                  <div>Rerank: {healthState.rerankModel}</div>
-                </div>
-                <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
-                  <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Environment</div>
-                  <div>Provider: {healthState.provider}</div>
-                  <div>Fallback: {healthState.fallbackProvider}</div>
-                  <div>Profiles: {healthState.activeProfiles.join(', ') || '--'}</div>
-                </div>
+            {!outboxQuery.error && outboxRecords.length === 0 && (
+              <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+                当前筛选条件下没有 outbox 记录。
               </div>
             )}
-          </SectionCard>
 
-          <SectionCard title="RAG Reindex" description="CSV 导入并不会自动触发向量重建。这里提供手动 reindex 入口，用于词条导入后的运维操作。">
-            <div className="grid gap-3 md:grid-cols-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setReindexForm({
-                    mode: 'INCREMENTAL',
-                    sourceTypes: ['LEXICAL_PAIR'],
-                    sourceIds: [],
-                    forceReembed: false,
-                  })
-                }
-                className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55"
-              >
-                <div className="font-bold text-slate-900 dark:text-white">推荐：增量同步</div>
-                <div className="mt-2">用于刚导入一批新语料后的常规更新。</div>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setReindexForm({
-                    mode: 'FULL',
-                    sourceTypes: ['LEXICAL_PAIR'],
-                    sourceIds: [],
-                    forceReembed: false,
-                  })
-                }
-                className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55"
-              >
-                <div className="font-bold text-slate-900 dark:text-white">全量重建</div>
-                <div className="mt-2">适合模型或阈值发生较大变化后的完整重建。</div>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setReindexForm((current) => ({
-                    ...current,
-                    mode: current.mode || 'INCREMENTAL',
-                    sourceTypes: current.sourceTypes?.length ? current.sourceTypes : ['LEXICAL_PAIR'],
-                    forceReembed: true,
-                  }))
-                }
-                className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55"
-              >
-                <div className="font-bold text-slate-900 dark:text-white">强制重嵌入</div>
-                <div className="mt-2">忽略已有 hash，适合替换 embedding 模型后使用。</div>
-              </button>
-            </div>
-
-            <FieldGrid>
-              <FieldCard label="执行模式" hint="推荐优先使用 INCREMENTAL；只有在索引结构或模型明显变更时再做 FULL。">
-                <SelectInput
-                  value={reindexForm.mode || 'INCREMENTAL'}
-                  onChange={(value) => setReindexForm((current) => ({ ...current, mode: value }))}
-                  options={[
-                    { value: 'INCREMENTAL', label: 'INCREMENTAL 增量更新' },
-                    { value: 'FULL', label: 'FULL 全量重建' },
-                  ]}
-                />
-              </FieldCard>
-              <FieldCard label="数据源类型" hint="逗号分隔，例如 LEXICAL_PAIR,LEXICAL_SENSE。通常只填 LEXICAL_PAIR 即可。">
-                <TextInput
-                  value={(reindexForm.sourceTypes || []).join(',')}
-                  onChange={(value) =>
-                    setReindexForm((current) => ({
-                      ...current,
-                      sourceTypes: value
-                        .split(',')
-                        .map((item) => item.trim())
-                        .filter(Boolean),
-                    }))
-                  }
-                />
-              </FieldCard>
-              <FieldCard label="数据源 ID" hint="可选，逗号分隔。为空时按 source type 全量处理；适合只补建某几条词对。">
-                <TextInput
-                  value={(reindexForm.sourceIds || []).join(',')}
-                  onChange={(value) =>
-                    setReindexForm((current) => ({
-                      ...current,
-                      sourceIds: value
-                        .split(',')
-                        .map((item) => item.trim())
-                        .filter(Boolean),
-                    }))
-                  }
-                />
-              </FieldCard>
-              <FieldCard label="强制重嵌入" hint="勾选后会忽略 chunk hash，适合切换 embedding 模型后使用。">
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(reindexForm.forceReembed)}
-                    onChange={(event) => setReindexForm((current) => ({ ...current, forceReembed: event.target.checked }))}
-                  />
-                  <span>忽略 chunk hash，强制重算 embedding</span>
-                </div>
-              </FieldCard>
-            </FieldGrid>
-
-            <button
-              type="button"
-              onClick={() => reindexMutation.mutate(reindexForm)}
-              disabled={reindexMutation.isPending}
-              className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2"
-            >
-              <Play size={16} />
-              {reindexMutation.isPending ? '提交中...' : '触发 RAG Reindex'}
-            </button>
-
-            {reindexJobQuery.data && (
-              <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] p-5 space-y-5 text-sm text-slate-600 dark:text-white/60">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="font-black text-slate-900 dark:text-white">任务 #{reindexJobQuery.data.jobId}</div>
-                  <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{reindexJobQuery.data.status}</div>
-                </div>
-
-                <div className="rounded-[1.4rem] border border-slate-200/70 dark:border-white/10 bg-white/75 dark:bg-slate-950/25 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-bold text-slate-900 dark:text-white">{reindexStatusMeta.label}</div>
-                    <div className="text-xs text-slate-400 dark:text-white/30">{reindexStatusMeta.progress}%</div>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        reindexStatusMeta.tone === 'success'
-                          ? 'bg-emerald-500'
-                          : reindexStatusMeta.tone === 'warning'
-                            ? 'bg-rose-500'
-                            : 'bg-sky-500'
-                      }`}
-                      style={{ width: `${reindexStatusMeta.progress}%` }}
-                    />
-                  </div>
-                  <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{reindexStatusMeta.description}</div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  {['已提交', '执行中', reindexJobQuery.data.status === 'FAILED' ? '失败' : '完成'].map((step, index) => {
-                    const stepDone =
-                      index === 0
-                        ? reindexStatusMeta.progress > 0
-                        : index === 1
-                          ? reindexStatusMeta.progress >= 68
-                          : finalStatuses.has(reindexJobQuery.data.status);
-                    return (
-                      <div
-                        key={step}
-                        className={`rounded-2xl border px-4 py-3 ${
-                          stepDone
-                            ? 'border-primary/20 bg-primary/5 text-primary'
-                            : 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45'
-                        }`}
-                      >
-                        {step}
+            {!!outboxRecords.length && (
+              <div className="grid gap-4">
+                {outboxRecords.map((record: AdminOutboxRecordVO) => {
+                  const tone = statusTone(record.status);
+                  return (
+                    <div key={record.id} className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03] space-y-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2">
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{record.eventType}</div>
+                          <div className="text-lg font-black text-slate-900 dark:text-white break-all">{record.eventId}</div>
+                          <div className="text-sm text-slate-500 dark:text-white/45">routingKey: {record.routingKey}</div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className={`rounded-2xl border px-3 py-2 text-xs font-bold ${statusClasses(tone)}`}>{record.status}</div>
+                          <div className="rounded-2xl border border-slate-200/70 bg-white/70 px-3 py-2 text-xs font-bold text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45">
+                            attempts: {record.attemptCount}
+                          </div>
+                          {(record.status === 'FAILED' || record.status === 'PENDING') && (
+                            <button
+                              type="button"
+                              onClick={() => replayOutboxMutation.mutate(record.id)}
+                              disabled={replayOutboxMutation.isPending && replayingOutboxId === record.id}
+                              className="btn-liquid px-4 py-2 text-white text-sm"
+                            >
+                              {replayOutboxMutation.isPending && replayingOutboxId === record.id ? '重放中...' : '重放'}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
 
-                <div>Mode: {reindexJobQuery.data.mode}</div>
-                <div>Source Types: {(reindexJobQuery.data.sourceTypes || []).join(', ') || '--'}</div>
-                <div>Source IDs: {(reindexJobQuery.data.sourceIds || []).join(', ') || '--'}</div>
-                <div>Cursor: {reindexJobQuery.data.lastCursor || '--'}</div>
-                <div>Last Source Update: {formatDateTime(reindexJobQuery.data.lastSourceUpdatedAt)}</div>
-                <div>Finished At: {formatDateTime(reindexJobQuery.data.finishedAt)}</div>
-
-                {!!reindexStats.length && (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {reindexStats.map((item) => (
-                      <div key={item.key} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/75 dark:bg-slate-950/20">
-                        <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{item.label}</div>
-                        <div className="mt-2 font-bold text-slate-900 dark:text-white break-all">{item.value}</div>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Created</div>
+                          <div className="mt-2 text-slate-700 dark:text-white/70">{formatDateTime(record.createdAt)}</div>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Next Attempt</div>
+                          <div className="mt-2 text-slate-700 dark:text-white/70">{formatDateTime(record.nextAttemptAt)}</div>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Published</div>
+                          <div className="mt-2 text-slate-700 dark:text-white/70">{formatDateTime(record.publishedAt)}</div>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Trace Id</div>
+                          <div className="mt-2 text-slate-700 dark:text-white/70 break-all">{record.traceId || '--'}</div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
 
-                {reindexJobQuery.data.errorMessage && (
-                  <div className="text-rose-500">Error: {translateConfigMessage(reindexJobQuery.data.errorMessage)}</div>
-                )}
+                      {record.lastError && (
+                        <div className="rounded-[1.4rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500 break-all">
+                          {record.lastError}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </SectionCard>

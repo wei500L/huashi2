@@ -13,12 +13,12 @@ const TeacherLexicalListsPage: React.FC = () => {
 
   const listsQuery = useQuery({
     queryKey: ['lexical-lists'],
-    queryFn: () => lexicalListService.pageQuery({ pageNo: 1, pageSize: 50 }),
+    queryFn: ({ signal }) => lexicalListService.pageQuery({ pageNo: 1, pageSize: 50 }, { signal }),
   });
 
   const detailQuery = useQuery({
     queryKey: ['lexical-list-detail', selectedId],
-    queryFn: () => lexicalListService.getDetail(selectedId as number),
+    queryFn: ({ signal }) => lexicalListService.getDetail(selectedId as number, { signal }),
     enabled: !!selectedId,
   });
 

@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.app.support;
 
+import com.huashi.eftransfer.app.common.security.lockout.AuthLockoutStore;
+import com.huashi.eftransfer.app.common.security.lockout.LocalAuthLockoutStore;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.security.store.RefreshTokenSession;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -19,6 +21,12 @@ public class TestAuthTokenStoreConfiguration {
     @Primary
     public AuthTokenStore authTokenStore() {
         return new InMemoryAuthTokenStore();
+    }
+
+    @Bean
+    @Primary
+    public AuthLockoutStore authLockoutStore() {
+        return new LocalAuthLockoutStore();
     }
 
     static class InMemoryAuthTokenStore implements AuthTokenStore {

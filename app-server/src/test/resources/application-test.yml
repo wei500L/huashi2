@@ -31,10 +31,10 @@ app:
       enabled: false
   ops:
     config:
-      encryption-secret: 0123456789abcdef0123456789abcdef
+      encryption-secret: x7Pq2Lk9Vd4Nc8Rs1Tf6Yh3Jm5Bw0QeZ
   security:
     jwt:
-      secret: 0123456789abcdef0123456789abcdef
+      secret: x7Pq2Lk9Vd4Nc8Rs1Tf6Yh3Jm5Bw0QeZ
       issuer: ef-transfer-platform-test
       access-token-ttl: PT30M
       refresh-token-ttl: PT24H

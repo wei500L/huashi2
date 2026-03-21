@@ -12,6 +12,12 @@ spring:
     username: ${APP_DB_USERNAME:ef_user}
     password: ${APP_DB_PASSWORD:ef_password}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${APP_DB_POOL_MAX_SIZE:16}
+      minimum-idle: ${APP_DB_POOL_MIN_IDLE:4}
+      connection-timeout: ${APP_DB_POOL_CONNECTION_TIMEOUT:3000}
+      idle-timeout: ${APP_DB_POOL_IDLE_TIMEOUT:600000}
+      max-lifetime: ${APP_DB_POOL_MAX_LIFETIME:1800000}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -25,6 +31,10 @@ spring:
     username: ${RABBITMQ_USERNAME:ef_admin}
     password: ${RABBITMQ_PASSWORD:ef_password}
     virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -39,10 +49,13 @@ management:
     health:
       probes:
         enabled: true
-      show-details: always
+      show-details: never
   info:
     env:
       enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 mybatis-plus:
   configuration:
@@ -60,6 +73,14 @@ app:
     enabled: ${APP_DEMO_DATA_ENABLED:false}
   events:
     rabbit-publish-enabled: ${APP_EVENTS_RABBIT_PUBLISH_ENABLED:true}
+    outbox:
+      enabled: ${APP_EVENTS_OUTBOX_ENABLED:true}
+      poll-interval: ${APP_EVENTS_OUTBOX_POLL_INTERVAL:PT5S}
+      batch-size: ${APP_EVENTS_OUTBOX_BATCH_SIZE:20}
+      initial-backoff: ${APP_EVENTS_OUTBOX_INITIAL_BACKOFF:PT5S}
+      max-backoff: ${APP_EVENTS_OUTBOX_MAX_BACKOFF:PT5M}
+      stuck-threshold: ${APP_EVENTS_OUTBOX_STUCK_THRESHOLD:PT1M}
+      confirm-timeout: ${APP_EVENTS_OUTBOX_CONFIRM_TIMEOUT:PT5S}
   analytics:
     compensation:
       enabled: ${APP_ANALYTICS_COMPENSATION_ENABLED:true}
@@ -67,11 +88,47 @@ app:
     config:
       encryption-secret: ${APP_OPS_CONFIG_ENCRYPTION_SECRET:}
   security:
+    cors:
+      allowed-origins:
+        - ${APP_CORS_ALLOWED_ORIGIN_LOCALHOST:http://localhost:3000}
+        - ${APP_CORS_ALLOWED_ORIGIN_LOOPBACK:http://127.0.0.1:3000}
+      allowed-methods: ${APP_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+      allowed-headers: ${APP_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept}
+      exposed-headers: ${APP_CORS_EXPOSED_HEADERS:X-Trace-Id}
+      allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:false}
+      max-age: ${APP_CORS_MAX_AGE:PT1H}
     jwt:
-      secret: ${APP_JWT_SECRET:}
+      legacy-secret: ${APP_JWT_LEGACY_SECRET:${APP_JWT_SECRET:}}
+      active-kid: ${APP_JWT_ACTIVE_KID:current}
+      keys:
+        - kid: ${APP_JWT_KEYS_0_KID:${APP_JWT_ACTIVE_KID:current}}
+          secret: ${APP_JWT_KEYS_0_SECRET:${APP_JWT_SECRET:}}
+        - kid: ${APP_JWT_KEYS_1_KID:}
+          secret: ${APP_JWT_KEYS_1_SECRET:}
       issuer: ${APP_JWT_ISSUER:ef-transfer-platform}
-      access-token-ttl: ${APP_JWT_ACCESS_TTL:PT6H}
+      access-token-ttl: ${APP_JWT_ACCESS_TTL:PT30M}
       refresh-token-ttl: ${APP_JWT_REFRESH_TTL:PT168H}
+    rate-limit:
+      auth:
+        enabled: ${APP_AUTH_RATE_LIMIT_ENABLED:true}
+        login:
+          ip:
+            limit: ${APP_AUTH_RATE_LIMIT_LOGIN_IP_LIMIT:20}
+            window: ${APP_AUTH_RATE_LIMIT_LOGIN_IP_WINDOW:PT1M}
+          principal:
+            limit: ${APP_AUTH_RATE_LIMIT_LOGIN_PRINCIPAL_LIMIT:10}
+            window: ${APP_AUTH_RATE_LIMIT_LOGIN_PRINCIPAL_WINDOW:PT10M}
+        refresh:
+          ip:
+            limit: ${APP_AUTH_RATE_LIMIT_REFRESH_IP_LIMIT:40}
+            window: ${APP_AUTH_RATE_LIMIT_REFRESH_IP_WINDOW:PT1M}
+          session:
+            limit: ${APP_AUTH_RATE_LIMIT_REFRESH_SESSION_LIMIT:20}
+            window: ${APP_AUTH_RATE_LIMIT_REFRESH_SESSION_WINDOW:PT10M}
+    lockout:
+      enabled: ${APP_AUTH_LOCKOUT_ENABLED:true}
+      threshold: ${APP_AUTH_LOCKOUT_THRESHOLD:5}
+      duration: ${APP_AUTH_LOCKOUT_DURATION:PT15M}
 
 platform:
   internal-api:
@@ -95,3 +152,7 @@ logging:
     org.springframework.security: INFO
   pattern:
     level: "%5p [traceId:%X{traceId:-}]"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

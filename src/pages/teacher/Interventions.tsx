@@ -12,18 +12,18 @@ const TeacherInterventionsPage: React.FC = () => {
 
   const classesQuery = useQuery({
     queryKey: ['teacher-classes'],
-    queryFn: () => teacherAnalyticsService.listClasses(),
+    queryFn: ({ signal }) => teacherAnalyticsService.listClasses({ signal }),
   });
 
   const interventionsQuery = useQuery({
     queryKey: ['teacher-interventions', classId, status],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       teacherInterventionService.list({
         classId: classId ? Number(classId) : undefined,
         status: status || undefined,
         pageNo: 1,
         pageSize: 50,
-      }),
+      }, { signal }),
   });
 
   const completeMutation = useMutation({

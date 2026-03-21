@@ -114,12 +114,12 @@ const TeacherTemplatesPage: React.FC = () => {
 
   const listQuery = useQuery({
     queryKey: ['teacher-diagnosis-templates'],
-    queryFn: () => diagnosisTemplateService.listTeacherTemplates({ pageNo: 1, pageSize: 50 }),
+    queryFn: ({ signal }) => diagnosisTemplateService.listTeacherTemplates({ pageNo: 1, pageSize: 50 }, { signal }),
   });
 
   const detailQuery = useQuery({
     queryKey: ['teacher-diagnosis-template', selectedId],
-    queryFn: () => diagnosisTemplateService.getTeacherTemplate(selectedId as number),
+    queryFn: ({ signal }) => diagnosisTemplateService.getTeacherTemplate(selectedId as number, { signal }),
     enabled: !!selectedId,
   });
 

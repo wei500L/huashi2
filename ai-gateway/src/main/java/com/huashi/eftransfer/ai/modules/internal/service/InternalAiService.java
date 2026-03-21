@@ -24,25 +24,25 @@ public class InternalAiService {
     }
 
     public ChatResponse chat(ChatRequest request) {
-        return providerRegistry.resolveActiveProvider().chat(request);
+        return providerRegistry.chat(request);
     }
 
     public StructuredChatResponse structuredChat(StructuredChatRequest request) {
-        return providerRegistry.resolveActiveProvider().structuredChat(request);
+        return providerRegistry.structuredChat(request);
     }
 
     public EmbeddingResponse embed(EmbeddingRequest request) {
-        return providerRegistry.resolveActiveProvider().embed(request);
+        return providerRegistry.embed(request);
     }
 
     public EmbeddingResponse embedBatch(EmbeddingBatchRequest request) {
-        return providerRegistry.resolveActiveProvider().embedBatch(request);
+        return providerRegistry.embedBatch(request);
     }
 
     public RerankResponse rerank(RerankRequest request) {
         if (request.topN() != null && request.topN() > request.documents().size()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "topN must be less than or equal to documents size", 400);
         }
-        return providerRegistry.resolveActiveProvider().rerank(request);
+        return providerRegistry.rerank(request);
     }
 }

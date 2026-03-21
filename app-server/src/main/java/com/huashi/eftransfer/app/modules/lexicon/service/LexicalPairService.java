@@ -48,8 +48,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -597,17 +595,7 @@ public class LexicalPairService {
     }
 
     private void registerKnowledgeChangedEvent(Collection<Long> lexicalPairIds) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            publishKnowledgeChangedEvent(lexicalPairIds);
-            return;
-        }
-        List<Long> ids = lexicalPairIds.stream().distinct().toList();
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishKnowledgeChangedEvent(ids);
-            }
-        });
+        publishKnowledgeChangedEvent(lexicalPairIds);
     }
 
     private void publishKnowledgeChangedEvent(Collection<Long> lexicalPairIds) {

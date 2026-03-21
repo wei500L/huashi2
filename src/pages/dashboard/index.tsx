@@ -14,32 +14,32 @@ const DashboardPage: React.FC = () => {
 
   const overviewQuery = useQuery({
     queryKey: ['student-overview'],
-    queryFn: () => studentService.getOverview(),
+    queryFn: ({ signal }) => studentService.getOverview({ signal }),
   });
   const trendsQuery = useQuery({
     queryKey: ['student-trends', '7d'],
-    queryFn: () => studentService.getTrends('7d'),
+    queryFn: ({ signal }) => studentService.getTrends('7d', 'day', { signal }),
   });
   const highRiskPairsQuery = useQuery({
     queryKey: ['student-high-risk-pairs', '30d', 5],
-    queryFn: () => studentService.getHighRiskPairs('30d', 5),
+    queryFn: ({ signal }) => studentService.getHighRiskPairs('30d', 5, { signal }),
   });
   const errorDistributionQuery = useQuery({
     queryKey: ['student-error-distribution', '30d'],
-    queryFn: () => studentService.getErrorDistribution('30d'),
+    queryFn: ({ signal }) => studentService.getErrorDistribution('30d', { signal }),
   });
   const recommendedPlanQuery = useQuery({
     queryKey: ['recommended-training-plan'],
-    queryFn: () => trainingService.getRecommendedPlan(),
+    queryFn: ({ signal }) => trainingService.getRecommendedPlan({ signal }),
     retry: false,
   });
   const wrongBookQuery = useQuery({
     queryKey: ['wrong-book'],
-    queryFn: () => trainingService.getWrongBook(),
+    queryFn: ({ signal }) => trainingService.getWrongBook({ signal }),
   });
   const reviewScheduleQuery = useQuery({
     queryKey: ['review-schedule', true],
-    queryFn: () => trainingService.getReviewSchedule(true),
+    queryFn: ({ signal }) => trainingService.getReviewSchedule(true, { signal }),
   });
 
   const overview = overviewQuery.data;

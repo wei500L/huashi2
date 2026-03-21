@@ -15,32 +15,32 @@ const TeacherClassDetailPage: React.FC = () => {
 
   const overviewQuery = useQuery({
     queryKey: ['teacher-class-overview', classId],
-    queryFn: () => teacherAnalyticsService.getClassOverview(classId),
+    queryFn: ({ signal }) => teacherAnalyticsService.getClassOverview(classId, '30d', { signal }),
     enabled: Number.isFinite(classId),
   });
   const riskDistributionQuery = useQuery({
     queryKey: ['teacher-class-risk-distribution', classId],
-    queryFn: () => teacherAnalyticsService.getRiskDistribution(classId),
+    queryFn: ({ signal }) => teacherAnalyticsService.getRiskDistribution(classId, { signal }),
     enabled: Number.isFinite(classId),
   });
   const heatmapQuery = useQuery({
     queryKey: ['teacher-class-heatmap', classId],
-    queryFn: () => teacherAnalyticsService.getHeatmap(classId),
+    queryFn: ({ signal }) => teacherAnalyticsService.getHeatmap(classId, '30d', { signal }),
     enabled: Number.isFinite(classId),
   });
   const errorDistributionQuery = useQuery({
     queryKey: ['teacher-class-error-distribution', classId],
-    queryFn: () => teacherAnalyticsService.getErrorDistribution(classId),
+    queryFn: ({ signal }) => teacherAnalyticsService.getErrorDistribution(classId, '30d', { signal }),
     enabled: Number.isFinite(classId),
   });
   const completionRateQuery = useQuery({
     queryKey: ['teacher-class-completion-rate', classId],
-    queryFn: () => teacherAnalyticsService.getCompletionRate(classId),
+    queryFn: ({ signal }) => teacherAnalyticsService.getCompletionRate(classId, '30d', 'day', { signal }),
     enabled: Number.isFinite(classId),
   });
   const studentsQuery = useQuery({
     queryKey: ['teacher-class-students', classId],
-    queryFn: () => teacherAnalyticsService.listStudents(classId),
+    queryFn: ({ signal }) => teacherAnalyticsService.listStudents(classId, { signal }),
     enabled: Number.isFinite(classId),
   });
 

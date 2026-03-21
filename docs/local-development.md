@@ -41,7 +41,9 @@ root
 
 ## 4. 安全默认值
 
-- `APP_JWT_SECRET` 必须显式提供，非测试环境不再使用可预测默认值
+- `APP_JWT_ACTIVE_KID` 与 `APP_JWT_KEYS_*` 必须显式提供，新 access token 会写入 `kid`
+- `APP_JWT_LEGACY_SECRET` 仅用于旧 token 兼容验签窗口，不应作为长期主配置
+- `APP_OPS_CONFIG_ENCRYPTION_SECRET` 必须与 JWT 密钥分离，非 `local/test` 缺失时应用拒绝启动
 - `PLATFORM_INTERNAL_API_TOKEN` 是 `app-server` 与 `ai-gateway` 的统一内部令牌
 - `platform.internal-api.enabled=true` 时，所有 `/internal/**` 接口都要求 `X-Internal-Token`
 - `APP_DEMO_DATA_ENABLED=false` 是默认值；demo 用户初始化仅在 `local/test` profile 且显式打开时执行
@@ -57,8 +59,15 @@ cp .env.example .env
 
 至少需要检查并填写：
 
-- `APP_JWT_SECRET`
+- `APP_OPS_CONFIG_ENCRYPTION_SECRET`
+- `APP_JWT_ACTIVE_KID`
+- `APP_JWT_KEYS_0_KID`
+- `APP_JWT_KEYS_0_SECRET`
+- `APP_JWT_KEYS_1_KID`
+- `APP_JWT_KEYS_1_SECRET`
+- `APP_JWT_LEGACY_SECRET`（仅在旧 token 兼容窗口需要时填写）
 - `PLATFORM_INTERNAL_API_TOKEN`
+- `REDIS_PASSWORD`
 - `APP_DEMO_DATA_ENABLED`
 - `AI_OPENAI_API_KEY`
 - `AI_OPENAI_BASE_URL`
@@ -67,12 +76,18 @@ cp .env.example .env
 - `AI_RERANK_URL`
 - `AI_RERANK_MODEL`
 
+JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
+
 说明：
 
 - `APP_DEMO_DATA_ENABLED=true` 时，本地会注入默认管理员、教师、学生测试账号
 - `APP_DEMO_DATA_ENABLED=false` 时，登录账号需要自行准备
+- `APP_OPS_CONFIG_ENCRYPTION_SECRET` 建议使用独立 secret；只在本地临时调试时才允许回退到旧 JWT secret
+- `REDIS_PASSWORD` 不能为空；Compose 中的 Redis 现在启用密码认证并仅绑定到 `127.0.0.1`
 - `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`
 - `diagnosis` 与 `training` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；刷新后前端优先恢复该 session
+- 生产环境建议显式设置 `APP_DB_SSL_MODE=REQUIRED`
+- 默认登录锁定策略由 `APP_AUTH_LOCKOUT_*` 控制，默认值是 5 次失败锁定 15 分钟
 
 ## 6. Docker 本地联调
 
@@ -129,6 +144,8 @@ npm run dev
 
 - `http://localhost:8080/api/health`
 - `http://localhost:8080/actuator/health`
+- `http://localhost:8080/swagger-ui.html`
+- `http://localhost:8080/v3/api-docs`
 - `http://localhost:8090/actuator/health`
 
 注意：
@@ -140,9 +157,30 @@ npm run dev
 curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/internal/ai/health
 ```
 
-## 9. 当前已实现内容
+Compose 中的 `app-server` 与 `ai-gateway` 也已配置容器健康检查，依赖关系会等待健康状态再继续拉起。
+
+## 9. 备份脚本
+
+- `deploy/scripts/backup-mysql.sh`
+- `deploy/scripts/backup-postgres.sh`
+- `deploy/scripts/backup-all.sh`
+
+默认行为：
+
+- 读取 `deploy/.env`
+- 输出目录使用 `BACKUP_DIR`，默认 `./backups`
+- 保留天数使用 `BACKUP_RETENTION_DAYS`，默认 `7`
+
+cron 示例：
+
+```bash
+0 2 * * * cd /path/to/repo && ./deploy/scripts/backup-all.sh
+```
+
+## 10. 当前已实现内容
 
 - 登录、刷新、注销、当前用户、Redis refresh token 与 access token blacklist
+- access token `kid` 轮换与 legacy 无 `kid` token 兼容验签
 - 基于角色并集生成 `capabilities`，前后端权限矩阵已对齐到能力模型
 - 诊断模板发布、diagnosis session、summary、结果页、进度保存与恢复
 - training plan、training session、错误本、复习计划、training progress 保存与恢复
@@ -152,7 +190,7 @@ curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/i
 - ai-gateway embedding / retrieve / rerank / reindex
 - RabbitMQ 驱动的知识同步：`LexicalKnowledgeChangedEvent -> ai-gateway targeted reindex`
 
-## 10. 事件边界
+## 11. 事件边界
 
 - diagnosis completed：应用内事件，用于本服务 analytics/read model 更新
 - training completed：应用内事件，用于本服务 analytics/read model 更新
@@ -163,7 +201,7 @@ curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/i
 - 不把 RabbitMQ 当作本地 analytics 总线
 - 只把 RabbitMQ 用在真实跨服务解耦场景
 
-## 11. 默认测试账号
+## 12. 默认测试账号
 
 仅当 `APP_DEMO_DATA_ENABLED=true` 时存在：
 
@@ -172,7 +210,7 @@ curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/i
 - 学生：`student.li` / `Student@123456`
 - 学生：`student.wang` / `Student@123456`
 
-## 12. 前端工程约束
+## 13. 前端工程约束
 
 - 路由采用 `React.lazy` 做页面级懒加载
 - 图表运行时统一走 `src/lib/echarts.ts`，使用 `echarts/core` 做按需注册
@@ -180,7 +218,7 @@ curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/i
 - 前端真实链路统一走 `src/lib/services.ts`
 - 旧实验 hooks / store / types 已从主仓库链路中清理，不再保留误导性 mock 实现
 
-## 13. 验证命令
+## 14. 验证命令
 
 ```bash
 npm run lint

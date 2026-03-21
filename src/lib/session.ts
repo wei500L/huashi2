@@ -2,6 +2,8 @@ import type { LoginResponse } from './contracts';
 
 export const SESSION_STORAGE_KEY = 'ef-transfer-session';
 export const SESSION_CHANGE_EVENT = 'ef-transfer-session-change';
+export const AUTH_EXPIRED_EVENT = 'ef-transfer-auth-expired';
+let authExpiredPending = false;
 
 export function readStoredSession(): LoginResponse | null {
   if (typeof window === 'undefined') {
@@ -33,4 +35,20 @@ export function clearStoredSession(): void {
   }
   window.localStorage.removeItem(SESSION_STORAGE_KEY);
   window.dispatchEvent(new Event(SESSION_CHANGE_EVENT));
+}
+
+export function dispatchAuthExpired(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  authExpiredPending = true;
+  window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+}
+
+export function hasPendingAuthExpired(): boolean {
+  return authExpiredPending;
+}
+
+export function clearPendingAuthExpired(): void {
+  authExpiredPending = false;
 }

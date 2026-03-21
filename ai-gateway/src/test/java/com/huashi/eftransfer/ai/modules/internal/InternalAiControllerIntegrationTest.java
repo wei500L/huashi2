@@ -111,6 +111,16 @@ class InternalAiControllerIntegrationTest {
         registry.add("ai.provider.providers.qwen.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
         registry.add("ai.provider.providers.qwen.rerank.api-key", () -> "test-api-key");
         registry.add("ai.provider.providers.qwen.rerank.model", () -> "gte-rerank-v2");
+        registry.add("ai.provider.providers.deepseek.chat.base-url", () -> wireMockServer.baseUrl() + "/v1");
+        registry.add("ai.provider.providers.deepseek.chat.api-key", () -> "backup-api-key");
+        registry.add("ai.provider.providers.deepseek.chat.model", () -> "deepseek-chat");
+        registry.add("ai.provider.providers.deepseek.embedding.base-url", () -> wireMockServer.baseUrl() + "/v1");
+        registry.add("ai.provider.providers.deepseek.embedding.api-key", () -> "backup-api-key");
+        registry.add("ai.provider.providers.deepseek.embedding.model", () -> "text-embedding-v4");
+        registry.add("ai.provider.providers.deepseek.embedding.dimension", () -> "3");
+        registry.add("ai.provider.providers.deepseek.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
+        registry.add("ai.provider.providers.deepseek.rerank.api-key", () -> "backup-api-key");
+        registry.add("ai.provider.providers.deepseek.rerank.model", () -> "gte-rerank-v2");
         registry.add("ai.resilience.max-attempts", () -> "1");
         registry.add("rag.app-server.base-url", () -> "http://localhost:8080");
         registry.add("rag.app-server.internal-token", () -> "test-internal-token");

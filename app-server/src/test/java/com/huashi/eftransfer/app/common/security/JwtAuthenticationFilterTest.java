@@ -51,7 +51,7 @@ class JwtAuthenticationFilterTest {
 
     private static JwtTokenProvider createJwtTokenProvider() {
         JwtProperties properties = new JwtProperties();
-        properties.setSecret("0123456789abcdef0123456789abcdef");
+        properties.setSecret("x7Pq2Lk9Vd4Nc8Rs1Tf6Yh3Jm5Bw0QeZ");
         properties.setIssuer("ef-transfer-platform-test");
         JwtTokenProvider provider = new JwtTokenProvider(properties);
         provider.init();

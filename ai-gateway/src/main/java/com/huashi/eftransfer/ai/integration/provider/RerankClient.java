@@ -5,5 +5,5 @@ import com.huashi.eftransfer.shared.ai.RerankResponse;
 
 public interface RerankClient {
 
-    RerankResponse rerank(RerankRequest request);
+    RerankResponse rerank(String providerName, RerankRequest request);
 }

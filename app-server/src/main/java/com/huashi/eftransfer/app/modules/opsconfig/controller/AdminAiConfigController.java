@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.opsconfig.controller;
 import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
 import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsAdminService;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
@@ -17,7 +18,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/ai-config")
@@ -57,5 +61,18 @@ public class AdminAiConfigController {
     @GetMapping("/reindex-jobs/{jobId}")
     public ApiResponse<RagReindexJobResponse> getReindexJob(@PathVariable("jobId") Long jobId) {
         return ApiResponse.success(aiOpsAdminService.fetchReindexJob(jobId), MDC.get("traceId"));
+    }
+
+    @GetMapping("/outbox")
+    public ApiResponse<List<AdminOutboxRecordVO>> listOutbox(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "limit", required = false) Integer limit
+    ) {
+        return ApiResponse.success(aiOpsAdminService.listOutbox(status, limit), MDC.get("traceId"));
+    }
+
+    @PostMapping("/outbox/{id}/replay")
+    public ApiResponse<AdminOutboxRecordVO> replayOutbox(@PathVariable("id") Long id) {
+        return ApiResponse.success(aiOpsAdminService.replayOutbox(id), MDC.get("traceId"));
     }
 }
