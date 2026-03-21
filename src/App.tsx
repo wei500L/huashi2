@@ -22,6 +22,7 @@ const TeacherLexicalListsPage = React.lazy(() => import('./pages/teacher/Lexical
 const TeacherInterventionsPage = React.lazy(() => import('./pages/teacher/Interventions'));
 const AdminUsersPage = React.lazy(() => import('./pages/admin/index'));
 const AdminConfigCenterPage = React.lazy(() => import('./pages/admin/ConfigCenter'));
+const AdminLexicalPairsPage = React.lazy(() => import('./pages/admin/LexicalPairs'));
 
 const BootScreen: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -175,6 +176,13 @@ const App: React.FC = () => {
           path="admin/config-center"
           element={
             <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminConfigCenterPage />)}</RequireCapability>
+          }
+        />
+
+        <Route
+          path="admin/lexical-pairs"
+          element={
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminLexicalPairsPage />)}</RequireCapability>
           }
         />
 

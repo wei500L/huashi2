@@ -48,6 +48,7 @@ function buildSections(capabilities?: Capability[] | null): Array<{ label: strin
       label: 'Admin',
       items: [
         { name: '用户管理', path: '/admin/users', icon: Users },
+        { name: '语料库管理', path: '/admin/lexical-pairs', icon: BookOpen },
         { name: '配置中心', path: '/admin/config-center', icon: Shield },
       ],
     });
@@ -374,6 +375,12 @@ export const Topbar: React.FC = () => {
     }
     if (path.startsWith('/admin/users')) {
       return '用户管理';
+    }
+    if (path.startsWith('/admin/lexical-pairs')) {
+      return '语料库管理';
+    }
+    if (path.startsWith('/admin/config-center')) {
+      return '运维配置中心';
     }
     if (path.startsWith('/diagnosis')) {
       return '智能诊断';

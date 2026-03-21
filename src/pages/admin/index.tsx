@@ -1,5 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Database, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
 import { adminService } from '@/lib/services';
 
@@ -11,7 +13,28 @@ const AdminUsersPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
-      <PageHeader title="用户管理" subtitle="管理员只读视图，直接反映 /api/admin/users 合同。" />
+      <PageHeader
+        title="用户管理"
+        subtitle="管理员只读视图，直接反映 /api/admin/users 合同。常用运维入口放在右侧，避免反复切换工作区。"
+        actions={
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/admin/lexical-pairs"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+            >
+              <Database size={14} />
+              语料库管理
+            </Link>
+            <Link
+              to="/admin/config-center"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+            >
+              <Shield size={14} />
+              配置中心
+            </Link>
+          </div>
+        }
+      />
 
       {usersQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{usersQuery.error.message}</div>

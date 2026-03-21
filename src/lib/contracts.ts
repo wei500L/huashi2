@@ -926,10 +926,12 @@ export interface LexicalListDetailVO {
 }
 
 export interface CsvImportTemplateFieldVO {
-  key: string;
-  label: string;
+  fieldName?: string;
+  key?: string;
+  label?: string;
   required: boolean;
   description?: string | null;
+  example?: string | null;
 }
 
 export interface CsvImportTemplateVO {
@@ -939,8 +941,12 @@ export interface CsvImportTemplateVO {
 }
 
 export interface CsvImportFailureVO {
-  lineNo: number;
-  message: string;
+  rowNumber?: number;
+  lineNo?: number;
+  englishWord?: string | null;
+  frenchWord?: string | null;
+  reason?: string | null;
+  message?: string | null;
 }
 
 export interface CsvImportResultVO {
