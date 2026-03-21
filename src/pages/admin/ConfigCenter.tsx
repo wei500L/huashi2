@@ -142,7 +142,12 @@ const FieldGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">{children}</div>
 );
 
-const FieldCard: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
+const FieldCard: React.FC<{
+  label: string;
+  hint?: string;
+  detail?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ label, hint, detail, children }) => (
   <label className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] px-4 py-4 space-y-3 block">
     <div>
       <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{label}</div>
@@ -154,6 +159,7 @@ const FieldCard: React.FC<{ label: string; hint?: string; children: React.ReactN
       )}
     </div>
     {children}
+    {detail && <div className="rounded-2xl border border-slate-200/60 bg-white/70 px-3 py-3 text-xs leading-5 text-slate-500 dark:border-white/10 dark:bg-slate-950/25 dark:text-white/45">{detail}</div>}
   </label>
 );
 
@@ -850,7 +856,11 @@ const AdminConfigCenterPage: React.FC = () => {
             </div>
           </div>
           <FieldGrid>
-            <FieldCard label="最大重试次数" hint="单次请求允许的总尝试次数，包含首次请求。过大可能放大雪崩。">
+            <FieldCard
+              label="最大重试次数"
+              hint="单次请求允许的总尝试次数，包含首次请求。过大可能放大雪崩。"
+              detail="经验上 2 到 3 次更常见。若上游只是偶发抖动，可以适度调高；若上游持续失败，调高只会让请求更慢。"
+            >
               <TextInput
                 type="number"
                 value={config.resilience.maxAttempts}
@@ -865,7 +875,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="熔断失败率阈值" hint="达到该失败率后会打开熔断器，通常按百分比数值理解。">
+            <FieldCard
+              label="熔断失败率阈值"
+              hint="达到该失败率后会打开熔断器，通常按百分比数值理解。"
+              detail="可以理解成“最近一批请求里，坏请求占多少就先暂停”。值越低越保守，服务稍有波动就会熔断；值越高越激进，更可能把故障流量继续打给上游。"
+            >
               <TextInput
                 type="number"
                 step="0.1"
@@ -874,7 +888,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="滑动窗口大小" hint="统计失败率时观察的请求数量。窗口越小，熔断器越敏感。">
+            <FieldCard
+              label="滑动窗口大小"
+              hint="统计失败率时观察的请求数量。窗口越小，熔断器越敏感。"
+              detail="窗口就是“拿多少次最近请求来做判断”。窗口过小容易误判，窗口过大又会让熔断反应变慢。"
+            >
               <TextInput
                 type="number"
                 value={config.resilience.slidingWindowSize}
@@ -969,7 +987,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="初筛 Top K" hint="向量召回阶段保留的候选条数。越大越全，但后续开销越高。">
+            <FieldCard
+              label="初筛 Top K"
+              hint="向量召回阶段保留的候选条数。越大越全，但后续开销越高。"
+              detail="可以理解成“先捞多少条可能相关的候选”。捞得太少可能漏掉正确答案，捞得太多会拖慢 rerank 并引入更多噪音。"
+            >
               <TextInput
                 type="number"
                 value={config.rag.retrieval.recallTopK}
@@ -977,7 +999,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="初筛阈值" hint="向量相似度阈值。值越高越严格，召回结果越少。">
+            <FieldCard
+              label="初筛阈值"
+              hint="向量相似度阈值。值越高越严格，召回结果越少。"
+              detail="如果发现召回结果太杂，可以调高；如果发现明明有词条却经常召不回来，可以适度调低。它和 Top K 一起决定“先捞多少”和“捞得多宽”。"
+            >
               <TextInput
                 type="number"
                 step="0.01"
@@ -986,7 +1012,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="重排 Top N" hint="进入 rerank 的候选条数。通常不应大于 Recall Top K。">
+            <FieldCard
+              label="重排 Top N"
+              hint="进入 rerank 的候选条数。通常不应大于 Recall Top K。"
+              detail="这一步是把初筛结果交给更贵、更准的排序模型复核。N 太小会错过优质候选，N 太大则会增加延迟和成本。"
+            >
               <TextInput
                 type="number"
                 value={config.rag.retrieval.rerankTopN}
@@ -994,7 +1024,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="重排阈值" hint="重排序得分阈值。值越高，最终保留结果越少。">
+            <FieldCard
+              label="重排阈值"
+              hint="重排序得分阈值。值越高，最终保留结果越少。"
+              detail="它决定 rerank 模型打低分的候选要不要直接丢掉。若线上常出现“回答里引了不相关词条”，可以优先调高这个值。"
+            >
               <TextInput
                 type="number"
                 step="0.01"
@@ -1003,7 +1037,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="最终返回 Top K" hint="最终写入回答上下文的条数。过高会增加 token 压力。">
+            <FieldCard
+              label="最终返回 Top K"
+              hint="最终写入回答上下文的条数。过高会增加 token 压力。"
+              detail="这是最终真正送进回答生成链路的知识片段数。一般不宜过大，否则提示词变长、成本更高，且模型更容易被噪音干扰。"
+            >
               <TextInput
                 type="number"
                 value={config.rag.retrieval.finalTopK}

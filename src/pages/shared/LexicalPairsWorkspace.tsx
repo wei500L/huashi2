@@ -610,9 +610,12 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const [filters, setFilters] = React.useState<FilterState>(defaultFilters);
   const deferredKeyword = React.useDeferredValue(filters.keyword);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
+  const [pageNo, setPageNo] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(20);
   const [editor, setEditor] = React.useState<PairEditorState>(createEmptyEditor);
   const [showStructuredEditor, setShowStructuredEditor] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<number | null>(null);
   const [importFile, setImportFile] = React.useState<File | null>(null);
   const [importPreview, setImportPreview] = React.useState<CsvPreview | null>(null);
   const [importPreviewError, setImportPreviewError] = React.useState<string | null>(null);
@@ -636,17 +639,21 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   });
 
   const listQuery = useQuery({
-    queryKey: ['lexical-pairs', deferredKeyword, filters.lexicalPairType, filters.active, filters.embeddingStatus],
+    queryKey: ['lexical-pairs', deferredKeyword, filters.lexicalPairType, filters.active, filters.embeddingStatus, pageNo, pageSize],
     queryFn: () =>
       lexicalPairService.pageQuery({
-        pageNo: 1,
-        pageSize: 100,
+        pageNo,
+        pageSize,
         keyword: deferredKeyword.trim() || undefined,
         lexicalPairType: filters.lexicalPairType === 'ALL' ? undefined : filters.lexicalPairType,
         active: filters.active === 'ALL' ? undefined : filters.active === 'ACTIVE',
         embeddingStatus: filters.embeddingStatus === 'ALL' ? undefined : filters.embeddingStatus,
       }),
   });
+
+  React.useEffect(() => {
+    setPageNo(1);
+  }, [filters.keyword, filters.lexicalPairType, filters.active, filters.embeddingStatus, pageSize]);
 
   const detailQuery = useQuery({
     queryKey: ['lexical-pair-detail', selectedId],
@@ -690,6 +697,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const deleteMutation = useMutation({
     mutationFn: (id: number) => lexicalPairService.delete(id),
     onSuccess: async () => {
+      setPendingDeleteId(null);
       setSelectedId(null);
       setEditor(createEmptyEditor());
       setShowStructuredEditor(false);
@@ -698,6 +706,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
     },
     onError: (mutationError) => {
+      setPendingDeleteId(null);
       setError(mutationError instanceof Error ? mutationError.message : '词对删除失败。');
     },
   });
@@ -935,6 +944,16 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     [editor.senses]
   );
   const inlineReindexMeta = getInlineReindexMeta(reindexJobQuery.data?.status);
+  const totalCount = listQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const pageStart = totalCount === 0 ? 0 : (pageNo - 1) * pageSize + 1;
+  const pageEnd = Math.min(pageNo * pageSize, totalCount);
+
+  React.useEffect(() => {
+    if (pageNo > totalPages) {
+      setPageNo(totalPages);
+    }
+  }, [pageNo, totalPages]);
 
   return (
     <div className="space-y-8 pb-20">
@@ -1172,7 +1191,23 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="rounded-full border border-slate-200/70 bg-white/70 px-4 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
-                共 {listQuery.data?.total ?? 0} 条词对
+                共 {totalCount} 条词对
+              </div>
+              <div className="rounded-full border border-slate-200/70 bg-white/70 px-4 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                当前显示 {pageStart}-{pageEnd}
+              </div>
+              <div className="rounded-full border border-slate-200/70 bg-white/70 px-2 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                <select
+                  value={pageSize}
+                  onChange={(event) => setPageSize(Number(event.target.value))}
+                  className="bg-transparent px-2 py-1 outline-none"
+                >
+                  {[20, 50, 100].map((value) => (
+                    <option key={value} value={value}>
+                      每页 {value} 条
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 type="button"
@@ -1181,6 +1216,30 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
               >
                 重置筛选
               </button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-slate-200/70 bg-white/55 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+              <div>
+                第 {pageNo} / {totalPages} 页
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPageNo((current) => Math.max(1, current - 1))}
+                  disabled={pageNo <= 1 || listQuery.isFetching}
+                  className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+                >
+                  上一页
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPageNo((current) => Math.min(totalPages, current + 1))}
+                  disabled={pageNo >= totalPages || listQuery.isFetching}
+                  className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+                >
+                  下一页
+                </button>
+              </div>
             </div>
 
             <div className="max-h-[720px] space-y-4 overflow-y-auto pr-1">
@@ -1806,7 +1865,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
             {editor.id && (
               <button
                 type="button"
-                onClick={() => deleteMutation.mutate(editor.id as number)}
+                onClick={() => setPendingDeleteId(editor.id as number)}
                 disabled={deleteMutation.isPending}
                 className="inline-flex items-center gap-2 rounded-2xl border border-rose-500/20 px-5 py-3 text-sm font-bold text-rose-500 disabled:opacity-60"
               >
@@ -1827,6 +1886,46 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
           </div>
         </SectionCard>
       </div>
+
+      {pendingDeleteId !== null && (
+        <>
+          <button
+            type="button"
+            aria-label="关闭删除确认"
+            onClick={() => setPendingDeleteId(null)}
+            className="fixed inset-0 z-[60] bg-slate-950/45 backdrop-blur-sm"
+          />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+            <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-white/90 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.28)] backdrop-blur-xl dark:bg-slate-950/90">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-rose-500">Danger Zone</div>
+              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">确认删除当前词对？</div>
+              <div className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">
+                词对 <span className="font-bold text-slate-900 dark:text-white">{editor.englishWord || '--'} / {editor.frenchWord || '--'}</span> 将被删除。
+                这个操作会移除词对及其义项、例句和关联关系，误删后需要重新录入。
+              </div>
+
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteId(null)}
+                  className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:text-white/45"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate(pendingDeleteId)}
+                  disabled={deleteMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  {deleteMutation.isPending ? <LoaderCircle size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                  确认删除
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
