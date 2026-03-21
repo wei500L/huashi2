@@ -116,6 +116,7 @@ public class DiagnosisSessionService {
         if (templateItems.isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT, "Published diagnosis template does not contain items", 409);
         }
+        requireNoActiveSession(currentUserId());
 
         long seed = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
         List<DiagnosisTemplateItemEntity> orderedItems = orderTemplateItems(templateItems, seed);
@@ -585,6 +586,21 @@ public class DiagnosisSessionService {
             throw new BusinessException(ResultCode.FORBIDDEN, "You do not have permission to access this diagnosis session", 403);
         }
         return session;
+    }
+
+    private void requireNoActiveSession(Long ownerUserId) {
+        DiagnosisSessionEntity existing = diagnosisSessionMapper.selectOne(Wrappers.<DiagnosisSessionEntity>lambdaQuery()
+                .eq(DiagnosisSessionEntity::getOwnerUserId, ownerUserId)
+                .eq(DiagnosisSessionEntity::getStatus, DiagnosisSessionStatus.IN_PROGRESS.name())
+                .orderByDesc(DiagnosisSessionEntity::getStartedAt)
+                .last("LIMIT 1"));
+        if (existing != null) {
+            throw new BusinessException(
+                    ResultCode.CONFLICT,
+                    "Diagnosis session already in progress. Resume the active session before starting a new one.",
+                    409
+            );
+        }
     }
 
     private DiagnosisSessionEntity requireInProgressSession(Long sessionId) {

@@ -76,12 +76,15 @@ public class KnowledgeIngestionService {
     }
 
     public RagReindexResponse submit(RagReindexRequest request) {
-        ReindexMode mode = parseMode(request.mode());
-        Set<String> requestedSourceTypes = parseSourceTypes(request.sourceTypes());
-        Set<String> requestedSourceIds = normalizeIds(request.sourceIds());
-        Long jobId = ingestionJobRepository.createPendingJob(JOB_TYPE, mode.name(), requestedSourceTypes, requestedSourceIds);
-        ragTaskExecutor.execute(() -> runJob(jobId, mode, requestedSourceTypes, requestedSourceIds, Boolean.TRUE.equals(request.forceReembed())));
-        return new RagReindexResponse(jobId, "PENDING");
+        PreparedJob job = prepareJob(request);
+        ragTaskExecutor.execute(() -> runJob(job, false));
+        return new RagReindexResponse(job.jobId(), "PENDING");
+    }
+
+    public RagReindexJobResponse submitAndAwait(RagReindexRequest request) {
+        PreparedJob job = prepareJob(request);
+        runJob(job, true);
+        return getJob(job.jobId());
     }
 
     public RagReindexJobResponse getJob(Long jobId) {
@@ -104,28 +107,56 @@ public class KnowledgeIngestionService {
         );
     }
 
-    private void runJob(
-            Long jobId,
-            ReindexMode mode,
-            Set<String> requestedSourceTypes,
-            Set<String> requestedSourceIds,
-            boolean forceReembed
-    ) {
+    private PreparedJob prepareJob(RagReindexRequest request) {
+        ReindexMode mode = parseMode(request.mode());
+        Set<String> requestedSourceTypes = parseSourceTypes(request.sourceTypes());
+        Set<String> requestedSourceIds = normalizeIds(request.sourceIds());
+        Long jobId = ingestionJobRepository.createPendingJob(JOB_TYPE, mode.name(), requestedSourceTypes, requestedSourceIds);
+        return new PreparedJob(
+                jobId,
+                mode,
+                requestedSourceTypes,
+                requestedSourceIds,
+                Boolean.TRUE.equals(request.forceReembed())
+        );
+    }
+
+    private void runJob(PreparedJob job, boolean rethrowFailure) {
         StatsAccumulator stats = new StatsAccumulator();
         OffsetDateTime watermark = null;
         try {
-            ingestionJobRepository.markRunning(jobId);
+            ingestionJobRepository.markRunning(job.jobId());
 
-            if (!java.util.Collections.disjoint(requestedSourceTypes, KnowledgeSourceTypes.APP_SERVER_SOURCE_TYPES)) {
-                watermark = syncLexicalKnowledge(jobId, mode, requestedSourceTypes, requestedSourceIds, forceReembed, stats);
+            if (!java.util.Collections.disjoint(job.requestedSourceTypes(), KnowledgeSourceTypes.APP_SERVER_SOURCE_TYPES)) {
+                watermark = syncLexicalKnowledge(
+                        job.jobId(),
+                        job.mode(),
+                        job.requestedSourceTypes(),
+                        job.requestedSourceIds(),
+                        job.forceReembed(),
+                        stats
+                );
             }
-            if (!java.util.Collections.disjoint(requestedSourceTypes, KnowledgeSourceTypes.SEED_SOURCE_TYPES)) {
-                syncSeedKnowledge(jobId, mode, requestedSourceTypes, requestedSourceIds, forceReembed, stats);
+            if (!java.util.Collections.disjoint(job.requestedSourceTypes(), KnowledgeSourceTypes.SEED_SOURCE_TYPES)) {
+                syncSeedKnowledge(
+                        job.jobId(),
+                        job.mode(),
+                        job.requestedSourceTypes(),
+                        job.requestedSourceIds(),
+                        job.forceReembed(),
+                        stats
+                );
             }
 
-            ingestionJobRepository.markSucceeded(jobId, watermark, stats.toMap());
+            ingestionJobRepository.markSucceeded(job.jobId(), watermark, stats.toMap());
         } catch (Exception ex) {
-            ingestionJobRepository.markFailed(jobId, ex.getMessage(), watermark, stats.toMap());
+            ingestionJobRepository.markFailed(job.jobId(), ex.getMessage(), watermark, stats.toMap());
+            if (rethrowFailure) {
+                if (ex instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
+                }
+                throw new IllegalStateException(ex.getMessage(), ex);
+            }
         }
     }
 
@@ -565,6 +596,15 @@ public class KnowledgeIngestionService {
             String title,
             String content,
             Map<String, Object> metadata
+    ) {
+    }
+
+    private record PreparedJob(
+            Long jobId,
+            ReindexMode mode,
+            Set<String> requestedSourceTypes,
+            Set<String> requestedSourceIds,
+            boolean forceReembed
     ) {
     }
 

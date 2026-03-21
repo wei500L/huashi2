@@ -8,20 +8,21 @@ import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
 import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.web.client.RestClient;
 
@@ -39,6 +40,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class QwenProviderClientTest {
 
@@ -67,9 +70,11 @@ class QwenProviderClientTest {
 
         AiProviderConfiguration configuration = new AiProviderConfiguration();
         AiProviderProperties properties = buildProperties();
+        RagProperties ragProperties = buildRagProperties();
         ProviderRequestContextHolder requestContextHolder = configuration.providerRequestContextHolder();
         ClientHttpRequestInterceptor interceptor = configuration.providerRequestCaptureInterceptor(requestContextHolder);
-        ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(new com.fasterxml.jackson.databind.ObjectMapper());
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(objectMapper);
         AiResilienceProperties resilienceProperties = new AiResilienceProperties();
         resilienceProperties.setMaxAttempts(1);
         ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor(
@@ -81,27 +86,26 @@ class QwenProviderClientTest {
                 providerErrorSupport,
                 requestContextHolder
         );
-
-        OpenAiApi chatApi = configuration.qwenChatOpenAiApi(RestClient.builder(), interceptor, properties);
-        OpenAiChatModel chatModel = configuration.qwenChatModel(chatApi, properties);
-        ChatClient chatClient = configuration.qwenChatClient(chatModel);
-        EmbeddingModel embeddingModel = configuration.qwenEmbeddingModel(
-                configuration.qwenEmbeddingOpenAiApi(RestClient.builder(), interceptor, properties),
-                properties
+        AiRuntimeBundleFactory bundleFactory = new AiRuntimeBundleFactory(RestClient.builder(), interceptor, providerErrorSupport);
+        AiRuntimeBundle runtimeBundle = bundleFactory.fromProperties(
+                properties,
+                resilienceProperties,
+                ragProperties,
+                "TEST",
+                1L
         );
+        AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
+        when(runtimeConfigService.current()).thenReturn(runtimeBundle);
 
         chatProviderClient = new QwenChatProviderClient(
-                properties,
-                chatClient,
-                chatModel,
-                new com.fasterxml.jackson.databind.ObjectMapper(),
+                runtimeConfigService,
+                objectMapper,
                 resilientAiExecutor,
                 observationService,
                 requestContextHolder
         );
         embeddingProviderClient = new QwenEmbeddingProviderClient(
-                properties,
-                embeddingModel,
+                runtimeConfigService,
                 resilientAiExecutor,
                 observationService,
                 requestContextHolder
@@ -240,5 +244,12 @@ class QwenProviderClientTest {
         providers.put("qwen", providerProperties);
         properties.setProviders(providers);
         return properties;
+    }
+
+    private RagProperties buildRagProperties() {
+        RagProperties ragProperties = new RagProperties();
+        ragProperties.getAppServer().setBaseUrl("http://localhost:8080");
+        ragProperties.getAppServer().setInternalToken("test-internal-token");
+        return ragProperties;
     }
 }

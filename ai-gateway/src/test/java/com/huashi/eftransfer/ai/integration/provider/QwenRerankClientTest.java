@@ -8,8 +8,13 @@ import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -31,6 +36,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class QwenRerankClientTest {
 
@@ -56,18 +63,30 @@ class QwenRerankClientTest {
     void setUp() {
         wireMockServer.resetAll();
         AiProviderConfiguration configuration = new AiProviderConfiguration();
+        AiProviderProperties properties = buildProperties();
+        RagProperties ragProperties = buildRagProperties();
         ProviderRequestContextHolder contextHolder = configuration.providerRequestContextHolder();
         ClientHttpRequestInterceptor interceptor = configuration.providerRequestCaptureInterceptor(contextHolder);
-        ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(new com.fasterxml.jackson.databind.ObjectMapper());
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(objectMapper);
         AiResilienceProperties resilienceProperties = new AiResilienceProperties();
         resilienceProperties.setMaxAttempts(1);
         ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor(
                 configuration.retryRegistry(resilienceProperties, providerErrorSupport),
                 configuration.circuitBreakerRegistry(resilienceProperties, providerErrorSupport)
         );
+        AiRuntimeBundleFactory bundleFactory = new AiRuntimeBundleFactory(RestClient.builder(), interceptor, providerErrorSupport);
+        AiRuntimeBundle runtimeBundle = bundleFactory.fromProperties(
+                properties,
+                resilienceProperties,
+                ragProperties,
+                "TEST",
+                1L
+        );
+        AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
+        when(runtimeConfigService.current()).thenReturn(runtimeBundle);
         rerankClient = new QwenRerankClient(
-                configuration.qwenRerankRestClient(RestClient.builder(), interceptor, buildProperties()),
-                buildProperties(),
+                runtimeConfigService,
                 resilientAiExecutor,
                 new AiProviderObservationService(new SimpleMeterRegistry(), providerErrorSupport, contextHolder),
                 contextHolder
@@ -176,5 +195,12 @@ class QwenRerankClientTest {
         providers.put("qwen", providerProperties);
         properties.setProviders(providers);
         return properties;
+    }
+
+    private RagProperties buildRagProperties() {
+        RagProperties ragProperties = new RagProperties();
+        ragProperties.getAppServer().setBaseUrl("http://localhost:8080");
+        ragProperties.getAppServer().setInternalToken("test-internal-token");
+        return ragProperties;
     }
 }

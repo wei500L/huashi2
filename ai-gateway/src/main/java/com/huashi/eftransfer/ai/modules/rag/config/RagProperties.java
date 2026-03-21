@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.ai.modules.rag.config;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -9,8 +11,11 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "rag")
 public class RagProperties {
 
+    @Valid
     private AppServer appServer = new AppServer();
+    @Valid
     private Ingestion ingestion = new Ingestion();
+    @Valid
     private Retrieval retrieval = new Retrieval();
 
     public AppServer getAppServer() {
@@ -40,6 +45,7 @@ public class RagProperties {
     public static class AppServer {
 
         private String baseUrl = "http://localhost:8080";
+        @NotBlank
         private String internalToken = "";
         private Duration connectTimeout = Duration.ofSeconds(3);
         private Duration readTimeout = Duration.ofSeconds(5);

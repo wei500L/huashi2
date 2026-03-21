@@ -27,8 +27,8 @@ import { twMerge } from 'tailwind-merge';
 import { Magnetic } from '@/components/common';
 import { useAuthStore, useUIStore } from '@/store';
 import { aiService } from '@/lib/services';
-import { hasCapability, homePathForCapabilities, userHasCapability } from '@/lib/format';
-import type { Capability, Role } from '@/lib/contracts';
+import { hasCapability, homePathForCapabilities, roleLabel, userHasCapability, workspaceLabels } from '@/lib/format';
+import type { Capability } from '@/lib/contracts';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -85,16 +85,6 @@ function buildSections(capabilities?: Capability[] | null): Array<{ label: strin
   });
 
   return sections;
-}
-
-function roleLabel(role?: Role | null): string {
-  if (role === 'TEACHER') {
-    return 'Teacher';
-  }
-  if (role === 'ADMIN') {
-    return 'Administrator';
-  }
-  return 'Student';
 }
 
 export const Sidebar: React.FC = () => {
@@ -405,7 +395,7 @@ export const Topbar: React.FC = () => {
       <div className="flex items-center gap-5 flex-1 relative z-10">
         <div>
           <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-1">
-            {roleLabel(user?.primaryRole)}
+            {workspaceLabels(user?.capabilities).join(' / ') || (user?.roles || []).map((role) => roleLabel(role)).join(' / ') || '--'}
           </div>
           <div className="text-lg font-black text-slate-900 dark:text-white">{currentTitle}</div>
         </div>

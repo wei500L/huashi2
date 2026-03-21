@@ -1,10 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import type { EChartsOption } from 'echarts';
 import { AlertTriangle, ArrowRight, Brain, Clock3, RefreshCw, Target } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
+import type { AppChartOption } from '@/lib/echarts';
 import { studentService, trainingService } from '@/lib/services';
 import { buildRadarOption, buildTrendOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import { normalizeApiError } from '@/lib/api';
@@ -44,7 +44,7 @@ const DashboardPage: React.FC = () => {
 
   const overview = overviewQuery.data;
   const topCards = overview?.cards.slice(0, 4) ?? [];
-  const errorDistributionOption = {
+  const errorDistributionOption: AppChartOption = {
     tooltip: { trigger: 'item' },
     series: [
       {
@@ -53,7 +53,7 @@ const DashboardPage: React.FC = () => {
         data: (errorDistributionQuery.data || []).map((item) => ({ name: item.label, value: item.count })),
       },
     ],
-  } as EChartsOption;
+  };
 
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
 

@@ -1,8 +1,8 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Brain, CheckCircle2, ChevronRight, Timer } from 'lucide-react';
-import ReactECharts from 'echarts-for-react';
 import { PageHeader } from '@/components/common';
+import { EChart } from '@/components/common/EChart';
 import { aiService, diagnosisSessionService, diagnosisTemplateService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import type { DiagnosisOptionViewVO } from '@/lib/contracts';
@@ -36,11 +36,18 @@ const DiagnosisPage: React.FC = () => {
     const inProgress = historyQuery.data.records[0];
     if (inProgress?.sessionId) {
       setSessionId(inProgress.sessionId);
+      shownAtRef.current = Date.now();
       setPhase('running');
     } else {
       setPhase('select');
     }
   }, [historyQuery.data]);
+
+  React.useEffect(() => {
+    if (historyQuery.error) {
+      setPhase('select');
+    }
+  }, [historyQuery.error]);
 
   const templatesQuery = useQuery({
     queryKey: ['student-diagnosis-templates'],
@@ -368,7 +375,7 @@ const DiagnosisPage: React.FC = () => {
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
               <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">radar profile</div>
               <div className="h-[360px]">
-                <ReactECharts option={radarOption} style={{ height: '100%' }} />
+                <EChart option={radarOption} />
               </div>
             </section>
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">

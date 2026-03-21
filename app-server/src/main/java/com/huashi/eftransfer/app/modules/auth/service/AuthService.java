@@ -69,11 +69,13 @@ public class AuthService {
             throw invalidCredentials();
         }
 
+        Set<String> roles = userQueryService.getRoleCodes(user.getId());
+        requireAssignedRoles(roles);
+
         revokeExistingSession(user.getId());
         user.setLastLoginAt(LocalDateTime.now());
         userMapper.updateById(user);
 
-        Set<String> roles = userQueryService.getRoleCodes(user.getId());
         LoginResponse response = issueTokens(user, roles);
         log.info("event=auth_login_success userId={} username={} roles={}", user.getId(), user.getUsername(), roles);
         return response;
@@ -119,6 +121,7 @@ public class AuthService {
     }
 
     private LoginResponse issueTokens(UserEntity user, Set<String> roles) {
+        requireAssignedRoles(roles);
         AccessToken accessToken = jwtTokenProvider.generateAccessToken(
                 user.getId(),
                 user.getUsername(),
@@ -158,6 +161,12 @@ public class AuthService {
 
     private BusinessException invalidCredentials() {
         return new BusinessException(ResultCode.INVALID_CREDENTIALS, "Invalid username/email or password", 401);
+    }
+
+    private void requireAssignedRoles(Set<String> roles) {
+        if (roles == null || roles.isEmpty()) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "User account has no assigned roles", 403);
+        }
     }
 
     private void revokeExistingSession(Long userId) {

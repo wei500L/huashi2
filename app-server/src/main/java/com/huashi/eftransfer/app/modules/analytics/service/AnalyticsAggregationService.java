@@ -201,10 +201,7 @@ public class AnalyticsAggregationService {
     }
 
     private void rebuildStudentDailyAggregate(Long ownerUserId, LocalDate statDate, String sourceType) {
-        analyticsDailyAggregateMapper.delete(Wrappers.<AnalyticsDailyAggregateEntity>lambdaQuery()
-                .eq(AnalyticsDailyAggregateEntity::getOwnerUserId, ownerUserId)
-                .eq(AnalyticsDailyAggregateEntity::getStatDate, statDate)
-                .eq(AnalyticsDailyAggregateEntity::getSourceType, sourceType));
+        analyticsDailyAggregateMapper.hardDeleteByOwnerDateAndSource(ownerUserId, statDate, sourceType);
 
         Map<AggregateKey, AggregateAccumulator> accumulators = AnalyticsConstants.SOURCE_DIAGNOSIS.equalsIgnoreCase(sourceType)
                 ? buildDiagnosisAccumulators(ownerUserId, statDate)
@@ -215,10 +212,7 @@ public class AnalyticsAggregationService {
     }
 
     private void rebuildClassDailyAggregate(Long classId, LocalDate statDate, String sourceType, LocalDateTime asOf) {
-        classAnalyticsDailyAggregateMapper.delete(Wrappers.<ClassAnalyticsDailyAggregateEntity>lambdaQuery()
-                .eq(ClassAnalyticsDailyAggregateEntity::getTeachingClassId, classId)
-                .eq(ClassAnalyticsDailyAggregateEntity::getStatDate, statDate)
-                .eq(ClassAnalyticsDailyAggregateEntity::getSourceType, sourceType));
+        classAnalyticsDailyAggregateMapper.hardDeleteByClassDateAndSource(classId, statDate, sourceType);
 
         List<Long> studentIds = teachingClassService.listActiveStudentIds(classId, asOf);
         if (studentIds.isEmpty()) {

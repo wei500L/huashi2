@@ -36,6 +36,7 @@ root
 - `TEACHER -> TEACHING_WORKSPACE`
 - `ADMIN -> ADMIN_CONSOLE + TEACHING_WORKSPACE + STUDENT_WORKSPACE`
 - 多角色用户取能力并集
+- enabled 用户必须至少有一个 role；零角色账户会被后端直接拒绝登录
 - 前端页面显隐、默认首页、侧边栏和 AI 助手入口都基于 `capabilities`，不再只看 `primaryRole`
 
 ## 4. 安全默认值
@@ -45,6 +46,7 @@ root
 - `platform.internal-api.enabled=true` 时，所有 `/internal/**` 接口都要求 `X-Internal-Token`
 - `APP_DEMO_DATA_ENABLED=false` 是默认值；demo 用户初始化仅在 `local/test` profile 且显式打开时执行
 - `ai-gateway` 的 `/internal/ai/**`、`/internal/ai/rag/**` 与 `app-server` 的 `/internal/**` 都采用同一内部鉴权头
+- `ai-gateway` 的 `rag.app-server.internal-token` 现在是必填配置，缺失时不会启动为“半可用”状态
 
 ## 5. 环境变量
 
@@ -70,6 +72,7 @@ cp .env.example .env
 - `APP_DEMO_DATA_ENABLED=true` 时，本地会注入默认管理员、教师、学生测试账号
 - `APP_DEMO_DATA_ENABLED=false` 时，登录账号需要自行准备
 - `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`
+- `diagnosis` 与 `training` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；刷新后前端优先恢复该 session
 
 ## 6. Docker 本地联调
 
@@ -99,20 +102,20 @@ docker compose --env-file .env up --build
 前提：
 
 - JDK `25`
-- Maven `3.9.11+`
 - Node.js `20+`
 - MySQL / Redis / RabbitMQ / PostgreSQL 已启动
+- 仓库已内置 Maven Wrapper，无需全局安装 Maven
 
 启动 `ai-gateway`：
 
 ```bash
-mvn -pl ai-gateway -am spring-boot:run
+./mvnw -pl ai-gateway -am spring-boot:run
 ```
 
 启动 `app-server`：
 
 ```bash
-mvn -pl app-server -am spring-boot:run
+./mvnw -pl app-server -am spring-boot:run
 ```
 
 启动前端：
@@ -172,9 +175,10 @@ curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/i
 ## 12. 前端工程约束
 
 - 路由采用 `React.lazy` 做页面级懒加载
-- `vite.config.ts` 已做手动分包
+- 图表运行时统一走 `src/lib/echarts.ts`，使用 `echarts/core` 做按需注册
+- `vite.config.ts` 已做手动分包，并提供 `npm run build:analyze`
 - 前端真实链路统一走 `src/lib/services.ts`
-- `src/hooks/useAnalytics.ts`、`src/hooks/useDashboard.ts`、`src/store/diagnosis.store.ts` 等旧实验流仍在仓库中，但不再是主业务链路
+- 旧实验 hooks / store / types 已从主仓库链路中清理，不再保留误导性 mock 实现
 
 ## 13. 验证命令
 
@@ -182,7 +186,8 @@ curl -H "X-Internal-Token: $PLATFORM_INTERNAL_API_TOKEN" http://localhost:8090/i
 npm run lint
 npm run typecheck
 npm run build
-mvn test
+./mvnw test
+npm run build:analyze
 ```
 
-如果当前环境没有全局 `mvn`，Java 测试与启动命令无法执行，需要先安装 Maven。
+如果当前环境没有 `java` 或没有 JDK `25`，即使仓库已带 `./mvnw`，Java 启动与测试命令仍无法执行。

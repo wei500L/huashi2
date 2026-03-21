@@ -6,13 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig(
-  globalIgnores([
-    'dist',
-    'src/hooks/useAnalytics.ts',
-    'src/hooks/useDashboard.ts',
-    'src/store/diagnosis.store.ts',
-    'src/types/admin.ts',
-  ]),
+  globalIgnores(['dist']),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

@@ -14,6 +14,8 @@ import java.util.List;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class AiHealthControllerTest {
 
@@ -37,12 +39,8 @@ class AiHealthControllerTest {
                 List.of("test"),
                 OffsetDateTime.parse("2026-03-19T09:00:00Z")
         );
-        AiHealthService aiHealthService = new AiHealthService(null, null, null, null, null, null, null, null) {
-            @Override
-            public AiHealthPayload getHealthPayload() {
-                return payload;
-            }
-        };
+        AiHealthService aiHealthService = mock(AiHealthService.class);
+        when(aiHealthService.getHealthPayload()).thenReturn(payload);
         mockMvc = MockMvcBuilders.standaloneSetup(new AiHealthController(aiHealthService)).build();
     }
 

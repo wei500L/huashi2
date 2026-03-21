@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.huashi.eftransfer.ai.common.config.AiProviderConfiguration;
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
+import com.huashi.eftransfer.ai.common.config.InternalApiProperties;
 import com.huashi.eftransfer.ai.common.exception.GlobalExceptionHandler;
 import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
 import com.huashi.eftransfer.ai.common.filter.TraceFilter;
@@ -16,6 +17,7 @@ import com.huashi.eftransfer.ai.integration.provider.QwenAiProviderFacade;
 import com.huashi.eftransfer.ai.integration.provider.QwenChatProviderClient;
 import com.huashi.eftransfer.ai.integration.provider.QwenEmbeddingProviderClient;
 import com.huashi.eftransfer.ai.integration.provider.QwenRerankClient;
+import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.internal.controller.InternalAiController;
 import com.huashi.eftransfer.ai.modules.internal.service.InternalAiService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -46,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = InternalAiController.class)
 @AutoConfigureMockMvc
+@EnableConfigurationProperties({InternalApiProperties.class, RagProperties.class})
 @TestPropertySource(properties = {
         "platform.internal-api.enabled=true",
         "platform.internal-api.token=test-internal-token"
@@ -108,6 +112,8 @@ class InternalAiControllerIntegrationTest {
         registry.add("ai.provider.providers.qwen.rerank.api-key", () -> "test-api-key");
         registry.add("ai.provider.providers.qwen.rerank.model", () -> "gte-rerank-v2");
         registry.add("ai.resilience.max-attempts", () -> "1");
+        registry.add("rag.app-server.base-url", () -> "http://localhost:8080");
+        registry.add("rag.app-server.internal-token", () -> "test-internal-token");
     }
 
     @Test

@@ -1,11 +1,10 @@
 import React from 'react';
-import ReactECharts from 'echarts-for-react';
-import type { EChartsOption } from 'echarts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { RefreshCcw } from 'lucide-react';
-import { useUIStore } from '@/store';
 import { motion } from 'framer-motion';
+import { EChart } from '@/components/common/EChart';
+import type { AppChartOption } from '@/lib/echarts';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -13,7 +12,7 @@ function cn(...inputs: ClassValue[]) {
 
 interface ChartCardProps {
   title: string;
-  option: EChartsOption;
+  option: AppChartOption;
   loading?: boolean;
   isEmpty?: boolean;
   height?: string | number;
@@ -30,8 +29,6 @@ export const ChartCard: React.FC<ChartCardProps> = ({
   className,
   extra 
 }) => {
-  const { isDarkMode } = useUIStore();
-
   return (
     <div className={cn(
       "liquid-glass-panel border-beam fluid-texture rounded-[2.5rem] overflow-hidden group transition-all duration-700 hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] dark:hover:shadow-[0_30px_80px_rgba(0,0,0,0.6)]", 
@@ -69,13 +66,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
             transition={{ duration: 1, ease: "easeOut" }}
             style={{ height: '100%', width: '100%' }}
           >
-            <ReactECharts 
-              option={option} 
-              style={{ height: '100%', width: '100%' }} 
-              notMerge={true}
-              lazyUpdate={true}
-              theme={isDarkMode ? 'dark' : 'light'} 
-            />
+            <EChart option={option} style={{ height: '100%', width: '100%' }} />
           </motion.div>
         )}
       </div>

@@ -6,6 +6,7 @@ import com.huashi.eftransfer.app.common.security.handler.RestAccessDeniedHandler
 import com.huashi.eftransfer.app.common.security.handler.RestAuthenticationEntryPoint;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.security.store.RedisAuthTokenStore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import tools.jackson.databind.ObjectMapper;
 
@@ -60,8 +62,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/student/**").hasAnyRole("STUDENT", "ADMIN")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(internalApiAuthenticationFilter, JwtAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(internalApiAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, BasicAuthenticationFilter.class)
                 .build();
     }
 
@@ -76,6 +78,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnMissingBean(AuthTokenStore.class)
     public AuthTokenStore authTokenStore(StringRedisTemplate stringRedisTemplate, ObjectMapper objectMapper) {
         return new RedisAuthTokenStore(stringRedisTemplate, objectMapper);
     }

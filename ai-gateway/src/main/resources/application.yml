@@ -83,7 +83,7 @@ logging:
 rag:
   app-server:
     base-url: ${APP_SERVER_BASE_URL:http://localhost:8080}
-    internal-token: ${PLATFORM_INTERNAL_API_TOKEN:}
+    internal-token: ${PLATFORM_INTERNAL_API_TOKEN}
     connect-timeout: ${APP_SERVER_CONNECT_TIMEOUT:PT3S}
     read-timeout: ${APP_SERVER_READ_TIMEOUT:PT5S}
   ingestion:
@@ -99,4 +99,4 @@ rag:
 platform:
   internal-api:
     enabled: ${PLATFORM_INTERNAL_API_ENABLED:true}
-    token: ${PLATFORM_INTERNAL_API_TOKEN:}
+    token: ${PLATFORM_INTERNAL_API_TOKEN}

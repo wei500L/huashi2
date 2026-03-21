@@ -11,7 +11,6 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
-import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,12 +78,6 @@ public class AiRuntimeConfigService {
             AiRuntimeBundle baseBundle = current();
             ApiResponse<AiOpsConfigEffectiveResponse> response = baseBundle.appServerRestClient().get()
                     .uri("/internal/ops/ai-config")
-                    .headers(headers -> {
-                        String internalToken = baseBundle.config().rag().appServer().internalToken();
-                        if (StringUtils.hasText(internalToken)) {
-                            headers.set(InternalApiHeaders.INTERNAL_TOKEN, internalToken);
-                        }
-                    })
                     .retrieve()
                     .body(EFFECTIVE_TYPE);
 
@@ -240,6 +233,7 @@ public class AiRuntimeConfigService {
             return;
         }
         validateUrl("rag.appServer.baseUrl", payload.rag().appServer().baseUrl(), issues);
+        requireText("rag.appServer.internalToken", payload.rag().appServer().internalToken(), issues);
         validateDuration("rag.appServer.connectTimeout", payload.rag().appServer().connectTimeout(), issues);
         validateDuration("rag.appServer.readTimeout", payload.rag().appServer().readTimeout(), issues);
         validatePositive("rag.ingestion.exportPageSize", payload.rag().ingestion().exportPageSize(), issues);

@@ -73,6 +73,7 @@ public class UserQueryService {
         }
 
         Set<String> roles = getRoleCodes(userId);
+        requireAssignedRoles(roles);
         StudentProfileEntity studentProfile = studentProfileMapper.selectOne(Wrappers.<StudentProfileEntity>lambdaQuery()
                 .eq(StudentProfileEntity::getUserId, userId));
         TeacherProfileEntity teacherProfile = teacherProfileMapper.selectOne(Wrappers.<TeacherProfileEntity>lambdaQuery()
@@ -126,7 +127,7 @@ public class UserQueryService {
                 .sorted(Comparator.comparingInt(this::rolePriority))
                 .map(Enum::name)
                 .findFirst()
-                .orElse(UserRole.STUDENT.name());
+                .orElseThrow(() -> new BusinessException(ResultCode.FORBIDDEN, "User account has no assigned roles", 403));
     }
 
     private int rolePriority(UserRole role) {
@@ -157,5 +158,11 @@ public class UserQueryService {
         return capabilities.stream()
                 .map(Enum::name)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private void requireAssignedRoles(Set<String> roles) {
+        if (roles == null || roles.isEmpty()) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "User account has no assigned roles", 403);
+        }
     }
 }

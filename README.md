@@ -25,13 +25,14 @@
 - `STUDENT -> STUDENT_WORKSPACE`
 - `TEACHER -> TEACHING_WORKSPACE`
 - `ADMIN -> ADMIN_CONSOLE + TEACHING_WORKSPACE + STUDENT_WORKSPACE`
+- enabled 用户必须至少分配一个 role；零角色账户不会进入登录主链路
 - 前端路由、导航和默认首页基于 `CurrentUserVO.capabilities` 判定，不再只看 `primaryRole`
 
 ## 安全与内部接口
 
 - `X-Internal-Token` 是内部接口统一鉴权头
 - `PLATFORM_INTERNAL_API_ENABLED=true` 时，`/internal/**` 一律 fail-close
-- `PLATFORM_INTERNAL_API_TOKEN` 由 `app-server` 与 `ai-gateway` 共享
+- `PLATFORM_INTERNAL_API_TOKEN` 由 `app-server` 与 `ai-gateway` 共享，缺失时 `ai-gateway` 的 app-server 内部调用配置不会通过校验
 - `APP_JWT_SECRET` 不再有不安全默认值
 - demo 用户初始化仅在 `local/test` profile 且 `APP_DEMO_DATA_ENABLED=true` 时启用
 
@@ -60,8 +61,8 @@ docker compose --env-file .env up -d mysql redis rabbitmq postgres
 ### 3. 启动后端
 
 ```bash
-mvn -pl ai-gateway -am spring-boot:run
-mvn -pl app-server -am spring-boot:run
+./mvnw -pl ai-gateway -am spring-boot:run
+./mvnw -pl app-server -am spring-boot:run
 ```
 
 ### 4. 启动前端
@@ -77,7 +78,13 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run build
-mvn test
+./mvnw test
+```
+
+图表包分析：
+
+```bash
+npm run build:analyze
 ```
 
 ## 健康检查
@@ -91,7 +98,7 @@ mvn test
 
 - diagnosis/training 完成事件默认只在 `app-server` 进程内驱动 analytics 聚合
 - RabbitMQ 当前正式职责是跨服务知识同步，不承担本地 analytics 投影
-- training session 已对齐 diagnosis，支持历史查询与进度保存
-- 前端采用路由级懒加载和手动分包，减少单包膨胀
+- diagnosis / training 都限制为单用户单活跃 `IN_PROGRESS` session，并支持历史查询与进度保存
+- 前端采用路由级懒加载、`echarts/core` 按需注册和手动分包，减少图表运行时膨胀
 
 更多本地联调、环境变量和行为说明见 [docs/local-development.md](/mnt/d/huashi2/docs/local-development.md)。

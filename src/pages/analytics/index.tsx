@@ -1,10 +1,10 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { EChartsOption } from 'echarts';
 import { Download, Filter } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
 import { saveBlob } from '@/lib/api';
+import type { AppChartOption } from '@/lib/echarts';
 import { studentService } from '@/lib/services';
 import {
   buildHeatmapOption,
@@ -44,7 +44,7 @@ const AnalyticsPage: React.FC = () => {
     queryFn: () => studentService.getErrorDistribution(range),
   });
 
-  const contextOption = {
+  const contextOption: AppChartOption = {
     tooltip: { trigger: 'axis' },
     legend: { bottom: 0, textStyle: { color: '#94a3b8' } },
     grid: { left: '4%', right: '4%', top: '8%', bottom: '18%', containLabel: true },
@@ -71,9 +71,9 @@ const AnalyticsPage: React.FC = () => {
         data: (overviewQuery.data?.contextPerformance || []).map((item) => item.avgReactionTimeMs),
       },
     ],
-  } as EChartsOption;
+  };
 
-  const errorDistributionOption = {
+  const errorDistributionOption: AppChartOption = {
     tooltip: { trigger: 'item' },
     series: [
       {
@@ -82,7 +82,7 @@ const AnalyticsPage: React.FC = () => {
         data: (errorDistributionQuery.data || []).map((item) => ({ name: item.label, value: item.count })),
       },
     ],
-  } as EChartsOption;
+  };
 
   const handleExport = async () => {
     const blob = await studentService.exportCsv(range);

@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.ai.modules.rag.controller;
 
+import com.huashi.eftransfer.ai.common.config.InternalApiProperties;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeIngestionService;
 import com.huashi.eftransfer.ai.modules.rag.service.RagService;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
@@ -12,6 +13,7 @@ import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
@@ -28,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = InternalRagController.class)
+@EnableConfigurationProperties(InternalApiProperties.class)
 @TestPropertySource(properties = {
         "platform.internal-api.enabled=true",
         "platform.internal-api.token=test-internal-token"

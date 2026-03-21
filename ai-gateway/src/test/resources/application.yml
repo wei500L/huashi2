@@ -1,0 +1,4 @@
+rag:
+  app-server:
+    base-url: http://localhost:8080
+    internal-token: test-internal-token

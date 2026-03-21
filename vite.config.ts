@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ mode }) => ({
+  plugins: [
+    react(),
+    mode === 'analyze'
+      ? visualizer({
+          filename: 'dist/bundle-report.html',
+          gzipSize: true,
+          brotliSize: true,
+          open: false,
+        })
+      : null,
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -16,8 +27,11 @@ export default defineConfig({
           if (!id.includes('node_modules')) {
             return;
           }
-          if (/node_modules\/(echarts|echarts-for-react|zrender)\//.test(id)) {
-            return 'charts-vendor';
+          if (/node_modules\/zrender\//.test(id)) {
+            return 'chart-renderer';
+          }
+          if (/node_modules\/echarts\//.test(id)) {
+            return 'chart-engine';
           }
           if (/node_modules\/(@tanstack\/react-query|react-router|react-router-dom|history)\//.test(id)) {
             return 'app-vendor';
@@ -41,4 +55,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

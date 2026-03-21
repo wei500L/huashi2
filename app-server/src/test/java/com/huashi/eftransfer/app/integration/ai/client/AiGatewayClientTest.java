@@ -18,6 +18,7 @@ import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
+import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
@@ -111,6 +112,7 @@ class AiGatewayClientTest {
         assertThat(response.orElseThrow().provider()).isEqualTo("qwen");
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/health");
         assertThat(LAST_REQUEST.get().method()).isEqualTo("GET");
+        assertThat(LAST_REQUEST.get().internalToken()).isEqualTo("test-internal-token");
     }
 
     @Test
@@ -151,6 +153,7 @@ class AiGatewayClientTest {
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/chat");
         assertThat(LAST_REQUEST.get().body()).contains("\"messages\"");
         assertThat(LAST_REQUEST.get().body()).contains("\"Say hello\"");
+        assertThat(LAST_REQUEST.get().internalToken()).isEqualTo("test-internal-token");
     }
 
     @Test
@@ -568,7 +571,8 @@ class AiGatewayClientTest {
         LAST_REQUEST.set(new CapturedRequest(
                 exchange.getRequestMethod(),
                 exchange.getRequestURI().getPath(),
-                new String(requestBytes, StandardCharsets.UTF_8)
+                new String(requestBytes, StandardCharsets.UTF_8),
+                exchange.getRequestHeaders().getFirst(InternalApiHeaders.INTERNAL_TOKEN)
         ));
 
         StubResponse response = Objects.requireNonNullElseGet(
@@ -593,6 +597,6 @@ class AiGatewayClientTest {
         }
     }
 
-    private record CapturedRequest(String method, String path, String body) {
+    private record CapturedRequest(String method, String path, String body, String internalToken) {
     }
 }

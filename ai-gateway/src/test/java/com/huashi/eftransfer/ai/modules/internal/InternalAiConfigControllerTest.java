@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.ai.modules.internal;
 
+import com.huashi.eftransfer.ai.common.config.InternalApiProperties;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.modules.internal.controller.InternalAiConfigController;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
@@ -9,6 +10,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
@@ -25,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = InternalAiConfigController.class)
+@EnableConfigurationProperties(InternalApiProperties.class)
 @TestPropertySource(properties = {
         "platform.internal-api.enabled=true",
         "platform.internal-api.token=test-internal-token"

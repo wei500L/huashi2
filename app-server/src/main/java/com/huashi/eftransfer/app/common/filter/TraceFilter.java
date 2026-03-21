@@ -1,23 +1,21 @@
 package com.huashi.eftransfer.app.common.filter;
 
+import com.huashi.eftransfer.app.common.trace.TraceIdSupport;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.UUID;
 
 @Component
 public class TraceFilter extends OncePerRequestFilter {
 
-    public static final String TRACE_ID_HEADER = "X-Trace-Id";
-    private static final String TRACE_ID_KEY = "traceId";
+    public static final String TRACE_ID_HEADER = TraceIdSupport.TRACE_ID_HEADER;
     private static final Logger log = LoggerFactory.getLogger(TraceFilter.class);
 
     @Override
@@ -27,8 +25,8 @@ public class TraceFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         long start = System.currentTimeMillis();
-        String traceId = resolveTraceId(request);
-        MDC.put(TRACE_ID_KEY, traceId);
+        String traceId = TraceIdSupport.resolveIncoming(request);
+        TraceIdSupport.bind(traceId);
         response.setHeader(TRACE_ID_HEADER, traceId);
 
         try {
@@ -42,12 +40,7 @@ public class TraceFilter extends OncePerRequestFilter {
                     response.getStatus(),
                     duration
             );
-            MDC.remove(TRACE_ID_KEY);
+            TraceIdSupport.clear();
         }
-    }
-
-    private String resolveTraceId(HttpServletRequest request) {
-        String header = request.getHeader(TRACE_ID_HEADER);
-        return header != null && !header.isBlank() ? header : UUID.randomUUID().toString();
     }
 }

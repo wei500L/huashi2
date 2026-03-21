@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import type { EChartsOption } from 'echarts';
 import { Download, Users } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
 import { saveBlob } from '@/lib/api';
+import type { AppChartOption } from '@/lib/echarts';
 import { teacherAnalyticsService } from '@/lib/services';
 import { buildHeatmapOption, buildRadarOption, buildTrendOption, formatMaybePercent, formatMs } from '@/lib/format';
 
@@ -44,7 +44,7 @@ const TeacherClassDetailPage: React.FC = () => {
     enabled: Number.isFinite(classId),
   });
 
-  const riskDistributionOption = {
+  const riskDistributionOption: AppChartOption = {
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
@@ -58,9 +58,9 @@ const TeacherClassDetailPage: React.FC = () => {
         data: (riskDistributionQuery.data || []).map((item) => item.studentCount),
       },
     ],
-  } as EChartsOption;
+  };
 
-  const errorDistributionOption = {
+  const errorDistributionOption: AppChartOption = {
     tooltip: { trigger: 'item' },
     series: [
       {
@@ -69,7 +69,7 @@ const TeacherClassDetailPage: React.FC = () => {
         data: (errorDistributionQuery.data || []).map((item) => ({ name: item.label, value: item.count })),
       },
     ],
-  } as EChartsOption;
+  };
 
   const handleExport = async () => {
     const blob = await teacherAnalyticsService.exportClassCsv(classId);

@@ -12,7 +12,6 @@ import com.huashi.eftransfer.app.modules.training.mapper.WrongBookMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -144,7 +143,25 @@ class TrainingReviewScheduleIntegrationTest extends AbstractWebIntegrationTest {
                                       "taskType": "reaction_time_task",
                                       "blockCode": "block_1",
                                       "sortOrder": 1,
-                                      "contextSupportLevel": "high",
+                                      "contextSupportLevel": "low",
+                                      "expectedSemanticMatch": true,
+                                      "stimulus": {
+                                        "instruction": "Trust your first response",
+                                        "contextSentence": "He found a coin on the floor.",
+                                        "promptText": "Semantic match?"
+                                      },
+                                      "options": [
+                                        { "key": "semantic_match", "label": "语义一致", "semanticMatch": true, "ignoreContextTrap": false },
+                                        { "key": "semantic_mismatch", "label": "语义不一致", "semanticMatch": false, "ignoreContextTrap": false }
+                                      ],
+                                      "correctAnswerKey": "semantic_match"
+                                    },
+                                    {
+                                      "lexicalPairId": %d,
+                                      "taskType": "reaction_time_task",
+                                      "blockCode": "block_2",
+                                      "sortOrder": 2,
+                                      "contextSupportLevel": "medium",
                                       "expectedSemanticMatch": false,
                                       "stimulus": {
                                         "instruction": "Trust your first response",
@@ -156,10 +173,29 @@ class TrainingReviewScheduleIntegrationTest extends AbstractWebIntegrationTest {
                                         { "key": "semantic_mismatch", "label": "语义不一致", "semanticMatch": false, "ignoreContextTrap": false }
                                       ],
                                       "correctAnswerKey": "semantic_mismatch"
+                                    },
+                                    {
+                                      "lexicalPairId": %d,
+                                      "taskType": "semantic_judgement_task",
+                                      "blockCode": "block_3",
+                                      "sortOrder": 3,
+                                      "contextSupportLevel": "high",
+                                      "expectedSemanticMatch": false,
+                                      "stimulus": {
+                                        "instruction": "Read the sentence carefully",
+                                        "contextSentence": "Elle attend au coin du cafe.",
+                                        "promptText": "Which option best fits the sentence?"
+                                      },
+                                      "options": [
+                                        { "key": "coin_money", "label": "Coin (硬币)", "semanticMatch": true, "ignoreContextTrap": true },
+                                        { "key": "coin_corner", "label": "Corner (角落)", "semanticMatch": false, "ignoreContextTrap": false },
+                                        { "key": "coin_song", "label": "Song (歌曲)", "semanticMatch": false, "ignoreContextTrap": false }
+                                      ],
+                                      "correctAnswerKey": "coin_corner"
                                     }
                                   ]
                                 }
-                                """.formatted(coinPairId)))
+                                """.formatted(coinPairId, coinPairId, coinPairId)))
                 .andExpect(status().isOk())
                 .andReturn();
         return readJson(result).path("data").asLong();
@@ -177,23 +213,45 @@ class TrainingReviewScheduleIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn()).path("data").path("sessionId").asLong();
 
-        long itemResultId = readJson(mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/next-item", sessionId)
-                        .with(bearer(studentToken)))
-                .andExpect(status().isOk())
-                .andReturn()).path("data").path("item").path("itemResultId").asLong();
+        for (int itemIndex = 0; itemIndex < 3; itemIndex++) {
+            long itemResultId = readJson(mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/next-item", sessionId)
+                            .with(bearer(studentToken)))
+                    .andExpect(status().isOk())
+                    .andReturn()).path("data").path("item").path("itemResultId").asLong();
 
-        mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
-                        .with(bearer(studentToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "itemResultId": %d,
-                                  "selectedSemanticMatch": true,
-                                  "reactionTimeMs": 1450,
-                                  "hesitationTimeMs": 360
-                                }
-                                """.formatted(itemResultId)))
-                .andExpect(status().isOk());
+            String answerPayload = switch (itemIndex) {
+                case 0 -> """
+                        {
+                          "itemResultId": %d,
+                          "selectedSemanticMatch": false,
+                          "reactionTimeMs": 1380,
+                          "hesitationTimeMs": 320
+                        }
+                        """.formatted(itemResultId);
+                case 1 -> """
+                        {
+                          "itemResultId": %d,
+                          "selectedSemanticMatch": true,
+                          "reactionTimeMs": 1450,
+                          "hesitationTimeMs": 360
+                        }
+                        """.formatted(itemResultId);
+                default -> """
+                        {
+                          "itemResultId": %d,
+                          "selectedAnswerKey": "coin_money",
+                          "reactionTimeMs": 1510,
+                          "hesitationTimeMs": 410
+                        }
+                        """.formatted(itemResultId);
+            };
+
+            mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
+                            .with(bearer(studentToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(answerPayload))
+                    .andExpect(status().isOk());
+        }
 
         mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/complete", sessionId)
                         .with(bearer(studentToken)))

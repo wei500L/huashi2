@@ -1,5 +1,5 @@
-import type { EChartsOption } from 'echarts';
 import type { AnalyticsHeatmapVO, AnalyticsRadarMetricVO, AnalyticsScatterVO, AnalyticsTrendVO, Capability, CurrentUserVO } from './contracts';
+import type { AppChartOption } from './echarts';
 
 export function formatPercent(value: number, digits = 0): string {
   return `${(value * 100).toFixed(digits)}%`;
@@ -101,7 +101,31 @@ export function riskTone(level?: string | null): string {
   }
 }
 
-export function buildTrendOption(trend?: AnalyticsTrendVO | null): EChartsOption {
+export function roleLabel(role?: string | null): string {
+  if (role === 'TEACHER') {
+    return 'Teacher';
+  }
+  if (role === 'ADMIN') {
+    return 'Administrator';
+  }
+  return 'Student';
+}
+
+export function workspaceLabels(capabilities?: Capability[] | null): string[] {
+  const labels: string[] = [];
+  if (hasCapability(capabilities, 'ADMIN_CONSOLE')) {
+    labels.push('Admin');
+  }
+  if (hasCapability(capabilities, 'TEACHING_WORKSPACE')) {
+    labels.push('Teaching');
+  }
+  if (hasCapability(capabilities, 'STUDENT_WORKSPACE')) {
+    labels.push('Student');
+  }
+  return labels;
+}
+
+export function buildTrendOption(trend?: AnalyticsTrendVO | null): AppChartOption {
   if (!trend) {
     return {};
   }
@@ -122,17 +146,26 @@ export function buildTrendOption(trend?: AnalyticsTrendVO | null): EChartsOption
       splitLine: { lineStyle: { color: 'rgba(148,163,184,0.12)' } },
       axisLabel: { color: '#94a3b8' },
     },
-    series: trend.series.map((series, index) => ({
-      name: series.label,
-      type: index === 0 ? 'line' : 'bar',
-      smooth: true,
-      symbol: 'none',
-      data: series.values,
-    })),
-  } as unknown as EChartsOption;
+    series: trend.series.map((series, index) => {
+      if (index === 0) {
+        return {
+          name: series.label,
+          type: 'line',
+          smooth: true,
+          symbol: 'none',
+          data: series.values,
+        };
+      }
+      return {
+        name: series.label,
+        type: 'bar',
+        data: series.values,
+      };
+    }),
+  };
 }
 
-export function buildRadarOption(radar?: AnalyticsRadarMetricVO[] | null): EChartsOption {
+export function buildRadarOption(radar?: AnalyticsRadarMetricVO[] | null): AppChartOption {
   if (!radar?.length) {
     return {};
   }
@@ -157,19 +190,23 @@ export function buildRadarOption(radar?: AnalyticsRadarMetricVO[] | null): EChar
         ],
       },
     ],
-  } as unknown as EChartsOption;
+  };
 }
 
-export function buildHeatmapOption(heatmap?: AnalyticsHeatmapVO | null): EChartsOption {
+export function buildHeatmapOption(heatmap?: AnalyticsHeatmapVO | null): AppChartOption {
   if (!heatmap) {
     return {};
   }
   return {
     backgroundColor: 'transparent',
     tooltip: {
-      formatter: (params: { data: [number, number, number, number, number] }) => {
-        const [xIndex, yIndex, value, accuracy, avgRt] = params.data;
-        return `${heatmap.xAxis[xIndex]} / ${heatmap.yAxis[yIndex]}<br/>样本数: ${value}<br/>正确率: ${formatPercent(accuracy, 0)}<br/>平均反应时: ${formatMs(avgRt)}`;
+      formatter: (params) => {
+        const dataCarrier = (Array.isArray(params) ? params[0] : params) as { data?: unknown };
+        const data = Array.isArray(dataCarrier.data)
+          ? (dataCarrier.data as [number, number, number, number, number])
+          : [0, 0, 0, 0, 0];
+        const [xIndex, yIndex, value, accuracy, avgRt] = data;
+        return `${heatmap.xAxis[xIndex]} / ${heatmap.yAxis[yIndex]}<br/>样本数: ${value}<br/>正确率: ${formatPercent(Number(accuracy), 0)}<br/>平均反应时: ${formatMs(Number(avgRt))}`;
       },
     },
     grid: { left: '6%', right: '6%', top: '8%', bottom: '12%', containLabel: true },
@@ -197,19 +234,23 @@ export function buildHeatmapOption(heatmap?: AnalyticsHeatmapVO | null): ECharts
         label: { show: true, color: '#fff' },
       },
     ],
-  } as unknown as EChartsOption;
+  };
 }
 
-export function buildScatterOption(scatter?: AnalyticsScatterVO | null): EChartsOption {
+export function buildScatterOption(scatter?: AnalyticsScatterVO | null): AppChartOption {
   if (!scatter) {
     return {};
   }
   return {
     backgroundColor: 'transparent',
     tooltip: {
-      formatter: (params: { data: [number, number, number, number, string] }) => {
-        const [x, y, attempts, risk, label] = params.data;
-        return `${label}<br/>${scatter.x}: ${formatMs(x)}<br/>${scatter.y}: ${formatPercent(y, 0)}<br/>尝试次数: ${attempts}<br/>风险: ${formatPercent(risk, 0)}`;
+      formatter: (params) => {
+        const dataCarrier = (Array.isArray(params) ? params[0] : params) as { data?: unknown };
+        const data = Array.isArray(dataCarrier.data)
+          ? (dataCarrier.data as [number, number, number, number, string])
+          : [0, 0, 0, 0, ''];
+        const [x, y, attempts, risk, label] = data;
+        return `${label}<br/>${scatter.x}: ${formatMs(Number(x))}<br/>${scatter.y}: ${formatPercent(Number(y), 0)}<br/>尝试次数: ${Number(attempts)}<br/>风险: ${formatPercent(Number(risk), 0)}`;
       },
     },
     xAxis: { name: scatter.x, axisLabel: { color: '#94a3b8' } },
@@ -227,5 +268,5 @@ export function buildScatterOption(scatter?: AnalyticsScatterVO | null): ECharts
         symbolSize: (data: [number, number, number]) => Math.max(10, Math.min(30, data[2] * 2)),
       },
     ],
-  } as unknown as EChartsOption;
+  };
 }

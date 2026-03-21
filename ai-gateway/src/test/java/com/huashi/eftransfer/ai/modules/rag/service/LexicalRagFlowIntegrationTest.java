@@ -1,6 +1,8 @@
 package com.huashi.eftransfer.ai.modules.rag.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderFacade;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
@@ -8,6 +10,16 @@ import com.huashi.eftransfer.ai.modules.rag.integration.AppServerKnowledgeClient
 import com.huashi.eftransfer.ai.modules.rag.repository.IngestionJobRepository;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
 import com.huashi.eftransfer.ai.modules.rag.support.RagSearchFilter;
+import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
 import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
@@ -51,6 +63,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @Testcontainers
@@ -83,33 +96,31 @@ class LexicalRagFlowIntegrationTest {
                 .migrate();
 
         jdbcTemplate = new JdbcTemplate(dataSource);
-        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         KnowledgeStoreRepository knowledgeStoreRepository = new KnowledgeStoreRepository(jdbcTemplate, objectMapper);
         IngestionJobRepository ingestionJobRepository = new IngestionJobRepository(jdbcTemplate, objectMapper);
         appServerKnowledgeClient = Mockito.mock(AppServerKnowledgeClient.class);
 
         RagProperties ragProperties = ragProperties();
         StubAiProviderFacade stubProvider = new StubAiProviderFacade();
-        com.huashi.eftransfer.ai.common.config.AiProviderProperties aiProviderProperties =
-                new com.huashi.eftransfer.ai.common.config.AiProviderProperties();
-        aiProviderProperties.setActiveProvider("qwen");
-        AiProviderRegistry aiProviderRegistry = new AiProviderRegistry(aiProviderProperties, List.of(stubProvider));
+        AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
+        when(runtimeConfigService.current()).thenReturn(runtimeBundle(ragProperties));
+        AiProviderRegistry aiProviderRegistry = new AiProviderRegistry(runtimeConfigService, List.of(stubProvider));
 
         knowledgeIngestionService = new KnowledgeIngestionService(
                 ingestionJobRepository,
                 knowledgeStoreRepository,
                 appServerKnowledgeClient,
                 aiProviderRegistry,
-                ragProperties,
+                runtimeConfigService,
                 new ConcurrentTaskExecutor(Runnable::run),
                 objectMapper
         );
-        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(aiProviderRegistry, knowledgeStoreRepository, ragProperties);
+        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(aiProviderRegistry, knowledgeStoreRepository, runtimeConfigService);
         ragService = new RagService(
-                Mockito.mock(ChatClient.class),
+                runtimeConfigService,
                 new RagRetrievalCapture(),
                 knowledgeSearchService,
-                ragProperties,
                 objectMapper
         );
     }
@@ -133,7 +144,7 @@ class LexicalRagFlowIntegrationTest {
                         OffsetDateTime.now(ZoneOffset.UTC)
                 ));
 
-        knowledgeIngestionService.submit(new RagReindexRequest(
+        knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
                 "FULL",
                 List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
                 List.of(),
@@ -160,8 +171,27 @@ class LexicalRagFlowIntegrationTest {
         assertThat(response.contextChunks().get(0).content()).contains("I found a coin on the floor");
     }
 
+    @Test
+    void shouldMarkJobFailedAndThrowWhenSynchronousReindexFails() {
+        when(appServerKnowledgeClient.exportLexicalPairs(any(), any(), anyInt(), any()))
+                .thenThrow(new IllegalStateException("app-server export failed"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
+                "FULL",
+                List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                List.of("1001"),
+                false
+        )))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("app-server export failed");
+
+        assertThat(single("SELECT status FROM ingestion_job ORDER BY id DESC LIMIT 1")).isEqualTo("FAILED");
+    }
+
     private static RagProperties ragProperties() {
         RagProperties properties = new RagProperties();
+        properties.getAppServer().setBaseUrl("http://localhost:8080");
+        properties.getAppServer().setInternalToken("test-internal-token");
         properties.getIngestion().setEmbeddingBatchSize(8);
         properties.getRetrieval().setRecallTopK(8);
         properties.getRetrieval().setRecallThreshold(0.0d);
@@ -169,6 +199,50 @@ class LexicalRagFlowIntegrationTest {
         properties.getRetrieval().setRerankThreshold(0.0d);
         properties.getRetrieval().setFinalTopK(3);
         return properties;
+    }
+
+    private static AiRuntimeBundle runtimeBundle(RagProperties ragProperties) {
+        return new AiRuntimeBundle(
+                new AiOpsConfigPayload(
+                        new AiOpsProviderConfig(
+                                "qwen",
+                                "deepseek",
+                                new AiOpsChatConfig("https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
+                                new AiOpsEmbeddingConfig("https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
+                                new AiOpsRerankConfig("https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                        ),
+                        new AiOpsResilienceConfig(1, "PT0.1S", 50.0f, 10, "PT5S"),
+                        new AiOpsRagConfig(
+                                new AiOpsRagAppServerConfig(
+                                        ragProperties.getAppServer().getBaseUrl(),
+                                        ragProperties.getAppServer().getInternalToken(),
+                                        "PT3S",
+                                        "PT5S"
+                                ),
+                                new AiOpsRagIngestionConfig(
+                                        ragProperties.getIngestion().getExportPageSize(),
+                                        ragProperties.getIngestion().getEmbeddingBatchSize()
+                                ),
+                                new AiOpsRagRetrievalConfig(
+                                        ragProperties.getRetrieval().getRecallTopK(),
+                                        ragProperties.getRetrieval().getRecallThreshold(),
+                                        ragProperties.getRetrieval().getRerankTopN(),
+                                        ragProperties.getRetrieval().getRerankThreshold(),
+                                        ragProperties.getRetrieval().getFinalTopK()
+                                )
+                        )
+                ),
+                mock(ChatClient.class),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "TEST",
+                1L,
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
     }
 
     private int count(String sql) {

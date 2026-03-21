@@ -14,6 +14,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
+import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -208,6 +209,7 @@ public class AiRuntimeBundleFactory {
     }
 
     private RestClient appServerRestClient(AiOpsRagAppServerConfig appServerConfig) {
+        requireText("rag.appServer.internalToken", appServerConfig.internalToken());
         Duration connectTimeout = parseDuration(appServerConfig.connectTimeout());
         Duration readTimeout = parseDuration(appServerConfig.readTimeout());
         HttpClient httpClient = HttpClient.newBuilder()
@@ -218,6 +220,7 @@ public class AiRuntimeBundleFactory {
         return restClientBuilder.clone()
                 .baseUrl(appServerConfig.baseUrl())
                 .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .defaultHeader(InternalApiHeaders.INTERNAL_TOKEN, appServerConfig.internalToken())
                 .requestFactory(requestFactory)
                 .build();
     }
@@ -256,6 +259,12 @@ public class AiRuntimeBundleFactory {
         return normalized.endsWith("/v1")
                 ? normalized.substring(0, normalized.length() - 3)
                 : normalized;
+    }
+
+    private void requireText(String field, String value) {
+        if (!StringUtils.hasText(value)) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
     }
 
     private Duration parseDuration(String value) {

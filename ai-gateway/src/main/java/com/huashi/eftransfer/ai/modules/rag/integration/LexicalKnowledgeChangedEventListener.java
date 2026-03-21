@@ -47,7 +47,7 @@ public class LexicalKnowledgeChangedEventListener {
         RuntimeException lastFailure = null;
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
-                knowledgeIngestionService.submit(new RagReindexRequest(
+                knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
                         "FULL",
                         List.of(
                                 KnowledgeSourceTypes.LEXICAL_PAIR,

@@ -1,6 +1,8 @@
 package com.huashi.eftransfer.ai.modules.rag.repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderFacade;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
@@ -10,6 +12,16 @@ import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeDocumentPayload;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSourceTypes;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievalResult;
 import com.huashi.eftransfer.ai.modules.rag.support.RagSearchFilter;
+import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.ai.EmbeddingItem;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
 import com.huashi.eftransfer.shared.ai.RerankItem;
@@ -64,7 +76,10 @@ class KnowledgeStoreRepositoryTest {
                 .migrate();
 
         jdbcTemplate = new JdbcTemplate(dataSource);
-        knowledgeStoreRepository = new KnowledgeStoreRepository(jdbcTemplate, new ObjectMapper());
+        knowledgeStoreRepository = new KnowledgeStoreRepository(
+                jdbcTemplate,
+                new ObjectMapper().findAndRegisterModules()
+        );
     }
 
     @AfterAll
@@ -136,8 +151,13 @@ class KnowledgeStoreRepositoryTest {
         ragProperties.getRetrieval().setRerankTopN(5);
         ragProperties.getRetrieval().setRerankThreshold(0.2d);
         ragProperties.getRetrieval().setFinalTopK(3);
+        ragProperties.getAppServer().setBaseUrl("http://localhost:8080");
+        ragProperties.getAppServer().setInternalToken("test-internal-token");
 
-        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(providerRegistry, knowledgeStoreRepository, ragProperties);
+        AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
+        when(runtimeConfigService.current()).thenReturn(runtimeBundle(ragProperties));
+
+        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(providerRegistry, knowledgeStoreRepository, runtimeConfigService);
         RagRetrievalResult result = knowledgeSearchService.search("Why is coin/coin risky?", RagSearchFilter.empty());
 
         assertThat(result.chunks()).hasSize(2);
@@ -145,6 +165,50 @@ class KnowledgeStoreRepositoryTest {
         assertThat(result.chunks().get(1).sourceType()).isEqualTo(KnowledgeSourceTypes.LEXICAL_PAIR);
         assertThat(result.chunks().get(0).citationId()).isEqualTo("C1");
         assertThat(result.documents()).hasSize(2);
+    }
+
+    private AiRuntimeBundle runtimeBundle(RagProperties ragProperties) {
+        return new AiRuntimeBundle(
+                new AiOpsConfigPayload(
+                        new AiOpsProviderConfig(
+                                "qwen",
+                                "deepseek",
+                                new AiOpsChatConfig("https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
+                                new AiOpsEmbeddingConfig("https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
+                                new AiOpsRerankConfig("https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                        ),
+                        new AiOpsResilienceConfig(1, "PT0.1S", 50.0f, 10, "PT5S"),
+                        new AiOpsRagConfig(
+                                new AiOpsRagAppServerConfig(
+                                        ragProperties.getAppServer().getBaseUrl(),
+                                        ragProperties.getAppServer().getInternalToken(),
+                                        "PT3S",
+                                        "PT5S"
+                                ),
+                                new AiOpsRagIngestionConfig(
+                                        ragProperties.getIngestion().getExportPageSize(),
+                                        ragProperties.getIngestion().getEmbeddingBatchSize()
+                                ),
+                                new AiOpsRagRetrievalConfig(
+                                        ragProperties.getRetrieval().getRecallTopK(),
+                                        ragProperties.getRetrieval().getRecallThreshold(),
+                                        ragProperties.getRetrieval().getRerankTopN(),
+                                        ragProperties.getRetrieval().getRerankThreshold(),
+                                        ragProperties.getRetrieval().getFinalTopK()
+                                )
+                        )
+                ),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "TEST",
+                1L,
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
     }
 
     private void seedChunk(

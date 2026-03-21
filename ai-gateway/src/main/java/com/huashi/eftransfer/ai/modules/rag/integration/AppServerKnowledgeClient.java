@@ -4,7 +4,6 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
-import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -36,11 +35,6 @@ public class AppServerKnowledgeClient {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         ApiResponse<LexicalKnowledgeExportPageResponse> response = bundle.appServerRestClient().get()
                 .uri(uriBuilder -> buildExportUri(uriBuilder, updatedSince, cursor, limit, sourceIds))
-                .headers(headers -> {
-                    if (StringUtils.hasText(bundle.config().rag().appServer().internalToken())) {
-                        headers.set(InternalApiHeaders.INTERNAL_TOKEN, bundle.config().rag().appServer().internalToken());
-                    }
-                })
                 .retrieve()
                 .body(EXPORT_TYPE);
 

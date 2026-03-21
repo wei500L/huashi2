@@ -48,6 +48,7 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
     void shouldGenerateRecommendedPlanRunTrainingAndPersistSummaryArtifacts() throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
         String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+        String otherStudentToken = loginAndGetAccessToken("student.wang", "Student@123456");
 
         long tablePairId = createLexicalPair(teacherToken, """
                 {
@@ -203,6 +204,26 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.sessionId").value((int) trainingSessionId))
                 .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
 
+        mockMvc.perform(get("/api/training/sessions/{sessionId}/next-item", trainingSessionId)
+                        .with(bearer(otherStudentToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        mockMvc.perform(post("/api/training/sessions/{sessionId}/progress", trainingSessionId)
+                        .with(bearer(otherStudentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "progressSnapshot": {
+                                    "sessionId": %d,
+                                    "currentItemOrder": 1,
+                                    "answeredItems": 0
+                                  }
+                                }
+                                """.formatted(trainingSessionId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
         mockMvc.perform(post("/api/training/sessions")
                         .with(bearer(studentToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -251,6 +272,21 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.completed").value(true));
+
+        mockMvc.perform(post("/api/training/sessions/{sessionId}/progress", trainingSessionId)
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "progressSnapshot": {
+                                    "sessionId": %d,
+                                    "currentItemOrder": 3,
+                                    "answeredItems": 3
+                                  }
+                                }
+                                """.formatted(trainingSessionId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
 
         mockMvc.perform(get("/api/training/sessions/{sessionId}/summary", trainingSessionId)
                         .with(bearer(studentToken)))

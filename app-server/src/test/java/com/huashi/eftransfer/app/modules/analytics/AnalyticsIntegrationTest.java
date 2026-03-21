@@ -83,6 +83,7 @@ class AnalyticsIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(classSnapshot.getRecentNegativeTransferRisk()).isNotNull();
 
         analyticsAggregationService.rebuildRange(LocalDate.now().minusDays(1), LocalDate.now());
+        analyticsAggregationService.rebuildRange(LocalDate.now().minusDays(1), LocalDate.now());
         Long rebuiltStudentAggregateCount = analyticsDailyAggregateMapper.selectCount(Wrappers.<AnalyticsDailyAggregateEntity>lambdaQuery());
         Long rebuiltClassAggregateCount = classAnalyticsDailyAggregateMapper.selectCount(Wrappers.<ClassAnalyticsDailyAggregateEntity>lambdaQuery()
                 .eq(ClassAnalyticsDailyAggregateEntity::getTeachingClassId, scenario.classId()));

@@ -177,6 +177,18 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andReturn();
         long sessionId = readJson(sessionCreateResult).path("data").path("sessionId").asLong();
 
+        mockMvc.perform(post("/api/diagnosis/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateId": %d
+                                }
+                                """.formatted(templateId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value("Diagnosis session already in progress. Resume the active session before starting a new one."));
+
         for (int i = 0; i < 3; i++) {
             MvcResult nextItemResult = mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/next-item", sessionId)
                             .with(bearer(studentToken)))
