@@ -14,7 +14,8 @@ public record LexicalPairPageQuery(
         String lexicalPairType,
         String riskLevel,
         String contextSupportLevel,
-        Boolean active
+        Boolean active,
+        String embeddingStatus
 ) {
 
     public PageQuery toPageQuery() {

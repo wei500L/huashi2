@@ -3,12 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { Database, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
-import { adminService } from '@/lib/services';
+import { formatDateTime } from '@/lib/format';
+import { adminService, lexicalPairService } from '@/lib/services';
 
 const AdminUsersPage: React.FC = () => {
   const usersQuery = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => adminService.listUsers(),
+  });
+
+  const overviewQuery = useQuery({
+    queryKey: ['lexical-pair-overview'],
+    queryFn: () => lexicalPairService.getOverview(),
   });
 
   return (
@@ -39,6 +45,47 @@ const AdminUsersPage: React.FC = () => {
       {usersQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{usersQuery.error.message}</div>
       )}
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Link
+          to="/admin/lexical-pairs"
+          className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 text-left dark:border-white/10 dark:bg-white/[0.03]"
+        >
+          <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">语料总量</div>
+          <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{overviewQuery.data?.totalCount ?? '--'}</div>
+          <div className="mt-3 text-sm text-slate-500 dark:text-white/45">启用中 {overviewQuery.data?.activeCount ?? '--'} 条</div>
+        </Link>
+        <Link
+          to="/admin/lexical-pairs"
+          className="rounded-[2rem] border border-amber-500/20 bg-amber-500/5 px-5 py-5 text-left"
+        >
+          <div className="text-[11px] uppercase tracking-[0.28em] text-amber-600/70 dark:text-amber-400/70">待嵌入</div>
+          <div className="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">
+            {overviewQuery.data?.pendingEmbeddingCount ?? '--'}
+          </div>
+          <div className="mt-3 text-sm text-slate-500 dark:text-white/45">适合导入后优先关注</div>
+        </Link>
+        <Link
+          to="/admin/lexical-pairs"
+          className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 px-5 py-5 text-left"
+        >
+          <div className="text-[11px] uppercase tracking-[0.28em] text-rose-500/70">嵌入失败</div>
+          <div className="mt-2 text-3xl font-black text-rose-500">{overviewQuery.data?.failedEmbeddingCount ?? '--'}</div>
+          <div className="mt-3 text-sm text-slate-500 dark:text-white/45">点击进入语料页继续排查</div>
+        </Link>
+        <Link
+          to="/admin/lexical-pairs"
+          className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 text-left dark:border-white/10 dark:bg-white/[0.03]"
+        >
+          <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">最近语料更新</div>
+          <div className="mt-3 text-base font-black text-slate-900 dark:text-white">
+            {formatDateTime(overviewQuery.data?.latestUpdatedAt)}
+          </div>
+          <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+            最近新增 {formatDateTime(overviewQuery.data?.latestCreatedAt)}
+          </div>
+        </Link>
+      </section>
 
       <section className="rounded-[2.5rem] liquid-glass-panel p-8 overflow-hidden">
         <table className="w-full text-sm">

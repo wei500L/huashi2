@@ -27,6 +27,7 @@ import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportTemplateFieldVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportTemplateVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairDetailVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairExampleVO;
+import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairOverviewVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSenseVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSummaryVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
@@ -154,6 +155,57 @@ public class LexicalPairService {
                 .map(pair -> toSummaryVO(pair, tagMap.getOrDefault(pair.getId(), List.of())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
+    }
+
+    public LexicalPairOverviewVO getOverview() {
+        long totalCount = lexicalPairMapper.selectCount(Wrappers.lambdaQuery());
+        long activeCount = lexicalPairMapper.selectCount(Wrappers.<LexicalPairEntity>lambdaQuery()
+                .eq(LexicalPairEntity::getActive, true));
+        long pendingEmbeddingCount = lexicalPairMapper.selectCount(Wrappers.<LexicalPairEntity>lambdaQuery()
+                .eq(LexicalPairEntity::getEmbeddingStatus, EmbeddingStatus.PENDING.name()));
+        long embeddedCount = lexicalPairMapper.selectCount(Wrappers.<LexicalPairEntity>lambdaQuery()
+                .eq(LexicalPairEntity::getEmbeddingStatus, EmbeddingStatus.EMBEDDED.name()));
+        long failedEmbeddingCount = lexicalPairMapper.selectCount(Wrappers.<LexicalPairEntity>lambdaQuery()
+                .eq(LexicalPairEntity::getEmbeddingStatus, EmbeddingStatus.FAILED.name()));
+
+        LocalDateTime latestCreatedAt = lexicalPairMapper.selectList(Wrappers.<LexicalPairEntity>lambdaQuery()
+                        .select(LexicalPairEntity::getCreatedAt)
+                        .orderByDesc(LexicalPairEntity::getCreatedAt)
+                        .last("LIMIT 1"))
+                .stream()
+                .findFirst()
+                .map(LexicalPairEntity::getCreatedAt)
+                .orElse(null);
+
+        LocalDateTime latestUpdatedAt = lexicalPairMapper.selectList(Wrappers.<LexicalPairEntity>lambdaQuery()
+                        .select(LexicalPairEntity::getUpdatedAt)
+                        .orderByDesc(LexicalPairEntity::getUpdatedAt)
+                        .last("LIMIT 1"))
+                .stream()
+                .findFirst()
+                .map(LexicalPairEntity::getUpdatedAt)
+                .orElse(null);
+
+        LocalDateTime latestEmbeddedAt = lexicalPairMapper.selectList(Wrappers.<LexicalPairEntity>lambdaQuery()
+                        .select(LexicalPairEntity::getLastEmbeddedAt)
+                        .isNotNull(LexicalPairEntity::getLastEmbeddedAt)
+                        .orderByDesc(LexicalPairEntity::getLastEmbeddedAt)
+                        .last("LIMIT 1"))
+                .stream()
+                .findFirst()
+                .map(LexicalPairEntity::getLastEmbeddedAt)
+                .orElse(null);
+
+        return new LexicalPairOverviewVO(
+                totalCount,
+                activeCount,
+                pendingEmbeddingCount,
+                embeddedCount,
+                failedEmbeddingCount,
+                latestCreatedAt,
+                latestUpdatedAt,
+                latestEmbeddedAt
+        );
     }
 
     public LexicalPairDetailVO getDetail(Long lexicalPairId) {
@@ -380,6 +432,9 @@ public class LexicalPairService {
         }
         if (query.active() != null) {
             wrapper.eq(LexicalPairEntity::getActive, query.active());
+        }
+        if (query.embeddingStatus() != null && !query.embeddingStatus().isBlank()) {
+            wrapper.eq(LexicalPairEntity::getEmbeddingStatus, parseEmbeddingStatus(query.embeddingStatus()).name());
         }
         return wrapper;
     }

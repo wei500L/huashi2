@@ -6,6 +6,7 @@ import com.huashi.eftransfer.app.modules.lexicon.service.LexicalPairService;
 import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportResultVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportTemplateVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairDetailVO;
+import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairOverviewVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSummaryVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.page.PageResult;
@@ -39,6 +40,12 @@ public class LexicalPairController {
     @GetMapping
     public ApiResponse<PageResult<LexicalPairSummaryVO>> pageQuery(@Valid @ModelAttribute LexicalPairPageQuery query) {
         return ApiResponse.success(lexicalPairService.pageQuery(query), MDC.get("traceId"));
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
+    @GetMapping("/overview")
+    public ApiResponse<LexicalPairOverviewVO> getOverview() {
+        return ApiResponse.success(lexicalPairService.getOverview(), MDC.get("traceId"));
     }
 
     @GetMapping("/{lexicalPairId}")

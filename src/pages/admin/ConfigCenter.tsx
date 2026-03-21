@@ -146,7 +146,12 @@ const FieldCard: React.FC<{ label: string; hint?: string; children: React.ReactN
   <label className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] px-4 py-4 space-y-3 block">
     <div>
       <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{label}</div>
-      {hint && <div className="text-xs text-slate-500 dark:text-white/35 mt-2">{hint}</div>}
+      {hint && (
+        <div className="mt-3 inline-flex items-start gap-2 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2 text-xs leading-5 text-slate-600 dark:text-sky-100/80">
+          <Info size={14} className="mt-0.5 shrink-0 text-sky-500 dark:text-sky-300" />
+          <span>{hint}</span>
+        </div>
+      )}
     </div>
     {children}
   </label>
@@ -834,6 +839,16 @@ const AdminConfigCenterPage: React.FC = () => {
 
       {activeTab === 'resilience' && (
         <SectionCard title="稳定性配置" description="这些参数会在保存后直接刷新 ai-gateway 内部 retry / circuit breaker 注册表，建议小步调整。">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+              <div className="font-bold text-slate-900 dark:text-white">Circuit Breaker 是什么</div>
+              <div className="mt-2">当某个模型服务持续失败时，熔断器会暂时停止继续打流量，避免把故障放大。</div>
+            </div>
+            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+              <div className="font-bold text-slate-900 dark:text-white">Failure Rate Threshold 怎么看</div>
+              <div className="mt-2">可以理解成“最近一段请求中，失败比例达到多少就触发熔断”。值越低越敏感。</div>
+            </div>
+          </div>
           <FieldGrid>
             <FieldCard label="最大重试次数" hint="单次请求允许的总尝试次数，包含首次请求。过大可能放大雪崩。">
               <TextInput
@@ -880,6 +895,16 @@ const AdminConfigCenterPage: React.FC = () => {
 
       {activeTab === 'rag' && (
         <SectionCard title="RAG 运行参数" description="词条 CSV 导入和向量 reindex 仍然是两段链路。这里配置的是 ai-gateway 拉取 app-server 以及检索 / 入库参数。">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+              <div className="font-bold text-slate-900 dark:text-white">Top K 是什么</div>
+              <div className="mt-2">可以理解成“先保留前 K 个候选”。K 越大，召回越全，但后续成本也越高。</div>
+            </div>
+            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+              <div className="font-bold text-slate-900 dark:text-white">Threshold 是什么</div>
+              <div className="mt-2">阈值可以理解成“分数低于这条线就不要”。值越高，返回结果越少但通常更保守。</div>
+            </div>
+          </div>
           <FieldGrid>
             <FieldCard label="App Server 地址" hint="ai-gateway 回源读取词条和配置时访问的 app-server 地址。">
               <TextInput

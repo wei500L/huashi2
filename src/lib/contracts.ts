@@ -847,6 +847,17 @@ export interface LexicalPairSummaryVO {
   tags: string[];
 }
 
+export interface LexicalPairOverviewVO {
+  totalCount: number;
+  activeCount: number;
+  pendingEmbeddingCount: number;
+  embeddedCount: number;
+  failedEmbeddingCount: number;
+  latestCreatedAt?: string | null;
+  latestUpdatedAt?: string | null;
+  latestEmbeddedAt?: string | null;
+}
+
 export interface LexicalPairExampleVO {
   id?: number | null;
   sortOrder: number;

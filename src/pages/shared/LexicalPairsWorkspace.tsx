@@ -2,6 +2,8 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
   CheckCircle2,
   Download,
   ExternalLink,
@@ -9,6 +11,7 @@ import {
   Info,
   LoaderCircle,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -23,7 +26,7 @@ import type {
   LexicalPairDetailVO,
   LexicalPairUpsertRequest,
 } from '@/lib/contracts';
-import { lexicalPairService } from '@/lib/services';
+import { adminService, lexicalPairService } from '@/lib/services';
 import { useAuthStore } from '@/store';
 
 export type LexicalPairsWorkspaceMode = 'teacher' | 'admin';
@@ -66,6 +69,12 @@ type FilterState = {
   keyword: string;
   lexicalPairType: string;
   active: 'ALL' | 'ACTIVE' | 'INACTIVE';
+  embeddingStatus: 'ALL' | 'PENDING' | 'EMBEDDED' | 'FAILED';
+};
+
+type CsvPreview = {
+  headers: string[];
+  rows: string[][];
 };
 
 const lexicalPairTypeOptions = [
@@ -79,6 +88,13 @@ const contextSupportOptions = [
   { value: 'LOW', label: '低语境' },
   { value: 'MEDIUM', label: '中语境' },
   { value: 'HIGH', label: '高语境' },
+] as const;
+
+const embeddingStatusOptions = [
+  { value: 'ALL', label: '全部向量状态' },
+  { value: 'PENDING', label: '待嵌入' },
+  { value: 'EMBEDDED', label: '已嵌入' },
+  { value: 'FAILED', label: '嵌入失败' },
 ] as const;
 
 const templateFieldLabels: Record<string, string> = {
@@ -135,6 +151,7 @@ const defaultFilters: FilterState = {
   keyword: '',
   lexicalPairType: 'ALL',
   active: 'ALL',
+  embeddingStatus: 'ALL',
 };
 
 function hasText(value?: string | null): boolean {
@@ -176,7 +193,7 @@ function createEmptyEditor(): PairEditorState {
     source: 'teacher_manual',
     active: true,
     tagsCsv: '',
-    senses: [createSense(1)],
+    senses: [],
   };
 }
 
@@ -366,6 +383,116 @@ function formatImportFailure(failure: CsvImportFailureVO): { rowNumber: number; 
   return { rowNumber, pairLabel, reason };
 }
 
+function parseCsvText(text: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentValue = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentValue += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      currentRow.push(currentValue);
+      currentValue = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        index += 1;
+      }
+      currentRow.push(currentValue);
+      if (currentRow.some((cell) => cell.trim() !== '')) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentValue = '';
+      continue;
+    }
+
+    currentValue += char;
+  }
+
+  if (currentValue.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentValue);
+    if (currentRow.some((cell) => cell.trim() !== '')) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
+async function buildCsvPreview(file: File): Promise<CsvPreview> {
+  const text = await file.text();
+  const rows = parseCsvText(text);
+  if (!rows.length) {
+    throw new Error('CSV 文件为空，无法预览。');
+  }
+  const headers = rows[0].map((cell) => cell.trim());
+  const previewRows = rows.slice(1, 6);
+  return { headers, rows: previewRows };
+}
+
+function getInlineReindexMeta(status?: string | null): {
+  label: string;
+  progress: number;
+  className: string;
+  description: string;
+} {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'SUCCEEDED') {
+    return {
+      label: '已完成',
+      progress: 100,
+      className: 'bg-emerald-500',
+      description: '向量重建已完成，可以回到列表抽样确认 embedding 状态。',
+    };
+  }
+  if (normalized === 'FAILED') {
+    return {
+      label: '失败',
+      progress: 100,
+      className: 'bg-rose-500',
+      description: '任务失败，请查看错误信息后重试。',
+    };
+  }
+  if (['RUNNING', 'PROCESSING', 'IN_PROGRESS'].includes(normalized)) {
+    return {
+      label: '执行中',
+      progress: 68,
+      className: 'bg-sky-500',
+      description: '后台正在分页拉取词条并重算 embedding。',
+    };
+  }
+  if (['PENDING', 'QUEUED', 'SUBMITTED', 'CREATED'].includes(normalized)) {
+    return {
+      label: '排队中',
+      progress: 28,
+      className: 'bg-primary',
+      description: '任务已提交，等待后台 worker 处理。',
+    };
+  }
+  return {
+    label: normalized || '未开始',
+    progress: 0,
+    className: 'bg-slate-300 dark:bg-white/20',
+    description: '尚未触发 reindex。',
+  };
+}
+
 function riskMeta(score: number): { label: string; className: string } {
   if (score >= 0.75) {
     return { label: 'Critical', className: 'text-rose-500 bg-rose-500/10 border-rose-500/20' };
@@ -479,14 +606,22 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const user = useAuthStore((state) => state.user);
   const meta = workspaceMeta[mode];
   const canAccessAdminConsole = userHasCapability(user, 'ADMIN_CONSOLE');
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [filters, setFilters] = React.useState<FilterState>(defaultFilters);
   const deferredKeyword = React.useDeferredValue(filters.keyword);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [editor, setEditor] = React.useState<PairEditorState>(createEmptyEditor);
+  const [showStructuredEditor, setShowStructuredEditor] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [importFile, setImportFile] = React.useState<File | null>(null);
+  const [importPreview, setImportPreview] = React.useState<CsvPreview | null>(null);
+  const [importPreviewError, setImportPreviewError] = React.useState<string | null>(null);
   const [importResult, setImportResult] = React.useState<CsvImportResultVO | null>(null);
   const [importFeedback, setImportFeedback] = React.useState<string | null>(null);
+  const [dragActive, setDragActive] = React.useState(false);
+  const [reindexJobId, setReindexJobId] = React.useState<number | null>(null);
+  const [pollReindexJob, setPollReindexJob] = React.useState(false);
+  const [reindexFeedback, setReindexFeedback] = React.useState<string | null>(null);
 
   const templateQuery = useQuery({
     queryKey: ['lexical-pair-import-template'],
@@ -494,8 +629,14 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     staleTime: 5 * 60 * 1000,
   });
 
+  const overviewQuery = useQuery({
+    queryKey: ['lexical-pair-overview'],
+    queryFn: () => lexicalPairService.getOverview(),
+    enabled: mode === 'admin' || canAccessAdminConsole,
+  });
+
   const listQuery = useQuery({
-    queryKey: ['lexical-pairs', deferredKeyword, filters.lexicalPairType, filters.active],
+    queryKey: ['lexical-pairs', deferredKeyword, filters.lexicalPairType, filters.active, filters.embeddingStatus],
     queryFn: () =>
       lexicalPairService.pageQuery({
         pageNo: 1,
@@ -503,6 +644,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
         keyword: deferredKeyword.trim() || undefined,
         lexicalPairType: filters.lexicalPairType === 'ALL' ? undefined : filters.lexicalPairType,
         active: filters.active === 'ALL' ? undefined : filters.active === 'ACTIVE',
+        embeddingStatus: filters.embeddingStatus === 'ALL' ? undefined : filters.embeddingStatus,
       }),
   });
 
@@ -517,6 +659,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
       return;
     }
     setEditor(toEditor(detailQuery.data));
+    setShowStructuredEditor(detailQuery.data.senses.length > 0);
     setError(null);
   }, [detailQuery.data]);
 
@@ -537,6 +680,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-detail', id] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
     },
     onError: (mutationError) => {
       setError(mutationError instanceof Error ? translateImportMessage(mutationError.message) : '词对保存失败。');
@@ -548,8 +692,10 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     onSuccess: async () => {
       setSelectedId(null);
       setEditor(createEmptyEditor());
+      setShowStructuredEditor(false);
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
     },
     onError: (mutationError) => {
       setError(mutationError instanceof Error ? mutationError.message : '词对删除失败。');
@@ -568,15 +714,61 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     onSuccess: async (result) => {
       setImportResult(result);
       setImportFeedback(`本次导入成功 ${result.successCount} 条，失败 ${result.failedCount} 条。`);
+      setReindexJobId(null);
+      setPollReindexJob(false);
+      setReindexFeedback(null);
       await queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
     },
     onError: (mutationError) => {
       setImportResult(null);
+      setReindexJobId(null);
+      setPollReindexJob(false);
+      setReindexFeedback(null);
       setImportFeedback(
         mutationError instanceof Error ? translateImportMessage(mutationError.message) : 'CSV 导入失败。'
       );
     },
   });
+
+  const inlineReindexMutation = useMutation({
+    mutationFn: () =>
+      adminService.triggerRagReindex({
+        mode: 'INCREMENTAL',
+        sourceTypes: ['LEXICAL_PAIR'],
+        forceReembed: false,
+      }),
+    onSuccess: (result) => {
+      setReindexJobId(result.jobId);
+      setPollReindexJob(true);
+      setReindexFeedback(`已提交 reindex 任务 #${result.jobId}，正在后台处理中。`);
+    },
+    onError: (mutationError) => {
+      setReindexFeedback(mutationError instanceof Error ? mutationError.message : 'RAG reindex 提交失败。');
+    },
+  });
+
+  const reindexJobQuery = useQuery({
+    queryKey: ['inline-lexical-reindex-job', reindexJobId],
+    queryFn: () => adminService.getRagReindexJob(reindexJobId as number),
+    enabled: reindexJobId !== null,
+    refetchInterval: pollReindexJob ? 2000 : false,
+  });
+
+  React.useEffect(() => {
+    const data = reindexJobQuery.data;
+    if (!data || !['SUCCEEDED', 'FAILED'].includes(data.status)) {
+      return;
+    }
+    setPollReindexJob(false);
+    setReindexFeedback(
+      data.status === 'SUCCEEDED'
+        ? `RAG reindex #${data.jobId} 已完成。`
+        : data.errorMessage || `RAG reindex #${data.jobId} 执行失败。`
+    );
+    void queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
+    void queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
+  }, [queryClient, reindexJobQuery.data]);
 
   const downloadTemplate = async () => {
     const resolvedTemplate =
@@ -601,9 +793,46 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     URL.revokeObjectURL(link.href);
   };
 
+  const clearImportState = React.useCallback(() => {
+    setImportFile(null);
+    setImportPreview(null);
+    setImportPreviewError(null);
+    setImportResult(null);
+    setImportFeedback(null);
+    setReindexJobId(null);
+    setPollReindexJob(false);
+    setReindexFeedback(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  const handleImportFileChange = React.useCallback(async (file: File | null) => {
+    setImportFile(file);
+    setImportResult(null);
+    setImportFeedback(null);
+    setReindexJobId(null);
+    setPollReindexJob(false);
+    setReindexFeedback(null);
+    if (!file) {
+      setImportPreview(null);
+      setImportPreviewError(null);
+      return;
+    }
+    try {
+      const preview = await buildCsvPreview(file);
+      setImportPreview(preview);
+      setImportPreviewError(null);
+    } catch (previewError) {
+      setImportPreview(null);
+      setImportPreviewError(previewError instanceof Error ? previewError.message : 'CSV 预览失败。');
+    }
+  }, []);
+
   const resetEditor = () => {
     setSelectedId(null);
     setEditor(createEmptyEditor());
+    setShowStructuredEditor(false);
     setError(null);
   };
 
@@ -647,6 +876,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   };
 
   const addSense = () => {
+    setShowStructuredEditor(true);
     setEditor((current) => ({
       ...current,
       senses: [...current.senses, createSense(current.senses.length + 1)],
@@ -654,10 +884,16 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   };
 
   const removeSense = (senseIndex: number) => {
-    setEditor((current) => ({
-      ...current,
-      senses: current.senses.filter((_, index) => index !== senseIndex),
-    }));
+    setEditor((current) => {
+      const nextSenses = current.senses.filter((_, index) => index !== senseIndex);
+      if (nextSenses.length === 0) {
+        setShowStructuredEditor(false);
+      }
+      return {
+        ...current,
+        senses: nextSenses,
+      };
+    });
   };
 
   const addExample = (senseIndex: number) => {
@@ -694,6 +930,11 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   );
 
   const selectedRisk = riskMeta(editor.falseFriendRisk);
+  const structuredExampleCount = React.useMemo(
+    () => editor.senses.reduce((total, sense) => total + sense.examples.length, 0),
+    [editor.senses]
+  );
+  const inlineReindexMeta = getInlineReindexMeta(reindexJobQuery.data?.status);
 
   return (
     <div className="space-y-8 pb-20">
@@ -726,6 +967,72 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
           </div>
         }
       />
+
+      {mode === 'admin' && (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'ALL' }))}
+            className={`rounded-[2rem] border px-5 py-5 text-left ${
+              filters.embeddingStatus === 'ALL'
+                ? 'border-primary/25 bg-primary/5'
+                : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
+            }`}
+          >
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">总词对数</div>
+            <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+              {overviewQuery.data?.totalCount ?? '--'}
+            </div>
+            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+              启用中 {overviewQuery.data?.activeCount ?? '--'} 条
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'PENDING' }))}
+            className={`rounded-[2rem] border px-5 py-5 text-left ${
+              filters.embeddingStatus === 'PENDING'
+                ? 'border-amber-500/25 bg-amber-500/5'
+                : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
+            }`}
+          >
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">待嵌入</div>
+            <div className="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">
+              {overviewQuery.data?.pendingEmbeddingCount ?? '--'}
+            </div>
+            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">点击后自动筛选待重建词对</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'FAILED' }))}
+            className={`rounded-[2rem] border px-5 py-5 text-left ${
+              filters.embeddingStatus === 'FAILED'
+                ? 'border-rose-500/25 bg-rose-500/5'
+                : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
+            }`}
+          >
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">嵌入失败</div>
+            <div className="mt-2 text-3xl font-black text-rose-500">
+              {overviewQuery.data?.failedEmbeddingCount ?? '--'}
+            </div>
+            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+              已嵌入 {overviewQuery.data?.embeddedCount ?? '--'} 条
+            </div>
+          </button>
+
+          <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">最近更新时间</div>
+            <div className="mt-3 text-base font-black text-slate-900 dark:text-white">
+              {formatDateTime(overviewQuery.data?.latestUpdatedAt)}
+            </div>
+            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+              最近新增 {formatDateTime(overviewQuery.data?.latestCreatedAt)} · 最近嵌入 {formatDateTime(overviewQuery.data?.latestEmbeddedAt)}
+            </div>
+          </div>
+        </div>
+      )}
 
       <SectionCard
         title={meta.guideTitle}
@@ -810,9 +1117,9 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
         <div className="space-y-8">
           <SectionCard
             title="词对列表"
-            description="支持关键词、词对类型和启用状态过滤。左侧选中，右侧编辑。"
+            description="支持关键词、词对类型、启用状态和向量状态过滤。左侧选中，右侧编辑。"
           >
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className={`grid gap-4 ${mode === 'admin' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
               <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或 searchable text 模糊查询。">
                 <div className="relative">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" />
@@ -847,6 +1154,20 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                   ]}
                 />
               </FieldCard>
+              {mode === 'admin' && (
+                <FieldCard label="向量状态" hint="用于快速定位待嵌入或嵌入失败的词对。">
+                  <SelectInput
+                    value={filters.embeddingStatus}
+                    onChange={(value) =>
+                      setFilters((current) => ({
+                        ...current,
+                        embeddingStatus: value as FilterState['embeddingStatus'],
+                      }))
+                    }
+                    options={[...embeddingStatusOptions]}
+                  />
+                </FieldCard>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -928,30 +1249,120 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
 
           <SectionCard
             title="CSV 批量导入"
-            description="上传后会直接返回成功数、失败数和失败行原因。建议先下载模板，按模板字段填充。"
+            description="支持拖拽上传、前 5 行预览和失败行回查。建议先确认表头和示例行，再执行正式导入。"
             actions={
               <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/70 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
                 <FileSpreadsheet size={16} className="mb-2 text-primary" />
-                UTF-8 编码、首行必须是模板列名
+                UTF-8 编码、首行必须是模板列名、支持拖拽 CSV
               </div>
             }
           >
-            <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/50 p-5 dark:border-white/15 dark:bg-white/[0.02]">
-              <div className="text-sm font-bold text-slate-900 dark:text-white">待上传文件</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                {importFile ? `${importFile.name} · ${(importFile.size / 1024).toFixed(1)} KB` : '尚未选择文件'}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(event) => {
+                void handleImportFileChange(event.target.files?.[0] || null);
+              }}
+              className="hidden"
+            />
+
+            <div
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setDragActive(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragActive(false);
+                void handleImportFileChange(event.dataTransfer.files?.[0] || null);
+              }}
+              className={`rounded-[1.8rem] border border-dashed p-6 transition ${
+                dragActive
+                  ? 'border-primary/40 bg-primary/5'
+                  : 'border-slate-300 bg-white/50 dark:border-white/15 dark:bg-white/[0.02]'
+              }`}
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">待上传文件</div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                    {importFile ? `${importFile.name} · ${(importFile.size / 1024).toFixed(1)} KB` : '拖拽 CSV 到这里，或点击按钮选择文件'}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400 dark:text-white/30">预览只展示前 5 行，正式校验仍以后端导入结果为准。</div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                  >
+                    选择 CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadTemplate()}
+                    className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                  >
+                    再看模板
+                  </button>
+                </div>
               </div>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(event) => {
-                  setImportFile(event.target.files?.[0] || null);
-                  setImportResult(null);
-                  setImportFeedback(null);
-                }}
-                className="mt-4 block w-full text-sm text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-primary dark:text-white/45"
-              />
             </div>
+
+            {importPreviewError && (
+              <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+                {importPreviewError}
+              </div>
+            )}
+
+            {importPreview && (
+              <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">CSV 预览</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-white/40">
+                      当前展示表头和前 {importPreview.rows.length} 行数据，确认无误后再点击导入。
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+                    {importPreview.headers.length} 列
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-left text-sm">
+                    <thead className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                      <tr>
+                        <th className="pb-3">#</th>
+                        {importPreview.headers.map((header) => (
+                          <th key={header} className="pb-3">
+                            {fieldLabel(header)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.rows.map((row, rowIndex) => (
+                        <tr key={`preview-row-${rowIndex}`} className="border-t border-slate-200/70 dark:border-white/10">
+                          <td className="py-3 text-slate-400 dark:text-white/30">{rowIndex + 1}</td>
+                          {importPreview.headers.map((header, cellIndex) => (
+                            <td key={`${header}-${cellIndex}`} className="py-3 text-slate-600 dark:text-white/55">
+                              {row[cellIndex] || '--'}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-3">
               <button
@@ -965,11 +1376,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setImportFile(null);
-                  setImportResult(null);
-                  setImportFeedback(null);
-                }}
+                onClick={clearImportState}
                 className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:text-white/45"
               >
                 清空结果
@@ -1000,6 +1407,54 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                     <div className="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">{importResult.failedCount}</div>
                   </div>
                 </div>
+
+                {mode === 'admin' && canAccessAdminConsole && importResult.successCount > 0 && (
+                  <div className="rounded-[1.8rem] border border-primary/20 bg-primary/5 p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">下一步：一键重建 RAG 索引</div>
+                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                          本次导入有 {importResult.successCount} 条成功记录。若希望新词条尽快进入检索，请直接触发增量 reindex。
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => inlineReindexMutation.mutate()}
+                        disabled={inlineReindexMutation.isPending || pollReindexJob}
+                        className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
+                      >
+                        <RefreshCw size={16} className={pollReindexJob ? 'animate-spin' : ''} />
+                        {inlineReindexMutation.isPending ? '提交中...' : pollReindexJob ? '重建中...' : '一键增量 Reindex'}
+                      </button>
+                    </div>
+
+                    {(reindexFeedback || reindexJobQuery.data) && (
+                      <div className="mt-5 rounded-[1.4rem] border border-slate-200/70 bg-white/75 p-4 dark:border-white/10 dark:bg-slate-950/25">
+                        {reindexFeedback && <div className="text-sm text-slate-600 dark:text-white/60">{reindexFeedback}</div>}
+                        {reindexJobQuery.data && (
+                          <>
+                            <div className="mt-3 flex items-center justify-between gap-3">
+                              <div className="font-bold text-slate-900 dark:text-white">
+                                任务 #{reindexJobQuery.data.jobId} · {inlineReindexMeta.label}
+                              </div>
+                              <div className="text-xs text-slate-400 dark:text-white/30">{inlineReindexMeta.progress}%</div>
+                            </div>
+                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
+                              <div
+                                className={`h-full rounded-full transition-all ${inlineReindexMeta.className}`}
+                                style={{ width: `${inlineReindexMeta.progress}%` }}
+                              />
+                            </div>
+                            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{inlineReindexMeta.description}</div>
+                            {reindexJobQuery.data.errorMessage && (
+                              <div className="mt-3 text-sm text-rose-500">{reindexJobQuery.data.errorMessage}</div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {failures.length > 0 && (
                   <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
@@ -1129,25 +1584,58 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
           </details>
 
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-lg font-black text-slate-900 dark:text-white">义项与例句</div>
-                <div className="mt-1 text-sm text-slate-500 dark:text-white/45">
-                  结构化录入后，后端会自动按 sortOrder 排序。空白卡片不会保存。
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white">义项与例句</div>
+                  <div className="mt-1 text-sm text-slate-500 dark:text-white/45">
+                    默认只显示基础字段。需要补结构化释义时再展开，减少空白噪音。
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowStructuredEditor((current) => !current)}
+                    className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                  >
+                    {showStructuredEditor ? (
+                      <>
+                        <ChevronUp size={14} className="inline-block" /> 收起结构化区
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={14} className="inline-block" /> 展开结构化区
+                      </>
+                    )}
+                  </button>
+                  <button type="button" onClick={addSense} className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
+                    <Plus size={14} className="inline-block" /> 添加义项
+                  </button>
                 </div>
               </div>
-              <button type="button" onClick={addSense} className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
-                <Plus size={14} className="inline-block" /> 添加义项
-              </button>
+
+              {!showStructuredEditor && (
+                <div className="mt-5 rounded-[1.5rem] border border-dashed border-slate-300 bg-white/55 px-5 py-6 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+                  {editor.senses.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span>当前已录入 {editor.senses.length} 个义项</span>
+                      <span>共 {structuredExampleCount} 条例句</span>
+                      <span>点击“展开结构化区”可继续编辑。</span>
+                    </div>
+                  ) : (
+                    <div>当前只录入基础词对。若需补充释义或例句，再展开结构化区即可。</div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {editor.senses.length === 0 && (
+            {showStructuredEditor && editor.senses.length === 0 && (
               <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/50 px-5 py-8 text-center text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
                 当前没有义项。可以直接保存基础词对，或添加至少一个义项和例句。
               </div>
             )}
 
-            {editor.senses.map((sense, senseIndex) => (
+            {showStructuredEditor && editor.senses.map((sense, senseIndex) => (
               <div key={`sense-${senseIndex}`} className="space-y-4 rounded-[2rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>

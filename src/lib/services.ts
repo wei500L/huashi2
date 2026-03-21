@@ -18,6 +18,7 @@ import type {
   LexicalListDetailVO,
   LexicalListSummaryVO,
   LexicalPairDetailVO,
+  LexicalPairOverviewVO,
   LexicalPairSummaryVO,
   LexicalPairUpsertRequest,
   LexicalRagAnswerVO,
@@ -168,8 +169,9 @@ export const teacherInterventionService = {
 };
 
 export const lexicalPairService = {
-  pageQuery: (params: { pageNo?: number; pageSize?: number; keyword?: string; lexicalPairType?: string; riskLevel?: string; contextSupportLevel?: string; active?: boolean }) =>
+  pageQuery: (params: { pageNo?: number; pageSize?: number; keyword?: string; lexicalPairType?: string; riskLevel?: string; contextSupportLevel?: string; active?: boolean; embeddingStatus?: string }) =>
     apiGet<PageResult<LexicalPairSummaryVO>>('/lexical-pairs', { params }),
+  getOverview: () => apiGet<LexicalPairOverviewVO>('/lexical-pairs/overview'),
   getDetail: (lexicalPairId: number) => apiGet<LexicalPairDetailVO>(`/lexical-pairs/${lexicalPairId}`),
   create: (payload: LexicalPairUpsertRequest) => apiPost<number>('/lexical-pairs', payload),
   update: (lexicalPairId: number, payload: LexicalPairUpsertRequest) => apiPut<number>(`/lexical-pairs/${lexicalPairId}`, payload),
