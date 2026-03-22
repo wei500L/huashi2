@@ -71,7 +71,7 @@ class LexicalImportBatchIntegrationTest extends AbstractWebIntegrationTest {
 
         JsonNode rows = listRows(teacherToken, batchId);
         JsonNode invalidRow = findRowByStatus(rows, "INVALID");
-        assertThat(invalidRow.path("validationErrors")).isNotEmpty();
+        assertThat(invalidRow.path("validationErrors").size()).isGreaterThan(0);
 
         ObjectNode updatePayload = ((ObjectNode) invalidRow.path("draft").deepCopy());
         updatePayload.put("lexicalPairType", "false_friend");
@@ -133,28 +133,28 @@ class LexicalImportBatchIntegrationTest extends AbstractWebIntegrationTest {
         String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
 
-        byte[] xlsxContent = buildWorkbookBytes(List.of(Map.of(
-                "english_word", "lexicalxlsxalpha",
-                "french_word", "lexicalxlsxalpha",
-                "chinese_gloss", "XLSX 导入词对",
-                "lexical_pair_type", "cognate",
-                "semantic_overlap_score", "0.91",
-                "false_friend_risk", "0.08",
-                "default_context_support", "low",
-                "difficulty_level", "2",
-                "notes", "xlsx row",
-                "source", "Integration Test",
-                "active", "true",
-                "tags", "xlsx|batch",
-                "knowledge_status", "ready",
-                "embedding_status", "pending",
-                "sense_english_definition", "xlsx definition",
-                "sense_french_definition", "definition xlsx",
-                "sense_chinese_definition", "词义 xlsx",
-                "example_english", "xlsx example",
-                "example_french", "exemple xlsx",
-                "example_chinese", "例句 xlsx",
-                "example_context_support", "low"
+        byte[] xlsxContent = buildWorkbookBytes(List.of(Map.ofEntries(
+                Map.entry("english_word", "lexicalxlsxalpha"),
+                Map.entry("french_word", "lexicalxlsxalpha"),
+                Map.entry("chinese_gloss", "XLSX 导入词对"),
+                Map.entry("lexical_pair_type", "cognate"),
+                Map.entry("semantic_overlap_score", "0.91"),
+                Map.entry("false_friend_risk", "0.08"),
+                Map.entry("default_context_support", "low"),
+                Map.entry("difficulty_level", "2"),
+                Map.entry("notes", "xlsx row"),
+                Map.entry("source", "Integration Test"),
+                Map.entry("active", "true"),
+                Map.entry("tags", "xlsx|batch"),
+                Map.entry("knowledge_status", "ready"),
+                Map.entry("embedding_status", "pending"),
+                Map.entry("sense_english_definition", "xlsx definition"),
+                Map.entry("sense_french_definition", "definition xlsx"),
+                Map.entry("sense_chinese_definition", "词义 xlsx"),
+                Map.entry("example_english", "xlsx example"),
+                Map.entry("example_french", "exemple xlsx"),
+                Map.entry("example_chinese", "例句 xlsx"),
+                Map.entry("example_context_support", "low")
         )));
 
         long batchId = createBatch(

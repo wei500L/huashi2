@@ -417,7 +417,7 @@ public class LexicalImportBatchService {
             lexicalPairService.validateImportCandidate(request);
             String pairKey = normalizePairKey(request.englishWord(), request.frenchWord());
             if (seenPairKeys != null && !seenPairKeys.add(pairKey)) {
-                errors.add("Duplicate lexical pair in CSV file");
+                errors.add("Duplicate lexical pair in import file");
             } else if (hasDuplicateWithinBatch(batchId, rowId, pairKey)) {
                 errors.add("Duplicate lexical pair in import batch");
             }

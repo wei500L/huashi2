@@ -43,7 +43,7 @@ export function translateImportMessage(message: string): string {
   if (trimmed === 'Import file must not exceed 50MB') {
     return '单个导入文件不能超过 50MB。';
   }
-  if (trimmed === 'Duplicate lexical pair in CSV file') {
+  if (trimmed === 'Duplicate lexical pair in CSV file' || trimmed === 'Duplicate lexical pair in import file') {
     return '同一份导入文件中出现了重复词对，请先去重。';
   }
   if (trimmed === 'Duplicate lexical pair in import batch') {
