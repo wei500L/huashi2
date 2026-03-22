@@ -1,0 +1,913 @@
+import React from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Download, FileSpreadsheet, LoaderCircle, RefreshCw, Save, Upload } from 'lucide-react';
+import type {
+  LexicalImportBatchDetailVO,
+  LexicalImportBatchStatus,
+  LexicalImportRowStatus,
+  LexicalImportRowUpdateRequest,
+  LexicalImportRowVO,
+} from '@/lib/contracts';
+import { saveBlob } from '@/lib/api';
+import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
+import { fieldLabel, formatFileSize, translateImportMessage } from '@/lib/lexical-import';
+import { adminService, lexicalPairService } from '@/lib/services';
+
+type LexicalImportCenterMode = 'teacher' | 'admin';
+
+type ImportRowFormState = LexicalImportRowUpdateRequest;
+type EditableRowFieldKey = Exclude<keyof ImportRowFormState, 'skipped'>;
+
+type StatusMeta = {
+  label: string;
+  className: string;
+};
+
+const batchStatusOptions: Array<{ value: string; label: string }> = [
+  { value: '', label: '全部批次状态' },
+  { value: 'PARSING', label: '解析中' },
+  { value: 'DRAFT', label: '待确认' },
+  { value: 'IMPORTING', label: '导入中' },
+  { value: 'COMPLETED', label: '已完成' },
+  { value: 'FAILED', label: '失败' },
+];
+
+const rowStatusOptions: Array<{ value: string; label: string }> = [
+  { value: '', label: '全部行状态' },
+  { value: 'READY', label: '可导入' },
+  { value: 'INVALID', label: '需修正' },
+  { value: 'SKIPPED', label: '已跳过' },
+  { value: 'IMPORTED', label: '已导入' },
+];
+
+const lexicalPairTypeOptions = [
+  { value: 'COGNATE', label: '同源词' },
+  { value: 'FALSE_FRIEND', label: '同形异义' },
+  { value: 'PARTIAL_COGNATE', label: '部分同源' },
+  { value: 'ORTHOGRAPHIC_SIMILAR', label: '近形词' },
+];
+
+const contextSupportOptions = [
+  { value: 'LOW', label: '低语境' },
+  { value: 'MEDIUM', label: '中语境' },
+  { value: 'HIGH', label: '高语境' },
+];
+
+const knowledgeStatusOptions = [
+  { value: '', label: '默认 DRAFT' },
+  { value: 'DRAFT', label: 'DRAFT' },
+  { value: 'READY', label: 'READY' },
+  { value: 'DISABLED', label: 'DISABLED' },
+];
+
+const embeddingStatusOptions = [
+  { value: '', label: '默认 PENDING' },
+  { value: 'PENDING', label: 'PENDING' },
+  { value: 'EMBEDDED', label: 'EMBEDDED' },
+  { value: 'FAILED', label: 'FAILED' },
+];
+
+const activeOptions = [
+  { value: '', label: '默认 true' },
+  { value: 'true', label: 'true' },
+  { value: 'false', label: 'false' },
+];
+
+const rowFieldGroups: Array<{
+  title: string;
+  fields: Array<{ key: EditableRowFieldKey; label: string; type?: 'text' | 'textarea' | 'select'; options?: Array<{ value: string; label: string }> }>;
+}> = [
+  {
+    title: '基础字段',
+    fields: [
+      { key: 'englishWord', label: '英语词' },
+      { key: 'frenchWord', label: '法语词' },
+      { key: 'chineseGloss', label: '中文释义' },
+      { key: 'lexicalPairType', label: '词对类型', type: 'select', options: lexicalPairTypeOptions },
+      { key: 'semanticOverlapScore', label: '语义重合度' },
+      { key: 'falseFriendRisk', label: '负迁移风险' },
+      { key: 'defaultContextSupport', label: '默认语境支持', type: 'select', options: contextSupportOptions },
+      { key: 'difficultyLevel', label: '难度等级' },
+      { key: 'active', label: '启用状态', type: 'select', options: activeOptions },
+      { key: 'tags', label: '标签（| 分隔）' },
+      { key: 'knowledgeStatus', label: '知识状态', type: 'select', options: knowledgeStatusOptions },
+      { key: 'embeddingStatus', label: '向量状态', type: 'select', options: embeddingStatusOptions },
+    ],
+  },
+  {
+    title: '释义与例句',
+    fields: [
+      { key: 'senseEnglishDefinition', label: '英语义项', type: 'textarea' },
+      { key: 'senseFrenchDefinition', label: '法语义项', type: 'textarea' },
+      { key: 'senseChineseDefinition', label: '中文义项', type: 'textarea' },
+      { key: 'exampleEnglish', label: '英语例句', type: 'textarea' },
+      { key: 'exampleFrench', label: '法语例句', type: 'textarea' },
+      { key: 'exampleChinese', label: '中文译文', type: 'textarea' },
+      { key: 'exampleContextSupport', label: '例句语境支持', type: 'select', options: contextSupportOptions },
+      { key: 'source', label: '来源' },
+      { key: 'notes', label: '备注', type: 'textarea' },
+    ],
+  },
+];
+
+function createEmptyRowForm(): ImportRowFormState {
+  return {
+    englishWord: '',
+    frenchWord: '',
+    chineseGloss: '',
+    lexicalPairType: 'COGNATE',
+    semanticOverlapScore: '0.50',
+    falseFriendRisk: '0.10',
+    defaultContextSupport: 'LOW',
+    difficultyLevel: '3',
+    notes: '',
+    source: '',
+    active: 'true',
+    tags: '',
+    knowledgeStatus: '',
+    embeddingStatus: '',
+    senseEnglishDefinition: '',
+    senseFrenchDefinition: '',
+    senseChineseDefinition: '',
+    exampleEnglish: '',
+    exampleFrench: '',
+    exampleChinese: '',
+    exampleContextSupport: 'MEDIUM',
+    skipped: false,
+  };
+}
+
+function toRowForm(row?: LexicalImportRowVO | null): ImportRowFormState {
+  if (!row) {
+    return createEmptyRowForm();
+  }
+  return {
+    englishWord: row.draft.englishWord || '',
+    frenchWord: row.draft.frenchWord || '',
+    chineseGloss: row.draft.chineseGloss || '',
+    lexicalPairType: row.draft.lexicalPairType || 'COGNATE',
+    semanticOverlapScore: row.draft.semanticOverlapScore || '0.50',
+    falseFriendRisk: row.draft.falseFriendRisk || '0.10',
+    defaultContextSupport: row.draft.defaultContextSupport || 'LOW',
+    difficultyLevel: row.draft.difficultyLevel || '3',
+    notes: row.draft.notes || '',
+    source: row.draft.source || '',
+    active: row.draft.active || 'true',
+    tags: row.draft.tags || '',
+    knowledgeStatus: row.draft.knowledgeStatus || '',
+    embeddingStatus: row.draft.embeddingStatus || '',
+    senseEnglishDefinition: row.draft.senseEnglishDefinition || '',
+    senseFrenchDefinition: row.draft.senseFrenchDefinition || '',
+    senseChineseDefinition: row.draft.senseChineseDefinition || '',
+    exampleEnglish: row.draft.exampleEnglish || '',
+    exampleFrench: row.draft.exampleFrench || '',
+    exampleChinese: row.draft.exampleChinese || '',
+    exampleContextSupport: row.draft.exampleContextSupport || 'MEDIUM',
+    skipped: row.status === 'SKIPPED',
+  };
+}
+
+function buildBatchStatusMeta(status?: string | null): StatusMeta {
+  const normalized = String(status || '').toUpperCase() as LexicalImportBatchStatus | '';
+  switch (normalized) {
+    case 'PARSING':
+      return { label: '解析中', className: 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400' };
+    case 'DRAFT':
+      return { label: '待确认', className: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400' };
+    case 'IMPORTING':
+      return { label: '导入中', className: 'border-primary/20 bg-primary/10 text-primary' };
+    case 'COMPLETED':
+      return { label: '已完成', className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' };
+    case 'FAILED':
+      return { label: '失败', className: 'border-rose-500/20 bg-rose-500/10 text-rose-500' };
+    default:
+      return { label: status || '--', className: 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45' };
+  }
+}
+
+function buildRowStatusMeta(status?: string | null): StatusMeta {
+  const normalized = String(status || '').toUpperCase() as LexicalImportRowStatus | '';
+  switch (normalized) {
+    case 'READY':
+      return { label: '可导入', className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' };
+    case 'INVALID':
+      return { label: '需修正', className: 'border-rose-500/20 bg-rose-500/10 text-rose-500' };
+    case 'SKIPPED':
+      return { label: '已跳过', className: 'border-slate-300/70 bg-slate-200/60 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45' };
+    case 'IMPORTED':
+      return { label: '已导入', className: 'border-primary/20 bg-primary/10 text-primary' };
+    default:
+      return { label: status || '--', className: 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45' };
+  }
+}
+
+const Panel: React.FC<{
+  title: string;
+  description?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ title, description, actions, children }) => (
+  <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="space-y-2">
+        <h2 className="text-xl font-black text-slate-900 dark:text-white">{title}</h2>
+        {description && <p className="max-w-3xl text-sm leading-6 text-slate-500 dark:text-white/45">{description}</p>}
+      </div>
+      {actions}
+    </div>
+    {children}
+  </section>
+);
+
+const MetricCard: React.FC<{ label: string; value: number; className: string }> = ({ label, value, className }) => (
+  <div className={`rounded-[1.8rem] border px-5 py-5 ${className}`}>
+    <div className="text-[11px] uppercase tracking-[0.24em] opacity-70">{label}</div>
+    <div className="mt-2 text-3xl font-black">{value}</div>
+  </div>
+);
+
+const TextField: React.FC<{
+  label: string;
+  value: string | boolean | null | undefined;
+  onChange: (value: string) => void;
+  type?: 'text' | 'textarea' | 'select';
+  options?: Array<{ value: string; label: string }>;
+}> = ({ label, value, onChange, type = 'text', options }) => (
+  <label className="block rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{label}</div>
+    {type === 'textarea' ? (
+      <textarea
+        value={String(value ?? '')}
+        onChange={(event) => onChange(event.target.value)}
+        rows={3}
+        className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/45"
+      />
+    ) : type === 'select' ? (
+      <select
+        value={String(value ?? '')}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/45"
+      >
+        {(options || []).map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <input
+        value={String(value ?? '')}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/45"
+      />
+    )}
+  </label>
+);
+
+function isBatchProcessing(batch?: Pick<LexicalImportBatchDetailVO, 'status'> | null): boolean {
+  return Boolean(batch && ['PARSING', 'IMPORTING'].includes(batch.status));
+}
+
+export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = ({ mode }) => {
+  const queryClient = useQueryClient();
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const lastBatchStatusRef = React.useRef<LexicalImportBatchStatus | null>(null);
+  const [uploadFile, setUploadFile] = React.useState<File | null>(null);
+  const [selectedBatchId, setSelectedBatchId] = React.useState<number | null>(null);
+  const [selectedRowId, setSelectedRowId] = React.useState<number | null>(null);
+  const [batchPageNo, setBatchPageNo] = React.useState(1);
+  const [batchPageSize, setBatchPageSize] = React.useState(12);
+  const [rowPageNo, setRowPageNo] = React.useState(1);
+  const [rowPageSize, setRowPageSize] = React.useState(20);
+  const [batchStatus, setBatchStatus] = React.useState('');
+  const [batchKeyword, setBatchKeyword] = React.useState('');
+  const [batchOwnerUserId, setBatchOwnerUserId] = React.useState('');
+  const [rowStatus, setRowStatus] = React.useState('');
+  const [feedback, setFeedback] = React.useState<string | null>(null);
+  const [rowForm, setRowForm] = React.useState<ImportRowFormState>(createEmptyRowForm);
+  const isAdmin = mode === 'admin';
+
+  const usersQuery = useQuery({
+    queryKey: ['admin-users-for-import-history'],
+    queryFn: ({ signal }) => adminService.listUsers({ signal }),
+    enabled: isAdmin,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const batchesQuery = useQuery({
+    queryKey: ['lexical-import-batches', mode, batchStatus, batchKeyword, batchOwnerUserId, batchPageNo, batchPageSize],
+    queryFn: ({ signal }) =>
+      lexicalPairService.listImportBatches(
+        {
+          pageNo: batchPageNo,
+          pageSize: batchPageSize,
+          status: batchStatus || undefined,
+          keyword: batchKeyword.trim() || undefined,
+          ownerUserId: batchOwnerUserId ? Number(batchOwnerUserId) : undefined,
+        },
+        { signal }
+      ),
+  });
+
+  React.useEffect(() => {
+    if (selectedBatchId !== null || !batchesQuery.data?.records.length) {
+      return;
+    }
+    setSelectedBatchId(batchesQuery.data.records[0].id);
+  }, [batchesQuery.data, selectedBatchId]);
+
+  const batchDetailQuery = useQuery({
+    queryKey: ['lexical-import-batch-detail', selectedBatchId],
+    queryFn: ({ signal }) => lexicalPairService.getImportBatch(selectedBatchId as number, { signal }),
+    enabled: selectedBatchId !== null,
+    refetchInterval: 2000,
+  });
+
+  const rowsQuery = useQuery({
+    queryKey: ['lexical-import-batch-rows', selectedBatchId, rowStatus, rowPageNo, rowPageSize],
+    queryFn: ({ signal }) =>
+      lexicalPairService.listImportRows(
+        selectedBatchId as number,
+        {
+          pageNo: rowPageNo,
+          pageSize: rowPageSize,
+          status: rowStatus || undefined,
+        },
+        { signal }
+      ),
+    enabled: selectedBatchId !== null && batchDetailQuery.data?.status !== 'PARSING',
+  });
+
+  React.useEffect(() => {
+    const currentStatus = batchDetailQuery.data?.status ?? null;
+    const previousStatus = lastBatchStatusRef.current;
+    if (currentStatus === 'COMPLETED' && previousStatus === 'IMPORTING') {
+      void queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
+      void queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
+      void queryClient.invalidateQueries({ queryKey: ['lexical-import-batches'] });
+      setFeedback('导入任务已完成，词对列表已自动刷新。');
+    }
+    lastBatchStatusRef.current = currentStatus;
+  }, [batchDetailQuery.data?.status, queryClient]);
+
+  React.useEffect(() => {
+    if (!rowsQuery.data?.records.length) {
+      setSelectedRowId(null);
+      setRowForm(createEmptyRowForm());
+      return;
+    }
+    const currentRow = rowsQuery.data.records.find((item) => item.id === selectedRowId);
+    const nextRow = currentRow || rowsQuery.data.records[0];
+    setSelectedRowId(nextRow.id);
+    setRowForm(toRowForm(nextRow));
+  }, [rowsQuery.data, selectedRowId]);
+
+  const selectedRow = React.useMemo(
+    () => rowsQuery.data?.records.find((item) => item.id === selectedRowId) || null,
+    [rowsQuery.data, selectedRowId]
+  );
+
+  React.useEffect(() => {
+    setBatchPageNo(1);
+  }, [batchStatus, batchKeyword, batchOwnerUserId, batchPageSize]);
+
+  React.useEffect(() => {
+    setRowPageNo(1);
+  }, [rowStatus, rowPageSize, selectedBatchId]);
+
+  const createBatchMutation = useMutation({
+    mutationFn: async () => {
+      if (!uploadFile) {
+        throw new Error('请先选择要上传的 CSV 或 XLSX 文件。');
+      }
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      return lexicalPairService.createImportBatch(formData, { timeout: 120000 });
+    },
+    onSuccess: async (result) => {
+      setFeedback(`已创建导入批次 #${result.batchId}，后台正在解析文件。`);
+      setSelectedBatchId(result.batchId);
+      setSelectedRowId(null);
+      setUploadFile(null);
+      setBatchPageNo(1);
+      setRowPageNo(1);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batches'] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batch-detail', result.batchId] });
+    },
+    onError: (error) => {
+      setFeedback(translateImportMessage(error instanceof Error ? error.message : '导入批次创建失败。'));
+    },
+  });
+
+  const updateRowMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedBatchId || !selectedRowId) {
+        throw new Error('请先选择要编辑的导入行。');
+      }
+      return lexicalPairService.updateImportRow(selectedBatchId, selectedRowId, rowForm);
+    },
+    onSuccess: async (row) => {
+      setFeedback(`已保存第 ${row.rowNumber} 行草稿。`);
+      setRowForm(toRowForm(row));
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batch-rows', selectedBatchId] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batch-detail', selectedBatchId] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batches'] });
+    },
+    onError: (error) => {
+      setFeedback(translateImportMessage(error instanceof Error ? error.message : '草稿保存失败。'));
+    },
+  });
+
+  const commitBatchMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedBatchId) {
+        throw new Error('请先选择导入批次。');
+      }
+      return lexicalPairService.commitImportBatch(selectedBatchId);
+    },
+    onSuccess: async (result) => {
+      setFeedback(`批次 #${result.batchId} 已提交导入，后台正在处理。`);
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batches'] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batch-detail', result.batchId] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batch-rows', result.batchId] });
+    },
+    onError: (error) => {
+      setFeedback(translateImportMessage(error instanceof Error ? error.message : '提交导入失败。'));
+    },
+  });
+
+  const handleDownloadFile = async () => {
+    if (!selectedBatchId || !batchDetailQuery.data) {
+      return;
+    }
+    try {
+      const blob = await lexicalPairService.downloadImportFile(selectedBatchId);
+      saveBlob(blob, batchDetailQuery.data.originalFilename);
+    } catch (error) {
+      setFeedback(translateImportMessage(error instanceof Error ? error.message : '原文件下载失败。'));
+    }
+  };
+
+  const batchTotalPages = Math.max(1, Math.ceil((batchesQuery.data?.total || 0) / batchPageSize));
+  const rowTotalPages = Math.max(1, Math.ceil((rowsQuery.data?.total || 0) / rowPageSize));
+  const selectedBatch = batchDetailQuery.data;
+  const batchStatusMeta = buildBatchStatusMeta(selectedBatch?.status);
+
+  React.useEffect(() => {
+    if (batchPageNo > batchTotalPages) {
+      setBatchPageNo(batchTotalPages);
+    }
+  }, [batchPageNo, batchTotalPages]);
+
+  React.useEffect(() => {
+    if (rowPageNo > rowTotalPages) {
+      setRowPageNo(rowTotalPages);
+    }
+  }, [rowPageNo, rowTotalPages]);
+
+  return (
+    <div className="space-y-8">
+      <Panel
+        title="批量导入中心"
+        description="支持 CSV / XLSX 上传、后台解析、可恢复草稿、逐行修正与异步正式导入。原文件会留档，可在历史中随时回看。"
+        actions={
+          <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/70 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+            <FileSpreadsheet size={16} className="mb-2 text-primary" />
+            支持 CSV / XLSX，单文件上限 50MB，解析后进入草稿确认。
+          </div>
+        }
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className="hidden"
+          onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
+        />
+
+        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/50 p-6 dark:border-white/15 dark:bg-white/[0.02]">
+            <div className="text-sm font-bold text-slate-900 dark:text-white">待上传文件</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+              {uploadFile ? `${uploadFile.name} · ${formatFileSize(uploadFile.size)}` : '选择 CSV / XLSX 文件后创建导入批次'}
+            </div>
+            <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
+              文件上传后不会直接入库，而是先生成草稿并进入人工确认。
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+              >
+                选择文件
+              </button>
+              <button
+                type="button"
+                onClick={() => createBatchMutation.mutate()}
+                disabled={createBatchMutation.isPending}
+                className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
+              >
+                <Upload size={16} />
+                {createBatchMutation.isPending ? '上传中...' : '创建导入批次'}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">处理方式</div>
+              <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">上传后后台解析，生成可恢复草稿；确认后异步正式导入。</div>
+            </div>
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">文件留档</div>
+              <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">原始文件和导入记录都会保留，可从历史记录中下载回看。</div>
+            </div>
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">草稿编辑</div>
+              <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">支持逐行修正、跳过和重新提交，不会影响已经成功导入的行。</div>
+            </div>
+          </div>
+        </div>
+
+        {feedback && (
+          <div className="rounded-[1.8rem] border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-slate-700 dark:text-white/75">
+            {feedback}
+          </div>
+        )}
+      </Panel>
+
+      <div className="grid gap-8 xl:grid-cols-[0.92fr_1.08fr]">
+        <Panel title="导入历史" description="教师查看自己的上传记录；管理员可按操作者筛选全部批次。">
+          <div className={`grid gap-4 ${isAdmin ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+            <TextField label="批次状态" value={batchStatus} onChange={setBatchStatus} type="select" options={batchStatusOptions} />
+            <TextField label="文件名检索" value={batchKeyword} onChange={setBatchKeyword} />
+            {isAdmin && (
+              <TextField
+                label="操作者"
+                value={batchOwnerUserId}
+                onChange={setBatchOwnerUserId}
+                type="select"
+                options={[
+                  { value: '', label: '全部操作者' },
+                  ...((usersQuery.data || []).map((user) => ({
+                    value: String(user.id),
+                    label: user.displayName || user.username,
+                  })) || []),
+                ]}
+              />
+            )}
+            <TextField
+              label="每页数量"
+              value={String(batchPageSize)}
+              onChange={(value) => {
+                setBatchPageSize(Number(value));
+                setBatchPageNo(1);
+              }}
+              type="select"
+              options={[12, 24, 48].map((value) => ({ value: String(value), label: `每页 ${value} 条` }))}
+            />
+          </div>
+
+          <div className="space-y-4">
+            {(batchesQuery.data?.records || []).map((batch) => {
+              const meta = buildBatchStatusMeta(batch.status);
+              return (
+                <button
+                  key={batch.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedBatchId(batch.id);
+                    setRowPageNo(1);
+                  }}
+                  className={`w-full rounded-[1.8rem] border p-5 text-left transition ${
+                    selectedBatchId === batch.id
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-slate-200/70 bg-white/60 hover:border-primary/20 dark:border-white/10 dark:bg-white/[0.03]'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-base font-black text-slate-900 dark:text-white">{batch.originalFilename}</div>
+                      <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        {batch.sourceFormat} · {formatFileSize(batch.fileSizeBytes)} · 创建于 {formatDateTime(batch.createdAt)}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
+                        {isAdmin ? `操作者 ${batch.ownerDisplayName || batch.ownerUserId}` : `导入批次 #${batch.id}`}
+                      </div>
+                    </div>
+                    <div className={`rounded-full border px-3 py-1 text-xs font-bold ${meta.className}`}>{meta.label}</div>
+                  </div>
+                  <div className="mt-4 grid gap-2 text-xs text-slate-500 dark:text-white/45 md:grid-cols-4">
+                    <div>总行数 {batch.totalRows}</div>
+                    <div>可导入 {batch.readyRows}</div>
+                    <div>需修正 {batch.invalidRows}</div>
+                    <div>已导入 {batch.importedRows}</div>
+                  </div>
+                  {batch.errorMessage && (
+                    <div className="mt-3 text-sm text-rose-500">{translateImportMessage(batch.errorMessage)}</div>
+                  )}
+                </button>
+              );
+            })}
+
+            {!batchesQuery.isLoading && !batchesQuery.data?.records.length && (
+              <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-6 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+                当前筛选条件下没有导入记录。
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-slate-200/70 bg-white/55 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+            <div>
+              第 {batchPageNo} / {batchTotalPages} 页
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setBatchPageNo((current) => Math.max(1, current - 1))}
+                disabled={batchPageNo <= 1 || batchesQuery.isFetching}
+                className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+              >
+                上一页
+              </button>
+              <button
+                type="button"
+                onClick={() => setBatchPageNo((current) => Math.min(batchTotalPages, current + 1))}
+                disabled={batchPageNo >= batchTotalPages || batchesQuery.isFetching}
+                className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+              >
+                下一页
+              </button>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel
+          title="批次详情"
+          description="解析完成后可查看统计、下载原文件、逐行修正草稿，并在确认后执行正式导入。"
+          actions={
+            selectedBatch && (
+              <div className={`rounded-full border px-4 py-2 text-sm font-bold ${batchStatusMeta.className}`}>
+                批次 #{selectedBatch.id} · {batchStatusMeta.label}
+              </div>
+            )
+          }
+        >
+          {!selectedBatchId && (
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+              先从左侧选择一个导入批次，或直接上传新文件。
+            </div>
+          )}
+
+          {selectedBatch && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                <div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white">{selectedBatch.originalFilename}</div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                    {selectedBatch.sourceFormat} · {formatFileSize(selectedBatch.fileSizeBytes)} · SHA-256 {selectedBatch.fileSha256 || '--'}
+                  </div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                    操作者 {selectedBatch.ownerDisplayName || selectedBatch.ownerUserId} · 创建于 {formatDateTime(selectedBatch.createdAt)}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
+                    解析开始 {formatDateTime(selectedBatch.parserJobStartedAt)} · 解析结束 {formatDateTime(selectedBatch.parserJobFinishedAt)} · 导入结束 {formatDateTime(selectedBatch.importJobFinishedAt)}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadFile()}
+                    className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Download size={14} />
+                      下载原文件
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => commitBatchMutation.mutate()}
+                    disabled={commitBatchMutation.isPending || isBatchProcessing(selectedBatch) || selectedBatch.readyRows <= 0}
+                    className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
+                  >
+                    <RefreshCw size={14} className={isBatchProcessing(selectedBatch) ? 'animate-spin' : ''} />
+                    {commitBatchMutation.isPending || selectedBatch.status === 'IMPORTING' ? '提交中...' : '正式导入可用行'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-5">
+                <MetricCard label="总行数" value={selectedBatch.totalRows} className="border-slate-200/70 bg-white/60 text-slate-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-white" />
+                <MetricCard label="可导入" value={selectedBatch.readyRows} className="border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400" />
+                <MetricCard label="需修正" value={selectedBatch.invalidRows} className="border-rose-500/20 bg-rose-500/5 text-rose-500" />
+                <MetricCard label="已跳过" value={selectedBatch.skippedRows} className="border-slate-200/70 bg-white/60 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/75" />
+                <MetricCard label="已导入" value={selectedBatch.importedRows} className="border-primary/20 bg-primary/5 text-primary" />
+              </div>
+
+              {selectedBatch.errorMessage && (
+                <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+                  {translateImportMessage(selectedBatch.errorMessage)}
+                </div>
+              )}
+
+              {selectedBatch.status === 'PARSING' && (
+                <div className="rounded-[1.8rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-600 dark:text-sky-400">
+                  文件正在后台解析中，页面会每 2 秒自动刷新一次状态。
+                </div>
+              )}
+
+              {selectedBatch.status !== 'PARSING' && (
+                <div className="space-y-6">
+                  <div className="flex flex-wrap gap-4">
+                    <TextField label="行状态筛选" value={rowStatus} onChange={setRowStatus} type="select" options={rowStatusOptions} />
+                    <TextField
+                      label="每页行数"
+                      value={String(rowPageSize)}
+                      onChange={(value) => {
+                        setRowPageSize(Number(value));
+                        setRowPageNo(1);
+                      }}
+                      type="select"
+                      options={[20, 50, 100].map((value) => ({ value: String(value), label: `每页 ${value} 行` }))}
+                    />
+                  </div>
+
+                  <div className="overflow-x-auto rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    <table className="w-full min-w-[760px] text-left text-sm">
+                      <thead className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                        <tr>
+                          <th className="pb-3">行号</th>
+                          <th className="pb-3">词对</th>
+                          <th className="pb-3">状态</th>
+                          <th className="pb-3">错误 / 结果</th>
+                          <th className="pb-3">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(rowsQuery.data?.records || []).map((row) => {
+                          const meta = buildRowStatusMeta(row.status);
+                          const pairLabel = [row.draft.englishWord, row.draft.frenchWord].filter(Boolean).join(' / ') || '未填写词对';
+                          return (
+                            <tr key={row.id} className="border-t border-slate-200/70 dark:border-white/10">
+                              <td className="py-3 text-slate-500 dark:text-white/45">{row.rowNumber}</td>
+                              <td className="py-3">
+                                <div className="font-semibold text-slate-900 dark:text-white">{pairLabel}</div>
+                                <div className="mt-1 text-xs text-slate-400 dark:text-white/30">{row.draft.chineseGloss || '--'}</div>
+                              </td>
+                              <td className="py-3">
+                                <span className={`rounded-full border px-3 py-1 text-xs font-bold ${meta.className}`}>{meta.label}</span>
+                              </td>
+                              <td className="py-3 text-slate-500 dark:text-white/45">
+                                {row.validationErrors.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {row.validationErrors.slice(0, 2).map((error) => (
+                                      <div key={error} className="text-rose-500">
+                                        {translateImportMessage(error)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : row.importedLexicalPairId ? (
+                                  <div className="text-emerald-600 dark:text-emerald-400">已导入词对 #{row.importedLexicalPairId}</div>
+                                ) : (
+                                  '--'
+                                )}
+                              </td>
+                              <td className="py-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRowId(row.id);
+                                    setRowForm(toRowForm(row));
+                                  }}
+                                  className={`rounded-full border px-4 py-2 text-xs font-bold ${
+                                    selectedRowId === row.id
+                                      ? 'border-primary/30 bg-primary/10 text-primary'
+                                      : 'border-slate-200/70 text-slate-500 dark:border-white/10 dark:text-white/45'
+                                  }`}
+                                >
+                                  编辑
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-slate-200/70 bg-white/55 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+                    <div>
+                      第 {rowPageNo} / {rowTotalPages} 页
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRowPageNo((current) => Math.max(1, current - 1))}
+                        disabled={rowPageNo <= 1 || rowsQuery.isFetching}
+                        className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+                      >
+                        上一页
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRowPageNo((current) => Math.min(rowTotalPages, current + 1))}
+                        disabled={rowPageNo >= rowTotalPages || rowsQuery.isFetching}
+                        className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+                      >
+                        下一页
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectedRow && (
+                    <div className="space-y-4 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="text-base font-black text-slate-900 dark:text-white">编辑第 {selectedRow.rowNumber} 行</div>
+                          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                            当前状态 {buildRowStatusMeta(selectedRow.status).label}
+                            {selectedRow.draft.lexicalPairType ? ` · ${lexicalPairTypeLabel(selectedRow.draft.lexicalPairType)}` : ''}
+                            {selectedRow.draft.defaultContextSupport
+                              ? ` · ${contextLevelLabel(selectedRow.draft.defaultContextSupport)}`
+                              : ''}
+                          </div>
+                        </div>
+                        <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm dark:border-white/10">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(rowForm.skipped)}
+                            onChange={(event) => setRowForm((current) => ({ ...current, skipped: event.target.checked }))}
+                          />
+                          跳过该行
+                        </label>
+                      </div>
+
+                      {selectedRow.validationErrors.length > 0 && !rowForm.skipped && (
+                        <div className="rounded-[1.4rem] border border-rose-500/20 bg-rose-500/5 px-4 py-4 text-sm text-rose-500">
+                          {selectedRow.validationErrors.map((error) => (
+                            <div key={error}>{translateImportMessage(error)}</div>
+                          ))}
+                        </div>
+                      )}
+
+                      {rowFieldGroups.map((group) => (
+                        <div key={group.title} className="space-y-4">
+                          <div className="text-sm font-bold text-slate-900 dark:text-white">{group.title}</div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {group.fields.map((field) => (
+                              <TextField
+                                key={String(field.key)}
+                                label={field.label}
+                                value={rowForm[field.key]}
+                                onChange={(value) => setRowForm((current) => ({ ...current, [field.key]: value }))}
+                                type={field.type}
+                                options={field.options}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => updateRowMutation.mutate()}
+                          disabled={updateRowMutation.isPending || selectedRow.status === 'IMPORTED'}
+                          className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
+                        >
+                          <Save size={16} />
+                          {updateRowMutation.isPending ? '保存中...' : '保存草稿行'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRowForm(toRowForm(selectedRow))}
+                          className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                        >
+                          恢复当前行
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {batchDetailQuery.isLoading && (
+            <div className="flex items-center gap-3 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-6 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+              <LoaderCircle size={16} className="animate-spin" />
+              正在加载批次详情...
+            </div>
+          )}
+        </Panel>
+      </div>
+    </div>
+  );
+};
+
+export default LexicalImportCenter;

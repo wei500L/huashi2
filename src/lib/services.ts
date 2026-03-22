@@ -19,6 +19,11 @@ import type {
   LexicalListDetailVO,
   LexicalListSummaryVO,
   LexicalPairDetailVO,
+  LexicalImportBatchCreatedVO,
+  LexicalImportBatchDetailVO,
+  LexicalImportBatchSummaryVO,
+  LexicalImportRowUpdateRequest,
+  LexicalImportRowVO,
   LexicalPairOverviewVO,
   LexicalPairSummaryVO,
   LexicalPairUpsertRequest,
@@ -57,7 +62,7 @@ import type {
   RagReindexResponse,
 } from './contracts';
 
-type RequestOptions = Pick<AxiosRequestConfig, 'signal'>;
+type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout'>;
 
 export const authService = {
   login: (payload: { usernameOrEmail: string; password: string }) =>
@@ -182,6 +187,25 @@ export const lexicalPairService = {
   delete: (lexicalPairId: number) => apiDelete<void>(`/lexical-pairs/${lexicalPairId}`),
   getImportTemplate: (options?: RequestOptions) => apiGet<CsvImportTemplateVO>('/lexical-pairs/import-template', options),
   importCsv: (formData: FormData) => apiUpload<CsvImportResultVO>('/lexical-pairs/import', formData),
+  createImportBatch: (formData: FormData, options?: RequestOptions) =>
+    apiUpload<LexicalImportBatchCreatedVO>('/lexical-pairs/import-batches', formData, options),
+  listImportBatches: (
+    params: { pageNo?: number; pageSize?: number; status?: string; keyword?: string; ownerUserId?: number },
+    options?: RequestOptions
+  ) => apiGet<PageResult<LexicalImportBatchSummaryVO>>('/lexical-pairs/import-batches', { ...options, params }),
+  getImportBatch: (batchId: number, options?: RequestOptions) =>
+    apiGet<LexicalImportBatchDetailVO>(`/lexical-pairs/import-batches/${batchId}`, options),
+  listImportRows: (
+    batchId: number,
+    params: { pageNo?: number; pageSize?: number; status?: string },
+    options?: RequestOptions
+  ) => apiGet<PageResult<LexicalImportRowVO>>(`/lexical-pairs/import-batches/${batchId}/rows`, { ...options, params }),
+  updateImportRow: (batchId: number, rowId: number, payload: LexicalImportRowUpdateRequest) =>
+    apiPut<LexicalImportRowVO>(`/lexical-pairs/import-batches/${batchId}/rows/${rowId}`, payload),
+  commitImportBatch: (batchId: number) =>
+    apiPost<LexicalImportBatchCreatedVO>(`/lexical-pairs/import-batches/${batchId}/commit`),
+  downloadImportFile: (batchId: number, options?: RequestOptions) =>
+    apiDownload(`/lexical-pairs/import-batches/${batchId}/file`, options),
 };
 
 export const lexicalListService = {

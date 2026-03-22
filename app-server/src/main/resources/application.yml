@@ -7,6 +7,10 @@ spring:
     name: app-server
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  servlet:
+    multipart:
+      max-file-size: ${APP_MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${APP_MULTIPART_MAX_REQUEST_SIZE:50MB}
   datasource:
     url: jdbc:mysql://${APP_DB_HOST:localhost}:${APP_DB_PORT:3306}/${APP_DB_NAME:ef_transfer_app}?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
     username: ${APP_DB_USERNAME:ef_user}

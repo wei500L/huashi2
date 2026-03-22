@@ -966,6 +966,97 @@ export interface CsvImportResultVO {
   failures: CsvImportFailureVO[];
 }
 
+export type LexicalImportBatchStatus = 'PARSING' | 'DRAFT' | 'IMPORTING' | 'COMPLETED' | 'FAILED';
+export type LexicalImportRowStatus = 'READY' | 'INVALID' | 'SKIPPED' | 'IMPORTED';
+
+export interface LexicalImportRowDraft {
+  englishWord?: string | null;
+  frenchWord?: string | null;
+  chineseGloss?: string | null;
+  lexicalPairType?: string | null;
+  semanticOverlapScore?: string | null;
+  falseFriendRisk?: string | null;
+  defaultContextSupport?: string | null;
+  difficultyLevel?: string | null;
+  notes?: string | null;
+  source?: string | null;
+  active?: string | null;
+  tags?: string | null;
+  knowledgeStatus?: string | null;
+  embeddingStatus?: string | null;
+  senseEnglishDefinition?: string | null;
+  senseFrenchDefinition?: string | null;
+  senseChineseDefinition?: string | null;
+  exampleEnglish?: string | null;
+  exampleFrench?: string | null;
+  exampleChinese?: string | null;
+  exampleContextSupport?: string | null;
+}
+
+export interface LexicalImportRowUpdateRequest extends LexicalImportRowDraft {
+  skipped?: boolean;
+}
+
+export interface LexicalImportBatchCreatedVO {
+  batchId: number;
+  status: LexicalImportBatchStatus;
+}
+
+export interface LexicalImportBatchSummaryVO {
+  id: number;
+  status: LexicalImportBatchStatus;
+  sourceFormat: string;
+  originalFilename: string;
+  contentType?: string | null;
+  fileSizeBytes: number;
+  totalRows: number;
+  readyRows: number;
+  invalidRows: number;
+  skippedRows: number;
+  importedRows: number;
+  errorMessage?: string | null;
+  ownerUserId: number;
+  ownerDisplayName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  parserJobFinishedAt?: string | null;
+  importJobFinishedAt?: string | null;
+}
+
+export interface LexicalImportBatchDetailVO {
+  id: number;
+  status: LexicalImportBatchStatus;
+  sourceFormat: string;
+  originalFilename: string;
+  contentType?: string | null;
+  fileSizeBytes: number;
+  totalRows: number;
+  readyRows: number;
+  invalidRows: number;
+  skippedRows: number;
+  importedRows: number;
+  errorMessage?: string | null;
+  ownerUserId: number;
+  ownerDisplayName?: string | null;
+  fileSha256?: string | null;
+  parserJobStartedAt?: string | null;
+  parserJobFinishedAt?: string | null;
+  importJobStartedAt?: string | null;
+  importJobFinishedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LexicalImportRowVO {
+  id: number;
+  rowNumber: number;
+  status: LexicalImportRowStatus;
+  draft: LexicalImportRowDraft;
+  validationErrors: string[];
+  importedLexicalPairId?: number | null;
+  importMessage?: string | null;
+}
+
 export interface AddLexicalListItemsResultVO {
   lexicalListId: number;
   addedCount: number;

@@ -145,10 +145,12 @@ export async function apiDelete<T>(url: string, config?: AxiosRequestConfig): Pr
   return unwrap(await http.delete<ApiResponse<T>>(url, config));
 }
 
-export async function apiUpload<T>(url: string, formData: FormData): Promise<T> {
+export async function apiUpload<T>(url: string, formData: FormData, config?: AxiosRequestConfig): Promise<T> {
   return unwrap(
     await http.post<ApiResponse<T>>(url, formData, {
+      ...config,
       headers: {
+        ...(config?.headers || {}),
         'Content-Type': 'multipart/form-data',
       },
     })

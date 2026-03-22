@@ -21,6 +21,7 @@
         <bucket4j.version>8.13.0</bucket4j.version>
         <jjwt.version>0.12.6</jjwt.version>
         <commons.csv.version>1.11.0</commons.csv.version>
+        <poi.version>5.4.1</poi.version>
         <springdoc.version>3.0.0</springdoc.version>
         <resilience4j.version>2.3.0</resilience4j.version>
     </properties>
@@ -129,6 +130,11 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
             <version>${commons.csv.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>

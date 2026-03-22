@@ -12,6 +12,7 @@ import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairExampleEntity
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairSenseEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairTagRelEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalTagEntity;
+import com.huashi.eftransfer.app.modules.lexicon.imports.support.LexicalImportTemplateSupport;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalListItemMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairExampleMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
@@ -115,6 +116,7 @@ public class LexicalPairService {
     private final LexicalListItemMapper lexicalListItemMapper;
     private final TransactionTemplate transactionTemplate;
     private final LexicalKnowledgeChangedEventPublisher lexicalKnowledgeChangedEventPublisher;
+    private final LexicalImportTemplateSupport lexicalImportTemplateSupport;
 
     public LexicalPairService(
             LexicalPairMapper lexicalPairMapper,
@@ -124,7 +126,8 @@ public class LexicalPairService {
             LexicalPairTagRelMapper lexicalPairTagRelMapper,
             LexicalListItemMapper lexicalListItemMapper,
             PlatformTransactionManager transactionManager,
-            LexicalKnowledgeChangedEventPublisher lexicalKnowledgeChangedEventPublisher
+            LexicalKnowledgeChangedEventPublisher lexicalKnowledgeChangedEventPublisher,
+            LexicalImportTemplateSupport lexicalImportTemplateSupport
     ) {
         this.lexicalPairMapper = lexicalPairMapper;
         this.lexicalPairSenseMapper = lexicalPairSenseMapper;
@@ -134,6 +137,7 @@ public class LexicalPairService {
         this.lexicalListItemMapper = lexicalListItemMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.lexicalKnowledgeChangedEventPublisher = lexicalKnowledgeChangedEventPublisher;
+        this.lexicalImportTemplateSupport = lexicalImportTemplateSupport;
     }
 
     public PageResult<LexicalPairSummaryVO> pageQuery(LexicalPairPageQuery query) {
@@ -315,13 +319,16 @@ public class LexicalPairService {
     }
 
     public CsvImportTemplateVO getImportTemplate() {
-        String headerLine = TEMPLATE_FIELDS.stream()
-                .map(CsvImportTemplateFieldVO::fieldName)
-                .collect(Collectors.joining(","));
-        String exampleLine = TEMPLATE_FIELDS.stream()
-                .map(CsvImportTemplateFieldVO::example)
-                .collect(Collectors.joining(","));
-        return new CsvImportTemplateVO(TEMPLATE_FIELDS, headerLine, exampleLine);
+        return lexicalImportTemplateSupport.template();
+    }
+
+    public void validateImportCandidate(LexicalPairUpsertRequest request) {
+        validatePairUniqueness(request.englishWord(), request.frenchWord(), null);
+        validateSenses(request.senses());
+        parseLexicalPairType(request.lexicalPairType());
+        parseContextSupportLevel(request.defaultContextSupport());
+        parseKnowledgeStatus(request.knowledgeStatus());
+        parseEmbeddingStatus(request.embeddingStatus());
     }
 
     public CsvImportResultVO importCsv(MultipartFile file) {
