@@ -621,6 +621,15 @@ const AdminConfigCenterPage: React.FC = () => {
   const currentIssues = validation?.issues ?? [];
   const validationNotices = validation?.notices ?? [];
 
+  if (configQuery.error) {
+    return (
+      <div className="space-y-8 pb-20">
+        <PageHeader title="运维管理员配置中心" subtitle="加载失败时不隐藏原因，直接显示后端返回错误。" />
+        <div className="rounded-[2.5rem] border border-rose-500/20 bg-rose-500/5 p-8 text-rose-500">{configQuery.error.message}</div>
+      </div>
+    );
+  }
+
   if (configQuery.isLoading || !config || !secrets) {
     return (
       <div className="space-y-8 pb-20">
@@ -629,15 +638,6 @@ const AdminConfigCenterPage: React.FC = () => {
           <LoaderCircle className="animate-spin" size={18} />
           <span>配置加载中...</span>
         </div>
-      </div>
-    );
-  }
-
-  if (configQuery.error) {
-    return (
-      <div className="space-y-8 pb-20">
-        <PageHeader title="运维管理员配置中心" subtitle="加载失败时不隐藏原因，直接显示后端返回错误。" />
-        <div className="rounded-[2.5rem] border border-rose-500/20 bg-rose-500/5 p-8 text-rose-500">{configQuery.error.message}</div>
       </div>
     );
   }
