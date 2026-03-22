@@ -253,9 +253,47 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                         }
                                         """.formatted(itemResultId)))
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.data.answeredItems").value(3));
+                        .andExpect(jsonPath("$.data.answeredItems").value(3))
+                        .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                        .andExpect(jsonPath("$.data.completed").value(true));
             }
         }
+
+        mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/next-item", sessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessionStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.hasNextItem").value(false))
+                .andExpect(jsonPath("$.data.answeredItems").value(3));
+
+        mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/progress", sessionId)
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "progressSnapshot": {
+                                    "checkpoint": "completed",
+                                    "clientElapsedMs": 3410
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completed").value(true));
+
+        MvcResult followUpSessionResult = mockMvc.perform(post("/api/diagnosis/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateId": %d
+                                }
+                                """.formatted(templateId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andReturn();
+        long followUpSessionId = readJson(followUpSessionResult).path("data").path("sessionId").asLong();
+        assertThat(followUpSessionId).isNotEqualTo(sessionId);
 
         mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/complete", sessionId)
                         .with(bearer(studentToken)))

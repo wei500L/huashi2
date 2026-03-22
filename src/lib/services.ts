@@ -14,6 +14,7 @@ import type {
   DiagnosisResultDetailVO,
   DiagnosisSessionCreatedVO,
   DiagnosisSessionProgressVO,
+  DiagnosisTemplateDeleteResultVO,
   DiagnosisTemplateDetailVO,
   DiagnosisTemplateSummaryVO,
   LexicalListDetailVO,
@@ -53,6 +54,8 @@ import type {
   DiagnosisNextItemVO,
   DiagnosisTemplateUpsertRequest,
   AdminAiConfigSaveRequest,
+  AdminUserAccessUpdateRequest,
+  AdminUserCreateRequest,
   AdminAiConfigViewVO,
   AdminOutboxRecordVO,
   AiGatewayHealthResponse,
@@ -98,6 +101,8 @@ export const diagnosisTemplateService = {
     apiPost<number>('/teacher/diagnosis-templates', payload),
   updateTeacherTemplate: (templateId: number, payload: DiagnosisTemplateUpsertRequest) =>
     apiPut<number>(`/teacher/diagnosis-templates/${templateId}`, payload),
+  deleteTeacherTemplate: (templateId: number) =>
+    apiDelete<DiagnosisTemplateDeleteResultVO>(`/teacher/diagnosis-templates/${templateId}`),
 };
 
 export const diagnosisSessionService = {
@@ -182,6 +187,8 @@ export const lexicalPairService = {
     apiGet<PageResult<LexicalPairSummaryVO>>('/lexical-pairs', { ...options, params }),
   getOverview: (options?: RequestOptions) => apiGet<LexicalPairOverviewVO>('/lexical-pairs/overview', options),
   getDetail: (lexicalPairId: number, options?: RequestOptions) => apiGet<LexicalPairDetailVO>(`/lexical-pairs/${lexicalPairId}`, options),
+  exportCsv: (params: { keyword?: string; lexicalPairType?: string; riskLevel?: string; contextSupportLevel?: string; active?: boolean; embeddingStatus?: string }, options?: RequestOptions) =>
+    apiDownload('/lexical-pairs/export.csv', { ...options, params }),
   create: (payload: LexicalPairUpsertRequest) => apiPost<number>('/lexical-pairs', payload),
   update: (lexicalPairId: number, payload: LexicalPairUpsertRequest) => apiPut<number>(`/lexical-pairs/${lexicalPairId}`, payload),
   delete: (lexicalPairId: number) => apiDelete<void>(`/lexical-pairs/${lexicalPairId}`),
@@ -220,6 +227,9 @@ export const lexicalListService = {
 
 export const adminService = {
   listUsers: (options?: RequestOptions) => apiGet<UserSummaryVO[]>('/admin/users', options),
+  createUser: (payload: AdminUserCreateRequest) => apiPost<UserSummaryVO>('/admin/users', payload),
+  updateUserAccess: (userId: number, payload: AdminUserAccessUpdateRequest) =>
+    apiPut<UserSummaryVO>(`/admin/users/${userId}/access`, payload),
   getAiConfig: (options?: RequestOptions) => apiGet<AdminAiConfigViewVO>('/admin/ai-config', options),
   validateAiConfig: (payload: AdminAiConfigSaveRequest) => apiPost<AiOpsConfigValidationResponse>('/admin/ai-config/validate', payload),
   saveAiConfig: (payload: AdminAiConfigSaveRequest) => apiPut<AdminAiConfigViewVO>('/admin/ai-config', payload),

@@ -7,6 +7,10 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.charset.StandardCharsets;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,5 +57,35 @@ class LexicalPairImportIntegrationTest extends AbstractWebIntegrationTest {
                         .param("keyword", "coin"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1));
+    }
+
+    @Test
+    void shouldExportCsvAndHonorKeywordFilter() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+
+        mockMvc.perform(multipart("/api/lexical-pairs/import")
+                        .file(new MockMultipartFile(
+                                "file",
+                                "lexical-pairs.csv",
+                                "text/csv",
+                                """
+                                        english_word,french_word,chinese_gloss,lexical_pair_type,semantic_overlap_score,false_friend_risk,default_context_support,difficulty_level,notes,source,active,tags,knowledge_status,embedding_status,sense_english_definition,sense_french_definition,sense_chinese_definition,example_english,example_french,example_chinese,example_context_support
+                                        coin,coin,硬币；角落,false_friend,0.10,0.92,high,4,High confusion,Teacher Curated,true,false-friend|high-frequency,ready,pending,a piece of money,coin de rue,硬币,He found a coin.,Le chat dort dans le coin.,他找到一枚硬币,high
+                                        table,table,桌子,cognate,0.90,0.10,low,1,Basic pair,Teacher Curated,true,basic,ready,pending,a flat surface,table,桌子,This table is new.,Cette table est grande.,这张桌子是新的,medium
+                                        """.getBytes(StandardCharsets.UTF_8)))
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.successCount").value(2));
+
+        mockMvc.perform(get("/api/lexical-pairs/export.csv")
+                        .with(bearer(teacherToken))
+                        .param("keyword", "coin"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", containsString("text/csv")))
+                .andExpect(header().string("Content-Disposition", containsString("lexical-pairs-")))
+                .andExpect(content().string(containsString("english_word,french_word")))
+                .andExpect(content().string(containsString("coin,coin")))
+                .andExpect(content().string(not(containsString("table,table"))));
     }
 }

@@ -265,6 +265,12 @@ export interface DiagnosisTemplateDetailVO {
   items: DiagnosisTemplateItemVO[];
 }
 
+export interface DiagnosisTemplateDeleteResultVO {
+  templateId: number;
+  outcome: 'DELETED' | 'ARCHIVED';
+  status?: string | null;
+}
+
 export interface DiagnosisHistorySummaryVO {
   sessionId: number;
   templateId: number;
@@ -824,6 +830,20 @@ export interface UserSummaryVO {
   username: string;
   email: string;
   displayName: string;
+  enabled: boolean;
+  roles: Role[];
+}
+
+export interface AdminUserCreateRequest {
+  username: string;
+  email: string;
+  displayName: string;
+  initialPassword: string;
+  enabled: boolean;
+  roles: Role[];
+}
+
+export interface AdminUserAccessUpdateRequest {
   enabled: boolean;
   roles: Role[];
 }

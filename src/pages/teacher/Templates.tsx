@@ -111,6 +111,7 @@ const TeacherTemplatesPage: React.FC = () => {
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [editor, setEditor] = React.useState<TemplateEditorState>(emptyTemplateEditor);
   const [parseError, setParseError] = React.useState<string | null>(null);
+  const [feedback, setFeedback] = React.useState<string | null>(null);
 
   const listQuery = useQuery({
     queryKey: ['teacher-diagnosis-templates'],
@@ -149,6 +150,7 @@ const TeacherTemplatesPage: React.FC = () => {
     onSuccess: async (id) => {
       setSelectedId(id);
       setParseError(null);
+      setFeedback(null);
       await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-templates'] });
       await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template', id] });
     },
@@ -157,11 +159,34 @@ const TeacherTemplatesPage: React.FC = () => {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (templateId: number) => diagnosisTemplateService.deleteTeacherTemplate(templateId),
+    onSuccess: async (result) => {
+      setParseError(null);
+      if (result.outcome === 'DELETED') {
+        setFeedback('模板已删除。');
+        setSelectedId(null);
+        setEditor(emptyTemplateEditor);
+      } else {
+        setFeedback('模板已有学生使用，已自动归档。');
+        setEditor((state) => ({ ...state, status: result.status || 'ARCHIVED' }));
+      }
+      await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-templates'] });
+      if (result.outcome === 'ARCHIVED') {
+        await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template', result.templateId] });
+      }
+    },
+    onError: (error) => {
+      setFeedback(null);
+      setParseError(error instanceof Error ? error.message : '模板删除失败');
+    },
+  });
+
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
         title="诊断模板"
-        subtitle="列表、详情和编辑器全部绑定真实教师模板接口。当前不提供删除动作。"
+        subtitle="列表、详情和编辑器全部绑定真实教师模板接口，删除时会自动区分真删和归档。"
         actions={
           <button
             type="button"
@@ -169,6 +194,7 @@ const TeacherTemplatesPage: React.FC = () => {
               setSelectedId(null);
               setEditor(emptyTemplateEditor);
               setParseError(null);
+              setFeedback(null);
             }}
             className="btn-liquid px-5 py-3 text-white flex items-center gap-2"
           >
@@ -245,15 +271,37 @@ const TeacherTemplatesPage: React.FC = () => {
               rows={20}
               className="w-full rounded-3xl border border-slate-200 dark:border-white/10 bg-slate-950 text-slate-100 px-4 py-4 font-mono text-sm"
             />
+            {feedback && <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">{feedback}</div>}
             {parseError && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">{parseError}</div>}
-            <button
-              type="button"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
-            >
-              {saveMutation.isPending ? '保存中...' : editor.id ? '更新模板' : '创建模板'}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+              >
+                {saveMutation.isPending ? '保存中...' : editor.id ? '更新模板' : '创建模板'}
+              </button>
+              {editor.id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const templateId = editor.id;
+                    if (!templateId) {
+                      return;
+                    }
+                    if (!window.confirm('确认删除该模板？如果已有学生使用，系统会自动改为归档。')) {
+                      return;
+                    }
+                    deleteMutation.mutate(templateId);
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-6 py-3 text-rose-500 disabled:opacity-60"
+                >
+                  {deleteMutation.isPending ? '处理中...' : '删除模板'}
+                </button>
+              )}
+            </div>
           </div>
         </section>
       </div>

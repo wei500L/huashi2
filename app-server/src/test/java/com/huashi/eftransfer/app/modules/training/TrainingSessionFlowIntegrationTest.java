@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
@@ -252,7 +253,7 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
             int reactionTime = index == 0 ? 1490 : 860;
             int hesitationTime = index == 0 ? 360 : 120;
 
-            mockMvc.perform(post("/api/training/sessions/{sessionId}/answers", trainingSessionId)
+            ResultActions submitAnswer = mockMvc.perform(post("/api/training/sessions/{sessionId}/answers", trainingSessionId)
                             .with(bearer(studentToken))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
@@ -265,7 +266,36 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                     """.formatted(itemResult.getId(), answerKey, reactionTime, hesitationTime)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.answeredItems").value(index + 1));
+            if (index == itemResults.size() - 1) {
+                submitAnswer.andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                        .andExpect(jsonPath("$.data.completed").value(true));
+            } else {
+                submitAnswer.andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                        .andExpect(jsonPath("$.data.completed").value(false));
+            }
         }
+
+        mockMvc.perform(get("/api/training/sessions/{sessionId}/next-item", trainingSessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessionStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.hasNextItem").value(false))
+                .andExpect(jsonPath("$.data.answeredItems").value(itemResults.size()));
+
+        MvcResult followUpTrainingSessionResult = mockMvc.perform(post("/api/training/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "planId": %d,
+                                  "mode": "FALSE_FRIEND_DISCRIM"
+                                }
+                                """.formatted(planId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andReturn();
+        long followUpTrainingSessionId = readJson(followUpTrainingSessionResult).path("data").path("sessionId").asLong();
+        assertThat(followUpTrainingSessionId).isNotEqualTo(trainingSessionId);
 
         mockMvc.perform(post("/api/training/sessions/{sessionId}/complete", trainingSessionId)
                         .with(bearer(studentToken)))
@@ -285,8 +315,9 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                   }
                                 }
                                 """.formatted(trainingSessionId)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("CONFLICT"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completed").value(true));
 
         mockMvc.perform(get("/api/training/sessions/{sessionId}/summary", trainingSessionId)
                         .with(bearer(studentToken)))

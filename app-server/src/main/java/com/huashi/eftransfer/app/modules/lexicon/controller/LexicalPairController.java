@@ -12,6 +12,10 @@ import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.page.PageResult;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,10 +30,14 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
+
 @Validated
 @RestController
 @RequestMapping("/api/lexical-pairs")
 public class LexicalPairController {
+
+    private static final MediaType TEXT_CSV = new MediaType("text", "csv");
 
     private final LexicalPairService lexicalPairService;
 
@@ -37,6 +45,7 @@ public class LexicalPairController {
         this.lexicalPairService = lexicalPairService;
     }
 
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     @GetMapping
     public ApiResponse<PageResult<LexicalPairSummaryVO>> pageQuery(@Valid @ModelAttribute LexicalPairPageQuery query) {
         return ApiResponse.success(lexicalPairService.pageQuery(query), MDC.get("traceId"));
@@ -48,6 +57,7 @@ public class LexicalPairController {
         return ApiResponse.success(lexicalPairService.getOverview(), MDC.get("traceId"));
     }
 
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     @GetMapping("/{lexicalPairId}")
     public ApiResponse<LexicalPairDetailVO> getDetail(@PathVariable Long lexicalPairId) {
         return ApiResponse.success(lexicalPairService.getDetail(lexicalPairId), MDC.get("traceId"));
@@ -72,9 +82,23 @@ public class LexicalPairController {
         return ApiResponse.success("Lexical pair deleted", MDC.get("traceId"));
     }
 
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     @GetMapping("/import-template")
     public ApiResponse<CsvImportTemplateVO> getImportTemplate() {
         return ApiResponse.success(lexicalPairService.getImportTemplate(), MDC.get("traceId"));
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
+    @GetMapping(value = "/export.csv", produces = "text/csv")
+    public ResponseEntity<byte[]> exportCsv(@Valid @ModelAttribute LexicalPairPageQuery query) {
+        LexicalPairService.CsvExportFile file = lexicalPairService.exportCsv(query);
+        return ResponseEntity.ok()
+                .contentType(TEXT_CSV)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.filename(), StandardCharsets.UTF_8)
+                        .build()
+                        .toString())
+                .body(file.content());
     }
 
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")

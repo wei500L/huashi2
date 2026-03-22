@@ -96,6 +96,7 @@ const resources = {
           training: '个性化训练',
           analytics: '学情分析',
           errors: '错题与复习',
+          history: '学习历史',
           settings: '设置',
         },
         titles: {
@@ -111,6 +112,7 @@ const resources = {
           training: '个性化训练',
           analytics: '学情分析',
           errors: '错题与复习',
+          history: '学习历史',
           dashboard: '学习总览',
         },
         roles: {
@@ -306,6 +308,7 @@ const resources = {
           training: 'Training',
           analytics: 'Analytics',
           errors: 'Errors & Review',
+          history: 'Learning History',
           settings: 'Settings',
         },
         titles: {
@@ -321,6 +324,7 @@ const resources = {
           training: 'Training',
           analytics: 'Analytics',
           errors: 'Errors & Review',
+          history: 'Learning History',
           dashboard: 'Learning Overview',
         },
         roles: {

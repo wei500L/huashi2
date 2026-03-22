@@ -10,14 +10,17 @@ import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplatePageQuer
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateScoringProfileRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateStimulusRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateUpsertRequest;
+import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisSessionEntity;
 import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisTemplateEntity;
 import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisTemplateItemEntity;
+import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSessionMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisTemplateItemMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisTemplateMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisJsonCodec;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisOptionPayload;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisScoringProfilePayload;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisStimulusPayload;
+import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisTemplateDeleteResultVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisTemplateDetailVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisTemplateItemVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisTemplateSummaryVO;
@@ -54,6 +57,7 @@ public class DiagnosisTemplateService {
 
     private final DiagnosisTemplateMapper diagnosisTemplateMapper;
     private final DiagnosisTemplateItemMapper diagnosisTemplateItemMapper;
+    private final DiagnosisSessionMapper diagnosisSessionMapper;
     private final LexicalPairMapper lexicalPairMapper;
     private final DiagnosisJsonCodec diagnosisJsonCodec;
     private final AuditLogService auditLogService;
@@ -61,12 +65,14 @@ public class DiagnosisTemplateService {
     public DiagnosisTemplateService(
             DiagnosisTemplateMapper diagnosisTemplateMapper,
             DiagnosisTemplateItemMapper diagnosisTemplateItemMapper,
+            DiagnosisSessionMapper diagnosisSessionMapper,
             LexicalPairMapper lexicalPairMapper,
             DiagnosisJsonCodec diagnosisJsonCodec,
             AuditLogService auditLogService
     ) {
         this.diagnosisTemplateMapper = diagnosisTemplateMapper;
         this.diagnosisTemplateItemMapper = diagnosisTemplateItemMapper;
+        this.diagnosisSessionMapper = diagnosisSessionMapper;
         this.lexicalPairMapper = lexicalPairMapper;
         this.diagnosisJsonCodec = diagnosisJsonCodec;
         this.auditLogService = auditLogService;
@@ -119,6 +125,27 @@ public class DiagnosisTemplateService {
         auditLogService.record("template_update", "diagnosis_template", String.valueOf(templateId), request, ResultCode.SUCCESS.code());
         log.info("event=diagnosis_template_updated templateId={} status={} itemCount={}", templateId, entity.getStatus(), entity.getItemCount());
         return templateId;
+    }
+
+    @Transactional
+    public DiagnosisTemplateDeleteResultVO delete(Long templateId) {
+        DiagnosisTemplateEntity entity = requireManageableTemplate(templateId);
+        long usageCount = diagnosisSessionMapper.selectCount(Wrappers.<DiagnosisSessionEntity>lambdaQuery()
+                .eq(DiagnosisSessionEntity::getTemplateId, templateId));
+        if (usageCount > 0) {
+            entity.setStatus(DiagnosisTemplateStatus.ARCHIVED.name());
+            diagnosisTemplateMapper.updateById(entity);
+            auditLogService.record("template_archive", "diagnosis_template", String.valueOf(templateId), Map.of("templateId", templateId), ResultCode.SUCCESS.code());
+            log.info("event=diagnosis_template_archived templateId={} usageCount={}", templateId, usageCount);
+            return new DiagnosisTemplateDeleteResultVO(templateId, "ARCHIVED", entity.getStatus());
+        }
+
+        diagnosisTemplateItemMapper.delete(Wrappers.<DiagnosisTemplateItemEntity>lambdaQuery()
+                .eq(DiagnosisTemplateItemEntity::getTemplateId, templateId));
+        diagnosisTemplateMapper.deleteById(templateId);
+        auditLogService.record("template_delete", "diagnosis_template", String.valueOf(templateId), Map.of("templateId", templateId), ResultCode.SUCCESS.code());
+        log.info("event=diagnosis_template_deleted templateId={}", templateId);
+        return new DiagnosisTemplateDeleteResultVO(templateId, "DELETED", null);
     }
 
     public PageResult<DiagnosisTemplateSummaryVO> pageQuery(DiagnosisTemplatePageQuery query) {

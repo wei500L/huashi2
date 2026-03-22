@@ -40,6 +40,9 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   if (pathname.startsWith('/errors')) {
     return t('shell.titles.errors');
   }
+  if (pathname.startsWith('/history')) {
+    return t('shell.titles.history');
+  }
   if (pathname.startsWith('/settings')) {
     return t('shell.nav.settings');
   }

@@ -16,6 +16,7 @@ import {
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
+import { saveBlob } from '@/lib/api';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, userHasCapability } from '@/lib/format';
 import type {
   CsvImportTemplateFieldVO,
@@ -532,6 +533,16 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     URL.revokeObjectURL(link.href);
   };
 
+  const downloadExport = async () => {
+    const blob = await lexicalPairService.exportCsv({
+      keyword: deferredKeyword.trim() || undefined,
+      lexicalPairType: filters.lexicalPairType === 'ALL' ? undefined : filters.lexicalPairType,
+      active: filters.active === 'ALL' ? undefined : filters.active === 'ACTIVE',
+      embeddingStatus: filters.embeddingStatus === 'ALL' ? undefined : filters.embeddingStatus,
+    });
+    saveBlob(blob, `lexical-pairs-${mode}-export.csv`);
+  };
+
   const resetEditor = () => {
     setSelectedId(null);
     setEditor(createEmptyEditor());
@@ -657,6 +668,14 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
             >
               <Download size={14} />
               下载模板
+            </button>
+            <button
+              type="button"
+              onClick={() => void downloadExport()}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+            >
+              <Download size={14} />
+              导出 CSV
             </button>
             {canAccessAdminConsole && (
               <Link

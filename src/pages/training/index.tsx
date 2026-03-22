@@ -84,17 +84,14 @@ const TrainingPage: React.FC = () => {
     enabled: state.phase === 'running' && !!state.sessionId,
   });
 
-  const completeMutation = useMutation({
-    mutationFn: (value: number) => trainingService.complete(value),
-    onSuccess: (_, currentSessionId) => {
-      dispatch({ type: 'showSummary', sessionId: currentSessionId });
-      void queryClient.invalidateQueries({ queryKey: ['training-history'] });
-      void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
-      void queryClient.invalidateQueries({ queryKey: ['student-trends'] });
-      void queryClient.invalidateQueries({ queryKey: ['wrong-book'] });
-      void queryClient.invalidateQueries({ queryKey: ['review-schedule'] });
-    },
-  });
+  const markCompleted = React.useCallback((sessionId: number) => {
+    dispatch({ type: 'showSummary', sessionId });
+    void queryClient.invalidateQueries({ queryKey: ['training-history'] });
+    void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
+    void queryClient.invalidateQueries({ queryKey: ['student-trends'] });
+    void queryClient.invalidateQueries({ queryKey: ['wrong-book'] });
+    void queryClient.invalidateQueries({ queryKey: ['review-schedule'] });
+  }, [queryClient]);
 
   const answerMutation = useMutation({
     mutationFn: (payload: {
@@ -104,8 +101,8 @@ const TrainingPage: React.FC = () => {
       hesitationTimeMs: number;
     }) => trainingService.submitAnswer(state.sessionId as number, payload),
     onSuccess: async (progress) => {
-      if (progress.completed || progress.answeredItems >= progress.totalItems) {
-        await completeMutation.mutateAsync(progress.sessionId);
+      if (progress.completed) {
+        markCompleted(progress.sessionId);
         return;
       }
       shownAtRef.current = Date.now();
@@ -118,6 +115,15 @@ const TrainingPage: React.FC = () => {
     queryFn: ({ signal }) => trainingService.getSummary(state.summarySessionId as number, { signal }),
     enabled: state.phase === 'summary' && !!state.summarySessionId,
   });
+
+  React.useEffect(() => {
+    if (state.phase !== 'running' || !nextItemQuery.data || nextItemQuery.data.hasNextItem) {
+      return;
+    }
+    if (nextItemQuery.data.sessionStatus === 'COMPLETED') {
+      markCompleted(nextItemQuery.data.sessionId);
+    }
+  }, [markCompleted, nextItemQuery.data, state.phase]);
 
   React.useEffect(() => {
     if (!state.sessionId || state.phase !== 'running') {
@@ -185,8 +191,12 @@ const TrainingPage: React.FC = () => {
           </div>
         )}
 
-        {nextItemQuery.isLoading || !currentItem ? (
+        {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
+        ) : !currentItem ? (
+          <div className="rounded-[2rem] border border-slate-200 bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+            正在生成训练总结，请稍候...
+          </div>
         ) : (
           <>
             <div className="flex items-center justify-between">
@@ -246,7 +256,7 @@ const TrainingPage: React.FC = () => {
                   <button
                     key={option.key}
                     type="button"
-                    disabled={answerMutation.isPending || completeMutation.isPending}
+                    disabled={answerMutation.isPending}
                     onClick={() => void submitAnswer(option)}
                     className="w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-5 py-4 text-left transition-all hover:border-primary/50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
                   >

@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class LexicalPermissionAndListIntegrationTest extends AbstractWebIntegrationTest {
 
     @Test
-    void shouldAllowStudentReadOnlyAndManageTeacherOwnedList() throws Exception {
+    void shouldRestrictStudentFromLexiconManagementReadsAndManageTeacherOwnedList() throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
         String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
         String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
@@ -63,7 +63,31 @@ class LexicalPermissionAndListIntegrationTest extends AbstractWebIntegrationTest
                         .with(bearer(studentToken))
                         .param("pageNo", "1")
                         .param("pageSize", "10"))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/lexical-pairs/{lexicalPairId}", lexicalPairId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/lexical-pairs/import-template")
+                        .with(bearer(studentToken)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/lexical-pairs/export.csv")
+                        .with(bearer(studentToken)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/lexical-pairs")
+                        .with(bearer(teacherToken))
+                        .param("pageNo", "1")
+                        .param("pageSize", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1));
+
+        mockMvc.perform(get("/api/lexical-pairs/{lexicalPairId}", lexicalPairId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value((int) lexicalPairId));
 
         MvcResult createListResult = mockMvc.perform(post("/api/lexical-lists")
                         .with(bearer(teacherToken))
@@ -78,6 +102,16 @@ class LexicalPermissionAndListIntegrationTest extends AbstractWebIntegrationTest
                 .andExpect(status().isOk())
                 .andReturn();
         long lexicalListId = readJson(createListResult).path("data").asLong();
+
+        mockMvc.perform(get("/api/lexical-lists")
+                        .with(bearer(studentToken))
+                        .param("pageNo", "1")
+                        .param("pageSize", "10"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/lexical-lists/{listId}", lexicalListId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/lexical-lists/{listId}/items", lexicalListId)
                         .with(bearer(studentToken))
@@ -113,7 +147,7 @@ class LexicalPermissionAndListIntegrationTest extends AbstractWebIntegrationTest
                 .andExpect(jsonPath("$.data.skippedPairIds[0]").value((int) lexicalPairId));
 
         MvcResult detailResult = mockMvc.perform(get("/api/lexical-lists/{listId}", lexicalListId)
-                        .with(bearer(studentToken)))
+                        .with(bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.itemCount").value(1))
                 .andReturn();

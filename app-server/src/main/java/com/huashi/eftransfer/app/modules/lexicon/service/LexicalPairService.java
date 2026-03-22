@@ -42,6 +42,7 @@ import com.huashi.eftransfer.shared.page.PageQuery;
 import com.huashi.eftransfer.shared.page.PageResult;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.slf4j.MDC;
 import org.slf4j.Logger;
@@ -52,8 +53,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -76,6 +79,12 @@ import java.util.stream.Collectors;
 
 @Service
 public class LexicalPairService {
+
+    public record CsvExportFile(
+            String filename,
+            byte[] content
+    ) {
+    }
 
     private static final Logger log = LoggerFactory.getLogger(LexicalPairService.class);
 
@@ -322,6 +331,66 @@ public class LexicalPairService {
         return lexicalImportTemplateSupport.template();
     }
 
+    public CsvExportFile exportCsv(LexicalPairPageQuery query) {
+        List<LexicalPairEntity> pairs = lexicalPairMapper.selectList(buildPageWrapper(query)
+                .orderByDesc(LexicalPairEntity::getUpdatedAt)
+                .orderByDesc(LexicalPairEntity::getId));
+        Map<Long, List<String>> tagMap = loadTagMap(pairs.stream().map(LexicalPairEntity::getId).toList());
+
+        List<LexicalPairSenseEntity> senses = pairs.isEmpty()
+                ? List.of()
+                : lexicalPairSenseMapper.selectList(Wrappers.<LexicalPairSenseEntity>lambdaQuery()
+                        .in(LexicalPairSenseEntity::getLexicalPairId, pairs.stream().map(LexicalPairEntity::getId).toList())
+                        .orderByAsc(LexicalPairSenseEntity::getSortOrder)
+                        .orderByAsc(LexicalPairSenseEntity::getId));
+        Map<Long, List<LexicalPairSenseEntity>> senseMap = senses.stream()
+                .collect(Collectors.groupingBy(LexicalPairSenseEntity::getLexicalPairId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, List<LexicalPairExampleEntity>> exampleMap = loadExampleMap(senses.stream().map(LexicalPairSenseEntity::getId).toList());
+
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+             OutputStreamWriter writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
+             CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT.builder()
+                     .setHeader(TEMPLATE_FIELDS.stream().map(CsvImportTemplateFieldVO::fieldName).toArray(String[]::new))
+                     .build())) {
+            for (LexicalPairEntity pair : pairs) {
+                LexicalPairSenseEntity primarySense = senseMap.getOrDefault(pair.getId(), List.of()).stream().findFirst().orElse(null);
+                LexicalPairExampleEntity primaryExample = primarySense == null
+                        ? null
+                        : exampleMap.getOrDefault(primarySense.getId(), List.of()).stream().findFirst().orElse(null);
+                printer.printRecord(
+                        pair.getEnglishWord(),
+                        pair.getFrenchWord(),
+                        pair.getChineseGloss(),
+                        LexicalPairType.fromCode(pair.getLexicalPairType()).code(),
+                        optionalDecimal(pair.getSemanticOverlapScore()),
+                        optionalDecimal(pair.getFalseFriendRisk()),
+                        pair.getDefaultContextSupport() == null ? null : ContextSupportLevel.fromCode(pair.getDefaultContextSupport()).code(),
+                        pair.getDifficultyLevel(),
+                        trimToNull(pair.getNotes()),
+                        trimToNull(pair.getSource()),
+                        pair.getActive(),
+                        String.join("|", tagMap.getOrDefault(pair.getId(), List.of())),
+                        pair.getKnowledgeStatus() == null ? null : KnowledgeStatus.fromCode(pair.getKnowledgeStatus()).code(),
+                        pair.getEmbeddingStatus() == null ? null : EmbeddingStatus.fromCode(pair.getEmbeddingStatus()).code(),
+                        primarySense == null ? null : trimToNull(primarySense.getEnglishDefinition()),
+                        primarySense == null ? null : trimToNull(primarySense.getFrenchDefinition()),
+                        primarySense == null ? null : trimToNull(primarySense.getChineseDefinition()),
+                        primaryExample == null ? null : trimToNull(primaryExample.getEnglishExample()),
+                        primaryExample == null ? null : trimToNull(primaryExample.getFrenchExample()),
+                        primaryExample == null ? null : trimToNull(primaryExample.getChineseTranslation()),
+                        primaryExample == null || primaryExample.getContextSupportLevel() == null
+                                ? null
+                                : ContextSupportLevel.fromCode(primaryExample.getContextSupportLevel()).code()
+                );
+            }
+            printer.flush();
+            String filename = "lexical-pairs-" + LocalDateTime.now().toLocalDate() + ".csv";
+            return new CsvExportFile(filename, outputStream.toByteArray());
+        } catch (IOException exception) {
+            throw new BusinessException(ResultCode.INTERNAL_ERROR, "Failed to export lexical pairs", 500);
+        }
+    }
+
     public void validateImportCandidate(LexicalPairUpsertRequest request) {
         validatePairUniqueness(request.englishWord(), request.frenchWord(), null);
         validateSenses(request.senses());
@@ -474,6 +543,10 @@ public class LexicalPairService {
                 pair.getLastEmbeddedAt(),
                 tags
         );
+    }
+
+    private String optionalDecimal(BigDecimal value) {
+        return value == null ? null : value.stripTrailingZeros().toPlainString();
     }
 
     private LexicalPairEntity requirePair(Long lexicalPairId) {

@@ -39,11 +39,13 @@ public class LexicalListController {
         return ApiResponse.success(lexicalListService.create(request), MDC.get("traceId"));
     }
 
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     @GetMapping
     public ApiResponse<PageResult<LexicalListSummaryVO>> pageQuery(@Valid @ModelAttribute LexicalListPageQuery query) {
         return ApiResponse.success(lexicalListService.pageQuery(query), MDC.get("traceId"));
     }
 
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     @GetMapping("/{lexicalListId}")
     public ApiResponse<LexicalListDetailVO> getDetail(@PathVariable Long lexicalListId) {
         return ApiResponse.success(lexicalListService.getDetail(lexicalListId), MDC.get("traceId"));

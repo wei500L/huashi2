@@ -70,15 +70,12 @@ const DiagnosisPage: React.FC = () => {
     enabled: state.phase === 'running' && !!state.sessionId,
   });
 
-  const completeMutation = useMutation({
-    mutationFn: (value: number) => diagnosisSessionService.complete(value),
-    onSuccess: () => {
-      dispatch({ type: 'showResult' });
-      void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
-      void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
-      void queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
-    },
-  });
+  const markCompleted = React.useCallback(() => {
+    dispatch({ type: 'showResult' });
+    void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
+    void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
+    void queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
+  }, [queryClient]);
 
   const submitAnswerMutation = useMutation({
     mutationFn: (payload: {
@@ -89,8 +86,8 @@ const DiagnosisPage: React.FC = () => {
       hesitationTimeMs: number;
     }) => diagnosisSessionService.submitAnswer(state.sessionId as number, payload),
     onSuccess: async (progress) => {
-      if (progress.completed || progress.answeredItems >= progress.totalItems) {
-        await completeMutation.mutateAsync(progress.sessionId);
+      if (progress.completed) {
+        markCompleted();
         return;
       }
       shownAtRef.current = Date.now();
@@ -110,6 +107,15 @@ const DiagnosisPage: React.FC = () => {
     enabled: state.phase === 'result' && !!state.sessionId,
     retry: false,
   });
+
+  React.useEffect(() => {
+    if (state.phase !== 'running' || !nextItemQuery.data || nextItemQuery.data.hasNextItem) {
+      return;
+    }
+    if (nextItemQuery.data.sessionStatus === 'COMPLETED') {
+      markCompleted();
+    }
+  }, [markCompleted, nextItemQuery.data, state.phase]);
 
   React.useEffect(() => {
     if (!state.sessionId || state.phase !== 'running') {
@@ -259,8 +265,12 @@ const DiagnosisPage: React.FC = () => {
           </div>
         )}
 
-        {nextItemQuery.isLoading || !currentItem ? (
+        {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
+        ) : !currentItem ? (
+          <div className="rounded-[2rem] border border-slate-200 bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+            正在收尾诊断结果，请稍候...
+          </div>
         ) : (
           <>
             <div className="flex items-center justify-between">
@@ -333,7 +343,7 @@ const DiagnosisPage: React.FC = () => {
                   <button
                     key={option.key}
                     type="button"
-                    disabled={submitAnswerMutation.isPending || completeMutation.isPending}
+                    disabled={submitAnswerMutation.isPending}
                     onClick={() => void submitAnswer(option)}
                     className="w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-5 py-4 text-left transition-all hover:border-primary/50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
                   >

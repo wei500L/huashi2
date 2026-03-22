@@ -15,6 +15,7 @@ const DiagnosisPage = React.lazy(() => import('./pages/diagnosis/index'));
 const TrainingPage = React.lazy(() => import('./pages/training/index'));
 const AnalyticsPage = React.lazy(() => import('./pages/analytics/index'));
 const ErrorsPage = React.lazy(() => import('./pages/student/Errors'));
+const HistoryPage = React.lazy(() => import('./pages/student/History'));
 const SettingsPage = React.lazy(() => import('./pages/student/Settings'));
 const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
 const TeacherClassDetailPage = React.lazy(() => import('./pages/teacher/ClassDetail'));
@@ -154,6 +155,12 @@ const App: React.FC = () => {
           path="errors"
           element={
             <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<ErrorsPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="history"
+          element={
+            <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<HistoryPage />)}</RequireCapability>
           }
         />
 

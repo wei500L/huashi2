@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Database,
   GraduationCap,
+  History,
   LayoutDashboard,
   LineChart,
   LogOut,
@@ -76,6 +77,7 @@ function buildSections(t: (key: string) => string, capabilities?: Capability[] |
         { name: t('shell.nav.training'), path: '/training', icon: GraduationCap },
         { name: t('shell.nav.analytics'), path: '/analytics', icon: LineChart },
         { name: t('shell.nav.errors'), path: '/errors', icon: Database },
+        { name: t('shell.nav.history'), path: '/history', icon: History },
       ],
     });
   }
