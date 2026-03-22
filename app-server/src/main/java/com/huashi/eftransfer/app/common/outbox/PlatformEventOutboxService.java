@@ -8,9 +8,10 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -100,7 +101,7 @@ public class PlatformEventOutboxService {
     }
 
     private Message buildMessage(PlatformEventOutboxRecord record) {
-        MessageBuilder builder = MessageBuilder.withBody(record.payloadJson().getBytes(StandardCharsets.UTF_8))
+        var builder = MessageBuilder.withBody(record.payloadJson().getBytes(StandardCharsets.UTF_8))
                 .setContentType(MessageProperties.CONTENT_TYPE_JSON)
                 .setMessageId(record.eventId())
                 .setHeader("eventType", record.eventType());
@@ -115,7 +116,7 @@ public class PlatformEventOutboxService {
         long maxMillis = properties.getMaxBackoff().toMillis();
         long multiplier = 1L << Math.min(Math.max(0, attemptCount - 1), 10);
         long delayMillis = Math.min(maxMillis, Math.max(initialMillis, initialMillis * multiplier));
-        return OffsetDateTime.now(ZoneOffset.UTC).plusMillis(delayMillis);
+        return OffsetDateTime.now(ZoneOffset.UTC).plus(Duration.ofMillis(delayMillis));
     }
 
     private String writeJson(Object payload) {

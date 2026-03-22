@@ -1,3 +1,5 @@
+FROM busybox:1.37.0 AS busybox
+
 FROM eclipse-temurin:25-jdk AS builder
 WORKDIR /workspace
 
@@ -15,9 +17,9 @@ RUN ./mvnw -pl app-server -am -q clean package -DskipTests
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
+COPY --from=busybox /bin/busybox /bin/busybox
+RUN ln -sf /bin/busybox /usr/local/bin/wget \
+    && ln -sf /bin/busybox /usr/local/bin/grep \
     && useradd --system --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 COPY --from=builder /workspace/app-server/target/app-server-0.1.0-SNAPSHOT.jar /app/app.jar
