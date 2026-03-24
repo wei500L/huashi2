@@ -70,6 +70,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
+                                "expectedVersion", 1,
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -98,6 +99,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
+                                "expectedVersion", 2,
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -150,6 +152,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
+                                "expectedVersion", 1,
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -278,10 +281,12 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         }
 
         @Override
-        public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload) {
+        public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload, String source, Long version) {
             lastAppliedConfig = payload;
-            currentEffective = new AiOpsConfigEffectiveResponse(payload, "ADMIN_APPLY", 2L, OffsetDateTime.now(), List.of());
-            return new AiOpsConfigApplyResponse("ADMIN_APPLY", 2L, OffsetDateTime.now(), List.of());
+            long appliedVersion = version == null ? 2L : version;
+            String appliedSource = source == null ? "ADMIN_APPLY" : source;
+            currentEffective = new AiOpsConfigEffectiveResponse(payload, appliedSource, appliedVersion, OffsetDateTime.now(), List.of());
+            return new AiOpsConfigApplyResponse(appliedSource, appliedVersion, OffsetDateTime.now(), List.of());
         }
 
         @Override
@@ -298,9 +303,11 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                     true,
                     true,
                     true,
+                    true,
                     "0.5.1",
                     List.of("test"),
-                    OffsetDateTime.now()
+                    OffsetDateTime.now(),
+                    null
             ));
         }
 

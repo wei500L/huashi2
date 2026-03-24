@@ -265,11 +265,12 @@ public class AiRuntimeConfigService {
             return;
         }
         try {
-            if (Duration.parse(value).isNegative() || Duration.parse(value).isZero()) {
-                issues.add(new AiOpsConfigIssue(field, "must be a positive ISO-8601 duration"));
+            Duration duration = FlexibleDurationParser.parse(value);
+            if (duration.isNegative() || duration.isZero()) {
+                issues.add(new AiOpsConfigIssue(field, "must be a positive duration"));
             }
         } catch (Exception ex) {
-            issues.add(new AiOpsConfigIssue(field, "must be a valid ISO-8601 duration"));
+            issues.add(new AiOpsConfigIssue(field, "must be a valid duration"));
         }
     }
 

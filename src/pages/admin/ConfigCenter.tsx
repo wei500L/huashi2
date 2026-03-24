@@ -2,6 +2,7 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Info, LoaderCircle, Play, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import { PageHeader } from '@/components/common';
+import { ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { adminService } from '@/lib/services';
 import type {
@@ -47,7 +48,22 @@ const providerSecretMeta: Record<ProviderSecretKey, { label: string; hint: strin
 
 const appServerSecretMeta = {
   label: 'App Server Internal Token',
-  hint: 'ai-gateway 拉取词条导出、配置和回源数据时使用的内部令牌。',
+  hint: '仅用于 ai-gateway 调用 app-server 内部接口的客户端令牌，不影响管理员访问本页。',
+};
+
+const defaultLexicalSourceTypes = ['LEXICAL_PAIR', 'LEXICAL_SENSE', 'LEXICAL_EXAMPLE'];
+const appServerReindexSourceTypes = ['LEXICAL_PAIR', 'LEXICAL_SENSE', 'LEXICAL_EXAMPLE'];
+const seedReindexSourceTypes = ['ERROR_TYPE', 'INTERVENTION_TEMPLATE', 'TRAINING_GUIDE', 'COURSE_GUIDE'];
+const allReindexSourceTypes = [...appServerReindexSourceTypes, ...seedReindexSourceTypes];
+
+const reindexSourceTypeLabels: Record<string, string> = {
+  LEXICAL_PAIR: 'LEXICAL_PAIR 词对主表',
+  LEXICAL_SENSE: 'LEXICAL_SENSE 义项',
+  LEXICAL_EXAMPLE: 'LEXICAL_EXAMPLE 例句',
+  ERROR_TYPE: 'ERROR_TYPE 错误类型 Seed',
+  INTERVENTION_TEMPLATE: 'INTERVENTION_TEMPLATE 干预模板 Seed',
+  TRAINING_GUIDE: 'TRAINING_GUIDE 训练指南 Seed',
+  COURSE_GUIDE: 'COURSE_GUIDE 课程指南 Seed',
 };
 
 const finalStatuses = new Set(['SUCCEEDED', 'FAILED']);
@@ -144,9 +160,10 @@ function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
   };
 }
 
-function buildSavePayload(config: AiOpsConfigPayload, secrets: SecretEditorMap): AdminAiConfigSaveRequest {
+function buildSavePayload(config: AiOpsConfigPayload, secrets: SecretEditorMap, expectedVersion?: number | null): AdminAiConfigSaveRequest {
   return {
     config,
+    expectedVersion: expectedVersion ?? null,
     secrets: {
       providers: Object.fromEntries(
         Object.entries(secrets.providers).map(([providerName, providerSecrets]) => [
@@ -199,7 +216,7 @@ const FieldCard: React.FC<{
 );
 
 const TextInput: React.FC<{
-  value: string | number;
+  value: string | number | null | undefined;
   onChange: (value: string) => void;
   disabled?: boolean;
   type?: 'text' | 'number' | 'password';
@@ -209,7 +226,7 @@ const TextInput: React.FC<{
   <input
     type={type}
     step={step}
-    value={value}
+    value={value ?? ''}
     onChange={(event) => onChange(event.target.value)}
     disabled={disabled}
     placeholder={placeholder}
@@ -232,13 +249,13 @@ const TabButton: React.FC<{ active: boolean; label: string; onClick: () => void 
 );
 
 const SelectInput: React.FC<{
-  value: string;
+  value: string | null | undefined;
   onChange: (value: string) => void;
   disabled?: boolean;
   options: Array<{ value: string; label: string }>;
 }> = ({ value, onChange, disabled, options }) => (
   <select
-    value={value}
+    value={value ?? ''}
     onChange={(event) => onChange(event.target.value)}
     disabled={disabled}
     className="w-full rounded-2xl bg-white/80 dark:bg-slate-950/45 border border-slate-200 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -288,7 +305,41 @@ function translateConfigMessage(message: string): string {
   if (trimmed.includes('must be less than')) {
     return '存在数值过大的字段，请调整后再校验。';
   }
+  if (trimmed.includes('updated by another administrator')) {
+    return '配置已被其他管理员更新，请先刷新页面，确认最新版本后再保存。';
+  }
+  if (trimmed.includes('must be a valid duration')) {
+    return '存在非法时长格式，请使用 30s、500ms 或 PT30S 这类格式。';
+  }
+  if (trimmed.includes('must be a positive duration')) {
+    return '时长字段必须大于 0。';
+  }
+  if (trimmed.includes('runtime is unavailable')) {
+    return 'ai-gateway 运行态当前不可达，页面正在展示数据库兜底快照。';
+  }
+  if (trimmed.includes('not in sync')) {
+    return '数据库配置与 ai-gateway 当前运行态版本不一致。';
+  }
   return trimmed;
+}
+
+function currentConfigVersion(view?: AdminAiConfigViewVO | null): number | null {
+  return view?.runtime.version ?? view?.stored.version ?? view?.version ?? null;
+}
+
+function buildProviderOptions(providerNames: string[], currentValue: string | null | undefined): Array<{ value: string; label: string }> {
+  const options = providerNames.map((providerName) => ({ value: providerName, label: providerName }));
+  if (currentValue && !providerNames.includes(currentValue)) {
+    return [{ value: currentValue, label: `${currentValue}（当前值无对应 provider）` }, ...options];
+  }
+  if (options.length === 0) {
+    return [{ value: '', label: '暂无 provider 定义' }];
+  }
+  return options;
+}
+
+function normalizeSelectedSourceTypes(sourceTypes: string[]): string[] {
+  return allReindexSourceTypes.filter((sourceType) => sourceTypes.includes(sourceType));
 }
 
 function buildReindexStatusMeta(job?: RagReindexJobResponse | null): {
@@ -406,7 +457,7 @@ const AdminConfigCenterPage: React.FC = () => {
   const [healthState, setHealthState] = React.useState<AiGatewayHealthResponse | null>(null);
   const [reindexForm, setReindexForm] = React.useState<RagReindexRequest>({
     mode: 'INCREMENTAL',
-    sourceTypes: ['LEXICAL_PAIR'],
+    sourceTypes: defaultLexicalSourceTypes,
     sourceIds: [],
     forceReembed: false,
   });
@@ -423,7 +474,6 @@ const AdminConfigCenterPage: React.FC = () => {
     setConfig(cloneConfig(configQuery.data.config));
     setSecrets(buildSecretEditors(configQuery.data));
     setValidation(null);
-    setFeedback(null);
   }, [configQuery.data]);
 
   const validateMutation = useMutation({
@@ -443,14 +493,24 @@ const AdminConfigCenterPage: React.FC = () => {
   const saveMutation = useMutation({
     mutationFn: (payload: AdminAiConfigSaveRequest) => adminService.saveAiConfig(payload),
     onSuccess: (response) => {
+      queryClient.setQueryData<AdminAiConfigViewVO>(['admin-ai-config'], response);
       setEditing(false);
       setValidation(null);
-      setFeedback({ tone: 'success', message: '配置已保存并下发到 ai-gateway 运行时。' });
+      setHealthState(null);
+      setFeedback({ tone: 'success', message: '配置已保存并下发到 ai-gateway 运行态，请再刷新运行态健康确认链路。' });
       setConfig(cloneConfig(response.config));
       setSecrets(buildSecretEditors(response));
-      void queryClient.invalidateQueries({ queryKey: ['admin-ai-config'] });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, payload) => {
+      if (error instanceof ApiError && error.status === 409) {
+        setFeedback({ tone: 'error', message: '配置已被其他管理员更新，请刷新页面后重新比对并保存。' });
+        return;
+      }
+      if (error instanceof ApiError && error.status === 400 && error.code === 'VALIDATION_ERROR') {
+        setFeedback({ tone: 'error', message: '保存失败，已按当前草稿重新执行校验，请先修正字段错误。' });
+        validateMutation.mutate(payload);
+        return;
+      }
       setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
     },
   });
@@ -459,7 +519,7 @@ const AdminConfigCenterPage: React.FC = () => {
     mutationFn: () => adminService.getAiHealth(),
     onSuccess: (response) => {
       setHealthState(response);
-      setFeedback({ tone: 'success', message: '健康检查已刷新，可根据运行态结果继续排查。' });
+      setFeedback({ tone: 'success', message: 'ai-gateway 运行态健康信息已刷新。' });
     },
     onError: (error: Error) => {
       setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
@@ -482,7 +542,13 @@ const AdminConfigCenterPage: React.FC = () => {
       setReplayingOutboxId(id);
     },
     onSuccess: (record) => {
-      setFeedback({ tone: 'success', message: `Outbox 事件 #${record.id} 已重置为 ${record.status}，等待 relay 重发。` });
+      setFeedback({
+        tone: record.status === 'FAILED' ? 'error' : 'success',
+        message:
+          record.status === 'FAILED'
+            ? `Outbox 事件 #${record.id} 已立即重放，但发送仍失败，请查看最新错误信息。`
+            : `Outbox 事件 #${record.id} 已重新投递，当前状态：${record.status}。`,
+      });
       void queryClient.invalidateQueries({ queryKey: ['admin-ai-outbox'] });
     },
     onError: (error: Error) => {
@@ -592,6 +658,21 @@ const AdminConfigCenterPage: React.FC = () => {
     );
   }, []);
 
+  const toggleReindexSourceType = React.useCallback((sourceType: string, checked: boolean) => {
+    setReindexForm((current) => {
+      const selected = new Set(current.sourceTypes || []);
+      if (checked) {
+        selected.add(sourceType);
+      } else {
+        selected.delete(sourceType);
+      }
+      return {
+        ...current,
+        sourceTypes: normalizeSelectedSourceTypes(Array.from(selected)),
+      };
+    });
+  }, []);
+
   const resetDraft = React.useCallback(() => {
     if (!configQuery.data) {
       return;
@@ -607,7 +688,7 @@ const AdminConfigCenterPage: React.FC = () => {
       return;
     }
     setFeedback(null);
-    validateMutation.mutate(buildSavePayload(config, secrets));
+    validateMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data)));
   };
 
   const submitSave = () => {
@@ -615,7 +696,7 @@ const AdminConfigCenterPage: React.FC = () => {
       return;
     }
     setFeedback(null);
-    saveMutation.mutate(buildSavePayload(config, secrets));
+    saveMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data)));
   };
 
   const currentIssues = validation?.issues ?? [];
@@ -633,7 +714,7 @@ const AdminConfigCenterPage: React.FC = () => {
   if (configQuery.isLoading || !config || !secrets) {
     return (
       <div className="space-y-8 pb-20">
-        <PageHeader title="运维管理员配置中心" subtitle="正在加载 ai-gateway 当前配置和数据库覆盖配置。" />
+        <PageHeader title="运维管理员配置中心" subtitle="正在读取 ai-gateway 运行态和数据库存储快照。" />
         <div className="rounded-[2.5rem] liquid-glass-panel p-10 flex items-center gap-3 text-slate-500 dark:text-white/45">
           <LoaderCircle className="animate-spin" size={18} />
           <span>配置加载中...</span>
@@ -644,13 +725,21 @@ const AdminConfigCenterPage: React.FC = () => {
 
   const view = configQuery.data as AdminAiConfigViewVO;
   const providerEntries = Object.entries(config.provider.providers || {});
+  const providerNames = providerEntries.map(([providerName]) => providerName);
+  const activeProviderOptions = buildProviderOptions(providerNames, config.provider.activeProvider);
+  const fallbackProviderOptions = buildProviderOptions(providerNames, config.provider.fallbackProvider);
   const activeProviderDefinition = config.provider.providers?.[config.provider.activeProvider];
-  const sourceMeta = `来源 ${view.source} · 版本 ${view.version ?? '--'} · 更新时间 ${formatDateTime(view.updatedAt)}`;
+  const runtimeUnavailable = !view.runtime.available;
+  const runtimeOutOfSync = view.runtime.available && view.stored.present && !view.runtime.inSync;
+  const displayedSnapshot = view.runtime.available ? 'ai-gateway 运行态快照' : view.stored.present ? '数据库兜底快照' : '未获取到有效配置';
+  const storedSyncLabel = !view.stored.present ? 'NO SNAPSHOT' : !view.runtime.available ? 'UNKNOWN' : view.runtime.inSync ? 'IN_SYNC' : 'OUT_OF_SYNC';
   const activeTabDescription = tabDescriptions[activeTab];
   const busyMessage = saveMutation.isPending
     ? '正在保存配置并热更新 ai-gateway 运行态，请勿重复提交。'
     : validateMutation.isPending
       ? '正在校验配置，校验结果会直接展示在当前页。'
+      : healthMutation.isPending
+        ? '正在刷新 ai-gateway 运行态健康信息。'
       : pollJob && reindexJobQuery.data
         ? `RAG reindex #${reindexJobQuery.data.jobId} 正在执行，页面每 2 秒自动刷新一次状态。`
         : pollJob && jobId !== null
@@ -666,7 +755,7 @@ const AdminConfigCenterPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader
         title="运维管理员配置中心"
-        subtitle="数据库配置覆盖默认 yml / env。推荐流程是先编辑、再校验、最后保存并做健康检查、outbox 检查或 reindex 验证。"
+        subtitle="页面优先展示 ai-gateway 当前运行态；仅当运行态不可达时，才回退显示数据库兜底快照。"
         actions={
           <div className="flex flex-wrap gap-3">
             {!editing && (
@@ -717,12 +806,31 @@ const AdminConfigCenterPage: React.FC = () => {
       />
 
       <section className="rounded-[2.2rem] liquid-glass-panel p-5 md:p-6 space-y-5">
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Effective Source</div>
-            <div className="text-sm text-slate-600 dark:text-white/55 mt-2">{sourceMeta}</div>
+        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Runtime</div>
+              <div className="mt-3 text-lg font-black text-slate-900 dark:text-white">{displayedSnapshot}</div>
+              <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/55">
+                <div>可用性: {view.runtime.available ? 'AVAILABLE' : 'UNAVAILABLE'}</div>
+                <div>来源: {view.runtime.source || '--'}</div>
+                <div>版本: {view.runtime.version ?? '--'}</div>
+                <div>应用时间: {formatDateTime(view.runtime.appliedAt)}</div>
+              </div>
+            </div>
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Stored</div>
+              <div className="mt-3 text-lg font-black text-slate-900 dark:text-white">{view.stored.present ? '数据库快照已存在' : '数据库暂无已保存快照'}</div>
+              <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/55">
+                <div>版本: {view.stored.version ?? '--'}</div>
+                <div>更新时间: {formatDateTime(view.stored.updatedAt)}</div>
+                <div>同步状态: {view.runtime.available ? (view.runtime.inSync ? '与运行态一致' : '与运行态不一致') : '等待 runtime 恢复后比对'}</div>
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap gap-3">
+            <HealthBadge healthy={view.runtime.available} label={`runtime: ${view.runtime.available ? 'AVAILABLE' : 'UNAVAILABLE'}`} />
+            <HealthBadge healthy={!view.stored.present || (view.runtime.available && view.runtime.inSync)} label={`stored sync: ${storedSyncLabel}`} />
             <HealthBadge healthy={Boolean(config.provider.activeProvider)} label={`activeProvider: ${config.provider.activeProvider || '--'}`} />
             <HealthBadge healthy={Boolean(config.provider.fallbackProvider) && config.provider.fallbackProvider !== config.provider.activeProvider} label={`fallbackProvider: ${config.provider.fallbackProvider || '--'}`} />
             <HealthBadge healthy={(activeProviderDefinition?.embedding.dimension ?? 0) === 1024} label={`active embedding: ${activeProviderDefinition?.embedding.dimension ?? '--'} dim`} />
@@ -734,7 +842,7 @@ const AdminConfigCenterPage: React.FC = () => {
           <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Recommended Flow</div>
             <div className="mt-4 grid gap-3 md:grid-cols-4 text-sm">
-              {['1. 进入编辑', '2. 校验配置', '3. 保存并生效', '4. 健康检查 / Outbox / Reindex 验证'].map((item) => (
+              {['1. 进入编辑', '2. 校验配置', '3. 保存并生效', '4. 刷新运行态健康 / Outbox / Reindex 验证'].map((item) => (
                 <div
                   key={item}
                   className="rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-4 text-slate-600 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/55"
@@ -754,10 +862,22 @@ const AdminConfigCenterPage: React.FC = () => {
           </div>
         </div>
 
+        {runtimeUnavailable && view.stored.present && (
+          <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-600 dark:text-amber-400">
+            ai-gateway 运行态当前不可达，页面正在展示数据库中的兜底快照。这不是当前真实生效状态，请先恢复 runtime 再继续核对。
+          </div>
+        )}
+
+        {runtimeOutOfSync && (
+          <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
+            数据库存储版本 {view.stored.version ?? '--'} 与 ai-gateway 运行态版本 {view.runtime.version ?? '--'} 不一致。请先确认哪一侧应作为最新真相，再决定是否覆盖保存。
+          </div>
+        )}
+
         {view.notices.length > 0 && (
           <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-600 dark:text-amber-400">
             {view.notices.map((notice) => (
-              <div key={notice}>{notice}</div>
+              <div key={notice}>{translateConfigMessage(notice)}</div>
             ))}
           </div>
         )}
@@ -811,21 +931,29 @@ const AdminConfigCenterPage: React.FC = () => {
       {activeTab === 'provider' && (
         <SectionCard title="模型接入配置" description="active / fallback provider 现在都是运行时真实生效的配置。每个 provider 拥有独立的 chat、embedding、rerank 参数和密钥。">
           <FieldGrid>
-            <FieldCard label="当前 Provider" hint="请求会先打到这个 provider。发生可重试故障、熔断打开等情况时，才会尝试 fallback。">
-              <TextInput
+            <FieldCard label="当前 Provider" hint="只能从已定义 provider key 中选择。请求会先打到这个 provider，发生可重试故障时再尝试 fallback。">
+              <SelectInput
                 value={config.provider.activeProvider}
                 onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, activeProvider: value } }))}
-                disabled={!editing}
+                disabled={!editing || providerNames.length === 0}
+                options={activeProviderOptions}
               />
             </FieldCard>
-            <FieldCard label="备用 Provider" hint="仅在 active provider 遇到 retryable 失败、429/5xx 或 circuit open 时尝试一次切换。">
-              <TextInput
+            <FieldCard label="备用 Provider" hint="只能从已定义 provider key 中选择。仅在 active provider 遇到 retryable 失败、429/5xx 或 circuit open 时尝试一次切换。">
+              <SelectInput
                 value={config.provider.fallbackProvider}
                 onChange={(value) => updateConfig((current) => ({ ...current, provider: { ...current.provider, fallbackProvider: value } }))}
-                disabled={!editing}
+                disabled={!editing || providerNames.length === 0}
+                options={fallbackProviderOptions}
               />
             </FieldCard>
           </FieldGrid>
+
+          {(config.provider.activeProvider && !providerNames.includes(config.provider.activeProvider)) || (config.provider.fallbackProvider && !providerNames.includes(config.provider.fallbackProvider)) ? (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
+              active / fallback provider 只能引用已有 provider key。当前配置里至少有一个引用已经失效，请改回现有 provider 定义后再保存。
+            </div>
+          ) : null}
 
           {providerEntries.length === 0 && (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
@@ -900,7 +1028,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       disabled={!editing}
                     />
                   </FieldCard>
-                  <FieldCard label="Chat 超时" hint="使用 Duration 格式，例如 30s。过短会造成高峰期误判超时。">
+                  <FieldCard label="Chat 超时" hint="支持 30s、500ms 或 PT30S 这类时长格式。过短会造成高峰期误判超时。">
                     <TextInput
                       value={definition.chat.timeout}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, timeout: value } }))}
@@ -967,7 +1095,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       disabled={!editing}
                     />
                   </FieldCard>
-                  <FieldCard label="Embedding 超时" hint="使用 Duration 格式，例如 30s。批量导入时建议适度放宽。">
+                  <FieldCard label="Embedding 超时" hint="支持 30s、500ms 或 PT30S 这类时长格式。批量导入时建议适度放宽。">
                     <TextInput
                       value={definition.embedding.timeout}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, timeout: value } }))}
@@ -1025,7 +1153,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       disabled={!editing}
                     />
                   </FieldCard>
-                  <FieldCard label="Rerank 超时" hint="使用 Duration 格式，例如 15s。阈值过低会影响召回后精排稳定性。">
+                  <FieldCard label="Rerank 超时" hint="支持 15s、500ms 或 PT30S 这类时长格式。阈值过低会影响召回后精排稳定性。">
                     <TextInput
                       value={definition.rerank.timeout}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, timeout: value } }))}
@@ -1064,7 +1192,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="重试等待时长" hint="两次重试之间的等待时间，使用 Duration 格式，例如 2s。">
+            <FieldCard label="重试等待时长" hint="两次重试之间的等待时间，支持 2s、500ms 或 PT0.5S 这类格式。">
               <TextInput
                 value={config.resilience.waitDuration}
                 onChange={(value) => updateConfig((current) => ({ ...current, resilience: { ...current.resilience, waitDuration: value } }))}
@@ -1096,7 +1224,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="熔断打开时长" hint="熔断后保持 OPEN 状态的时间，使用 Duration 格式，例如 30s。">
+            <FieldCard label="熔断打开时长" hint="熔断后保持 OPEN 状态的时间，支持 30s、500ms 或 PT30S 这类格式。">
               <TextInput
                 value={config.resilience.openStateDuration}
                 onChange={(value) => updateConfig((current) => ({ ...current, resilience: { ...current.resilience, openStateDuration: value } }))}
@@ -1150,14 +1278,14 @@ const AdminConfigCenterPage: React.FC = () => {
                 />
               </div>
             </FieldCard>
-            <FieldCard label="连接超时" hint="ai-gateway 连接 app-server 的超时时间，使用 Duration 格式，例如 3s。">
+            <FieldCard label="连接超时" hint="ai-gateway 连接 app-server 的超时时间，支持 3s、500ms 或 PT3S 这类格式。">
               <TextInput
                 value={config.rag.appServer.connectTimeout}
                 onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, appServer: { ...current.rag.appServer, connectTimeout: value } } }))}
                 disabled={!editing}
               />
             </FieldCard>
-            <FieldCard label="读取超时" hint="等待 app-server 返回分页数据的超时时间，导出大批量语料时会影响成败。">
+            <FieldCard label="读取超时" hint="等待 app-server 返回分页数据的超时时间，支持 5s、500ms 或 PT5S 这类格式；导出大批量语料时会影响成败。">
               <TextInput
                 value={config.rag.appServer.readTimeout}
                 onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, appServer: { ...current.rag.appServer, readTimeout: value } } }))}
@@ -1252,7 +1380,7 @@ const AdminConfigCenterPage: React.FC = () => {
       {activeTab === 'operations' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
-            <SectionCard title="健康检查" description="按钮会读取 ai-gateway 当前运行态健康信息，不会触发计费型模型调用，适合保存后立即验证。">
+            <SectionCard title="健康检查" description="按钮会刷新 ai-gateway 当前运行态健康信息，只做 readiness/probe，不会触发计费型模型调用。">
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
@@ -1261,7 +1389,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2"
                 >
                   <ShieldCheck size={16} />
-                  {healthMutation.isPending ? '检查中...' : '测试连接 / 健康检查'}
+                  {healthMutation.isPending ? '刷新中...' : '刷新运行态健康'}
                 </button>
                 <button
                   type="button"
@@ -1283,8 +1411,10 @@ const AdminConfigCenterPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <HealthBadge healthy={healthState.status === 'UP'} label={`整体状态: ${healthState.status}`} />
                   <HealthBadge healthy={healthState.databaseReady} label={`Database: ${healthState.databaseReady ? 'READY' : 'DOWN'}`} />
+                  <HealthBadge healthy={healthState.vectorStoreReady} label={`Vector Store: ${healthState.vectorStoreReady ? 'READY' : 'DOWN'}`} />
                   <HealthBadge healthy={healthState.providerReady} label={`Provider: ${healthState.providerReady ? 'READY' : 'DEGRADED'}`} />
                   <HealthBadge healthy={healthState.rerankReady} label={`Rerank: ${healthState.rerankReady ? 'READY' : 'DEGRADED'}`} />
+                  <HealthBadge healthy={healthState.appServerReady} label={`App Server: ${healthState.appServerReady ? 'READY' : 'DOWN'}`} />
                   <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
                     <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Runtime Models</div>
                     <div>Chat: {healthState.chatModel}</div>
@@ -1295,20 +1425,27 @@ const AdminConfigCenterPage: React.FC = () => {
                     <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Environment</div>
                     <div>Provider: {healthState.provider}</div>
                     <div>Fallback: {healthState.fallbackProvider}</div>
+                    <div>Vector Extension: {healthState.vectorExtensionVersion || '--'}</div>
                     <div>Profiles: {healthState.activeProfiles.join(', ') || '--'}</div>
+                    <div>Checked At: {formatDateTime(healthState.timestamp)}</div>
                   </div>
+                  {healthState.appServerError && (
+                    <div className="md:col-span-2 rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500 break-all">
+                      app-server 探测失败: {translateConfigMessage(healthState.appServerError)}
+                    </div>
+                  )}
                 </div>
               )}
             </SectionCard>
 
-            <SectionCard title="RAG Reindex" description="正常情况下词条变更会发布知识同步事件；如果本地联调、RabbitMQ 或回源链路异常导致新词条没有进入检索，可在这里手动 reindex。">
+            <SectionCard title="RAG Reindex" description="正常情况下词条变更会发布知识同步事件；如果本地联调、RabbitMQ 或回源链路异常导致新词条没有进入检索，可在这里手动 reindex。默认建议覆盖词汇知识三类 source type。">
               <div className="grid gap-3 md:grid-cols-3">
                 <button
                   type="button"
                   onClick={() =>
                     setReindexForm({
                       mode: 'INCREMENTAL',
-                      sourceTypes: ['LEXICAL_PAIR'],
+                      sourceTypes: defaultLexicalSourceTypes,
                       sourceIds: [],
                       forceReembed: false,
                     })
@@ -1323,7 +1460,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   onClick={() =>
                     setReindexForm({
                       mode: 'FULL',
-                      sourceTypes: ['LEXICAL_PAIR'],
+                      sourceTypes: defaultLexicalSourceTypes,
                       sourceIds: [],
                       forceReembed: false,
                     })
@@ -1339,7 +1476,7 @@ const AdminConfigCenterPage: React.FC = () => {
                     setReindexForm((current) => ({
                       ...current,
                       mode: current.mode || 'INCREMENTAL',
-                      sourceTypes: current.sourceTypes?.length ? current.sourceTypes : ['LEXICAL_PAIR'],
+                      sourceTypes: current.sourceTypes?.length ? current.sourceTypes : defaultLexicalSourceTypes,
                       forceReembed: true,
                     }))
                   }
@@ -1361,19 +1498,42 @@ const AdminConfigCenterPage: React.FC = () => {
                     ]}
                   />
                 </FieldCard>
-                <FieldCard label="数据源类型" hint="逗号分隔，例如 LEXICAL_PAIR,LEXICAL_SENSE。通常只填 LEXICAL_PAIR 即可。">
-                  <TextInput
-                    value={(reindexForm.sourceTypes || []).join(',')}
-                    onChange={(value) =>
-                      setReindexForm((current) => ({
-                        ...current,
-                        sourceTypes: value
-                          .split(',')
-                          .map((item) => item.trim())
-                          .filter(Boolean),
-                      }))
-                    }
-                  />
+                <FieldCard
+                  label="数据源类型"
+                  hint="默认建议勾选词汇知识三类。Seed 类 source type 仅在需要补建内置知识时再启用；全部取消会让后端回退为“全部类型”。"
+                >
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30 mb-2">App Server 知识源</div>
+                      <div className="grid gap-2">
+                        {appServerReindexSourceTypes.map((sourceType) => (
+                          <label key={sourceType} className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
+                            <input
+                              type="checkbox"
+                              checked={(reindexForm.sourceTypes || []).includes(sourceType)}
+                              onChange={(event) => toggleReindexSourceType(sourceType, event.target.checked)}
+                            />
+                            <span>{reindexSourceTypeLabels[sourceType] || sourceType}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30 mb-2">高级 Seed Source Type</div>
+                      <div className="grid gap-2">
+                        {seedReindexSourceTypes.map((sourceType) => (
+                          <label key={sourceType} className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
+                            <input
+                              type="checkbox"
+                              checked={(reindexForm.sourceTypes || []).includes(sourceType)}
+                              onChange={(event) => toggleReindexSourceType(sourceType, event.target.checked)}
+                            />
+                            <span>{reindexSourceTypeLabels[sourceType] || sourceType}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </FieldCard>
                 <FieldCard label="数据源 ID" hint="可选，逗号分隔。为空时按 source type 全量处理；适合只补建某几条词对。">
                   <TextInput
@@ -1487,7 +1647,7 @@ const AdminConfigCenterPage: React.FC = () => {
             </SectionCard>
           </div>
 
-          <SectionCard title="Producer Outbox" description="这里展示生产侧待发送 / 失败事件，并提供人工重放入口，避免词汇知识同步静默丢失。">
+          <SectionCard title="Producer Outbox" description="这里展示 AI 知识同步 outbox 的待发送 / 失败事件，并提供人工立即重放入口，避免同步静默丢失。">
             <div className="flex flex-wrap gap-3">
               <div className="min-w-[220px]">
                 <SelectInput
@@ -1551,7 +1711,7 @@ const AdminConfigCenterPage: React.FC = () => {
                               disabled={replayOutboxMutation.isPending && replayingOutboxId === record.id}
                               className="btn-liquid px-4 py-2 text-white text-sm"
                             >
-                              {replayOutboxMutation.isPending && replayingOutboxId === record.id ? '重放中...' : '重放'}
+                              {replayOutboxMutation.isPending && replayingOutboxId === record.id ? '重放中...' : '立即重放'}
                             </button>
                           )}
                         </div>

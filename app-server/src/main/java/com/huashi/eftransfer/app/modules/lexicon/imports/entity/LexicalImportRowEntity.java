@@ -10,6 +10,7 @@ public class LexicalImportRowEntity extends BaseAuditEntity {
     @TableField("batch_id")
     private Long batchId;
 
+    @TableField("import_row_number")
     private Integer rowNumber;
     private String rowStatus;
     private String draftJson;

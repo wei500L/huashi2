@@ -15,8 +15,10 @@ public record AiHealthPayload(
         boolean vectorStoreReady,
         boolean providerReady,
         boolean rerankReady,
+        boolean appServerReady,
         String vectorExtensionVersion,
         List<String> activeProfiles,
-        OffsetDateTime timestamp
+        OffsetDateTime timestamp,
+        String appServerError
 ) {
 }

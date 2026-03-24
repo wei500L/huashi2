@@ -41,7 +41,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import tools.jackson.core.JsonProcessingException;
+import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -612,7 +612,7 @@ public class LexicalImportBatchService {
     private LexicalImportRowDraft readDraft(String draftJson) {
         try {
             return objectMapper.readValue(draftJson, LexicalImportRowDraft.class);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Failed to read lexical import row draft", exception);
         }
     }
@@ -623,7 +623,7 @@ public class LexicalImportBatchService {
         }
         try {
             return objectMapper.readValue(errorsJson, STRING_LIST_TYPE);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Failed to read lexical import row errors", exception);
         }
     }
@@ -631,7 +631,7 @@ public class LexicalImportBatchService {
     private String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Failed to serialize lexical import payload", exception);
         }
     }

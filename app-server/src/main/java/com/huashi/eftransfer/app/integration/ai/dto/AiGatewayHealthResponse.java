@@ -14,8 +14,10 @@ public record AiGatewayHealthResponse(
         boolean vectorStoreReady,
         boolean providerReady,
         boolean rerankReady,
+        boolean appServerReady,
         String vectorExtensionVersion,
         java.util.List<String> activeProfiles,
-        OffsetDateTime timestamp
+        OffsetDateTime timestamp,
+        String appServerError
 ) {
 }

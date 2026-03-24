@@ -66,12 +66,22 @@ public class PlatformEventOutboxService {
     }
 
     public PlatformEventOutboxRecord replay(Long id) {
+        PlatformEventOutboxRecord existing = repository.findById(id);
+        if (existing == null) {
+            throw new IllegalStateException("Outbox record was not found: " + id);
+        }
+        if (existing.status() == PlatformEventOutboxStatus.IN_PROGRESS || existing.status() == PlatformEventOutboxStatus.PUBLISHED) {
+            throw new IllegalStateException("Outbox record cannot be replayed from status: " + existing.status().name());
+        }
+
         PlatformEventOutboxRecord record = repository.replay(id);
         if (record == null) {
             throw new IllegalStateException("Outbox record was not found: " + id);
         }
+        relay(record);
+        PlatformEventOutboxRecord refreshed = repository.findById(id);
         log.info("event=platform_outbox_replayed id={} eventId={} eventType={}", record.id(), record.eventId(), record.eventType());
-        return record;
+        return refreshed == null ? record : refreshed;
     }
 
     private void relay(PlatformEventOutboxRecord record) {

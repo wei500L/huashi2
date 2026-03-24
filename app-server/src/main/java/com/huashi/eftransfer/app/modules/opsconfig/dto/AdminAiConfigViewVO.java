@@ -11,6 +11,8 @@ public record AdminAiConfigViewVO(
         String source,
         Long version,
         OffsetDateTime updatedAt,
-        List<String> notices
+        List<String> notices,
+        AdminAiRuntimeStateVO runtime,
+        AdminAiStoredStateVO stored
 ) {
 }

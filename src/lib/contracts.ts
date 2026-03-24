@@ -1224,6 +1224,20 @@ export interface AdminAiSecretFieldsVO {
   appServerInternalToken: AdminAiSecretFieldVO;
 }
 
+export interface AdminAiRuntimeStateVO {
+  available: boolean;
+  source?: string | null;
+  version?: number | null;
+  appliedAt?: string | null;
+  inSync: boolean;
+}
+
+export interface AdminAiStoredStateVO {
+  present: boolean;
+  version?: number | null;
+  updatedAt?: string | null;
+}
+
 export interface AdminAiConfigViewVO {
   config: AiOpsConfigPayload;
   secrets: AdminAiSecretFieldsVO;
@@ -1231,6 +1245,8 @@ export interface AdminAiConfigViewVO {
   version?: number | null;
   updatedAt?: string | null;
   notices: string[];
+  runtime: AdminAiRuntimeStateVO;
+  stored: AdminAiStoredStateVO;
 }
 
 export interface AdminAiSecretValueUpdate {
@@ -1251,6 +1267,7 @@ export interface AdminAiSecretUpdateGroup {
 
 export interface AdminAiConfigSaveRequest {
   config: AiOpsConfigPayload;
+  expectedVersion?: number | null;
   secrets: AdminAiSecretUpdateGroup;
 }
 
@@ -1282,9 +1299,11 @@ export interface AiGatewayHealthResponse {
   vectorStoreReady: boolean;
   providerReady: boolean;
   rerankReady: boolean;
+  appServerReady: boolean;
   vectorExtensionVersion: string;
   activeProfiles: string[];
   timestamp: string;
+  appServerError?: string | null;
 }
 
 export interface RagReindexRequest {

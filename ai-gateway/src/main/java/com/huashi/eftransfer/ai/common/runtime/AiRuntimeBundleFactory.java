@@ -313,7 +313,11 @@ public class AiRuntimeBundleFactory {
     }
 
     private Duration parseDuration(String value) {
-        return Duration.parse(value);
+        Duration duration = FlexibleDurationParser.parse(value);
+        if (duration.isNegative() || duration.isZero()) {
+            throw new IllegalArgumentException("duration must be positive");
+        }
+        return duration;
     }
 
     private String formatDuration(Duration value) {

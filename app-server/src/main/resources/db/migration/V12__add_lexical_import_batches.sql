@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS lexical_import_row
 (
     id                      BIGINT PRIMARY KEY AUTO_INCREMENT,
     batch_id                BIGINT      NOT NULL,
-    row_number              INT         NOT NULL,
+    import_row_number       INT         NOT NULL,
     row_status              VARCHAR(32) NOT NULL,
     draft_json              LONGTEXT    NOT NULL,
     validation_errors_json  LONGTEXT    NULL,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS lexical_import_row
     deleted                 BOOLEAN     NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_lexical_import_row_batch_id FOREIGN KEY (batch_id) REFERENCES lexical_import_batch (id),
     CONSTRAINT fk_lexical_import_row_pair_id FOREIGN KEY (imported_lexical_pair_id) REFERENCES lexical_pair (id),
-    CONSTRAINT uk_lexical_import_row_batch_row UNIQUE (batch_id, row_number, deleted)
+    CONSTRAINT uk_lexical_import_row_batch_row UNIQUE (batch_id, import_row_number, deleted)
 );
 
 CREATE INDEX idx_lexical_import_batch_owner_status_created
@@ -68,4 +68,4 @@ CREATE INDEX idx_lexical_import_batch_owner_status_created
 CREATE INDEX idx_lexical_import_batch_status_created
     ON lexical_import_batch (status, created_at);
 CREATE INDEX idx_lexical_import_row_batch_status_row
-    ON lexical_import_row (batch_id, row_status, row_number);
+    ON lexical_import_row (batch_id, row_status, import_row_number);

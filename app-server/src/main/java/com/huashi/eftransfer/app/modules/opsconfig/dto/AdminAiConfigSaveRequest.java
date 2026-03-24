@@ -8,6 +8,7 @@ public record AdminAiConfigSaveRequest(
         @NotNull(message = "config is required")
         @Valid
         AiOpsConfigPayload config,
+        Long expectedVersion,
         @Valid
         AdminAiSecretUpdateGroup secrets
 ) {

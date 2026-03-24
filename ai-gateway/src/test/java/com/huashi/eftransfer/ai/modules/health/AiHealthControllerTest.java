@@ -35,9 +35,11 @@ class AiHealthControllerTest {
                 true,
                 false,
                 true,
+                true,
                 "0.8.2",
                 List.of("test"),
-                OffsetDateTime.parse("2026-03-19T09:00:00Z")
+                OffsetDateTime.parse("2026-03-19T09:00:00Z"),
+                null
         );
         AiHealthService aiHealthService = mock(AiHealthService.class);
         when(aiHealthService.getHealthPayload()).thenReturn(payload);

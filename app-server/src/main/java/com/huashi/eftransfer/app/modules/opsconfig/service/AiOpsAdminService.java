@@ -10,10 +10,12 @@ import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretFieldsVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretUpdateGroup;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiRuntimeStateVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretFieldVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretFieldsVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretUpdateGroup;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretValueUpdate;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiStoredStateVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
 import com.huashi.eftransfer.app.modules.opsconfig.support.StoredAiOpsConfig;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
@@ -28,7 +30,10 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
@@ -36,9 +41,12 @@ import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -60,28 +68,28 @@ public class AiOpsAdminService {
 
     public AdminAiConfigViewVO getCurrentConfig() {
         Optional<StoredAiOpsConfig> stored = storageService.load();
-        if (stored.isPresent()) {
-            return toView(stored.get().config(), "DATABASE", stored.get().version(), stored.get().updatedAt(), List.of());
+        AiOpsConfigEffectiveResponse runtime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
+        if (runtime == null && stored.isEmpty()) {
+            throw new BusinessException(
+                    ResultCode.AI_PROVIDER_UNAVAILABLE,
+                    "ai-gateway runtime config is unavailable",
+                    503
+            );
         }
 
-        AiOpsConfigEffectiveResponse effective = aiGatewayClient.fetchEffectiveConfig()
-                .orElseThrow(() -> new BusinessException(
-                        ResultCode.AI_PROVIDER_UNAVAILABLE,
-                        "ai-gateway runtime config is unavailable",
-                        503
-                ));
+        AiOpsConfigPayload visiblePayload = runtime != null
+                ? normalizePayload(runtime.config())
+                : normalizePayload(stored.orElseThrow().config());
         return toView(
-                effective.config(),
-                effective.source(),
-                effective.version(),
-                effective.appliedAt(),
-                effective.notices() == null ? List.of() : effective.notices()
+                visiblePayload,
+                buildNotices(runtime, stored.orElse(null), runtime == null ? List.of() : runtime.notices()),
+                runtime,
+                stored.orElse(null)
         );
     }
 
     public AiOpsConfigValidationResponse validate(AdminAiConfigSaveRequest request) {
-        AiOpsConfigPayload baseConfig = resolveBaseConfig();
-        AiOpsConfigPayload candidate = mergeSecrets(baseConfig, request.config(), request.secrets());
+        AiOpsConfigPayload candidate = mergeSecrets(resolveBaseConfig(), requestPayload(request), request.secrets());
         try {
             return aiGatewayClient.validateConfig(candidate);
         } catch (RuntimeException ex) {
@@ -91,17 +99,22 @@ public class AiOpsAdminService {
 
     @Transactional
     public AdminAiConfigViewVO save(AdminAiConfigSaveRequest request) {
-        AiOpsConfigEffectiveResponse currentEffective = aiGatewayClient.fetchEffectiveConfig()
+        AdminAiConfigSaveRequest safeRequest = requireRequest(request);
+        Optional<StoredAiOpsConfig> storedSnapshot = storageService.load();
+        AiOpsConfigEffectiveResponse currentRuntime = aiGatewayClient.fetchEffectiveConfig()
                 .orElseThrow(() -> new BusinessException(
                         ResultCode.AI_PROVIDER_UNAVAILABLE,
                         "ai-gateway runtime config is unavailable",
                         503
                 ));
+        validateExpectedVersion(safeRequest.expectedVersion(), currentVersion(currentRuntime, storedSnapshot.orElse(null)));
 
-        AiOpsConfigPayload baseConfig = storageService.load()
-                .map(StoredAiOpsConfig::config)
-                .orElse(currentEffective.config());
-        AiOpsConfigPayload candidate = mergeSecrets(baseConfig, request.config(), request.secrets());
+        AiOpsConfigPayload candidate = mergeSecrets(
+                normalizePayload(currentRuntime.config()),
+                requestPayload(safeRequest),
+                safeRequest.secrets()
+        );
+
         AiOpsConfigValidationResponse validation;
         try {
             validation = aiGatewayClient.validateConfig(candidate);
@@ -112,16 +125,19 @@ public class AiOpsAdminService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "AI ops config validation failed", 400);
         }
 
+        Long nextVersion = nextVersion(currentRuntime.version(), storedSnapshot.map(StoredAiOpsConfig::version).orElse(null));
+        AiOpsConfigEffectiveResponse appliedRuntime;
         try {
-            aiGatewayClient.applyConfig(candidate);
+            appliedRuntime = applyRuntime(candidate, "DATABASE", nextVersion);
         } catch (RuntimeException ex) {
             throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway apply is unavailable", 503);
         }
+
         try {
-            StoredAiOpsConfig stored = storageService.save(candidate, SecurityUtils.getCurrentUserId().orElse(null));
-            return toView(candidate, "DATABASE", stored.version(), stored.updatedAt(), validation.notices());
+            StoredAiOpsConfig stored = storageService.save(candidate, nextVersion, SecurityUtils.getCurrentUserId().orElse(null));
+            return toView(candidate, validation.notices(), appliedRuntime, stored);
         } catch (RuntimeException ex) {
-            rollbackRuntime(currentEffective.config());
+            rollbackRuntime(currentRuntime);
             throw ex;
         }
     }
@@ -163,7 +179,10 @@ public class AiOpsAdminService {
         try {
             return toOutboxView(outboxService.replay(id));
         } catch (IllegalStateException ex) {
-            throw new BusinessException(ResultCode.NOT_FOUND, ex.getMessage(), 404);
+            int status = ex.getMessage() != null && ex.getMessage().startsWith("Outbox record was not found")
+                    ? 404
+                    : 409;
+            throw new BusinessException(status == 404 ? ResultCode.NOT_FOUND : ResultCode.BAD_REQUEST, ex.getMessage(), status);
         }
     }
 
@@ -179,19 +198,21 @@ public class AiOpsAdminService {
                 .orElse(null);
     }
 
-    private void rollbackRuntime(AiOpsConfigPayload previousConfig) {
+    private void rollbackRuntime(AiOpsConfigEffectiveResponse previousRuntime) {
         try {
-            aiGatewayClient.applyConfig(previousConfig);
+            applyRuntime(normalizePayload(previousRuntime.config()), previousRuntime.source(), previousRuntime.version());
         } catch (RuntimeException rollbackEx) {
             throw new TransactionSystemException("Failed to rollback ai-gateway runtime config after persistence failure", rollbackEx);
         }
     }
 
     private AiOpsConfigPayload resolveBaseConfig() {
-        return storageService.load()
-                .map(StoredAiOpsConfig::config)
-                .orElseGet(() -> aiGatewayClient.fetchEffectiveConfig()
-                        .map(AiOpsConfigEffectiveResponse::config)
+        return aiGatewayClient.fetchEffectiveConfig()
+                .map(AiOpsConfigEffectiveResponse::config)
+                .map(this::normalizePayload)
+                .orElseGet(() -> storageService.load()
+                        .map(StoredAiOpsConfig::config)
+                        .map(this::normalizePayload)
                         .orElseThrow(() -> new BusinessException(
                                 ResultCode.AI_PROVIDER_UNAVAILABLE,
                                 "ai-gateway runtime config is unavailable",
@@ -199,51 +220,188 @@ public class AiOpsAdminService {
                         )));
     }
 
+    private AdminAiConfigSaveRequest requireRequest(AdminAiConfigSaveRequest request) {
+        if (request == null || request.config() == null) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "config is required", 400);
+        }
+        return request;
+    }
+
+    private AiOpsConfigPayload requestPayload(AdminAiConfigSaveRequest request) {
+        return normalizePayload(requireRequest(request).config());
+    }
+
+    private void validateExpectedVersion(Long expectedVersion, Long currentVersion) {
+        if (!Objects.equals(expectedVersion, currentVersion)) {
+            throw new BusinessException(
+                    ResultCode.BAD_REQUEST,
+                    "AI ops config was updated by another administrator. Refresh the page and retry.",
+                    409
+            );
+        }
+    }
+
+    private Long currentVersion(AiOpsConfigEffectiveResponse runtime, StoredAiOpsConfig stored) {
+        if (runtime != null && runtime.version() != null) {
+            return runtime.version();
+        }
+        return stored == null ? null : stored.version();
+    }
+
+    private Long nextVersion(Long runtimeVersion, Long storedVersion) {
+        long current = Math.max(runtimeVersion == null ? 0L : runtimeVersion, storedVersion == null ? 0L : storedVersion);
+        return current + 1L;
+    }
+
+    private AiOpsConfigEffectiveResponse applyRuntime(AiOpsConfigPayload payload, String source, Long version) {
+        var response = aiGatewayClient.applyConfig(payload, source, version);
+        return new AiOpsConfigEffectiveResponse(
+                payload,
+                response.source(),
+                response.version(),
+                response.appliedAt(),
+                response.notices()
+        );
+    }
+
+    private List<String> buildNotices(
+            AiOpsConfigEffectiveResponse runtime,
+            StoredAiOpsConfig stored,
+            List<String> runtimeNotices
+    ) {
+        List<String> notices = new ArrayList<>();
+        if (runtimeNotices != null) {
+            notices.addAll(runtimeNotices);
+        }
+        if (runtime == null && stored != null) {
+            notices.add("ai-gateway runtime is unavailable. The page is showing the stored database snapshot instead.");
+        }
+        if (runtime != null && stored != null && !Objects.equals(runtime.version(), stored.version())) {
+            notices.add("Stored database config is not in sync with the current ai-gateway runtime version.");
+        }
+        return notices;
+    }
+
     private AdminAiConfigViewVO toView(
             AiOpsConfigPayload payload,
-            String source,
-            Long version,
-            java.time.OffsetDateTime updatedAt,
-            List<String> notices
+            List<String> notices,
+            AiOpsConfigEffectiveResponse runtime,
+            StoredAiOpsConfig stored
     ) {
+        AiOpsConfigPayload normalized = normalizePayload(payload);
+        String source = runtime != null ? runtime.source() : stored == null ? null : "DATABASE";
+        Long version = runtime != null ? runtime.version() : stored == null ? null : stored.version();
+        OffsetDateTime updatedAt = runtime != null ? runtime.appliedAt() : stored == null ? null : stored.updatedAt();
         return new AdminAiConfigViewVO(
-                sanitize(payload),
-                buildSecrets(payload),
+                sanitize(normalized),
+                buildSecrets(normalized),
                 source,
                 version,
                 updatedAt,
-                notices == null ? List.of() : notices
+                notices == null ? List.of() : notices,
+                new AdminAiRuntimeStateVO(
+                        runtime != null,
+                        runtime == null ? null : runtime.source(),
+                        runtime == null ? null : runtime.version(),
+                        runtime == null ? null : runtime.appliedAt(),
+                        runtime != null && (stored == null || Objects.equals(runtime.version(), stored.version()))
+                ),
+                new AdminAiStoredStateVO(
+                        stored != null,
+                        stored == null ? null : stored.version(),
+                        stored == null ? null : stored.updatedAt()
+                )
+        );
+    }
+
+    private AiOpsConfigPayload normalizePayload(AiOpsConfigPayload payload) {
+        if (payload == null) {
+            return new AiOpsConfigPayload(
+                    new AiOpsProviderConfig(null, null, Map.of()),
+                    null,
+                    new AiOpsRagConfig(
+                            new AiOpsRagAppServerConfig(null, null, null, null),
+                            new AiOpsRagIngestionConfig(null, null),
+                            new AiOpsRagRetrievalConfig(null, null, null, null, null)
+                    )
+            );
+        }
+
+        AiOpsProviderConfig provider = payload.provider() == null
+                ? new AiOpsProviderConfig(null, null, Map.of())
+                : payload.provider();
+        Map<String, AiOpsProviderDefinition> providers = new LinkedHashMap<>();
+        if (provider.providers() != null) {
+            for (Map.Entry<String, AiOpsProviderDefinition> entry : provider.providers().entrySet()) {
+                providers.put(entry.getKey(), normalizeProviderDefinition(entry.getValue()));
+            }
+        }
+        AiOpsResilienceConfig resilience = payload.resilience() == null
+                ? new AiOpsResilienceConfig(null, null, null, null, null)
+                : payload.resilience();
+
+        AiOpsRagConfig rag = payload.rag() == null
+                ? new AiOpsRagConfig(null, null, null)
+                : payload.rag();
+        AiOpsRagAppServerConfig appServer = rag.appServer() == null
+                ? new AiOpsRagAppServerConfig(null, null, null, null)
+                : rag.appServer();
+        AiOpsRagIngestionConfig ingestion = rag.ingestion() == null
+                ? new AiOpsRagIngestionConfig(null, null)
+                : rag.ingestion();
+        AiOpsRagRetrievalConfig retrieval = rag.retrieval() == null
+                ? new AiOpsRagRetrievalConfig(null, null, null, null, null)
+                : rag.retrieval();
+
+        return new AiOpsConfigPayload(
+                new AiOpsProviderConfig(provider.activeProvider(), provider.fallbackProvider(), providers),
+                resilience,
+                new AiOpsRagConfig(appServer, ingestion, retrieval)
+        );
+    }
+
+    private AiOpsProviderDefinition normalizeProviderDefinition(AiOpsProviderDefinition definition) {
+        if (definition == null) {
+            return new AiOpsProviderDefinition(
+                    new AiOpsChatConfig(null, null, null, null, null, null),
+                    new AiOpsEmbeddingConfig(null, null, null, null, null),
+                    new AiOpsRerankConfig(null, null, null, null)
+            );
+        }
+        return new AiOpsProviderDefinition(
+                definition.chat() == null ? new AiOpsChatConfig(null, null, null, null, null, null) : definition.chat(),
+                definition.embedding() == null ? new AiOpsEmbeddingConfig(null, null, null, null, null) : definition.embedding(),
+                definition.rerank() == null ? new AiOpsRerankConfig(null, null, null, null) : definition.rerank()
         );
     }
 
     private AiOpsConfigPayload sanitize(AiOpsConfigPayload payload) {
-        if (payload == null) {
-            return null;
-        }
+        AiOpsConfigPayload normalized = normalizePayload(payload);
         return new AiOpsConfigPayload(
                 new AiOpsProviderConfig(
-                        payload.provider().activeProvider(),
-                        payload.provider().fallbackProvider(),
-                        sanitizeProviders(payload.provider().providers())
+                        normalized.provider().activeProvider(),
+                        normalized.provider().fallbackProvider(),
+                        sanitizeProviders(normalized.provider().providers())
                 ),
-                payload.resilience(),
+                normalized.resilience(),
                 new AiOpsRagConfig(
                         new AiOpsRagAppServerConfig(
-                                payload.rag().appServer().baseUrl(),
+                                normalized.rag().appServer().baseUrl(),
                                 null,
-                                payload.rag().appServer().connectTimeout(),
-                                payload.rag().appServer().readTimeout()
+                                normalized.rag().appServer().connectTimeout(),
+                                normalized.rag().appServer().readTimeout()
                         ),
-                        payload.rag().ingestion(),
-                        payload.rag().retrieval()
+                        normalized.rag().ingestion(),
+                        normalized.rag().retrieval()
                 )
         );
     }
 
     private AdminAiSecretFieldsVO buildSecrets(AiOpsConfigPayload payload) {
+        AiOpsConfigPayload normalized = normalizePayload(payload);
         return new AdminAiSecretFieldsVO(
-                buildProviderSecrets(payload.provider().providers()),
-                mask(payload.rag().appServer().internalToken())
+                buildProviderSecrets(normalized.provider().providers()),
+                mask(normalized.rag().appServer().internalToken())
         );
     }
 
@@ -267,27 +425,29 @@ public class AiOpsAdminService {
             AiOpsConfigPayload requestPayload,
             AdminAiSecretUpdateGroup secrets
     ) {
+        AiOpsConfigPayload normalizedBase = normalizePayload(base);
+        AiOpsConfigPayload normalizedRequest = normalizePayload(requestPayload);
         AdminAiSecretUpdateGroup safeSecrets = secrets == null
                 ? new AdminAiSecretUpdateGroup(null, null)
                 : secrets;
-        Map<String, AiOpsProviderDefinition> requestProviders = requestPayload.provider().providers();
-        Map<String, AiOpsProviderDefinition> baseProviders = base.provider().providers();
+        Map<String, AiOpsProviderDefinition> requestProviders = normalizedRequest.provider().providers();
+        Map<String, AiOpsProviderDefinition> baseProviders = normalizedBase.provider().providers();
         return new AiOpsConfigPayload(
                 new AiOpsProviderConfig(
-                        requestPayload.provider().activeProvider(),
-                        requestPayload.provider().fallbackProvider(),
+                        normalizedRequest.provider().activeProvider(),
+                        normalizedRequest.provider().fallbackProvider(),
                         mergeProviders(baseProviders, requestProviders, safeSecrets.providers())
                 ),
-                requestPayload.resilience(),
+                normalizedRequest.resilience(),
                 new AiOpsRagConfig(
                         new AiOpsRagAppServerConfig(
-                                requestPayload.rag().appServer().baseUrl(),
-                                resolveSecret(base.rag().appServer().internalToken(), safeSecrets.appServerInternalToken()),
-                                requestPayload.rag().appServer().connectTimeout(),
-                                requestPayload.rag().appServer().readTimeout()
+                                normalizedRequest.rag().appServer().baseUrl(),
+                                resolveSecret(normalizedBase.rag().appServer().internalToken(), safeSecrets.appServerInternalToken()),
+                                normalizedRequest.rag().appServer().connectTimeout(),
+                                normalizedRequest.rag().appServer().readTimeout()
                         ),
-                        requestPayload.rag().ingestion(),
-                        requestPayload.rag().retrieval()
+                        normalizedRequest.rag().ingestion(),
+                        normalizedRequest.rag().retrieval()
                 )
         );
     }
@@ -298,10 +458,7 @@ public class AiOpsAdminService {
             return sanitized;
         }
         for (Map.Entry<String, AiOpsProviderDefinition> entry : providers.entrySet()) {
-            AiOpsProviderDefinition definition = entry.getValue();
-            if (definition == null) {
-                continue;
-            }
+            AiOpsProviderDefinition definition = normalizeProviderDefinition(entry.getValue());
             sanitized.put(entry.getKey(), new AiOpsProviderDefinition(
                     new AiOpsChatConfig(
                             definition.chat().baseUrl(),
@@ -335,10 +492,7 @@ public class AiOpsAdminService {
             return result;
         }
         for (Map.Entry<String, AiOpsProviderDefinition> entry : providers.entrySet()) {
-            AiOpsProviderDefinition definition = entry.getValue();
-            if (definition == null) {
-                continue;
-            }
+            AiOpsProviderDefinition definition = normalizeProviderDefinition(entry.getValue());
             result.put(entry.getKey(), new AdminAiProviderSecretFieldsVO(
                     mask(definition.chat().apiKey()),
                     mask(definition.embedding().apiKey()),
@@ -359,16 +513,13 @@ public class AiOpsAdminService {
         }
         for (Map.Entry<String, AiOpsProviderDefinition> entry : requestProviders.entrySet()) {
             String providerName = entry.getKey();
-            AiOpsProviderDefinition requested = entry.getValue();
-            if (requested == null) {
-                continue;
-            }
-            AiOpsProviderDefinition existing = baseProviders == null ? null : baseProviders.get(providerName);
+            AiOpsProviderDefinition requested = normalizeProviderDefinition(entry.getValue());
+            AiOpsProviderDefinition existing = normalizeProviderDefinition(baseProviders == null ? null : baseProviders.get(providerName));
             AdminAiProviderSecretUpdateGroup secretGroup = secretProviders == null ? null : secretProviders.get(providerName);
             merged.put(providerName, new AiOpsProviderDefinition(
                     new AiOpsChatConfig(
                             requested.chat().baseUrl(),
-                            resolveSecret(existing == null || existing.chat() == null ? null : existing.chat().apiKey(),
+                            resolveSecret(existing.chat().apiKey(),
                                     secretGroup == null ? null : secretGroup.chatApiKey()),
                             requested.chat().model(),
                             requested.chat().timeout(),
@@ -377,7 +528,7 @@ public class AiOpsAdminService {
                     ),
                     new AiOpsEmbeddingConfig(
                             requested.embedding().baseUrl(),
-                            resolveSecret(existing == null || existing.embedding() == null ? null : existing.embedding().apiKey(),
+                            resolveSecret(existing.embedding().apiKey(),
                                     secretGroup == null ? null : secretGroup.embeddingApiKey()),
                             requested.embedding().model(),
                             requested.embedding().timeout(),
@@ -385,7 +536,7 @@ public class AiOpsAdminService {
                     ),
                     new AiOpsRerankConfig(
                             requested.rerank().baseUrl(),
-                            resolveSecret(existing == null || existing.rerank() == null ? null : existing.rerank().apiKey(),
+                            resolveSecret(existing.rerank().apiKey(),
                                     secretGroup == null ? null : secretGroup.rerankApiKey()),
                             requested.rerank().model(),
                             requested.rerank().timeout()

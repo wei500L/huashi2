@@ -9,6 +9,8 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -57,11 +59,12 @@ public class AiHealthService {
                 && configured(activeProvider.rerank().baseUrl())
                 && configured(activeProvider.rerank().apiKey())
                 && configured(activeProvider.rerank().model());
+        AppServerProbe appServerProbe = probeAppServer(bundle);
         List<String> profiles = Arrays.asList(environment.getActiveProfiles());
 
         return new AiHealthPayload(
                 "ai-gateway",
-                databaseReady && providerReady && rerankReady ? "UP" : "DEGRADED",
+                databaseReady && vectorStoreReady && providerReady && rerankReady && appServerProbe.ready() ? "UP" : "DEGRADED",
                 provider.activeProvider(),
                 provider.fallbackProvider(),
                 activeProvider == null ? null : activeProvider.chat().model(),
@@ -71,9 +74,11 @@ public class AiHealthService {
                 vectorStoreReady,
                 providerReady,
                 rerankReady,
+                appServerProbe.ready(),
                 vectorVersion,
                 profiles.isEmpty() ? List.of("default") : profiles,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                appServerProbe.error()
         );
     }
 
@@ -99,5 +104,27 @@ public class AiHealthService {
         } catch (Exception ex) {
             return "UNAVAILABLE";
         }
+    }
+
+    private AppServerProbe probeAppServer(AiRuntimeBundle bundle) {
+        try {
+            bundle.appServerRestClient().get()
+                    .uri("/internal/ops/ai-config")
+                    .retrieve()
+                    .toBodilessEntity();
+            return new AppServerProbe(true, null);
+        } catch (RestClientResponseException ex) {
+            return new AppServerProbe(false, "HTTP " + ex.getStatusCode().value() + " " + ex.getStatusText());
+        } catch (RestClientException ex) {
+            return new AppServerProbe(false, ex.getMessage());
+        } catch (Exception ex) {
+            return new AppServerProbe(false, ex.getMessage());
+        }
+    }
+
+    private record AppServerProbe(
+            boolean ready,
+            String error
+    ) {
     }
 }

@@ -20,6 +20,7 @@ import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
 import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyRequest;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
@@ -176,10 +177,10 @@ public class AiGatewayClient {
         return result.data();
     }
 
-    public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload) {
+    public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload, String source, Long version) {
         AiGatewayCallResult<AiOpsConfigApplyResponse> result = post(
                 "/internal/ai/config/apply",
-                payload,
+                new AiOpsConfigApplyRequest(payload, source, version),
                 CONFIG_APPLY_TYPE
         );
         if (!result.success() || result.data() == null) {

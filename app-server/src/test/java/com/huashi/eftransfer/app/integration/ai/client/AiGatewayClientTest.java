@@ -97,9 +97,11 @@ class AiGatewayClientTest {
                     "vectorStoreReady": true,
                     "providerReady": true,
                     "rerankReady": true,
+                    "appServerReady": true,
                     "vectorExtensionVersion": "0.8.2",
                     "activeProfiles": ["local"],
-                    "checkedAt": "2026-03-20T00:00:00Z"
+                    "timestamp": "2026-03-20T00:00:00Z",
+                    "appServerError": null
                   },
                   "timestamp": "2026-03-20T00:00:00Z",
                   "traceId": "trace-health-client"

@@ -40,12 +40,12 @@ public class AiOpsConfigStorageService {
     }
 
     @Transactional
-    public StoredAiOpsConfig save(AiOpsConfigPayload payload, Long actorUserId) {
+    public StoredAiOpsConfig save(AiOpsConfigPayload payload, Long version, Long actorUserId) {
         AiOpsConfigEntity existing = aiOpsConfigMapper.selectByConfigKey(CONFIG_KEY);
         AiOpsConfigEntity entity = existing == null ? new AiOpsConfigEntity() : existing;
         entity.setConfigKey(CONFIG_KEY);
         entity.setEncryptedConfig(cryptoService.encrypt(writeJson(payload)));
-        entity.setVersionNumber(existing == null ? 1L : existing.getVersionNumber() + 1L);
+        entity.setVersionNumber(version == null ? (existing == null ? 1L : existing.getVersionNumber() + 1L) : version);
         if (actorUserId != null) {
             entity.setUpdatedBy(actorUserId);
             if (existing == null) {
@@ -58,7 +58,8 @@ public class AiOpsConfigStorageService {
         } else {
             aiOpsConfigMapper.updateById(entity);
         }
-        return toStoredConfig(entity);
+        AiOpsConfigEntity refreshed = aiOpsConfigMapper.selectByConfigKey(CONFIG_KEY);
+        return toStoredConfig(refreshed == null ? entity : refreshed);
     }
 
     private StoredAiOpsConfig toStoredConfig(AiOpsConfigEntity entity) {
