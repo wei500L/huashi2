@@ -89,6 +89,10 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 - 生产环境建议显式设置 `APP_DB_SSL_MODE=REQUIRED`
 - 默认登录锁定策略由 `APP_AUTH_LOCKOUT_*` 控制，默认值是 5 次失败锁定 15 分钟
 
+如果你想直接跑通“导入词对 -> 继续接到模板 / 词表 / RAG”的完整流程，优先看：
+
+- [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
+
 ## 6. Docker 本地联调
 
 只启动基础依赖：
@@ -209,6 +213,10 @@ cron 示例：
 - 教师：`teacher.zhang` / `Teacher@123456`
 - 学生：`student.li` / `Student@123456`
 - 学生：`student.wang` / `Student@123456`
+
+如果你不知道导入入口在哪里，或者不知道导入后为什么学生端还看不到，请直接跳到：
+
+- [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
 
 ## 13. 前端工程约束
 

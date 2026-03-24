@@ -90,6 +90,10 @@ npm install
 npm run dev
 ```
 
+如果你当前最关心的是“怎么导入数据并继续用起来”，先看这份实操指南：
+
+- [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
+
 ## 验证命令
 
 ```bash

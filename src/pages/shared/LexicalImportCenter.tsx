@@ -472,11 +472,11 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
     <div className="space-y-8">
       <Panel
         title="批量导入中心"
-        description="支持 CSV / XLSX 上传、后台解析、可恢复草稿、逐行修正与异步正式导入。原文件会留档，可在历史中随时回看。"
+        description="支持 CSV / XLSX 上传、后台解析、可恢复草稿、逐行修正与异步正式导入。导入完成后数据会先进入词对库，后续还要接到模板或词表。"
         actions={
           <div className="rounded-[1.5rem] border border-slate-200/70 bg-white/70 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
             <FileSpreadsheet size={16} className="mb-2 text-primary" />
-            支持 CSV / XLSX，单文件上限 50MB，解析后进入草稿确认。
+            支持 CSV / XLSX，单文件上限 50MB。上传后先生成草稿，不会直接暴露到学生端。
           </div>
         }
       >
@@ -517,7 +517,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">处理方式</div>
               <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">上传后后台解析，生成可恢复草稿；确认后异步正式导入。</div>
@@ -529,6 +529,10 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
             <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">草稿编辑</div>
               <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">支持逐行修正、跳过和重新提交，不会影响已经成功导入的行。</div>
+            </div>
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">后续接入</div>
+              <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">导入完成后只会进入词对库。若要进入学生链路，还需继续配置模板或词表。</div>
             </div>
           </div>
         </div>

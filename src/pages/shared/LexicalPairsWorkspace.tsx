@@ -103,17 +103,17 @@ const workspaceMeta: Record<
 > = {
   teacher: {
     title: '词对管理',
-    subtitle: '支持结构化创建、CSV 导入和失败行回查，不再依赖手写 JSON。',
+    subtitle: '支持结构化创建、CSV / XLSX 导入和失败行回查。导入成功后仍需接到模板或词表，学生端才会真正用到。',
     guideTitle: '教师维护指南',
-    guideDescription: '先做结构化录入，再用 CSV 批量补齐；导入完成后优先修正失败行，避免脏数据进入训练链路。',
-    successHint: '导入成功后，建议抽样打开几条词对检查义项和例句是否符合预期。',
+    guideDescription: '先导入词对并抽样核对，再把需要的 Pair #id 接到诊断模板或词表。词库入库不等于学生端立即可见。',
+    successHint: '导入完成后，建议先抽样检查义项和例句，再继续配置模板或词表。',
   },
   admin: {
     title: '语料库管理',
-    subtitle: '管理员可直接在工作区完成词对创建、批量导入和导入复核，无需切换到教师视角。',
+    subtitle: '管理员可直接完成词对创建、批量导入和复核。新词条进入词库后，还要接到模板 / 词表 / RAG 才会完整生效。',
     guideTitle: '管理员操作指南',
-    guideDescription: '先下载模板核对字段，再执行批量导入；若需要让新词条立即进入 RAG 检索，请在导入完成后触发 reindex。',
-    successHint: '导入成功不等于检索立即可见。若要刷新向量库，请前往配置中心执行 RAG reindex。',
+    guideDescription: '先下载模板核对字段，再执行批量导入；若要联调学生链路，还需要继续配置模板或词表。RAG 检索异常时再把 reindex 当作兜底。',
+    successHint: '导入成功不等于学生端或检索端立即可见，后续还要完成模板 / 词表 / RAG 同步。',
   },
 };
 
@@ -402,6 +402,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const user = useAuthStore((state) => state.user);
   const meta = workspaceMeta[mode];
   const canAccessAdminConsole = userHasCapability(user, 'ADMIN_CONSOLE');
+  const canAccessTeachingWorkspace = userHasCapability(user, 'TEACHING_WORKSPACE');
   const deleteDialogRef = React.useRef<HTMLDivElement | null>(null);
   const deleteCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const deleteDialogTitleId = React.useId();
@@ -647,6 +648,29 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const pageStart = totalCount === 0 ? 0 : (pageNo - 1) * pageSize + 1;
   const pageEnd = Math.min(pageNo * pageSize, totalCount);
+  const nextStepLinks = React.useMemo(() => {
+    const links: Array<{ to: string; label: string; description: string }> = [];
+    if (canAccessTeachingWorkspace) {
+      links.push({
+        to: '/teacher/diagnosis-templates',
+        label: '去配置诊断模板',
+        description: '把导入后的 Pair #id 接到诊断 item，学生诊断才会真正用到这些词对。',
+      });
+      links.push({
+        to: '/teacher/lexical-lists',
+        label: '去维护词表',
+        description: '把 Pair #id 收进词表，后续教学配置和内容组织会更清晰。',
+      });
+    }
+    if (canAccessAdminConsole) {
+      links.push({
+        to: '/admin/config-center',
+        label: '去检查 RAG / Reindex',
+        description: '如果本地消息链路或检索结果没有及时更新，可在这里做手动 reindex。',
+      });
+    }
+    return links;
+  }, [canAccessAdminConsole, canAccessTeachingWorkspace]);
 
   React.useEffect(() => {
     if (pageNo > totalPages) {
@@ -770,11 +794,12 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
         }
       >
         <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             {[
               '1. 下载模板并核对必填列。',
               '2. 优先填写基础字段，义项和例句按需补充。',
-              '3. 导入后先处理失败行，再决定是否执行 reindex。',
+              '3. 导入后先处理失败行，确认可导入行都已转为 READY。',
+              '4. 导入完成后继续把 Pair #id 接到模板或词表；若检索没更新，再检查 RAG reindex。',
             ].map((step) => (
               <div
                 key={step}
@@ -785,15 +810,41 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
             ))}
           </div>
 
-          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-              <Info size={16} className="text-primary" />
-              常见导入错误
+          <div className="space-y-4">
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                <Info size={16} className="text-primary" />
+                常见导入错误
+              </div>
+              <div className="space-y-2 text-sm leading-6 text-slate-500 dark:text-white/45">
+                <div>字段名必须与模板首行完全一致，不能随意改列名。</div>
+                <div>`semantic_overlap_score` 和 `false_friend_risk` 只能填 0 到 1。</div>
+                <div>`difficulty_level` 只能填 1 到 5，`active` 只能填 true 或 false。</div>
+                <div>如果填写了例句列，必须同时填写对应义项列。</div>
+              </div>
             </div>
-            <div className="space-y-2 text-sm leading-6 text-slate-500 dark:text-white/45">
-              <div>字段名必须与模板首行完全一致，不能随意改列名。</div>
-              <div>`semantic_overlap_score` 和 `false_friend_risk` 只能填 0 到 1。</div>
-              <div>`difficulty_level` 只能填 1 到 5，`active` 只能填 true 或 false。</div>
+
+            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                <ArrowRight size={16} className="text-primary" />
+                导入后下一步
+              </div>
+              <div className="space-y-3 text-sm leading-6 text-slate-500 dark:text-white/45">
+                <div>导入成功后，数据会先进入词对库，不会自动出现在学生端题目里。</div>
+                {nextStepLinks.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className="block rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 transition hover:border-primary/20 hover:bg-primary/5 dark:border-white/10 dark:bg-white/[0.03]"
+                  >
+                    <div className="inline-flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                      {link.label}
+                      <ArrowRight size={14} className="text-primary" />
+                    </div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{link.description}</div>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -843,7 +894,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
         <div className="space-y-8">
           <SectionCard
             title="词对列表"
-            description="支持关键词、词对类型、启用状态和向量状态过滤。左侧选中，右侧编辑。"
+            description="支持关键词、词对类型、启用状态和向量状态过滤。词表和模板页当前仍通过 lexicalPairId 建立引用，导入后请顺手记录 Pair #id。"
           >
             <div className={`grid gap-4 ${mode === 'admin' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
               <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或 searchable text 模糊查询。">
@@ -991,6 +1042,9 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                       <div className={`rounded-full border px-3 py-1 text-xs font-bold ${itemRisk.className}`}>{itemRisk.label}</div>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
+                      <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
+                        Pair #{item.id}
+                      </span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
                         {lexicalPairTypeLabel(item.lexicalPairType)}
                       </span>

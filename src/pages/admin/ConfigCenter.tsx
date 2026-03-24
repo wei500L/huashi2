@@ -1108,7 +1108,7 @@ const AdminConfigCenterPage: React.FC = () => {
       )}
 
       {activeTab === 'rag' && (
-        <SectionCard title="RAG 运行参数" description="词条 CSV 导入和向量 reindex 仍然是两段链路。这里配置的是 ai-gateway 拉取 app-server 以及检索 / 入库参数。">
+        <SectionCard title="RAG 运行参数" description="词条变更会走知识同步链路；这里仍保留 ai-gateway 回源、检索参数和手动 reindex 配置，作为本地联调或同步异常时的兜底。">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Top K 是什么</div>
@@ -1301,7 +1301,7 @@ const AdminConfigCenterPage: React.FC = () => {
               )}
             </SectionCard>
 
-            <SectionCard title="RAG Reindex" description="CSV 导入并不会自动触发向量重建。这里提供手动 reindex 入口，用于词条导入后的运维操作。">
+            <SectionCard title="RAG Reindex" description="正常情况下词条变更会发布知识同步事件；如果本地联调、RabbitMQ 或回源链路异常导致新词条没有进入检索，可在这里手动 reindex。">
               <div className="grid gap-3 md:grid-cols-3">
                 <button
                   type="button"
