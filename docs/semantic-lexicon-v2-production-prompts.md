@@ -395,7 +395,20 @@ problem_type 只允许：
 
 ## 硬约束
 
-（同 Prompt 1 的 21 列结构、字段约束、类型配比、难度配比）
+21 列固定顺序：
+english_word,french_word,chinese_gloss,lexical_pair_type,semantic_overlap_score,false_friend_risk,default_context_support,difficulty_level,notes,source,active,tags,knowledge_status,embedding_status,sense_english_definition,sense_french_definition,sense_chinese_definition,example_english,example_french,example_chinese,example_context_support
+
+字段约束：
+- lexical_pair_type：cognate / false_friend / partial_cognate / orthographic_similar
+- default_context_support / example_context_support：low / medium / high
+- difficulty_level：1-5 整数
+- semantic_overlap_score / false_friend_risk：0.00-1.00 小数
+- source 固定 llm_v2_human_reviewed
+- active 固定 true
+- knowledge_status 固定 ready
+- embedding_status 固定 pending
+- 有例句时必须有 sense 定义
+- 字段内禁用英文逗号
 
 ## 互补覆盖要求
 
@@ -412,11 +425,23 @@ problem_type 只允许：
 
 ## 质量红线
 
-（同 Prompt 1）
+- 宁缺毋滥——对词对是否成立没有把握就放弃
+- 中文释义必须是教学型释义（教师和学生一眼看懂）
+- 英法例句必须自然且明确支撑义项差异/重合
+- 中文译文必须覆盖两边例句的核心教学点
+- 优先课堂、学校、家庭、社会、媒体、工作、日常生活等高频语境
+- tags 使用 2-4 个标签（`|` 分隔），优先教学用途标签
 
 ## 机器校验清单
 
-（同 Prompt 1）
+生成完毕后逐行检查：
+- [ ] 每行 21 个字段
+- [ ] 枚举值合法
+- [ ] 分数范围 0.00-1.00
+- [ ] difficulty_level 为 1-5 整数
+- [ ] 有例句时有 sense 定义
+- [ ] 无裸英文逗号
+- [ ] 无与基准 CSV 重复的词对
 
 ## 交付
 
