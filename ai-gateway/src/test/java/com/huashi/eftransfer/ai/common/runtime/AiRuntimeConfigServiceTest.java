@@ -106,6 +106,51 @@ class AiRuntimeConfigServiceTest {
         assertThat(service.current().version()).isEqualTo(2L);
     }
 
+    @Test
+    void shouldUseStoredProviderDefinitionsAfterSyncInsteadOfBootstrapDefaults() throws Exception {
+        lastInternalToken.set(null);
+        AiOpsConfigPayload payload = payload(
+                baseUrl,
+                "test-internal-token",
+                "https://stored-chat.example.com/v1",
+                "stored-chat-model",
+                "https://stored-embedding.example.com/v1",
+                "stored-embedding-model",
+                "https://stored-rerank.example.com/v1/rerank",
+                "stored-rerank-model"
+        );
+        server.removeContext("/internal/ops/ai-config");
+        server.createContext("/internal/ops/ai-config", exchange -> {
+            lastInternalToken.set(exchange.getRequestHeaders().getFirst(InternalApiHeaders.INTERNAL_TOKEN));
+            AiOpsConfigEffectiveResponse effective = new AiOpsConfigEffectiveResponse(
+                    payload,
+                    "APP_SERVER_SYNC",
+                    9L,
+                    OffsetDateTime.parse("2026-03-21T00:00:00Z"),
+                    List.of()
+            );
+            byte[] body = objectMapper.writeValueAsBytes(ApiResponse.success(effective, "trace-ai-runtime-sync"));
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        service.syncStoredConfigAfterStartup();
+
+        AiProviderRuntime providerRuntime = service.current().providerRuntime("qwen");
+        assertThat(lastInternalToken.get()).isEqualTo("test-internal-token");
+        assertThat(service.current().source()).isEqualTo("APP_SERVER_SYNC");
+        assertThat(service.current().version()).isEqualTo(9L);
+        assertThat(providerRuntime.definition().chat().baseUrl()).isEqualTo("https://stored-chat.example.com/v1");
+        assertThat(providerRuntime.definition().chat().model()).isEqualTo("stored-chat-model");
+        assertThat(providerRuntime.definition().embedding().baseUrl()).isEqualTo("https://stored-embedding.example.com/v1");
+        assertThat(providerRuntime.definition().embedding().model()).isEqualTo("stored-embedding-model");
+        assertThat(providerRuntime.definition().rerank().baseUrl()).isEqualTo("https://stored-rerank.example.com/v1/rerank");
+        assertThat(providerRuntime.definition().rerank().model()).isEqualTo("stored-rerank-model");
+    }
+
     private AiRuntimeConfigService runtimeConfigService(String appServerBaseUrl, String internalToken) {
         AiProviderProperties providerProperties = new AiProviderProperties();
         providerProperties.setActiveProvider("qwen");
@@ -145,6 +190,28 @@ class AiRuntimeConfigServiceTest {
     }
 
     private AiOpsConfigPayload payload(String appServerBaseUrl, String internalToken) {
+        return payload(
+                appServerBaseUrl,
+                internalToken,
+                "https://example.com/v1",
+                "qwen-max",
+                "https://example.com/v1",
+                "text-embedding-v4",
+                "https://example.com",
+                "gte-rerank-v2"
+        );
+    }
+
+    private AiOpsConfigPayload payload(
+            String appServerBaseUrl,
+            String internalToken,
+            String qwenChatBaseUrl,
+            String qwenChatModel,
+            String qwenEmbeddingBaseUrl,
+            String qwenEmbeddingModel,
+            String qwenRerankBaseUrl,
+            String qwenRerankModel
+    ) {
         return new AiOpsConfigPayload(
                 new AiOpsProviderConfig(
                         "qwen",
@@ -152,9 +219,9 @@ class AiRuntimeConfigServiceTest {
                         Map.of(
                                 "qwen",
                                 new AiOpsProviderDefinition(
-                                        new AiOpsChatConfig("https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
-                                        new AiOpsEmbeddingConfig("https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
-                                        new AiOpsRerankConfig("https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
+                                        new AiOpsChatConfig(qwenChatBaseUrl, "chat-key", qwenChatModel, "PT30S", 0.2d, 1024),
+                                        new AiOpsEmbeddingConfig(qwenEmbeddingBaseUrl, "embed-key", qwenEmbeddingModel, "PT30S", 1024),
+                                        new AiOpsRerankConfig(qwenRerankBaseUrl, "rerank-key", qwenRerankModel, "PT30S")
                                 ),
                                 "deepseek",
                                 new AiOpsProviderDefinition(

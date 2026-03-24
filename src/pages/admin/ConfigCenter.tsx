@@ -315,7 +315,7 @@ function translateConfigMessage(message: string): string {
     return '时长字段必须大于 0。';
   }
   if (trimmed.includes('runtime is unavailable')) {
-    return 'ai-gateway 运行态当前不可达，页面正在展示数据库兜底快照。';
+    return 'ai-gateway 运行态当前不可达，页面正在展示数据库权威快照。';
   }
   if (trimmed.includes('not in sync')) {
     return '数据库配置与 ai-gateway 当前运行态版本不一致。';
@@ -324,7 +324,7 @@ function translateConfigMessage(message: string): string {
 }
 
 function currentConfigVersion(view?: AdminAiConfigViewVO | null): number | null {
-  return view?.runtime.version ?? view?.stored.version ?? view?.version ?? null;
+  return view?.stored.version ?? view?.runtime.version ?? view?.version ?? null;
 }
 
 function buildProviderOptions(providerNames: string[], currentValue: string | null | undefined): Array<{ value: string; label: string }> {
@@ -731,8 +731,8 @@ const AdminConfigCenterPage: React.FC = () => {
   const activeProviderDefinition = config.provider.providers?.[config.provider.activeProvider];
   const runtimeUnavailable = !view.runtime.available;
   const runtimeOutOfSync = view.runtime.available && view.stored.present && !view.runtime.inSync;
-  const displayedSnapshot = view.runtime.available ? 'ai-gateway 运行态快照' : view.stored.present ? '数据库兜底快照' : '未获取到有效配置';
-  const storedSyncLabel = !view.stored.present ? 'NO SNAPSHOT' : !view.runtime.available ? 'UNKNOWN' : view.runtime.inSync ? 'IN_SYNC' : 'OUT_OF_SYNC';
+  const displayedSnapshot = view.stored.present ? 'app-server 数据库权威快照' : view.runtime.available ? 'ai-gateway 启动初始化快照' : '未获取到有效配置';
+  const storedSyncLabel = !view.stored.present ? 'NO_DB_SNAPSHOT' : !view.runtime.available ? 'RUNTIME_UNKNOWN' : view.runtime.inSync ? 'IN_SYNC' : 'OUT_OF_SYNC';
   const activeTabDescription = tabDescriptions[activeTab];
   const busyMessage = saveMutation.isPending
     ? '正在保存配置并热更新 ai-gateway 运行态，请勿重复提交。'
@@ -755,7 +755,7 @@ const AdminConfigCenterPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader
         title="运维管理员配置中心"
-        subtitle="页面优先展示 ai-gateway 当前运行态；仅当运行态不可达时，才回退显示数据库兜底快照。"
+        subtitle="页面以 app-server 数据库快照作为权威配置源，同时展示 ai-gateway 当前已应用的运行态。"
         actions={
           <div className="flex flex-wrap gap-3">
             {!editing && (
@@ -809,21 +809,22 @@ const AdminConfigCenterPage: React.FC = () => {
         <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Runtime</div>
+              <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Authority</div>
               <div className="mt-3 text-lg font-black text-slate-900 dark:text-white">{displayedSnapshot}</div>
               <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/55">
-                <div>可用性: {view.runtime.available ? 'AVAILABLE' : 'UNAVAILABLE'}</div>
-                <div>来源: {view.runtime.source || '--'}</div>
-                <div>版本: {view.runtime.version ?? '--'}</div>
-                <div>应用时间: {formatDateTime(view.runtime.appliedAt)}</div>
+                <div>来源: {view.source || '--'}</div>
+                <div>版本: {view.version ?? '--'}</div>
+                <div>更新时间: {formatDateTime(view.updatedAt)}</div>
+                <div>数据库快照: {view.stored.present ? 'PRESENT' : 'NOT_SAVED'}</div>
               </div>
             </div>
             <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Stored</div>
-              <div className="mt-3 text-lg font-black text-slate-900 dark:text-white">{view.stored.present ? '数据库快照已存在' : '数据库暂无已保存快照'}</div>
+              <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Runtime</div>
+              <div className="mt-3 text-lg font-black text-slate-900 dark:text-white">{view.runtime.available ? 'ai-gateway 当前运行态' : 'ai-gateway 运行态不可达'}</div>
               <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/55">
-                <div>版本: {view.stored.version ?? '--'}</div>
-                <div>更新时间: {formatDateTime(view.stored.updatedAt)}</div>
+                <div>来源: {view.runtime.source || '--'}</div>
+                <div>版本: {view.runtime.version ?? '--'}</div>
+                <div>应用时间: {formatDateTime(view.runtime.appliedAt)}</div>
                 <div>同步状态: {view.runtime.available ? (view.runtime.inSync ? '与运行态一致' : '与运行态不一致') : '等待 runtime 恢复后比对'}</div>
               </div>
             </div>
@@ -864,7 +865,7 @@ const AdminConfigCenterPage: React.FC = () => {
 
         {runtimeUnavailable && view.stored.present && (
           <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-600 dark:text-amber-400">
-            ai-gateway 运行态当前不可达，页面正在展示数据库中的兜底快照。这不是当前真实生效状态，请先恢复 runtime 再继续核对。
+            ai-gateway 运行态当前不可达，页面仍以数据库权威快照展示配置。当前无法确认网关是否已应用到同一版本，请先恢复 runtime 再继续核对。
           </div>
         )}
 
@@ -929,7 +930,7 @@ const AdminConfigCenterPage: React.FC = () => {
       </section>
 
       {activeTab === 'provider' && (
-        <SectionCard title="模型接入配置" description="active / fallback provider 现在都是运行时真实生效的配置。每个 provider 拥有独立的 chat、embedding、rerank 参数和密钥。">
+        <SectionCard title="模型接入配置" description="此处草稿始终基于数据库权威快照。每个 provider 独立维护 chat、embedding、rerank 的 baseUrl、model、timeout 与密钥，provider key 本身不会锁定厂商地址。">
           <FieldGrid>
             <FieldCard label="当前 Provider" hint="只能从已定义 provider key 中选择。请求会先打到这个 provider，发生可重试故障时再尝试 fallback。">
               <SelectInput
@@ -988,11 +989,12 @@ const AdminConfigCenterPage: React.FC = () => {
                 </div>
 
                 <FieldGrid>
-                  <FieldCard label="Chat 接口地址" hint="用于文本生成。应填写模型服务的根地址或兼容 OpenAI 的 base URL。">
+                  <FieldCard label="Chat 接口地址" hint="用于文本生成。应填写模型服务的根地址或兼容 OpenAI 的 base URL，不会因为 provider key 而被固定到某家厂商。">
                     <TextInput
                       value={definition.chat.baseUrl}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, baseUrl: value } }))}
                       disabled={!editing}
+                      placeholder="https://provider.example.com/v1"
                     />
                   </FieldCard>
                   <FieldCard label={providerSecretMeta.chatApiKey.label} hint={providerSecretMeta.chatApiKey.hint}>
@@ -1026,6 +1028,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       value={definition.chat.model}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, model: value } }))}
                       disabled={!editing}
+                      placeholder="chat-model-id"
                     />
                   </FieldCard>
                   <FieldCard label="Chat 超时" hint="支持 30s、500ms 或 PT30S 这类时长格式。过短会造成高峰期误判超时。">
@@ -1033,6 +1036,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       value={definition.chat.timeout}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, timeout: value } }))}
                       disabled={!editing}
+                      placeholder="PT30S"
                     />
                   </FieldCard>
                   <FieldCard label="生成温度" hint="值越高越发散。对诊断/教学类输出通常建议保持低温。">
@@ -1055,11 +1059,12 @@ const AdminConfigCenterPage: React.FC = () => {
                 </FieldGrid>
 
                 <FieldGrid>
-                  <FieldCard label="Embedding 接口地址" hint="用于向量化。这里变更后会影响 RAG 导入和检索的一致性。">
+                  <FieldCard label="Embedding 接口地址" hint="用于向量化。这里变更后会影响 RAG 导入和检索的一致性，地址与 provider key 同样完全可自定义。">
                     <TextInput
                       value={definition.embedding.baseUrl}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, baseUrl: value } }))}
                       disabled={!editing}
+                      placeholder="https://provider.example.com/v1"
                     />
                   </FieldCard>
                   <FieldCard label={providerSecretMeta.embeddingApiKey.label} hint={providerSecretMeta.embeddingApiKey.hint}>
@@ -1093,6 +1098,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       value={definition.embedding.model}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, model: value } }))}
                       disabled={!editing}
+                      placeholder="embedding-model-id"
                     />
                   </FieldCard>
                   <FieldCard label="Embedding 超时" hint="支持 30s、500ms 或 PT30S 这类时长格式。批量导入时建议适度放宽。">
@@ -1100,6 +1106,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       value={definition.embedding.timeout}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, timeout: value } }))}
                       disabled={!editing}
+                      placeholder="PT30S"
                     />
                   </FieldCard>
                   <FieldCard label="向量维度" hint="当前版本数据库 schema 固定为 1024。修改成其他值会被校验拒绝。">
@@ -1113,11 +1120,12 @@ const AdminConfigCenterPage: React.FC = () => {
                 </FieldGrid>
 
                 <FieldGrid>
-                  <FieldCard label="Rerank 接口地址" hint="用于召回后的重排序。若关闭或异常，会明显影响最终检索质量。">
+                  <FieldCard label="Rerank 接口地址" hint="用于召回后的重排序。若关闭或异常，会明显影响最终检索质量；这里应填写服务真实端点，而不是依赖默认示例地址。">
                     <TextInput
                       value={definition.rerank.baseUrl}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, baseUrl: value } }))}
                       disabled={!editing}
+                      placeholder="https://provider.example.com/rerank"
                     />
                   </FieldCard>
                   <FieldCard label={providerSecretMeta.rerankApiKey.label} hint={providerSecretMeta.rerankApiKey.hint}>
@@ -1151,6 +1159,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       value={definition.rerank.model}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, model: value } }))}
                       disabled={!editing}
+                      placeholder="rerank-model-id"
                     />
                   </FieldCard>
                   <FieldCard label="Rerank 超时" hint="支持 15s、500ms 或 PT30S 这类时长格式。阈值过低会影响召回后精排稳定性。">
@@ -1158,6 +1167,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       value={definition.rerank.timeout}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, timeout: value } }))}
                       disabled={!editing}
+                      placeholder="PT30S"
                     />
                   </FieldCard>
                 </FieldGrid>
@@ -1236,7 +1246,7 @@ const AdminConfigCenterPage: React.FC = () => {
       )}
 
       {activeTab === 'rag' && (
-        <SectionCard title="RAG 运行参数" description="词条变更会走知识同步链路；这里仍保留 ai-gateway 回源、检索参数和手动 reindex 配置，作为本地联调或同步异常时的兜底。">
+        <SectionCard title="RAG 运行参数" description="词条变更会走知识同步链路；这里仍保留 ai-gateway 回源、检索参数和手动 reindex 配置，草稿同样以数据库权威快照为准。">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Top K 是什么</div>
@@ -1253,6 +1263,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 value={config.rag.appServer.baseUrl}
                 onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, appServer: { ...current.rag.appServer, baseUrl: value } } }))}
                 disabled={!editing}
+                placeholder="https://app-server.example.com"
               />
             </FieldCard>
             <FieldCard label={appServerSecretMeta.label} hint={appServerSecretMeta.hint}>
@@ -1283,6 +1294,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 value={config.rag.appServer.connectTimeout}
                 onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, appServer: { ...current.rag.appServer, connectTimeout: value } } }))}
                 disabled={!editing}
+                placeholder="PT3S"
               />
             </FieldCard>
             <FieldCard label="读取超时" hint="等待 app-server 返回分页数据的超时时间，支持 5s、500ms 或 PT5S 这类格式；导出大批量语料时会影响成败。">
@@ -1290,6 +1302,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 value={config.rag.appServer.readTimeout}
                 onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, appServer: { ...current.rag.appServer, readTimeout: value } } }))}
                 disabled={!editing}
+                placeholder="PT5S"
               />
             </FieldCard>
           </FieldGrid>

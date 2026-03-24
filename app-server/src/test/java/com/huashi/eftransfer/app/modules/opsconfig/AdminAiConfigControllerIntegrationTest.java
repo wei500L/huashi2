@@ -124,6 +124,128 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     }
 
     @Test
+    void configCenterPrefersStoredSnapshotOverRuntimeDefaults() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        storageService.save(
+                samplePayload(
+                        "stored-chat-secret",
+                        "https://stored-chat.example.com/v1",
+                        "stored-chat-model",
+                        "https://stored-embedding.example.com/v1",
+                        "stored-embedding-model",
+                        "https://stored-rerank.example.com/v1/rerank",
+                        "stored-rerank-model"
+                ),
+                5L,
+                null
+        );
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                samplePayload(
+                        "runtime-chat-secret",
+                        "https://runtime-chat.example.com/v1",
+                        "runtime-chat-model",
+                        "https://runtime-embedding.example.com/v1",
+                        "runtime-embedding-model",
+                        "https://runtime-rerank.example.com/v1/rerank",
+                        "runtime-rerank-model"
+                ),
+                "DEFAULTS",
+                4L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+
+        mockMvc.perform(get("/api/admin/ai-config").with(bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.source").value("DATABASE"))
+                .andExpect(jsonPath("$.data.version").value(5))
+                .andExpect(jsonPath("$.data.runtime.inSync").value(false))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.baseUrl").value("https://stored-chat.example.com/v1"))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.model").value("stored-chat-model"))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.baseUrl").value("https://stored-embedding.example.com/v1"))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.model").value("stored-embedding-model"))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.baseUrl").value("https://stored-rerank.example.com/v1/rerank"))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.model").value("stored-rerank-model"));
+    }
+
+    @Test
+    void saveRetainExistingSecretsUsesStoredSnapshotWhenRuntimeIsOutOfSync() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        storageService.save(
+                samplePayload(
+                        "stored-chat-secret",
+                        "https://stored-chat.example.com/v1",
+                        "stored-chat-model",
+                        "https://stored-embedding.example.com/v1",
+                        "stored-embedding-model",
+                        "https://stored-rerank.example.com/v1/rerank",
+                        "stored-rerank-model"
+                ),
+                5L,
+                null
+        );
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                samplePayload(
+                        "runtime-chat-secret",
+                        "https://runtime-chat.example.com/v1",
+                        "runtime-chat-model",
+                        "https://runtime-embedding.example.com/v1",
+                        "runtime-embedding-model",
+                        "https://runtime-rerank.example.com/v1/rerank",
+                        "runtime-rerank-model"
+                ),
+                "DEFAULTS",
+                4L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", samplePayload(
+                                        null,
+                                        "https://stored-chat.example.com/v1",
+                                        "stored-chat-model",
+                                        "https://stored-embedding.example.com/v1",
+                                        "stored-embedding-model",
+                                        "https://stored-rerank.example.com/v1/rerank",
+                                        "stored-rerank-model"
+                                ),
+                                "expectedVersion", 5,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", true)
+                                )
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(6))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.baseUrl").value("https://stored-chat.example.com/v1"))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.model").value("stored-chat-model"));
+
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey())
+                .isEqualTo("stored-chat-secret");
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().baseUrl())
+                .isEqualTo("https://stored-chat.example.com/v1");
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().model())
+                .isEqualTo("stored-chat-model");
+        assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey())
+                .isEqualTo("stored-chat-secret");
+    }
+
+    @Test
     void nonAdminCannotAccessConfigCenter() throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
 
@@ -175,6 +297,26 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     }
 
     private AiOpsConfigPayload samplePayload(String chatApiKey) {
+        return samplePayload(
+                chatApiKey,
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "qwen-max",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "text-embedding-v4",
+                "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+                "gte-rerank-v2"
+        );
+    }
+
+    private AiOpsConfigPayload samplePayload(
+            String chatApiKey,
+            String qwenChatBaseUrl,
+            String qwenChatModel,
+            String qwenEmbeddingBaseUrl,
+            String qwenEmbeddingModel,
+            String qwenRerankBaseUrl,
+            String qwenRerankModel
+    ) {
         return new AiOpsConfigPayload(
                 new AiOpsProviderConfig(
                         "qwen",
@@ -183,24 +325,24 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                 "qwen",
                                 new AiOpsProviderDefinition(
                                         new AiOpsChatConfig(
-                                                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                                                qwenChatBaseUrl,
                                                 chatApiKey,
-                                                "qwen-max",
+                                                qwenChatModel,
                                                 "PT30S",
                                                 0.2d,
                                                 2048
                                         ),
                                         new AiOpsEmbeddingConfig(
-                                                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                                                qwenEmbeddingBaseUrl,
                                                 "embed-secret-001",
-                                                "text-embedding-v4",
+                                                qwenEmbeddingModel,
                                                 "PT30S",
                                                 1024
                                         ),
                                         new AiOpsRerankConfig(
-                                                "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+                                                qwenRerankBaseUrl,
                                                 "rerank-secret-001",
-                                                "gte-rerank-v2",
+                                                qwenRerankModel,
                                                 "PT30S"
                                         )
                                 ),

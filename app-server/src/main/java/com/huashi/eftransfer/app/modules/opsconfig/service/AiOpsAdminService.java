@@ -77,14 +77,13 @@ public class AiOpsAdminService {
             );
         }
 
-        AiOpsConfigPayload visiblePayload = runtime != null
-                ? normalizePayload(runtime.config())
-                : normalizePayload(stored.orElseThrow().config());
+        StoredAiOpsConfig storedSnapshot = stored.orElse(null);
+        AiOpsConfigPayload visiblePayload = authoritativePayload(runtime, storedSnapshot);
         return toView(
                 visiblePayload,
-                buildNotices(runtime, stored.orElse(null), runtime == null ? List.of() : runtime.notices()),
+                buildNotices(runtime, storedSnapshot, runtime == null ? List.of() : runtime.notices()),
                 runtime,
-                stored.orElse(null)
+                storedSnapshot
         );
     }
 
@@ -101,16 +100,17 @@ public class AiOpsAdminService {
     public AdminAiConfigViewVO save(AdminAiConfigSaveRequest request) {
         AdminAiConfigSaveRequest safeRequest = requireRequest(request);
         Optional<StoredAiOpsConfig> storedSnapshot = storageService.load();
+        StoredAiOpsConfig storedConfig = storedSnapshot.orElse(null);
         AiOpsConfigEffectiveResponse currentRuntime = aiGatewayClient.fetchEffectiveConfig()
                 .orElseThrow(() -> new BusinessException(
                         ResultCode.AI_PROVIDER_UNAVAILABLE,
                         "ai-gateway runtime config is unavailable",
                         503
                 ));
-        validateExpectedVersion(safeRequest.expectedVersion(), currentVersion(currentRuntime, storedSnapshot.orElse(null)));
+        validateExpectedVersion(safeRequest.expectedVersion(), currentVersion(currentRuntime, storedConfig));
 
         AiOpsConfigPayload candidate = mergeSecrets(
-                normalizePayload(currentRuntime.config()),
+                authoritativePayload(currentRuntime, storedConfig),
                 requestPayload(safeRequest),
                 safeRequest.secrets()
         );
@@ -207,17 +207,18 @@ public class AiOpsAdminService {
     }
 
     private AiOpsConfigPayload resolveBaseConfig() {
+        StoredAiOpsConfig stored = storageService.load().orElse(null);
+        if (stored != null) {
+            return normalizePayload(stored.config());
+        }
         return aiGatewayClient.fetchEffectiveConfig()
                 .map(AiOpsConfigEffectiveResponse::config)
                 .map(this::normalizePayload)
-                .orElseGet(() -> storageService.load()
-                        .map(StoredAiOpsConfig::config)
-                        .map(this::normalizePayload)
-                        .orElseThrow(() -> new BusinessException(
-                                ResultCode.AI_PROVIDER_UNAVAILABLE,
-                                "ai-gateway runtime config is unavailable",
-                                503
-                        )));
+                .orElseThrow(() -> new BusinessException(
+                        ResultCode.AI_PROVIDER_UNAVAILABLE,
+                        "ai-gateway runtime config is unavailable",
+                        503
+                ));
     }
 
     private AdminAiConfigSaveRequest requireRequest(AdminAiConfigSaveRequest request) {
@@ -242,10 +243,13 @@ public class AiOpsAdminService {
     }
 
     private Long currentVersion(AiOpsConfigEffectiveResponse runtime, StoredAiOpsConfig stored) {
+        if (stored != null && stored.version() != null) {
+            return stored.version();
+        }
         if (runtime != null && runtime.version() != null) {
             return runtime.version();
         }
-        return stored == null ? null : stored.version();
+        return null;
     }
 
     private Long nextVersion(Long runtimeVersion, Long storedVersion) {
@@ -277,7 +281,7 @@ public class AiOpsAdminService {
             notices.add("ai-gateway runtime is unavailable. The page is showing the stored database snapshot instead.");
         }
         if (runtime != null && stored != null && !Objects.equals(runtime.version(), stored.version())) {
-            notices.add("Stored database config is not in sync with the current ai-gateway runtime version.");
+            notices.add("Stored database config is authoritative but not in sync with the current ai-gateway runtime version.");
         }
         return notices;
     }
@@ -289,9 +293,9 @@ public class AiOpsAdminService {
             StoredAiOpsConfig stored
     ) {
         AiOpsConfigPayload normalized = normalizePayload(payload);
-        String source = runtime != null ? runtime.source() : stored == null ? null : "DATABASE";
-        Long version = runtime != null ? runtime.version() : stored == null ? null : stored.version();
-        OffsetDateTime updatedAt = runtime != null ? runtime.appliedAt() : stored == null ? null : stored.updatedAt();
+        String source = stored != null ? "DATABASE" : runtime == null ? null : runtime.source();
+        Long version = stored != null ? stored.version() : runtime == null ? null : runtime.version();
+        OffsetDateTime updatedAt = stored != null ? stored.updatedAt() : runtime == null ? null : runtime.appliedAt();
         return new AdminAiConfigViewVO(
                 sanitize(normalized),
                 buildSecrets(normalized),
@@ -311,6 +315,20 @@ public class AiOpsAdminService {
                         stored == null ? null : stored.version(),
                         stored == null ? null : stored.updatedAt()
                 )
+        );
+    }
+
+    private AiOpsConfigPayload authoritativePayload(AiOpsConfigEffectiveResponse runtime, StoredAiOpsConfig stored) {
+        if (stored != null) {
+            return normalizePayload(stored.config());
+        }
+        if (runtime != null) {
+            return normalizePayload(runtime.config());
+        }
+        throw new BusinessException(
+                ResultCode.AI_PROVIDER_UNAVAILABLE,
+                "ai-gateway runtime config is unavailable",
+                503
         );
     }
 
