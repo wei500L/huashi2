@@ -135,6 +135,116 @@ function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinition> | null): AiOpsProviderDefinition {
+  return {
+    chat: {
+      baseUrl: definition?.chat?.baseUrl ?? '',
+      apiKey: definition?.chat?.apiKey ?? null,
+      model: definition?.chat?.model ?? '',
+      timeout: definition?.chat?.timeout ?? '',
+      temperature: definition?.chat?.temperature ?? 0,
+      maxTokens: definition?.chat?.maxTokens ?? 0,
+    },
+    embedding: {
+      baseUrl: definition?.embedding?.baseUrl ?? '',
+      apiKey: definition?.embedding?.apiKey ?? null,
+      model: definition?.embedding?.model ?? '',
+      timeout: definition?.embedding?.timeout ?? '',
+      dimension: definition?.embedding?.dimension ?? 0,
+    },
+    rerank: {
+      baseUrl: definition?.rerank?.baseUrl ?? '',
+      apiKey: definition?.rerank?.apiKey ?? null,
+      model: definition?.rerank?.model ?? '',
+      timeout: definition?.rerank?.timeout ?? '',
+    },
+  };
+}
+
+function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsConfigPayload> | null): AiOpsConfigPayload {
+  return {
+    provider: {
+      activeProvider: payload?.provider?.activeProvider ?? '',
+      fallbackProvider: payload?.provider?.fallbackProvider ?? '',
+      providers: Object.fromEntries(
+        Object.entries(payload?.provider?.providers || {}).map(([providerName, definition]) => [
+          providerName,
+          normalizeProviderDefinition(definition),
+        ])
+      ),
+    },
+    resilience: {
+      maxAttempts: payload?.resilience?.maxAttempts ?? 0,
+      waitDuration: payload?.resilience?.waitDuration ?? '',
+      failureRateThreshold: payload?.resilience?.failureRateThreshold ?? 0,
+      slidingWindowSize: payload?.resilience?.slidingWindowSize ?? 0,
+      openStateDuration: payload?.resilience?.openStateDuration ?? '',
+    },
+    rag: {
+      appServer: {
+        baseUrl: payload?.rag?.appServer?.baseUrl ?? '',
+        internalToken: payload?.rag?.appServer?.internalToken ?? null,
+        connectTimeout: payload?.rag?.appServer?.connectTimeout ?? '',
+        readTimeout: payload?.rag?.appServer?.readTimeout ?? '',
+      },
+      ingestion: {
+        exportPageSize: payload?.rag?.ingestion?.exportPageSize ?? 0,
+        embeddingBatchSize: payload?.rag?.ingestion?.embeddingBatchSize ?? 0,
+      },
+      retrieval: {
+        recallTopK: payload?.rag?.retrieval?.recallTopK ?? 0,
+        recallThreshold: payload?.rag?.retrieval?.recallThreshold ?? 0,
+        rerankTopN: payload?.rag?.retrieval?.rerankTopN ?? 0,
+        rerankThreshold: payload?.rag?.retrieval?.rerankThreshold ?? 0,
+        finalTopK: payload?.rag?.retrieval?.finalTopK ?? 0,
+      },
+    },
+  };
+}
+
+function normalizeSecretField(field?: Partial<AdminAiSecretFieldVO> | null): AdminAiSecretFieldVO {
+  return {
+    configured: Boolean(field?.configured),
+    maskedValue: field?.maskedValue ?? '',
+  };
+}
+
+// Older app-server responses may omit nested admin status blocks; normalize first so the page stays renderable.
+function normalizeAdminAiConfigView(view?: Partial<AdminAiConfigViewVO> | null): AdminAiConfigViewVO {
+  return {
+    config: normalizeAiOpsConfigPayload(view?.config),
+    secrets: {
+      providers: Object.fromEntries(
+        Object.entries(view?.secrets?.providers || {}).map(([providerName, providerSecrets]) => [
+          providerName,
+          {
+            chatApiKey: normalizeSecretField(providerSecrets?.chatApiKey),
+            embeddingApiKey: normalizeSecretField(providerSecrets?.embeddingApiKey),
+            rerankApiKey: normalizeSecretField(providerSecrets?.rerankApiKey),
+          },
+        ])
+      ),
+      appServerInternalToken: normalizeSecretField(view?.secrets?.appServerInternalToken),
+    },
+    source: view?.source ?? '',
+    version: view?.version ?? null,
+    updatedAt: view?.updatedAt ?? null,
+    notices: Array.isArray(view?.notices) ? view.notices.filter((notice): notice is string => typeof notice === 'string') : [],
+    runtime: {
+      available: Boolean(view?.runtime?.available),
+      source: view?.runtime?.source ?? null,
+      version: view?.runtime?.version ?? null,
+      appliedAt: view?.runtime?.appliedAt ?? null,
+      inSync: Boolean(view?.runtime?.inSync),
+    },
+    stored: {
+      present: Boolean(view?.stored?.present),
+      version: view?.stored?.version ?? null,
+      updatedAt: view?.stored?.updatedAt ?? null,
+    },
+  };
+}
+
 function createSecretEditor(configured: boolean): SecretEditorState {
   return { retainExisting: configured, value: '' };
 }
@@ -446,6 +556,7 @@ const AdminConfigCenterPage: React.FC = () => {
   const configQuery = useQuery({
     queryKey: ['admin-ai-config'],
     queryFn: ({ signal }) => adminService.getAiConfig({ signal }),
+    select: normalizeAdminAiConfigView,
   });
 
   const [activeTab, setActiveTab] = React.useState<ConfigTab>('provider');
@@ -493,13 +604,14 @@ const AdminConfigCenterPage: React.FC = () => {
   const saveMutation = useMutation({
     mutationFn: (payload: AdminAiConfigSaveRequest) => adminService.saveAiConfig(payload),
     onSuccess: (response) => {
-      queryClient.setQueryData<AdminAiConfigViewVO>(['admin-ai-config'], response);
+      const normalizedResponse = normalizeAdminAiConfigView(response);
+      queryClient.setQueryData<AdminAiConfigViewVO>(['admin-ai-config'], normalizedResponse);
       setEditing(false);
       setValidation(null);
       setHealthState(null);
       setFeedback({ tone: 'success', message: '配置已保存并下发到 ai-gateway 运行态，请再刷新运行态健康确认链路。' });
-      setConfig(cloneConfig(response.config));
-      setSecrets(buildSecretEditors(response));
+      setConfig(cloneConfig(normalizedResponse.config));
+      setSecrets(buildSecretEditors(normalizedResponse));
     },
     onError: (error: Error, payload) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -711,7 +823,7 @@ const AdminConfigCenterPage: React.FC = () => {
     );
   }
 
-  if (configQuery.isLoading || !config || !secrets) {
+  if (configQuery.isLoading || !configQuery.data || !config || !secrets) {
     return (
       <div className="space-y-8 pb-20">
         <PageHeader title="运维管理员配置中心" subtitle="正在读取 ai-gateway 运行态和数据库存储快照。" />
@@ -723,7 +835,7 @@ const AdminConfigCenterPage: React.FC = () => {
     );
   }
 
-  const view = configQuery.data as AdminAiConfigViewVO;
+  const view = configQuery.data;
   const providerEntries = Object.entries(config.provider.providers || {});
   const providerNames = providerEntries.map(([providerName]) => providerName);
   const activeProviderOptions = buildProviderOptions(providerNames, config.provider.activeProvider);

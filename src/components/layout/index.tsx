@@ -106,8 +106,18 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
 
   return (
     <>
-      <div className="p-8 flex items-center justify-between relative z-10">
-        <Link to={homePath} className="flex items-center gap-3" aria-label={t('shell.nav.dashboard')} onClick={onNavigate}>
+      <div
+        className={cn(
+          'relative z-10',
+          isCollapsed ? 'px-3 pb-3 pt-4 flex flex-col items-center gap-3' : 'p-8 flex items-center justify-between gap-3'
+        )}
+      >
+        <Link
+          to={homePath}
+          className={cn('flex items-center', isCollapsed ? 'justify-center' : 'gap-3')}
+          aria-label={t('shell.nav.dashboard')}
+          onClick={onNavigate}
+        >
           <div className="relative w-9 h-9 flex items-center justify-center">
             <div className="absolute inset-0 bg-primary/15 rounded-xl rotate-6" />
             <div className="absolute inset-0 border border-primary/40 rounded-xl -rotate-6" />
@@ -124,16 +134,19 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
             </div>
           )}
         </Link>
-        {headerAction}
+        {headerAction && <div className={cn(isCollapsed ? 'flex justify-center' : 'shrink-0')}>{headerAction}</div>}
       </div>
 
       <nav
         role="navigation"
         aria-label={navigationLabel}
-        className="flex-1 px-4 py-4 overflow-y-auto no-scrollbar relative z-10 space-y-8"
+        className={cn(
+          'flex-1 overflow-y-auto no-scrollbar relative z-10',
+          isCollapsed ? 'px-3 py-3 space-y-4' : 'px-4 py-4 space-y-8'
+        )}
       >
         {sections.map((section) => (
-          <div key={section.label} className="space-y-2">
+          <div key={section.label} className={cn(isCollapsed ? 'space-y-1.5' : 'space-y-2')}>
             {!isCollapsed && (
               <h4 className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-white/20">
                 {section.label}
@@ -141,14 +154,15 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
             )}
             <div className="space-y-1">
               {section.items.map((item) => (
-                <motion.div key={item.path} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}>
+                <motion.div key={item.path} whileHover={isCollapsed ? undefined : { x: 4 }} whileTap={{ scale: 0.98 }}>
                   <NavLink
                     to={item.path}
                     aria-label={item.name}
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative',
+                        'flex rounded-2xl transition-all duration-300 group relative',
+                        isCollapsed ? 'items-center justify-center px-3 py-3.5' : 'items-center gap-3 px-4 py-3',
                         isActive ? 'text-primary font-black' : 'text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white'
                       )
                     }
@@ -174,7 +188,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
         ))}
       </nav>
 
-      <div className="p-4 relative z-10 mt-auto border-t border-white/5 space-y-4">
+      <div
+        className={cn(
+          'relative z-10 mt-auto border-t border-white/5',
+          isCollapsed ? 'p-3' : 'p-4 space-y-4'
+        )}
+      >
         {!isCollapsed && user && (
             <div className="px-4 py-3 rounded-2xl bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/5">
               <div className="text-sm font-black text-slate-900 dark:text-white/90">{user.displayName}</div>
@@ -183,20 +202,25 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
               </div>
             </div>
           )}
-        <Magnetic strength={0.1}>
-          <button
-            type="button"
-            aria-label={t('common.actions.signOut')}
-            onClick={() => {
-              onNavigate?.();
-              void logout();
-            }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-all border border-transparent hover:border-rose-500/20 font-bold"
-          >
-            <LogOut size={18} />
-            {!isCollapsed && <span className="uppercase tracking-widest text-[9px]">{t('common.actions.signOut')}</span>}
-          </button>
-        </Magnetic>
+        <div className={cn(isCollapsed && 'flex justify-center')}>
+          <Magnetic strength={0.1}>
+            <button
+              type="button"
+              aria-label={t('common.actions.signOut')}
+              onClick={() => {
+                onNavigate?.();
+                void logout();
+              }}
+              className={cn(
+                'flex items-center rounded-2xl text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-all border border-transparent hover:border-rose-500/20 font-bold',
+                isCollapsed ? 'justify-center p-3' : 'w-full gap-3 px-4 py-3'
+              )}
+            >
+              <LogOut size={18} />
+              {!isCollapsed && <span className="uppercase tracking-widest text-[9px]">{t('common.actions.signOut')}</span>}
+            </button>
+          </Magnetic>
+        </div>
       </div>
     </>
   );

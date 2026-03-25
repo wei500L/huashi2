@@ -116,6 +116,13 @@ cd deploy
 docker compose --env-file .env up --build
 ```
 
+前端容器现在默认以 Docker 开发模式运行：
+
+- `frontend` 会把仓库根目录 bind mount 到容器内 `/workspace`
+- `node_modules` 使用独立 volume，避免被宿主机目录覆盖
+- 默认开启 Vite 轮询监听，兼容 Docker Desktop / WSL 下的热更新
+- 修改前端源码后不需要重建 `frontend` 镜像；只有依赖变更时才建议重新 `docker compose up -d --build frontend`
+
 ## 7. 本地命令启动
 
 前提：

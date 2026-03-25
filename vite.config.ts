@@ -6,6 +6,14 @@ import { visualizer } from 'rollup-plugin-visualizer';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8080';
+  const usePolling = env.VITE_USE_POLLING === 'true';
+  const pollingInterval = Number(env.VITE_POLLING_INTERVAL || '300');
+  const watch = usePolling
+    ? {
+        usePolling: true,
+        interval: Number.isFinite(pollingInterval) ? pollingInterval : 300,
+      }
+    : undefined;
 
   return {
     plugins: [
@@ -52,7 +60,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      host: '0.0.0.0',
       port: 3000,
+      watch,
       proxy: {
         '/api': {
           target: proxyTarget,
