@@ -124,6 +124,28 @@ const defaultFilters: FilterState = {
   embeddingStatus: 'ALL',
 };
 
+export function embeddingStatusLabel(value?: string | null): string {
+  return embeddingStatusOptions.find((item) => item.value === value)?.label || value || '--';
+}
+
+export function collectActiveFilterLabels(mode: LexicalPairsWorkspaceMode, filters: FilterState): string[] {
+  const labels: string[] = [];
+  const keyword = filters.keyword.trim();
+  if (keyword) {
+    labels.push(`关键词：${keyword}`);
+  }
+  if (filters.lexicalPairType !== 'ALL') {
+    labels.push(`词对类型：${lexicalPairTypeLabel(filters.lexicalPairType)}`);
+  }
+  if (filters.active !== 'ALL') {
+    labels.push(`启用状态：${filters.active === 'ACTIVE' ? '仅启用' : '仅停用'}`);
+  }
+  if (mode === 'admin' && filters.embeddingStatus !== 'ALL') {
+    labels.push(`向量状态：${embeddingStatusLabel(filters.embeddingStatus)}`);
+  }
+  return labels;
+}
+
 function hasText(value?: string | null): boolean {
   return Boolean(value && value.trim());
 }
@@ -644,10 +666,12 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     () => editor.senses.reduce((total, sense) => total + sense.examples.length, 0),
     [editor.senses]
   );
+  const templateFields = templateQuery.data?.fields || [];
   const totalCount = listQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const pageStart = totalCount === 0 ? 0 : (pageNo - 1) * pageSize + 1;
   const pageEnd = Math.min(pageNo * pageSize, totalCount);
+  const activeFilterLabels = React.useMemo(() => collectActiveFilterLabels(mode, filters), [mode, filters]);
   const nextStepLinks = React.useMemo(() => {
     const links: Array<{ to: string; label: string; description: string }> = [];
     if (canAccessTeachingWorkspace) {
@@ -719,66 +743,80 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
       />
 
       {mode === 'admin' && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <button
-            type="button"
-            onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'ALL' }))}
-            className={`rounded-[2rem] border px-5 py-5 text-left ${
-              filters.embeddingStatus === 'ALL'
-                ? 'border-primary/25 bg-primary/5'
-                : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
-            }`}
-          >
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">总词对数</div>
-            <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
-              {overviewQuery.data?.totalCount ?? '--'}
+        <div className="space-y-3">
+          {overviewQuery.isLoading && (
+            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+              正在加载管理端概览...
             </div>
-            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
-              启用中 {overviewQuery.data?.activeCount ?? '--'} 条
+          )}
+          {overviewQuery.error && (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+              概览加载失败：{overviewQuery.error.message}
             </div>
-          </button>
+          )}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'ALL' }))}
+              className={`rounded-[2rem] border px-5 py-5 text-left ${
+                filters.embeddingStatus === 'ALL'
+                  ? 'border-primary/25 bg-primary/5'
+                  : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
+              }`}
+            >
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">总词对数</div>
+              <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                {overviewQuery.isLoading ? '...' : (overviewQuery.data?.totalCount ?? '--')}
+              </div>
+              <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+                启用中 {overviewQuery.isLoading ? '...' : (overviewQuery.data?.activeCount ?? '--')} 条
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'PENDING' }))}
-            className={`rounded-[2rem] border px-5 py-5 text-left ${
-              filters.embeddingStatus === 'PENDING'
-                ? 'border-amber-500/25 bg-amber-500/5'
-                : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
-            }`}
-          >
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">待嵌入</div>
-            <div className="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">
-              {overviewQuery.data?.pendingEmbeddingCount ?? '--'}
-            </div>
-            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">点击后自动筛选待重建词对</div>
-          </button>
+            <button
+              type="button"
+              onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'PENDING' }))}
+              className={`rounded-[2rem] border px-5 py-5 text-left ${
+                filters.embeddingStatus === 'PENDING'
+                  ? 'border-amber-500/25 bg-amber-500/5'
+                  : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
+              }`}
+            >
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">待嵌入</div>
+              <div className="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">
+                {overviewQuery.isLoading ? '...' : (overviewQuery.data?.pendingEmbeddingCount ?? '--')}
+              </div>
+              <div className="mt-3 text-sm text-slate-500 dark:text-white/45">点击后自动筛选待重建词对</div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'FAILED' }))}
-            className={`rounded-[2rem] border px-5 py-5 text-left ${
-              filters.embeddingStatus === 'FAILED'
-                ? 'border-rose-500/25 bg-rose-500/5'
-                : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
-            }`}
-          >
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">嵌入失败</div>
-            <div className="mt-2 text-3xl font-black text-rose-500">
-              {overviewQuery.data?.failedEmbeddingCount ?? '--'}
-            </div>
-            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
-              已嵌入 {overviewQuery.data?.embeddedCount ?? '--'} 条
-            </div>
-          </button>
+            <button
+              type="button"
+              onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'FAILED' }))}
+              className={`rounded-[2rem] border px-5 py-5 text-left ${
+                filters.embeddingStatus === 'FAILED'
+                  ? 'border-rose-500/25 bg-rose-500/5'
+                  : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
+              }`}
+            >
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">嵌入失败</div>
+              <div className="mt-2 text-3xl font-black text-rose-500">
+                {overviewQuery.isLoading ? '...' : (overviewQuery.data?.failedEmbeddingCount ?? '--')}
+              </div>
+              <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+                已嵌入 {overviewQuery.isLoading ? '...' : (overviewQuery.data?.embeddedCount ?? '--')} 条
+              </div>
+            </button>
 
-          <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">最近更新时间</div>
-            <div className="mt-3 text-base font-black text-slate-900 dark:text-white">
-              {formatDateTime(overviewQuery.data?.latestUpdatedAt)}
-            </div>
-            <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
-              最近新增 {formatDateTime(overviewQuery.data?.latestCreatedAt)} · 最近嵌入 {formatDateTime(overviewQuery.data?.latestEmbeddedAt)}
+            <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">最近更新时间</div>
+              <div className="mt-3 text-base font-black text-slate-900 dark:text-white">
+                {overviewQuery.isLoading ? '正在加载...' : formatDateTime(overviewQuery.data?.latestUpdatedAt)}
+              </div>
+              <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+                {overviewQuery.isLoading
+                  ? '最近新增 / 最近嵌入时间加载中...'
+                  : `最近新增 ${formatDateTime(overviewQuery.data?.latestCreatedAt)} · 最近嵌入 ${formatDateTime(overviewQuery.data?.latestEmbeddedAt)}`}
+              </div>
             </div>
           </div>
         </div>
@@ -864,7 +902,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                 </tr>
               </thead>
               <tbody>
-                {(templateQuery.data?.fields || []).map((field: CsvImportTemplateFieldVO) => (
+                {templateFields.map((field: CsvImportTemplateFieldVO) => (
                   <tr key={field.fieldName || field.key} className="border-t border-slate-200/70 dark:border-white/10">
                     <td className="py-3 font-semibold text-slate-900 dark:text-white">
                       {fieldLabel(field.fieldName || field.key || '')}
@@ -881,6 +919,20 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                   <tr>
                     <td colSpan={4} className="py-4 text-slate-500 dark:text-white/45">
                       模板字段加载中...
+                    </td>
+                  </tr>
+                )}
+                {templateQuery.error && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-rose-500">
+                      模板字段加载失败：{templateQuery.error.message}
+                    </td>
+                  </tr>
+                )}
+                {!templateQuery.isLoading && !templateQuery.error && templateFields.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-slate-500 dark:text-white/45">
+                      当前没有可展示的模板字段说明。
                     </td>
                   </tr>
                 )}
@@ -946,6 +998,28 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                 </FieldCard>
               )}
             </div>
+
+            {activeFilterLabels.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {activeFilterLabels.map((label) => (
+                  <span
+                    key={label}
+                    className="rounded-full border border-slate-200/70 bg-white/70 px-3 py-1 text-xs text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60"
+                  >
+                    {label}
+                  </span>
+                ))}
+                {mode === 'admin' && filters.embeddingStatus !== 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'ALL' }))}
+                    className="rounded-full border border-amber-500/20 px-3 py-1 text-xs text-amber-600 dark:text-amber-400"
+                  >
+                    清空向量筛选
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="rounded-full border border-slate-200/70 bg-white/70 px-4 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
@@ -1015,7 +1089,28 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
 
               {!listQuery.isLoading && !listQuery.error && !(listQuery.data?.records || []).length && (
                 <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-6 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
-                  当前筛选条件下没有词对记录。
+                  <div>当前筛选条件下没有词对记录。</div>
+                  {activeFilterLabels.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span>已启用筛选：{activeFilterLabels.join(' / ')}</span>
+                      {mode === 'admin' && filters.embeddingStatus !== 'ALL' && (
+                        <button
+                          type="button"
+                          onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'ALL' }))}
+                          className="rounded-full border border-amber-500/20 px-3 py-1 text-amber-600 dark:text-amber-400"
+                        >
+                          清空向量筛选
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setFilters(defaultFilters)}
+                        className="rounded-full border border-slate-200/70 px-3 py-1 text-slate-500 dark:border-white/10 dark:text-white/45"
+                      >
+                        重置筛选
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
