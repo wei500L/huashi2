@@ -189,6 +189,27 @@ function createEmptyEditor(): PairEditorState {
   };
 }
 
+function isBlankEditor(editor: PairEditorState, selectedId: number | null, showStructuredEditor: boolean): boolean {
+  return (
+    selectedId === null &&
+    !showStructuredEditor &&
+    !editor.id &&
+    editor.englishWord === '' &&
+    editor.frenchWord === '' &&
+    editor.chineseGloss === '' &&
+    editor.lexicalPairType === 'COGNATE' &&
+    editor.semanticOverlapScore === 0.5 &&
+    editor.falseFriendRisk === 0.1 &&
+    editor.defaultContextSupport === 'LOW' &&
+    editor.difficultyLevel === 3 &&
+    editor.notes === '' &&
+    editor.source === 'teacher_manual' &&
+    editor.active &&
+    editor.tagsCsv === '' &&
+    editor.senses.length === 0
+  );
+}
+
 function toEditor(detail?: LexicalPairDetailVO | null): PairEditorState {
   if (!detail) {
     return createEmptyEditor();
@@ -330,7 +351,7 @@ const SectionCard: React.FC<{
   actions?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, description, actions, children }) => (
-  <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+  <section className="min-w-0 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="space-y-2">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">{title}</h2>
@@ -343,7 +364,7 @@ const SectionCard: React.FC<{
 );
 
 const FieldCard: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
-  <label className="block rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+  <label className="block min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
     <div className="mb-3 space-y-2">
       <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{label}</div>
       {hint && <div className="text-xs leading-5 text-slate-500 dark:text-white/40">{hint}</div>}
@@ -359,8 +380,10 @@ const TextInput: React.FC<{
   placeholder?: string;
   step?: string;
   disabled?: boolean;
-}> = ({ value, onChange, type = 'text', placeholder, step, disabled }) => (
+  inputRef?: React.Ref<HTMLInputElement>;
+}> = ({ value, onChange, type = 'text', placeholder, step, disabled, inputRef }) => (
   <input
+    ref={inputRef}
     type={type}
     value={value}
     step={step}
@@ -425,6 +448,8 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const meta = workspaceMeta[mode];
   const canAccessAdminConsole = userHasCapability(user, 'ADMIN_CONSOLE');
   const canAccessTeachingWorkspace = userHasCapability(user, 'TEACHING_WORKSPACE');
+  const editorSectionRef = React.useRef<HTMLDivElement | null>(null);
+  const englishWordInputRef = React.useRef<HTMLInputElement | null>(null);
   const deleteDialogRef = React.useRef<HTMLDivElement | null>(null);
   const deleteCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const deleteDialogTitleId = React.useId();
@@ -437,8 +462,36 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   const [editor, setEditor] = React.useState<PairEditorState>(createEmptyEditor);
   const [showStructuredEditor, setShowStructuredEditor] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [resetFeedback, setResetFeedback] = React.useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = React.useState<number | null>(null);
+  const focusTimerIdsRef = React.useRef<number[]>([]);
   const closeDeleteDialog = React.useCallback(() => setPendingDeleteId(null), []);
+  const focusEnglishWordInput = React.useCallback(() => {
+    const input = englishWordInputRef.current;
+    if (!input) {
+      return;
+    }
+    input.focus();
+    input.select();
+  }, []);
+  const scheduleEditorFocus = React.useCallback(() => {
+    focusTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    focusTimerIdsRef.current = [];
+    const focusEditor = () => {
+      editorSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      focusEnglishWordInput();
+    };
+    focusEditor();
+    focusTimerIdsRef.current.push(window.setTimeout(focusEditor, 0));
+    focusTimerIdsRef.current.push(window.setTimeout(focusEditor, 120));
+  }, [focusEnglishWordInput]);
+
+  React.useEffect(
+    () => () => {
+      focusTimerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    },
+    []
+  );
 
   useBodyScrollLock(pendingDeleteId !== null);
   useDialogAccessibility({
@@ -490,7 +543,16 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     setEditor(toEditor(detailQuery.data));
     setShowStructuredEditor(detailQuery.data.senses.length > 0);
     setError(null);
+    setResetFeedback(null);
   }, [detailQuery.data]);
+
+  React.useEffect(() => {
+    if (!resetFeedback) {
+      return;
+    }
+    const timer = window.setTimeout(() => setResetFeedback(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [resetFeedback]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -507,6 +569,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     onSuccess: async (id) => {
       setSelectedId(id);
       setError(null);
+      setResetFeedback(null);
       await queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-detail', id] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
@@ -524,6 +587,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
       setEditor(createEmptyEditor());
       setShowStructuredEditor(false);
       setError(null);
+      setResetFeedback(null);
       await queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
     },
@@ -567,10 +631,15 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   };
 
   const resetEditor = () => {
+    const alreadyBlank = isBlankEditor(editor, selectedId, showStructuredEditor);
     setSelectedId(null);
     setEditor(createEmptyEditor());
     setShowStructuredEditor(false);
     setError(null);
+    setResetFeedback(
+      alreadyBlank ? '右侧已是空白新建表单，已定位到英语词输入框。' : '右侧表单已重置，可直接从英语词开始新建。'
+    );
+    scheduleEditorFocus();
   };
 
   const updateEditor = <K extends keyof PairEditorState>(key: K, value: PairEditorState[K]) => {
@@ -736,7 +805,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
             )}
             <button type="button" onClick={resetEditor} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">
               <Plus size={14} />
-              新建词对
+              重置并新建词对
             </button>
           </div>
         }
@@ -942,13 +1011,13 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
         </details>
       </SectionCard>
 
-      <div className="grid gap-8 xl:grid-cols-[0.92fr_1.08fr]">
-        <div className="space-y-8">
+      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+        <div className="min-w-0 space-y-8">
           <SectionCard
             title="词对列表"
             description="支持关键词、词对类型、启用状态和向量状态过滤。词表和模板页当前仍通过 lexicalPairId 建立引用，导入后请顺手记录 Pair #id。"
           >
-            <div className={`grid gap-4 ${mode === 'admin' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+            <div className="grid gap-4 sm:grid-cols-2">
               <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或 searchable text 模糊查询。">
                 <div className="relative">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" />
@@ -1165,25 +1234,41 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
           <LexicalImportCenter mode={mode} />
         </div>
 
-        <SectionCard
-          title={editor.id ? `编辑词对 #${editor.id}` : '新建词对'}
-          description="基础信息优先填写，义项和例句按卡片结构维护。空白义项或空白例句会在保存时自动忽略。"
-          actions={
-            detailQuery.isFetching ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 px-4 py-2 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                <LoaderCircle size={14} className="animate-spin" />
-                正在加载详情
+        <div ref={editorSectionRef} className="scroll-mt-24">
+          <SectionCard
+            title={editor.id ? `编辑词对 #${editor.id}` : '新建词对'}
+            description="基础信息优先填写，义项和例句按卡片结构维护。空白义项或空白例句会在保存时自动忽略。"
+            actions={
+              <div className="flex flex-wrap items-center gap-3">
+                {detailQuery.isFetching ? (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 px-4 py-2 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
+                    <LoaderCircle size={14} className="animate-spin" />
+                    正在加载详情
+                  </div>
+                ) : (
+                  <div className={`rounded-full border px-4 py-2 text-sm font-bold ${selectedRisk.className}`}>
+                    当前风险 {selectedRisk.label}
+                  </div>
+                )}
+                {resetFeedback && (
+                  <div
+                    aria-live="polite"
+                    className="rounded-full border border-sky-500/20 bg-sky-500/5 px-4 py-2 text-sm text-sky-700 dark:text-sky-300"
+                  >
+                    {resetFeedback}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className={`rounded-full border px-4 py-2 text-sm font-bold ${selectedRisk.className}`}>
-                当前风险 {selectedRisk.label}
-              </div>
-            )
-          }
-        >
+            }
+          >
           <div className="grid gap-4 md:grid-cols-2">
             <FieldCard label="英语词" hint="如 coin。用于训练展示和去重。">
-              <TextInput value={editor.englishWord} onChange={(value) => updateEditor('englishWord', value)} placeholder="coin" />
+              <TextInput
+                inputRef={englishWordInputRef}
+                value={editor.englishWord}
+                onChange={(value) => updateEditor('englishWord', value)}
+                placeholder="coin"
+              />
             </FieldCard>
             <FieldCard label="法语词" hint="如 coin。与英语词组成唯一词对。">
               <TextInput value={editor.frenchWord} onChange={(value) => updateEditor('frenchWord', value)} placeholder="coin" />
@@ -1194,7 +1279,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
             <TextInput value={editor.chineseGloss} onChange={(value) => updateEditor('chineseGloss', value)} placeholder="硬币；角落" />
           </FieldCard>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <FieldCard label="词对类型" hint="建议使用下拉，不要手动拼写枚举值。">
               <SelectInput
                 value={editor.lexicalPairType}
@@ -1337,7 +1422,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                   </button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <FieldCard label="Sort Order">
                     <TextInput
                       type="number"
@@ -1508,7 +1593,8 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
               </Link>
             )}
           </div>
-        </SectionCard>
+          </SectionCard>
+        </div>
       </div>
 
       {pendingDeleteId !== null && (

@@ -207,7 +207,7 @@ const Panel: React.FC<{
   actions?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, description, actions, children }) => (
-  <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+  <section className="min-w-0 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="space-y-2">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">{title}</h2>
@@ -233,7 +233,7 @@ const TextField: React.FC<{
   type?: 'text' | 'textarea' | 'select';
   options?: Array<{ value: string; label: string }>;
 }> = ({ label, value, onChange, type = 'text', options }) => (
-  <label className="block rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+  <label className="block min-w-0 rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
     <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{label}</div>
     {type === 'textarea' ? (
       <textarea
@@ -488,7 +488,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
           onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
         />
 
-        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid gap-4">
           <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/50 p-6 dark:border-white/15 dark:bg-white/[0.02]">
             <div className="text-sm font-bold text-slate-900 dark:text-white">待上传文件</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
@@ -517,7 +517,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">处理方式</div>
               <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">上传后后台解析，生成可恢复草稿；确认后异步正式导入。</div>
@@ -544,9 +544,9 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
         )}
       </Panel>
 
-      <div className="grid gap-8 xl:grid-cols-[0.92fr_1.08fr]">
+      <div className="grid gap-8">
         <Panel title="导入历史" description="教师查看自己的上传记录；管理员可按操作者筛选全部批次。">
-          <div className={`grid gap-4 ${isAdmin ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+          <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="批次状态" value={batchStatus} onChange={setBatchStatus} type="select" options={batchStatusOptions} />
             <TextField label="文件名检索" value={batchKeyword} onChange={setBatchKeyword} />
             {isAdmin && (
@@ -605,7 +605,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                     </div>
                     <div className={`rounded-full border px-3 py-1 text-xs font-bold ${meta.className}`}>{meta.label}</div>
                   </div>
-                  <div className="mt-4 grid gap-2 text-xs text-slate-500 dark:text-white/45 md:grid-cols-4">
+                  <div className="mt-4 grid gap-2 text-xs text-slate-500 dark:text-white/45 sm:grid-cols-2">
                     <div>总行数 {batch.totalRows}</div>
                     <div>可导入 {batch.readyRows}</div>
                     <div>需修正 {batch.invalidRows}</div>
@@ -705,7 +705,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-5">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <MetricCard label="总行数" value={selectedBatch.totalRows} className="border-slate-200/70 bg-white/60 text-slate-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-white" />
                 <MetricCard label="可导入" value={selectedBatch.readyRows} className="border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400" />
                 <MetricCard label="需修正" value={selectedBatch.invalidRows} className="border-rose-500/20 bg-rose-500/5 text-rose-500" />
