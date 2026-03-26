@@ -110,7 +110,13 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                         { "key": "semantic_match", "label": "语义一致", "semanticMatch": true, "ignoreContextTrap": false },
                                         { "key": "semantic_mismatch", "label": "语义不一致", "semanticMatch": false, "ignoreContextTrap": false }
                                       ],
-                                      "correctAnswerKey": "semantic_match"
+                                      "correctAnswerKey": "semantic_match",
+                                      "scoringProfile": {
+                                        "formulaKey": "RULE_V1",
+                                        "pairWeight": 1.0,
+                                        "riskAmplifier": 1.1,
+                                        "maxReactionTimeMs": 1400
+                                      }
                                     },
                                     {
                                       "lexicalPairId": %d,
@@ -161,7 +167,11 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                         .with(bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
-                .andExpect(jsonPath("$.data.items.length()").value(3));
+                .andExpect(jsonPath("$.data.items.length()").value(3))
+                .andExpect(jsonPath("$.data.items[0].scoringProfile.formulaKey").value("RULE_V1"))
+                .andExpect(jsonPath("$.data.items[0].scoringProfile.pairWeight").value(1.0))
+                .andExpect(jsonPath("$.data.items[0].scoringProfile.riskAmplifier").value(1.1))
+                .andExpect(jsonPath("$.data.items[0].scoringProfile.maxReactionTimeMs").value(1400));
 
         MvcResult sessionCreateResult = mockMvc.perform(post("/api/diagnosis/sessions")
                         .with(bearer(studentToken))
@@ -194,6 +204,7 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                             .with(bearer(studentToken)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.hasNextItem").value(true))
+                    .andExpect(jsonPath("$.data.item.options[0].semanticMatch").isBoolean())
                     .andReturn();
             long itemResultId = readJson(nextItemResult).path("data").path("item").path("itemResultId").asLong();
             String englishWord = readJson(nextItemResult).path("data").path("item").path("englishWord").asText();
@@ -205,7 +216,7 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                 .content("""
                                         {
                                           "itemResultId": %d,
-                                          "selectedSemanticMatch": true,
+                                          "selectedAnswerKey": "semantic_match",
                                           "reactionTimeMs": 620,
                                           "hesitationTimeMs": 90
                                         }
@@ -344,11 +355,191 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(auditCount).isGreaterThanOrEqualTo(6);
     }
 
+    @Test
+    void shouldRejectReactionTimePayloadWhenAnswerKeyAndSemanticMatchConflict() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        long tablePairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "table",
+                  "frenchWord": "table",
+                  "chineseGloss": "桌子",
+                  "lexicalPairType": "cognate",
+                  "semanticOverlapScore": 0.95,
+                  "falseFriendRisk": 0.05,
+                  "defaultContextSupport": "low",
+                  "difficultyLevel": 1,
+                  "active": true,
+                  "tags": ["basic"]
+                }
+                """);
+        long coinPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "coin",
+                  "frenchWord": "coin",
+                  "chineseGloss": "硬币；角落",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.10,
+                  "falseFriendRisk": 0.92,
+                  "defaultContextSupport": "medium",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend"]
+                }
+                """);
+        long actuallyPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "actually",
+                  "frenchWord": "actuellement",
+                  "chineseGloss": "实际上；目前",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.20,
+                  "falseFriendRisk": 0.88,
+                  "defaultContextSupport": "high",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend", "context"]
+                }
+                """);
+        long templateId = createPublishedTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId, "Conflict validation template");
+
+        MvcResult sessionCreateResult = mockMvc.perform(post("/api/diagnosis/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateId": %d
+                                }
+                                """.formatted(templateId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        long sessionId = readJson(sessionCreateResult).path("data").path("sessionId").asLong();
+
+        for (int i = 0; i < 3; i++) {
+            MvcResult nextItemResult = mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/next-item", sessionId)
+                            .with(bearer(studentToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.hasNextItem").value(true))
+                    .andReturn();
+            String taskType = readJson(nextItemResult).path("data").path("item").path("taskType").asText();
+            long itemResultId = readJson(nextItemResult).path("data").path("item").path("itemResultId").asLong();
+
+            if ("REACTION_TIME".equals(taskType)) {
+                mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
+                                .with(bearer(studentToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "itemResultId": %d,
+                                          "selectedAnswerKey": "semantic_match",
+                                          "selectedSemanticMatch": false,
+                                          "reactionTimeMs": 640,
+                                          "hesitationTimeMs": 120
+                                        }
+                                        """.formatted(itemResultId)))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.message").value("selectedSemanticMatch does not align with selectedAnswerKey"));
+                return;
+            }
+
+            mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
+                            .with(bearer(studentToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "itemResultId": %d,
+                                      "selectedAnswerKey": "currently_correct",
+                                      "reactionTimeMs": 1200,
+                                      "hesitationTimeMs": 180
+                                    }
+                                    """.formatted(itemResultId)))
+                    .andExpect(status().isOk());
+        }
+
+        throw new AssertionError("Expected to encounter a reaction time item before session completion");
+    }
+
     private long createLexicalPair(String token, String body) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/lexical-pairs")
                         .with(bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(result).path("data").asLong();
+    }
+
+    private long createPublishedTemplate(String token, long tablePairId, long coinPairId, long actuallyPairId, String templateName) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/teacher/diagnosis-templates")
+                        .with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateName": "%s",
+                                  "description": "Template for session flow validation",
+                                  "status": "published",
+                                  "estimatedDurationMinutes": 12,
+                                  "scoringVersion": "RULE_V1",
+                                  "items": [
+                                    {
+                                      "lexicalPairId": %d,
+                                      "taskType": "reaction_time_task",
+                                      "blockCode": "block_1",
+                                      "sortOrder": 1,
+                                      "contextSupportLevel": "low",
+                                      "expectedSemanticMatch": true,
+                                      "stimulus": {
+                                        "instruction": "Quickly decide whether the core meaning matches",
+                                        "contextSentence": "",
+                                        "promptText": "Semantic match?"
+                                      },
+                                      "options": [
+                                        { "key": "semantic_match", "label": "语义一致", "semanticMatch": true, "ignoreContextTrap": false },
+                                        { "key": "semantic_mismatch", "label": "语义不一致", "semanticMatch": false, "ignoreContextTrap": false }
+                                      ],
+                                      "correctAnswerKey": "semantic_match"
+                                    },
+                                    {
+                                      "lexicalPairId": %d,
+                                      "taskType": "reaction_time_task",
+                                      "blockCode": "block_2",
+                                      "sortOrder": 2,
+                                      "contextSupportLevel": "medium",
+                                      "expectedSemanticMatch": false,
+                                      "stimulus": {
+                                        "instruction": "Trust your first response",
+                                        "contextSentence": "He stood in the coin of the room.",
+                                        "promptText": "Semantic match?"
+                                      },
+                                      "options": [
+                                        { "key": "semantic_match", "label": "语义一致", "semanticMatch": true, "ignoreContextTrap": false },
+                                        { "key": "semantic_mismatch", "label": "语义不一致", "semanticMatch": false, "ignoreContextTrap": false }
+                                      ],
+                                      "correctAnswerKey": "semantic_mismatch"
+                                    },
+                                    {
+                                      "lexicalPairId": %d,
+                                      "taskType": "semantic_judgement_task",
+                                      "blockCode": "block_3",
+                                      "sortOrder": 3,
+                                      "contextSupportLevel": "high",
+                                      "expectedSemanticMatch": false,
+                                      "stimulus": {
+                                        "instruction": "Use the sentence context to choose the correct gloss",
+                                        "contextSentence": "Il travaille actuellement a Paris.",
+                                        "promptText": "Which gloss fits the French word?"
+                                      },
+                                      "options": [
+                                        { "key": "actually_trap", "label": "Actually (实际上)", "semanticMatch": true, "ignoreContextTrap": true },
+                                        { "key": "currently_correct", "label": "Currently (目前)", "semanticMatch": false, "ignoreContextTrap": false },
+                                        { "key": "occasionally", "label": "Occasionally (偶尔)", "semanticMatch": false, "ignoreContextTrap": false }
+                                      ],
+                                      "correctAnswerKey": "currently_correct"
+                                    }
+                                  ]
+                                }
+                                """.formatted(templateName, tablePairId, coinPairId, actuallyPairId)))
                 .andExpect(status().isOk())
                 .andReturn();
         return readJson(result).path("data").asLong();

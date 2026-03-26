@@ -4,19 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Brain, CheckCircle2, ChevronRight, Timer } from 'lucide-react';
 import { PageHeader, PanelSkeleton } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { aiService, diagnosisSessionService, diagnosisTemplateService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import type { DiagnosisOptionViewVO } from '@/lib/contracts';
 import { diagnosisFlowReducer, initialDiagnosisFlowState } from './flow';
-
-function inferSemanticMatch(option: DiagnosisOptionViewVO): boolean {
-  const key = option.key.toLowerCase();
-  const label = option.label.toLowerCase();
-  if (key.includes('mismatch') || key.includes('false') || label.includes('不') || label.includes('diff')) {
-    return false;
-  }
-  return true;
-}
 
 const DiagnosisPage: React.FC = () => {
   const { t } = useTranslation();
@@ -77,6 +69,34 @@ const DiagnosisPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
   }, [queryClient]);
 
+  const saveProgressSnapshot = React.useCallback(async () => {
+    if (!state.sessionId || state.phase !== 'running') {
+      return;
+    }
+    const sessionId = state.sessionId;
+    const snapshot = nextItemQuery.data
+      ? {
+          sessionId,
+          currentItemOrder: nextItemQuery.data.currentItemOrder,
+          answeredItems: nextItemQuery.data.answeredItems,
+          timestamp: new Date().toISOString(),
+        }
+      : { sessionId, timestamp: new Date().toISOString() };
+
+    try {
+      await diagnosisSessionService.saveProgressKeepalive(sessionId, snapshot);
+    } catch (error) {
+      const normalizedError = normalizeApiError(error);
+      if (normalizedError.status !== 409) {
+        return;
+      }
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.data?.sessionStatus === 'COMPLETED') {
+        markCompleted();
+      }
+    }
+  }, [markCompleted, nextItemQuery, state.phase, state.sessionId]);
+
   const submitAnswerMutation = useMutation({
     mutationFn: (payload: {
       itemResultId: number;
@@ -121,30 +141,21 @@ const DiagnosisPage: React.FC = () => {
     if (!state.sessionId || state.phase !== 'running') {
       return;
     }
-    const sessionId = state.sessionId;
-    const persist = () => {
-      const snapshot = nextItemQuery.data
-        ? {
-            sessionId,
-            currentItemOrder: nextItemQuery.data.currentItemOrder,
-            answeredItems: nextItemQuery.data.answeredItems,
-            timestamp: new Date().toISOString(),
-          }
-        : { sessionId, timestamp: new Date().toISOString() };
-      void diagnosisSessionService.saveProgress(sessionId, snapshot);
-    };
     const onVisibilityChange = () => {
       if (document.hidden) {
-        persist();
+        void saveProgressSnapshot();
       }
     };
-    window.addEventListener('beforeunload', persist);
+    const onBeforeUnload = () => {
+      void saveProgressSnapshot();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      window.removeEventListener('beforeunload', persist);
+      window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [nextItemQuery.data, state.phase, state.sessionId]);
+  }, [saveProgressSnapshot, state.phase, state.sessionId]);
 
   const currentItem = nextItemQuery.data?.item;
   const submitAnswer = async (option: DiagnosisOptionViewVO) => {
@@ -158,7 +169,8 @@ const DiagnosisPage: React.FC = () => {
     if (currentItem.taskType === 'REACTION_TIME') {
       await submitAnswerMutation.mutateAsync({
         itemResultId: currentItem.itemResultId,
-        selectedSemanticMatch: inferSemanticMatch(option),
+        selectedAnswerKey: option.key,
+        selectedSemanticMatch: option.semanticMatch ?? undefined,
         reactionTimeMs,
         hesitationTimeMs,
       });
@@ -201,7 +213,7 @@ const DiagnosisPage: React.FC = () => {
 
         {templatesQuery.error && (
           <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            {templatesQuery.error.message}
+            {getApiErrorMessage(templatesQuery.error)}
           </div>
         )}
 
@@ -261,7 +273,7 @@ const DiagnosisPage: React.FC = () => {
 
         {nextItemQuery.error && (
           <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            {nextItemQuery.error.message}
+            {getApiErrorMessage(nextItemQuery.error)}
           </div>
         )}
 
@@ -387,7 +399,7 @@ const DiagnosisPage: React.FC = () => {
 
       {resultQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {resultQuery.error.message}
+          {getApiErrorMessage(resultQuery.error)}
         </div>
       )}
 
@@ -489,7 +501,7 @@ const DiagnosisPage: React.FC = () => {
                   </div>
                 </div>
               ) : explanationQuery.error ? (
-                <div className="text-sm text-rose-500">{explanationQuery.error.message}</div>
+                <div className="text-sm text-rose-500">{getApiErrorMessage(explanationQuery.error)}</div>
               ) : (
                 <div className="text-sm text-slate-500 dark:text-white/45">{t('diagnosis.noExplanation')}</div>
               )}

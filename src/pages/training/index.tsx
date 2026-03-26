@@ -5,7 +5,7 @@ import { AlertTriangle, Award, Brain, Clock3, Rocket } from 'lucide-react';
 import { PageHeader, PanelSkeleton } from '@/components/common';
 import { aiService, trainingService } from '@/lib/services';
 import { formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
-import { normalizeApiError } from '@/lib/api';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { TrainingOptionViewVO } from '@/lib/contracts';
 import { initialTrainingFlowState, trainingFlowReducer } from './flow';
 
@@ -93,6 +93,34 @@ const TrainingPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ['review-schedule'] });
   }, [queryClient]);
 
+  const saveProgressSnapshot = React.useCallback(async () => {
+    if (!state.sessionId || state.phase !== 'running') {
+      return;
+    }
+    const sessionId = state.sessionId;
+    const snapshot = nextItemQuery.data
+      ? {
+          sessionId,
+          currentItemOrder: nextItemQuery.data.currentItemOrder,
+          answeredItems: nextItemQuery.data.answeredItems,
+          timestamp: new Date().toISOString(),
+        }
+      : { sessionId, timestamp: new Date().toISOString() };
+
+    try {
+      await trainingService.saveProgressKeepalive(sessionId, snapshot);
+    } catch (error) {
+      const normalizedError = normalizeApiError(error);
+      if (normalizedError.status !== 409) {
+        return;
+      }
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.data?.sessionStatus === 'COMPLETED') {
+        markCompleted(refreshed.data.sessionId);
+      }
+    }
+  }, [markCompleted, nextItemQuery, state.phase, state.sessionId]);
+
   const answerMutation = useMutation({
     mutationFn: (payload: {
       itemResultId: number;
@@ -129,30 +157,21 @@ const TrainingPage: React.FC = () => {
     if (!state.sessionId || state.phase !== 'running') {
       return;
     }
-    const sessionId = state.sessionId;
-    const persist = () => {
-      const snapshot = nextItemQuery.data
-        ? {
-            sessionId,
-            currentItemOrder: nextItemQuery.data.currentItemOrder,
-            answeredItems: nextItemQuery.data.answeredItems,
-            timestamp: new Date().toISOString(),
-          }
-        : { sessionId, timestamp: new Date().toISOString() };
-      void trainingService.saveProgress(sessionId, snapshot);
-    };
     const onVisibilityChange = () => {
       if (document.hidden) {
-        persist();
+        void saveProgressSnapshot();
       }
     };
-    window.addEventListener('beforeunload', persist);
+    const onBeforeUnload = () => {
+      void saveProgressSnapshot();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      window.removeEventListener('beforeunload', persist);
+      window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [nextItemQuery.data, state.phase, state.sessionId]);
+  }, [saveProgressSnapshot, state.phase, state.sessionId]);
 
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
   const currentItem = nextItemQuery.data?.item;
@@ -187,7 +206,7 @@ const TrainingPage: React.FC = () => {
 
         {nextItemQuery.error && (
           <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            {nextItemQuery.error.message}
+            {getApiErrorMessage(nextItemQuery.error)}
           </div>
         )}
 
@@ -293,7 +312,7 @@ const TrainingPage: React.FC = () => {
 
         {summaryQuery.error && (
           <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            {summaryQuery.error.message}
+            {getApiErrorMessage(summaryQuery.error)}
           </div>
         )}
 
@@ -387,7 +406,7 @@ const TrainingPage: React.FC = () => {
 
       {historyQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 px-6 py-4 text-sm text-rose-500">
-          {historyQuery.error.message}
+          {getApiErrorMessage(historyQuery.error)}
         </div>
       )}
 
@@ -397,7 +416,7 @@ const TrainingPage: React.FC = () => {
 
       {recommendedPlanQuery.error && planError?.status !== 409 && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {recommendedPlanQuery.error.message}
+          {getApiErrorMessage(recommendedPlanQuery.error)}
         </div>
       )}
 
@@ -466,7 +485,7 @@ const TrainingPage: React.FC = () => {
                     )}
                   </div>
                 ) : aiRecommendationQuery.error ? (
-                  <div className="text-sm text-rose-500">{aiRecommendationQuery.error.message}</div>
+                  <div className="text-sm text-rose-500">{getApiErrorMessage(aiRecommendationQuery.error)}</div>
                 ) : null}
               </div>
             </div>

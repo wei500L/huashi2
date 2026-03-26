@@ -194,7 +194,7 @@ public class DiagnosisSessionService {
         DiagnosisTemplateItemEntity templateItem = requireTemplateItem(nextItemResult.getTemplateItemId());
         LexicalPairEntity lexicalPair = requireLexicalPair(nextItemResult.getLexicalPairId());
         List<DiagnosisOptionViewVO> options = diagnosisJsonCodec.readOptions(templateItem.getOptionsPayloadJson()).stream()
-                .map(option -> new DiagnosisOptionViewVO(option.key(), option.label()))
+                .map(option -> new DiagnosisOptionViewVO(option.key(), option.label(), option.semanticMatch()))
                 .toList();
 
         DiagnosisQuestionItemVO itemVO = new DiagnosisQuestionItemVO(
@@ -256,9 +256,13 @@ public class DiagnosisSessionService {
         itemResult.setReactionTimeMs(request.reactionTimeMs());
         itemResult.setHesitationTimeMs(request.hesitationTimeMs());
         itemResult.setSelectedAnswerKey(evaluation.selectedAnswerKey());
+        DiagnosisOptionPayload selectedOption = findOptionByKey(itemDefinition.options(), evaluation.selectedAnswerKey());
         Map<String, Object> answerPayload = new LinkedHashMap<>();
-        answerPayload.put("selectedSemanticMatch", request.selectedSemanticMatch());
-        answerPayload.put("selectedAnswerKey", request.selectedAnswerKey());
+        answerPayload.put("selectedSemanticMatch",
+                request.selectedSemanticMatch() != null
+                        ? request.selectedSemanticMatch()
+                        : selectedOption == null ? null : selectedOption.semanticMatch());
+        answerPayload.put("selectedAnswerKey", evaluation.selectedAnswerKey());
         answerPayload.put("reactionTimeMs", request.reactionTimeMs());
         answerPayload.put("hesitationTimeMs", request.hesitationTimeMs());
         itemResult.setAnswerPayloadJson(diagnosisJsonCodec.write(answerPayload));
@@ -696,12 +700,30 @@ public class DiagnosisSessionService {
 
     private void validateTaskSpecificAnswer(DiagnosisTemplateItemEntity templateItem, SubmitDiagnosisAnswerRequest request) {
         DiagnosisTaskType taskType = DiagnosisTaskType.fromCode(templateItem.getTaskType());
+        List<DiagnosisOptionPayload> options = diagnosisJsonCodec.readOptions(templateItem.getOptionsPayloadJson());
         if (taskType == DiagnosisTaskType.REACTION_TIME) {
-            if (request.selectedSemanticMatch() == null) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "Reaction time task requires selectedSemanticMatch");
+            if (isBlank(request.selectedAnswerKey()) && request.selectedSemanticMatch() == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Reaction time task requires selectedAnswerKey or selectedSemanticMatch");
             }
-        } else if (request.selectedAnswerKey() == null || request.selectedAnswerKey().isBlank()) {
+            if (!isBlank(request.selectedAnswerKey())) {
+                DiagnosisOptionPayload selectedOption = findOptionByKey(options, request.selectedAnswerKey());
+                if (selectedOption == null) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "Selected answer key is not defined in this diagnosis item");
+                }
+                if (request.selectedSemanticMatch() != null
+                        && selectedOption.semanticMatch() != null
+                        && !Objects.equals(selectedOption.semanticMatch(), request.selectedSemanticMatch())) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST, "selectedSemanticMatch does not align with selectedAnswerKey");
+                }
+            }
+            return;
+        }
+
+        if (isBlank(request.selectedAnswerKey())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "Semantic judgement task requires selectedAnswerKey");
+        }
+        if (findOptionByKey(options, request.selectedAnswerKey()) == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Selected answer key is not defined in this diagnosis item");
         }
     }
 
@@ -709,6 +731,17 @@ public class DiagnosisSessionService {
         if (request.hesitationTimeMs() > request.reactionTimeMs()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "hesitationTimeMs must not exceed reactionTimeMs");
         }
+    }
+
+    private DiagnosisOptionPayload findOptionByKey(List<DiagnosisOptionPayload> options, String selectedAnswerKey) {
+        return options.stream()
+                .filter(option -> option.key() != null && option.key().equalsIgnoreCase(selectedAnswerKey.trim()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private DiagnosisSessionEntity finalizeCompletedSession(DiagnosisSessionEntity session) {

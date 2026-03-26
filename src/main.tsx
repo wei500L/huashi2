@@ -15,7 +15,7 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       retry: (failureCount, error) => {
         const normalizedError = normalizeApiError(error);
-        if ([401, 403, 404, 409].includes(normalizedError.status)) {
+        if ([401, 403, 404, 409, 429].includes(normalizedError.status)) {
           return false;
         }
         return failureCount < 1;

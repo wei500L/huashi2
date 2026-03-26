@@ -129,12 +129,80 @@ export function normalizeApiError(error: unknown): ApiError {
   return new ApiError('Unknown error');
 }
 
+const API_ERROR_MESSAGES: Record<string, string> = {
+  RATE_LIMITED: '请求过于频繁，请稍后再试。',
+  VALIDATION_ERROR: '提交内容未通过校验，请检查后重试。',
+  AI_PROVIDER_UNAVAILABLE: 'AI 服务暂时不可用，请稍后再试。',
+  TOKEN_EXPIRED: '登录状态已过期，请重新登录。',
+};
+
+export function getApiErrorMessage(error: unknown, fallback = '请求失败'): string {
+  const normalizedError = normalizeApiError(error);
+  if (normalizedError.code && API_ERROR_MESSAGES[normalizedError.code]) {
+    return API_ERROR_MESSAGES[normalizedError.code];
+  }
+  return normalizedError.message || fallback;
+}
+
+function resolveRequestUrl(url: string): string {
+  if (typeof window === 'undefined') {
+    return url;
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  const resolvedBaseUrl = new URL(baseURL.endsWith('/') ? baseURL : `${baseURL}/`, window.location.origin);
+  return new URL(url.startsWith('/') ? url.slice(1) : url, resolvedBaseUrl).toString();
+}
+
+async function parseApiResponse<T>(response: Response): Promise<ApiResponse<T> | null> {
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+  try {
+    return JSON.parse(text) as ApiResponse<T>;
+  } catch {
+    return null;
+  }
+}
+
 export async function apiGet<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   return unwrap(await http.get<ApiResponse<T>>(url, config));
 }
 
 export async function apiPost<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   return unwrap(await http.post<ApiResponse<T>>(url, data, config));
+}
+
+export async function apiPostKeepalive<T>(url: string, data?: unknown): Promise<T> {
+  const session = readStoredSession();
+  const response = await fetch(resolveRequestUrl(url), {
+    method: 'POST',
+    keepalive: true,
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+    },
+    body: JSON.stringify(data ?? {}),
+  });
+  const payload = await parseApiResponse<T>(response);
+  if (response.status === 401 || payload?.code === 'TOKEN_EXPIRED') {
+    dispatchAuthExpired();
+  }
+  if (!response.ok) {
+    throw new ApiError(
+      payload?.message || response.statusText || 'Request failed',
+      response.status,
+      payload?.code,
+      payload?.traceId
+    );
+  }
+  if (!payload?.success) {
+    throw new ApiError(payload?.message || 'Request failed', response.status, payload?.code, payload?.traceId);
+  }
+  return payload.data;
 }
 
 export async function apiPut<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {

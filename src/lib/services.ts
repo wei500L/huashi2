@@ -1,5 +1,5 @@
 import type { AxiosRequestConfig } from 'axios';
-import { apiDelete, apiDownload, apiGet, apiPost, apiPut, apiUpload } from './api';
+import { apiDelete, apiDownload, apiGet, apiPost, apiPostKeepalive, apiPut, apiUpload } from './api';
 import type {
   AddLexicalListItemsRequest,
   AddLexicalListItemsResultVO,
@@ -122,6 +122,8 @@ export const diagnosisSessionService = {
   ) => apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/answers`, payload),
   saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
     apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, { progressSnapshot }),
+  saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
+    apiPostKeepalive<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, { progressSnapshot }),
   complete: (sessionId: number) => apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/complete`),
   getResult: (sessionId: number, options?: RequestOptions) => apiGet<DiagnosisResultDetailVO>(`/diagnosis/sessions/${sessionId}/result`, options),
 };
@@ -138,6 +140,8 @@ export const trainingService = {
   getNextItem: (sessionId: number, options?: RequestOptions) => apiGet<TrainingNextItemVO>(`/training/sessions/${sessionId}/next-item`, options),
   saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
     apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, { progressSnapshot }),
+  saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
+    apiPostKeepalive<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, { progressSnapshot }),
   submitAnswer: (
     sessionId: number,
     payload: { itemResultId: number; selectedAnswerKey: string; reactionTimeMs: number; hesitationTimeMs: number }

@@ -212,7 +212,7 @@ export interface DiagnosisTemplateSummaryVO {
 }
 
 export interface DiagnosisTemplateStimulus {
-  instruction?: string | null;
+  instruction: string;
   contextSentence?: string | null;
   promptText?: string | null;
 }
@@ -225,12 +225,43 @@ export interface DiagnosisTemplateOption {
 }
 
 export interface DiagnosisTemplateScoringProfile {
-  idealReactionTimeMs?: number | null;
-  reactionTimeWeight?: number | null;
-  hesitationWeight?: number | null;
-  accuracyWeight?: number | null;
-  negativeTransferPenalty?: number | null;
-  contextBonus?: number | null;
+  formulaKey?: string | null;
+  pairWeight?: number | null;
+  riskAmplifier?: number | null;
+  maxReactionTimeMs?: number | null;
+}
+
+export interface DiagnosisTemplateStimulusRequest {
+  instruction: string;
+  contextSentence?: string | null;
+  promptText?: string | null;
+}
+
+export interface DiagnosisTemplateOptionRequest {
+  key: string;
+  label: string;
+  semanticMatch?: boolean | null;
+  ignoreContextTrap?: boolean | null;
+}
+
+export interface DiagnosisTemplateScoringProfileRequest {
+  formulaKey?: string | null;
+  pairWeight?: number | null;
+  riskAmplifier?: number | null;
+  maxReactionTimeMs?: number | null;
+}
+
+export interface DiagnosisTemplateItemRequest {
+  lexicalPairId: number;
+  taskType: string;
+  blockCode: string;
+  sortOrder: number;
+  contextSupportLevel: string;
+  expectedSemanticMatch: boolean;
+  stimulus: DiagnosisTemplateStimulusRequest;
+  options: DiagnosisTemplateOptionRequest[];
+  correctAnswerKey: string;
+  scoringProfile?: DiagnosisTemplateScoringProfileRequest | null;
 }
 
 export interface DiagnosisTemplateItemVO {
@@ -298,6 +329,7 @@ export interface DiagnosisSessionCreatedVO {
 export interface DiagnosisOptionViewVO {
   key: string;
   label: string;
+  semanticMatch?: boolean | null;
 }
 
 export interface DiagnosisQuestionItemVO {
@@ -1090,7 +1122,7 @@ export interface DiagnosisTemplateUpsertRequest {
   status: string;
   estimatedDurationMinutes: number;
   scoringVersion: string;
-  items: DiagnosisTemplateItemVO[];
+  items: DiagnosisTemplateItemRequest[];
 }
 
 export interface LexicalPairUpsertRequest {

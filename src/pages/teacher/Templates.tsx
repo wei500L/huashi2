@@ -3,10 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Copy, Plus, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
+import { getApiErrorMessage } from '@/lib/api';
+import {
+  buildTemplateItemFromPair,
+  DIAGNOSIS_TEMPLATE_STATUS_VALUES,
+  normalizeTemplateStatus,
+  parseTemplateItemsJson,
+  serializeTemplateItems,
+  validateTemplateBeforeSave,
+} from '@/lib/diagnosisTemplateEditor';
 import { diagnosisTemplateService, lexicalPairService } from '@/lib/services';
 import type {
   DiagnosisTemplateDetailVO,
-  DiagnosisTemplateItemVO,
   DiagnosisTemplateUpsertRequest,
   LexicalPairSummaryVO,
 } from '@/lib/contracts';
@@ -21,41 +29,40 @@ type TemplateEditorState = {
   itemsJson: string;
 };
 
+const defaultTemplateItems: DiagnosisTemplateUpsertRequest['items'] = [
+  {
+    lexicalPairId: 1,
+    taskType: 'REACTION_TIME',
+    blockCode: 'B1',
+    sortOrder: 1,
+    contextSupportLevel: 'LOW',
+    expectedSemanticMatch: true,
+    stimulus: {
+      instruction: '判断词义是否一致',
+      promptText: '请快速作答',
+      contextSentence: '',
+    },
+    options: [
+      { key: 'semantic_match', label: '语义一致', semanticMatch: true, ignoreContextTrap: false },
+      { key: 'semantic_mismatch', label: '语义不一致', semanticMatch: false, ignoreContextTrap: false },
+    ],
+    correctAnswerKey: 'semantic_match',
+    scoringProfile: {
+      formulaKey: 'RULE_V1',
+      pairWeight: 1,
+      riskAmplifier: 1,
+      maxReactionTimeMs: 1500,
+    },
+  },
+];
+
 const emptyTemplateEditor: TemplateEditorState = {
   templateName: '新建诊断模板',
   description: '',
   status: 'DRAFT',
   estimatedDurationMinutes: 10,
   scoringVersion: 'RULE_V1',
-  itemsJson: JSON.stringify(
-    [
-      {
-        lexicalPairId: 1,
-        taskType: 'REACTION_TIME',
-        blockCode: 'B1',
-        sortOrder: 1,
-        contextSupportLevel: 'LOW',
-        expectedSemanticMatch: true,
-        stimulus: {
-          instruction: '判断词义是否一致',
-          promptText: '请快速作答',
-          contextSentence: '',
-        },
-        options: [
-          { key: 'semantic_match', label: '语义一致', semanticMatch: true, ignoreContextTrap: false },
-          { key: 'semantic_mismatch', label: '语义不一致', semanticMatch: false, ignoreContextTrap: false },
-        ],
-        correctAnswerKey: 'semantic_match',
-        scoringProfile: {
-          reactionTimeWeight: 1,
-          hesitationWeight: 1,
-          accuracyWeight: 1,
-        },
-      },
-    ],
-    null,
-    2
-  ),
+  itemsJson: serializeTemplateItems(defaultTemplateItems),
 };
 
 function toEditor(detail?: DiagnosisTemplateDetailVO | null): TemplateEditorState {
@@ -69,85 +76,7 @@ function toEditor(detail?: DiagnosisTemplateDetailVO | null): TemplateEditorStat
     status: detail.status,
     estimatedDurationMinutes: detail.estimatedDurationMinutes,
     scoringVersion: detail.scoringVersion,
-    itemsJson: JSON.stringify(
-      detail.items.map((item) => ({
-        lexicalPairId: item.lexicalPairId,
-        taskType: item.taskType,
-        blockCode: item.blockCode,
-        sortOrder: item.sortOrder,
-        contextSupportLevel: item.contextSupportLevel,
-        expectedSemanticMatch: item.expectedSemanticMatch,
-        stimulus: item.stimulus,
-        options: item.options,
-        correctAnswerKey: item.correctAnswerKey,
-        scoringProfile: item.scoringProfile,
-      })),
-      null,
-      2
-    ),
-  };
-}
-
-function sanitizeItems(items: DiagnosisTemplateItemVO[]): DiagnosisTemplateUpsertRequest['items'] {
-  return items.map((item) => ({
-    lexicalPairId: Number(item.lexicalPairId),
-    taskType: item.taskType,
-    blockCode: item.blockCode,
-    sortOrder: Number(item.sortOrder),
-    contextSupportLevel: item.contextSupportLevel,
-    expectedSemanticMatch: Boolean(item.expectedSemanticMatch),
-    stimulus: {
-      instruction: item.stimulus?.instruction || '',
-      contextSentence: item.stimulus?.contextSentence || '',
-      promptText: item.stimulus?.promptText || '',
-    },
-    options: (item.options || []).map((option) => ({
-      key: option.key,
-      label: option.label,
-      semanticMatch: option.semanticMatch ?? null,
-      ignoreContextTrap: option.ignoreContextTrap ?? false,
-    })),
-    correctAnswerKey: item.correctAnswerKey,
-    scoringProfile: item.scoringProfile || null,
-  }));
-}
-
-function parseTemplateItemsJson(itemsJson: string): DiagnosisTemplateItemVO[] {
-  const parsed = JSON.parse(itemsJson) as unknown;
-  if (!Array.isArray(parsed)) {
-    throw new Error('items JSON 必须是数组。');
-  }
-  return parsed as DiagnosisTemplateItemVO[];
-}
-
-function buildTemplateItemFromPair(pair: LexicalPairSummaryVO, sortOrder: number): DiagnosisTemplateItemVO {
-  const expectedSemanticMatch = pair.semanticOverlapScore >= 0.5;
-  return {
-    lexicalPairId: pair.id,
-    englishWord: pair.englishWord,
-    frenchWord: pair.frenchWord,
-    chineseGloss: pair.chineseGloss,
-    lexicalPairType: pair.lexicalPairType,
-    taskType: 'REACTION_TIME',
-    blockCode: `B${Math.max(1, Math.ceil(sortOrder / 5))}`,
-    sortOrder,
-    contextSupportLevel: pair.defaultContextSupport?.toUpperCase() || 'LOW',
-    expectedSemanticMatch,
-    stimulus: {
-      instruction: '结合语境判断英法词义是否一致',
-      promptText: `${pair.englishWord} / ${pair.frenchWord}`,
-      contextSentence: '',
-    },
-    options: [
-      { key: 'semantic_match', label: '语义一致', semanticMatch: true, ignoreContextTrap: false },
-      { key: 'semantic_mismatch', label: '语义不一致', semanticMatch: false, ignoreContextTrap: false },
-    ],
-    correctAnswerKey: expectedSemanticMatch ? 'semantic_match' : 'semantic_mismatch',
-    scoringProfile: {
-      reactionTimeWeight: 1,
-      hesitationWeight: 1,
-      accuracyWeight: 1,
-    },
+    itemsJson: serializeTemplateItems(detail.items),
   };
 }
 
@@ -192,6 +121,15 @@ const TeacherTemplatesPage: React.FC = () => {
     }
   }, [editor.itemsJson]);
 
+  const publishValidationErrors = React.useMemo(() => {
+    try {
+      const items = parseTemplateItemsJson(editor.itemsJson);
+      return validateTemplateBeforeSave({ status: editor.status, items });
+    } catch {
+      return [];
+    }
+  }, [editor.itemsJson, editor.status]);
+
   React.useEffect(() => {
     if (detailQuery.data) {
       setEditor(toEditor(detailQuery.data));
@@ -205,11 +143,15 @@ const TeacherTemplatesPage: React.FC = () => {
       const payload: DiagnosisTemplateUpsertRequest = {
         templateName: editor.templateName,
         description: editor.description,
-        status: editor.status,
+        status: normalizeTemplateStatus(editor.status),
         estimatedDurationMinutes: Number(editor.estimatedDurationMinutes),
-        scoringVersion: editor.scoringVersion,
-        items: sanitizeItems(items),
+        scoringVersion: editor.scoringVersion.trim() || 'RULE_V1',
+        items,
       };
+      const validationErrors = validateTemplateBeforeSave(payload);
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors.join('\n'));
+      }
       if (editor.id) {
         return diagnosisTemplateService.updateTeacherTemplate(editor.id, payload);
       }
@@ -223,7 +165,7 @@ const TeacherTemplatesPage: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template', id] });
     },
     onError: (error) => {
-      setParseError(error instanceof Error ? error.message : '模板保存失败');
+      setParseError(getApiErrorMessage(error, '模板保存失败'));
     },
   });
 
@@ -246,7 +188,7 @@ const TeacherTemplatesPage: React.FC = () => {
     },
     onError: (error) => {
       setFeedback(null);
-      setParseError(error instanceof Error ? error.message : '模板删除失败');
+      setParseError(getApiErrorMessage(error, '模板删除失败'));
     },
   });
 
@@ -263,12 +205,12 @@ const TeacherTemplatesPage: React.FC = () => {
         }
 
         const nextItems = [...baseItems, buildTemplateItemFromPair(pair, baseItems.length + 1)];
-        setEditor((state) => ({ ...state, itemsJson: JSON.stringify(nextItems, null, 2) }));
-        setFeedback(`已插入 Pair #${pair.id} 的题目骨架。你可以继续调整 taskType、contextSupportLevel 或选项。`);
+        setEditor((state) => ({ ...state, itemsJson: serializeTemplateItems(nextItems) }));
+        setFeedback(`已插入 Pair #${pair.id} 的题目草稿。发布前请继续补齐题型、语境覆盖和选项配置。`);
         setParseError(null);
       } catch (error) {
         setFeedback(null);
-        setParseError(error instanceof Error ? error.message : '当前 JSON 无法解析，暂时不能插入词对');
+        setParseError(getApiErrorMessage(error, '当前 JSON 无法解析，暂时不能插入词对'));
       }
     },
     [editor.id, editor.itemsJson]
@@ -284,7 +226,7 @@ const TeacherTemplatesPage: React.FC = () => {
       setParseError(null);
     } catch (error) {
       setFeedback(null);
-      setParseError(error instanceof Error ? error.message : '复制 Pair #id 失败');
+      setParseError(getApiErrorMessage(error, '复制 Pair #id 失败'));
     }
   }, []);
 
@@ -292,7 +234,7 @@ const TeacherTemplatesPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader
         title="诊断模板"
-        subtitle="模板 item 仍需要显式引用 lexicalPairId，但现在可以直接检索词对并插入题目骨架，再继续手改 JSON。"
+        subtitle="保留 JSON 编辑模式，但现在会按后端真实请求契约生成草稿，并在发布前拦截覆盖规则缺失的问题。"
         actions={
           <div className="flex flex-wrap gap-3">
             <Link
@@ -365,12 +307,17 @@ const TeacherTemplatesPage: React.FC = () => {
               placeholder="模板描述"
             />
             <div className="grid md:grid-cols-3 gap-4">
-              <input
+              <select
                 value={editor.status}
-                onChange={(event) => setEditor((state) => ({ ...state, status: event.target.value.toUpperCase() }))}
+                onChange={(event) => setEditor((state) => ({ ...state, status: normalizeTemplateStatus(event.target.value) }))}
                 className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
-                placeholder="DRAFT / PUBLISHED / ARCHIVED"
-              />
+              >
+                {DIAGNOSIS_TEMPLATE_STATUS_VALUES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
               <input
                 type="number"
                 value={editor.estimatedDurationMinutes}
@@ -391,7 +338,7 @@ const TeacherTemplatesPage: React.FC = () => {
                 <div>
                   <div className="text-sm font-bold text-slate-900 dark:text-white">检索词对并插入题目骨架</div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    插入时会自动带上 lexicalPairId、默认语境支持、排序和一组基础选项，后面仍可手工修改。
+                    插入时会自动带上 lexicalPairId、默认语境支持、排序和一组基础选项。插入结果只保证是可编辑草稿，不保证可直接发布。
                   </div>
                 </div>
                 <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
@@ -472,7 +419,7 @@ const TeacherTemplatesPage: React.FC = () => {
                 </div>
               </div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                保存时会直接提交这个数组。插入的骨架只是起点，仍建议补充上下文句和更精细的评分参数。
+                保存时会直接提交这个数组。当前 scoringProfile 字段已经切到 `formulaKey / pairWeight / riskAmplifier / maxReactionTimeMs`。
               </div>
               <textarea
                 value={editor.itemsJson}
@@ -481,6 +428,12 @@ const TeacherTemplatesPage: React.FC = () => {
                 className="mt-4 w-full rounded-3xl border border-slate-200 dark:border-white/10 bg-slate-950 text-slate-100 px-4 py-4 font-mono text-sm"
               />
             </div>
+            {editor.status === 'PUBLISHED' && publishValidationErrors.length > 0 && (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                <div className="font-bold">当前模板还不能发布：</div>
+                <div className="mt-2 whitespace-pre-line">{publishValidationErrors.join('\n')}</div>
+              </div>
+            )}
             {feedback && <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">{feedback}</div>}
             {parseError && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">{parseError}</div>}
             <div className="flex flex-wrap gap-3">
