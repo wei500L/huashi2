@@ -1,0 +1,82 @@
+import type { TranslationSlice } from '../resources';
+
+export const commonSlice: TranslationSlice = {
+  'zh-CN': {
+    common: {
+      appName: 'EF.Transfer',
+      localeLabel: '语言',
+      localeOption: {
+        'zh-CN': '中文',
+        'en-US': 'English',
+      },
+      actions: {
+        signOut: '退出登录',
+        openAssistant: 'AI 助手',
+        openNavigation: '打开导航菜单',
+        closeNavigation: '关闭导航菜单',
+        collapseSidebar: '折叠侧边栏',
+        expandSidebar: '展开侧边栏',
+        lightMode: '切换到浅色模式',
+        darkMode: '切换到深色模式',
+        search: '开始检索',
+        exportCsv: '导出 CSV',
+        startDiagnosis: '开始新诊断',
+        backToTrainingHome: '返回训练首页',
+        close: '关闭',
+      },
+      loading: {
+        initializingSession: '正在初始化会话',
+        loadingDiagnosisSession: '正在加载诊断 session',
+        loadingTrainingSession: '正在加载训练 session',
+        loadingDiagnosisItem: '正在加载下一题',
+        loadingTrainingItem: '正在加载训练题目',
+        loadingSummary: '正在加载总结',
+        searchingKnowledge: '正在检索知识片段并生成解释...',
+      },
+      authExpired: '会话已失效，请重新登录后继续。',
+      errors: {
+        routeTitle: '页面加载遇到问题',
+        routeDescription: '当前页面渲染失败，请刷新后重试；如果问题持续存在，可以先返回首页再继续。',
+      },
+    },
+  },
+  'en-US': {
+    common: {
+      appName: 'EF.Transfer',
+      localeLabel: 'Language',
+      localeOption: {
+        'zh-CN': '中文',
+        'en-US': 'English',
+      },
+      actions: {
+        signOut: 'Sign out',
+        openAssistant: 'AI Assistant',
+        openNavigation: 'Open navigation menu',
+        closeNavigation: 'Close navigation menu',
+        collapseSidebar: 'Collapse sidebar',
+        expandSidebar: 'Expand sidebar',
+        lightMode: 'Switch to light mode',
+        darkMode: 'Switch to dark mode',
+        search: 'Search',
+        exportCsv: 'Export CSV',
+        startDiagnosis: 'Start diagnosis',
+        backToTrainingHome: 'Back to training home',
+        close: 'Close',
+      },
+      loading: {
+        initializingSession: 'Initializing session',
+        loadingDiagnosisSession: 'Loading diagnosis session',
+        loadingTrainingSession: 'Loading training session',
+        loadingDiagnosisItem: 'Loading next item',
+        loadingTrainingItem: 'Loading training item',
+        loadingSummary: 'Loading summary',
+        searchingKnowledge: 'Retrieving knowledge chunks and generating an explanation...',
+      },
+      authExpired: 'Your session expired. Please sign in again.',
+      errors: {
+        routeTitle: 'This page could not be rendered',
+        routeDescription: 'Refresh and try again. If the issue persists, return to the home page before retrying.',
+      },
+    },
+  },
+};

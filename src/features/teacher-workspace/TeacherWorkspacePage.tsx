@@ -6,7 +6,12 @@ import { PageHeader, PanelSkeleton } from '@/components/common';
 import { formatDateTime } from '@/lib/format';
 import { teacherWorkspaceService } from '@/lib/services';
 import { teacherWorkspaceQueryKeys } from './queryKeys';
-import { buildTeacherWorkspaceFocusItems } from './copy';
+import {
+  buildTeacherWorkspaceEmptyState,
+  buildTeacherWorkspaceFocusItems,
+  buildTeacherWorkspaceOnboardingItems,
+  buildWorkspaceLink,
+} from './copy';
 import {
   ActionGrid,
   MetricGrid,
@@ -23,8 +28,13 @@ const TeacherWorkspacePage: React.FC = () => {
   });
 
   const focusItems = React.useMemo(
-    () => buildTeacherWorkspaceFocusItems(overviewQuery.data?.summary),
-    [overviewQuery.data?.summary]
+    () => buildTeacherWorkspaceFocusItems(overviewQuery.data),
+    [overviewQuery.data]
+  );
+
+  const onboardingItems = React.useMemo(
+    () => buildTeacherWorkspaceOnboardingItems(overviewQuery.data),
+    [overviewQuery.data]
   );
 
   const quickActions = React.useMemo(
@@ -33,31 +43,37 @@ const TeacherWorkspacePage: React.FC = () => {
         id: 'create-draft',
         label: t('teacherWorkspace.quickActions.createDraft'),
         description: t('teacherWorkspace.quickActions.createDraftDescription'),
-        to: '/teacher/diagnosis-templates',
+        to: buildWorkspaceLink('/teacher/diagnosis-templates', {
+          intent: 'create-draft',
+          source: 'workspace',
+        }),
       },
       {
         id: 'lexical-pairs',
         label: t('teacherWorkspace.quickActions.lexicalPairs'),
         description: t('teacherWorkspace.quickActions.lexicalPairsDescription'),
-        to: '/teacher/lexical-pairs',
+        to: buildWorkspaceLink('/teacher/lexical-pairs', { source: 'workspace' }),
       },
       {
         id: 'lexical-lists',
         label: t('teacherWorkspace.quickActions.lexicalLists'),
         description: t('teacherWorkspace.quickActions.lexicalListsDescription'),
-        to: '/teacher/lexical-lists',
+        to: buildWorkspaceLink('/teacher/lexical-lists', { source: 'workspace' }),
       },
       {
         id: 'interventions',
         label: t('teacherWorkspace.quickActions.interventions'),
         description: t('teacherWorkspace.quickActions.interventionsDescription'),
-        to: '/teacher/interventions',
+        to: buildWorkspaceLink('/teacher/interventions', {
+          view: 'pending',
+          source: 'workspace',
+        }),
       },
       {
         id: 'classes',
         label: t('teacherWorkspace.quickActions.classes'),
         description: t('teacherWorkspace.quickActions.classesDescription'),
-        to: '/teacher/classes',
+        to: buildWorkspaceLink('/teacher/classes', { source: 'workspace' }),
       },
     ],
     [t]
@@ -104,12 +120,12 @@ const TeacherWorkspacePage: React.FC = () => {
         actions={
           <div className="flex flex-wrap gap-3">
             <Link
-              to="/teacher/diagnosis-templates"
+              to={buildWorkspaceLink('/teacher/diagnosis-templates', { source: 'workspace' })}
               className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
             >
               {t('teacherWorkspace.actions.templates')}
             </Link>
-            <Link to="/teacher/classes" className="btn-liquid px-5 py-3 text-white">
+            <Link to={buildWorkspaceLink('/teacher/classes', { source: 'workspace' })} className="btn-liquid px-5 py-3 text-white">
               {t('teacherWorkspace.actions.classes')}
             </Link>
           </div>
@@ -135,6 +151,29 @@ const TeacherWorkspacePage: React.FC = () => {
             subtitle={t('teacherWorkspace.heroSubtitle')}
             meta={overviewQuery.data?.organizationLabel || t('teacherWorkspace.organizationFallback')}
           />
+
+          {!!onboardingItems.length && (
+            <section className="space-y-4">
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+                  {t('teacherWorkspace.onboardingTitle')}
+                </div>
+                <div className="text-sm text-slate-500 dark:text-white/45">
+                  {t('teacherWorkspace.onboardingSubtitle')}
+                </div>
+              </div>
+              {onboardingItems.map((item) => (
+                <StatusBanner
+                  key={item.id}
+                  title={item.title}
+                  description={item.description}
+                  actionLabel={item.actionLabel}
+                  to={item.to}
+                  tone={item.tone}
+                />
+              ))}
+            </section>
+          )}
 
           {!!focusItems.length && (
             <section className="space-y-4">
@@ -175,7 +214,7 @@ const TeacherWorkspacePage: React.FC = () => {
                   overviewQuery.data.recentClasses.map((item) => (
                     <Link
                       key={item.classId}
-                      to={`/teacher/classes/${item.classId}`}
+                      to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })}
                       className="block rounded-[1.8rem] border border-slate-200/80 bg-white/65 p-5 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
                     >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -199,10 +238,7 @@ const TeacherWorkspacePage: React.FC = () => {
                   ))
                 ) : (
                   <WorkspaceEmptyState
-                    title={t('teacherWorkspace.emptyClassesTitle')}
-                    description={t('teacherWorkspace.emptyClassesDescription')}
-                    actionLabel={t('teacherWorkspace.actions.classes')}
-                    to="/teacher/classes"
+                    {...buildTeacherWorkspaceEmptyState('classes', overviewQuery.data)}
                   />
                 )}
               </div>
@@ -221,7 +257,10 @@ const TeacherWorkspacePage: React.FC = () => {
                     overviewQuery.data.draftTemplates.map((draft) => (
                       <Link
                         key={draft.draftId}
-                        to={`/teacher/diagnosis-template-drafts/${draft.draftId}`}
+                        to={buildWorkspaceLink(`/teacher/diagnosis-template-drafts/${draft.draftId}`, {
+                          step: 4,
+                          source: 'workspace',
+                        })}
                         className="block rounded-[1.6rem] border border-slate-200/80 bg-white/65 p-4 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -239,10 +278,7 @@ const TeacherWorkspacePage: React.FC = () => {
                     ))
                   ) : (
                     <WorkspaceEmptyState
-                      title={t('teacherWorkspace.emptyDraftsTitle')}
-                      description={t('teacherWorkspace.emptyDraftsDescription')}
-                      actionLabel={t('teacherWorkspace.quickActions.createDraft')}
-                      to="/teacher/diagnosis-templates"
+                      {...buildTeacherWorkspaceEmptyState('drafts', overviewQuery.data)}
                     />
                   )}
                 </div>
@@ -260,7 +296,11 @@ const TeacherWorkspacePage: React.FC = () => {
                     overviewQuery.data.pendingInterventions.map((item) => (
                       <Link
                         key={item.id}
-                        to="/teacher/interventions"
+                        to={buildWorkspaceLink('/teacher/interventions', {
+                          view: 'pending',
+                          focusId: item.id,
+                          source: 'workspace',
+                        })}
                         className="block rounded-[1.6rem] border border-slate-200/80 bg-white/65 p-4 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
                       >
                         <div className="font-black text-slate-900 dark:text-white">{item.studentName || '--'}</div>
@@ -275,10 +315,7 @@ const TeacherWorkspacePage: React.FC = () => {
                     ))
                   ) : (
                     <WorkspaceEmptyState
-                      title={t('teacherWorkspace.emptyInterventionsTitle')}
-                      description={t('teacherWorkspace.emptyInterventionsDescription')}
-                      actionLabel={t('teacherWorkspace.quickActions.interventions')}
-                      to="/teacher/interventions"
+                      {...buildTeacherWorkspaceEmptyState('interventions', overviewQuery.data)}
                     />
                   )}
                 </div>
@@ -296,7 +333,10 @@ const TeacherWorkspacePage: React.FC = () => {
                     overviewQuery.data.recentLexicalLists.map((item) => (
                       <Link
                         key={item.id}
-                        to={`/teacher/lexical-lists?listId=${item.id}`}
+                        to={buildWorkspaceLink('/teacher/lexical-lists', {
+                          listId: item.id,
+                          source: 'workspace',
+                        })}
                         className="block rounded-[1.6rem] border border-slate-200/80 bg-white/65 p-4 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
                       >
                         <div className="font-black text-slate-900 dark:text-white">{item.listName}</div>
@@ -310,10 +350,7 @@ const TeacherWorkspacePage: React.FC = () => {
                     ))
                   ) : (
                     <WorkspaceEmptyState
-                      title={t('teacherWorkspace.emptyLexicalListsTitle')}
-                      description={t('teacherWorkspace.emptyLexicalListsDescription')}
-                      actionLabel={t('teacherWorkspace.quickActions.lexicalLists')}
-                      to="/teacher/lexical-lists"
+                      {...buildTeacherWorkspaceEmptyState('lexicalLists', overviewQuery.data)}
                     />
                   )}
                 </div>

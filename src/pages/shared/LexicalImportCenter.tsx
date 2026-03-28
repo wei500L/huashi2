@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileSpreadsheet, LoaderCircle, RefreshCw, Save, Upload } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import type {
   LexicalImportBatchDetailVO,
   LexicalImportBatchStatus,
@@ -14,6 +15,7 @@ import { fieldLabel, formatFileSize, translateImportMessage } from '@/lib/lexica
 import { adminService, lexicalPairService } from '@/lib/services';
 
 type LexicalImportCenterMode = 'teacher' | 'admin';
+type ImportView = 'all' | 'pending' | 'failed';
 
 type ImportRowFormState = LexicalImportRowUpdateRequest;
 type EditableRowFieldKey = Exclude<keyof ImportRowFormState, 'skipped'>;
@@ -268,24 +270,47 @@ function isBatchProcessing(batch?: Pick<LexicalImportBatchDetailVO, 'status'> | 
   return Boolean(batch && ['PARSING', 'IMPORTING'].includes(batch.status));
 }
 
+function normalizeImportView(value?: string | null): ImportView {
+  if (value === 'pending' || value === 'failed') {
+    return value;
+  }
+  return 'all';
+}
+
+function matchImportView(status: LexicalImportBatchStatus, view: ImportView): boolean {
+  if (view === 'all') {
+    return true;
+  }
+  if (view === 'failed') {
+    return status === 'FAILED';
+  }
+  return status === 'PARSING' || status === 'DRAFT' || status === 'IMPORTING';
+}
+
 export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = ({ mode }) => {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const lastBatchStatusRef = React.useRef<LexicalImportBatchStatus | null>(null);
   const [uploadFile, setUploadFile] = React.useState<File | null>(null);
-  const [selectedBatchId, setSelectedBatchId] = React.useState<number | null>(null);
+  const [selectedBatchId, setSelectedBatchId] = React.useState<number | null>(() => {
+    const parsed = Number(searchParams.get('batchId') || '');
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  });
   const [selectedRowId, setSelectedRowId] = React.useState<number | null>(null);
   const [batchPageNo, setBatchPageNo] = React.useState(1);
   const [batchPageSize, setBatchPageSize] = React.useState(12);
   const [rowPageNo, setRowPageNo] = React.useState(1);
   const [rowPageSize, setRowPageSize] = React.useState(20);
-  const [batchStatus, setBatchStatus] = React.useState('');
+  const [view, setView] = React.useState<ImportView>(() => normalizeImportView(searchParams.get('view')));
+  const [batchStatus, setBatchStatus] = React.useState(() => (searchParams.get('view') === 'failed' ? 'FAILED' : ''));
   const [batchKeyword, setBatchKeyword] = React.useState('');
   const [batchOwnerUserId, setBatchOwnerUserId] = React.useState('');
   const [rowStatus, setRowStatus] = React.useState('');
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [rowForm, setRowForm] = React.useState<ImportRowFormState>(createEmptyRowForm);
   const isAdmin = mode === 'admin';
+  const [source] = React.useState(() => searchParams.get('source') || '');
 
   const usersQuery = useQuery({
     queryKey: ['admin-users-for-import-history'],
@@ -309,12 +334,40 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
       ),
   });
 
+  const visibleBatches = React.useMemo(
+    () => (batchesQuery.data?.records || []).filter((batch) => matchImportView(batch.status, view)),
+    [batchesQuery.data?.records, view]
+  );
+
   React.useEffect(() => {
-    if (selectedBatchId !== null || !batchesQuery.data?.records.length) {
+    if (!visibleBatches.length) {
       return;
     }
-    setSelectedBatchId(batchesQuery.data.records[0].id);
-  }, [batchesQuery.data, selectedBatchId]);
+    if (selectedBatchId !== null && visibleBatches.some((batch) => batch.id === selectedBatchId)) {
+      return;
+    }
+    setSelectedBatchId(visibleBatches[0].id);
+  }, [selectedBatchId, visibleBatches]);
+
+  React.useEffect(() => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (view !== 'all') {
+      nextSearchParams.set('view', view);
+    } else {
+      nextSearchParams.delete('view');
+    }
+    if (selectedBatchId) {
+      nextSearchParams.set('batchId', String(selectedBatchId));
+    } else {
+      nextSearchParams.delete('batchId');
+    }
+    if (source) {
+      nextSearchParams.set('source', source);
+    }
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }, [searchParams, selectedBatchId, setSearchParams, source, view]);
 
   const batchDetailQuery = useQuery({
     queryKey: ['lexical-import-batch-detail', selectedBatchId],
@@ -470,6 +523,12 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
 
   return (
     <div className="space-y-8">
+      {source && (
+        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
+          当前从教师工作台进入。导入筛选和选中的批次会同步回 URL，方便你刷新后继续处理同一批次。
+        </div>
+      )}
+
       <Panel
         title="批量导入中心"
         description="支持 CSV / XLSX 上传、后台解析、可恢复草稿、逐行修正与异步正式导入。导入完成后数据会先进入词对库，后续还要接到模板或词表。"
@@ -547,7 +606,24 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
       <div className="grid gap-8">
         <Panel title="导入历史" description="教师查看自己的上传记录；管理员可按操作者筛选全部批次。">
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextField label="批次状态" value={batchStatus} onChange={setBatchStatus} type="select" options={batchStatusOptions} />
+            <TextField
+              label="批次状态"
+              value={batchStatus}
+              onChange={(value) => {
+                setBatchStatus(value);
+                if (value === 'FAILED') {
+                  setView('failed');
+                  return;
+                }
+                if (value === 'PARSING' || value === 'DRAFT' || value === 'IMPORTING') {
+                  setView('pending');
+                  return;
+                }
+                setView('all');
+              }}
+              type="select"
+              options={batchStatusOptions}
+            />
             <TextField label="文件名检索" value={batchKeyword} onChange={setBatchKeyword} />
             {isAdmin && (
               <TextField
@@ -577,7 +653,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
           </div>
 
           <div className="space-y-4">
-            {(batchesQuery.data?.records || []).map((batch) => {
+            {visibleBatches.map((batch) => {
               const meta = buildBatchStatusMeta(batch.status);
               return (
                 <button

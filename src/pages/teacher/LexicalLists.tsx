@@ -58,7 +58,11 @@ const TeacherLexicalListsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const pairIdFromQuery = Number(searchParams.get('pairId') || '0');
+  const listIdFromQuery = Number(searchParams.get('listId') || '0');
   const hasPairContext = Number.isFinite(pairIdFromQuery) && pairIdFromQuery > 0;
+  const hasListContext = Number.isFinite(listIdFromQuery) && listIdFromQuery > 0;
+  const wantsCreateList = searchParams.get('intent') === 'create-list';
+  const source = searchParams.get('source');
 
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [listKeyword, setListKeyword] = React.useState('');
@@ -160,9 +164,28 @@ const TeacherLexicalListsPage: React.FC = () => {
     if (selectedId !== null && availableIds.has(selectedId)) {
       return;
     }
+    if (hasListContext && availableIds.has(listIdFromQuery)) {
+      setSelectedId(listIdFromQuery);
+      return;
+    }
     const firstId = listsQuery.data?.records?.[0]?.id ?? null;
     setSelectedId(firstId);
-  }, [listsQuery.data?.records, selectedId]);
+  }, [hasListContext, listIdFromQuery, listsQuery.data?.records, selectedId]);
+
+  React.useEffect(() => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (selectedId) {
+      nextSearchParams.set('listId', String(selectedId));
+      if (nextSearchParams.get('intent') === 'create-list') {
+        nextSearchParams.delete('intent');
+      }
+    } else {
+      nextSearchParams.delete('listId');
+    }
+    if (nextSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }, [searchParams, selectedId, setSearchParams]);
 
   React.useEffect(() => {
     if (!detailQuery.data) {
@@ -350,6 +373,18 @@ const TeacherLexicalListsPage: React.FC = () => {
         }
       />
 
+      {source && (
+        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
+          当前从教师工作台进入。所选词表和上下文参数会同步到 URL，刷新后仍可恢复当前工作位置。
+        </div>
+      )}
+
+      {wantsCreateList && (
+        <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
+          教师工作台建议你先创建一份词表。系统不会自动创建资源，但左侧“新建词表”区域已作为当前主动作高亮显示。
+        </div>
+      )}
+
       {(feedback || errorMessage) && (
         <div
           className={`rounded-[1.8rem] border px-5 py-4 text-sm ${
@@ -418,7 +453,11 @@ const TeacherLexicalListsPage: React.FC = () => {
             )}
           </div>
 
-          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
+          <div
+            className={`rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5 space-y-4 ${
+              wantsCreateList ? 'ring-2 ring-amber-400/70 ring-offset-2 ring-offset-transparent' : ''
+            }`}
+          >
             <div>
               <div className="text-sm font-bold text-slate-900 dark:text-white">新建词表</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">

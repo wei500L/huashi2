@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { PageHeader } from '@/components/common';
@@ -7,6 +7,8 @@ import { teacherAnalyticsService } from '@/lib/services';
 
 const TeacherClassesPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const source = searchParams.get('source');
   const classesQuery = useQuery({
     queryKey: ['teacher-classes'],
     queryFn: ({ signal }) => teacherAnalyticsService.listClasses({ signal }),
@@ -15,6 +17,12 @@ const TeacherClassesPage: React.FC = () => {
   return (
     <div className="space-y-8">
       <PageHeader title="班级与学生" subtitle="这里承接教师工作台里的班级动态，继续下钻到班级详情和学生分析，而不是只停留在列表查看。" />
+
+      {source && (
+        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
+          当前从教师工作台进入。继续打开班级详情时会保留入口上下文，方便你回到最近的教学任务。
+        </div>
+      )}
 
       {classesQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{classesQuery.error.message}</div>
@@ -31,7 +39,11 @@ const TeacherClassesPage: React.FC = () => {
           <button
             key={item.classId}
             type="button"
-            onClick={() => navigate(`/teacher/classes/${item.classId}`)}
+            onClick={() =>
+              navigate(
+                source ? `/teacher/classes/${item.classId}?source=${encodeURIComponent(source)}` : `/teacher/classes/${item.classId}`
+              )
+            }
             className="text-left rounded-[2.5rem] liquid-glass-panel p-8 edge-light hover:border-primary/40 transition-all"
           >
             <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-6">

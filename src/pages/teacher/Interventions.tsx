@@ -1,5 +1,6 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader, PanelSkeleton } from '@/components/common';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
 import { teacherAnalyticsService, teacherInterventionService } from '@/lib/services';
@@ -13,9 +14,83 @@ type InterventionFormState = {
   teacherNote: string;
 };
 
+type InterventionView = 'all' | 'pending' | 'overdue' | 'completed';
+
 const pageSize = 12;
 const STATUS_OPTIONS = ['ALL', 'PENDING', 'IN_PROGRESS', 'COMPLETED'] as const;
 const PRIORITY_OPTIONS = ['ALL', 'LOW', 'NORMAL', 'URGENT'] as const;
+const VIEW_OPTIONS: Array<{ value: InterventionView; label: string }> = [
+  { value: 'all', label: '全部记录' },
+  { value: 'pending', label: '待处理' },
+  { value: 'overdue', label: '逾期未完成' },
+  { value: 'completed', label: '已完成' },
+];
+
+export function normalizeInterventionView(value?: string | null): InterventionView {
+  if (value === 'pending' || value === 'overdue' || value === 'completed') {
+    return value;
+  }
+  return 'all';
+}
+
+function toPositiveIntegerString(value?: string | null): string {
+  const parsed = Number(value || '');
+  return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : '';
+}
+
+export function matchInterventionView(item: TeacherInterventionSummaryVO, view: InterventionView): boolean {
+  if (view === 'all') {
+    return true;
+  }
+  if (view === 'completed') {
+    return item.status === 'COMPLETED';
+  }
+  if (view === 'pending') {
+    return item.status !== 'COMPLETED';
+  }
+  return item.status !== 'COMPLETED' && !!item.plannedAt && new Date(item.plannedAt).getTime() < Date.now();
+}
+
+function buildInterventionSearch(params: {
+  view: InterventionView;
+  priority: string;
+  classId: string;
+  studentUserId: string;
+  pageNo: number;
+  focusId: number | null;
+  source: string;
+}): URLSearchParams {
+  const next = new URLSearchParams();
+  if (params.view !== 'all') {
+    next.set('view', params.view);
+  }
+  if (params.priority !== 'ALL') {
+    next.set('priority', params.priority);
+  }
+  if (params.classId) {
+    next.set('classId', params.classId);
+  }
+  if (params.studentUserId) {
+    next.set('studentUserId', params.studentUserId);
+  }
+  if (params.pageNo > 1) {
+    next.set('pageNo', String(params.pageNo));
+  }
+  if (params.focusId) {
+    next.set('focusId', String(params.focusId));
+  }
+  if (params.source) {
+    next.set('source', params.source);
+  }
+  return next;
+}
+
+function buildBackendStatus(view: InterventionView): string | undefined {
+  if (view === 'completed') {
+    return 'COMPLETED';
+  }
+  return undefined;
+}
 
 function toDateTimeLocalValue(value?: string | null): string {
   if (!value) {
@@ -39,11 +114,25 @@ function totalPages(total = 0): number {
 
 const TeacherInterventionsPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [status, setStatus] = React.useState<(typeof STATUS_OPTIONS)[number]>('ALL');
-  const [priority, setPriority] = React.useState<(typeof PRIORITY_OPTIONS)[number]>('ALL');
-  const [classId, setClassId] = React.useState('');
-  const [pageNo, setPageNo] = React.useState(1);
-  const [selectedInterventionId, setSelectedInterventionId] = React.useState<number | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [view, setView] = React.useState<InterventionView>(() => normalizeInterventionView(searchParams.get('view')));
+  const [priority, setPriority] = React.useState<(typeof PRIORITY_OPTIONS)[number]>(() => {
+    const value = searchParams.get('priority');
+    return PRIORITY_OPTIONS.includes(value as (typeof PRIORITY_OPTIONS)[number])
+      ? (value as (typeof PRIORITY_OPTIONS)[number])
+      : 'ALL';
+  });
+  const [classId, setClassId] = React.useState(() => toPositiveIntegerString(searchParams.get('classId')));
+  const [studentUserId, setStudentUserId] = React.useState(() => toPositiveIntegerString(searchParams.get('studentUserId')));
+  const [pageNo, setPageNo] = React.useState(() => {
+    const parsed = Number(searchParams.get('pageNo') || '1');
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+  });
+  const [selectedInterventionId, setSelectedInterventionId] = React.useState<number | null>(() => {
+    const parsed = Number(searchParams.get('focusId') || '');
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  });
+  const [source] = React.useState(() => searchParams.get('source') || '');
   const [form, setForm] = React.useState<InterventionFormState>(buildInterventionForm());
 
   const classesQuery = useQuery({
@@ -52,13 +141,14 @@ const TeacherInterventionsPage: React.FC = () => {
   });
 
   const interventionsQuery = useQuery({
-    queryKey: ['teacher-interventions', classId, status, priority, pageNo],
+    queryKey: ['teacher-interventions', classId, studentUserId, view, priority, pageNo],
     queryFn: ({ signal }) =>
       teacherInterventionService.list(
         {
           classId: classId ? Number(classId) : undefined,
-          status: status === 'ALL' ? undefined : status,
+          status: buildBackendStatus(view),
           priority: priority === 'ALL' ? undefined : priority,
+          studentUserId: studentUserId ? Number(studentUserId) : undefined,
           pageNo,
           pageSize,
         },
@@ -102,14 +192,32 @@ const TeacherInterventionsPage: React.FC = () => {
     },
   });
 
-  const records = interventionsQuery.data?.records || [];
+  const records = React.useMemo(
+    () => (interventionsQuery.data?.records || []).filter((item) => matchInterventionView(item, view)),
+    [interventionsQuery.data?.records, view]
+  );
   const selectedIntervention =
     records.find((item) => item.id === selectedInterventionId) || records[0] || null;
   const overdueCount = records.filter((item) => item.status !== 'COMPLETED' && !!item.plannedAt && new Date(item.plannedAt).getTime() < Date.now()).length;
 
   React.useEffect(() => {
     setPageNo(1);
-  }, [classId, priority, status]);
+  }, [classId, priority, studentUserId, view]);
+
+  React.useEffect(() => {
+    setSearchParams(
+      buildInterventionSearch({
+        view,
+        priority,
+        classId,
+        studentUserId,
+        pageNo,
+        focusId: selectedInterventionId,
+        source,
+      }),
+      { replace: true }
+    );
+  }, [classId, pageNo, priority, selectedInterventionId, setSearchParams, source, studentUserId, view]);
 
   React.useEffect(() => {
     if (!records.length) {
@@ -133,6 +241,12 @@ const TeacherInterventionsPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader title="干预工作台" subtitle="从待办、排期到完成备注推进教师干预闭环；这里不只是看建议，而是把建议变成已执行动作。" />
 
+      {source && (
+        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
+          当前从教师工作台进入，筛选上下文会保留在 URL 里。你可以继续调整视图、班级或学生，刷新后仍会回到当前状态。
+        </div>
+      )}
+
       <section className="rounded-[2.5rem] liquid-glass-panel p-8">
         <div className="grid gap-4 lg:grid-cols-4">
           <select
@@ -149,13 +263,13 @@ const TeacherInterventionsPage: React.FC = () => {
           </select>
 
           <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value as (typeof STATUS_OPTIONS)[number])}
+            value={view}
+            onChange={(event) => setView(normalizeInterventionView(event.target.value))}
             className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
           >
-            {STATUS_OPTIONS.map((item) => (
-              <option key={item} value={item}>
-                {item === 'ALL' ? '全部状态' : item}
+            {VIEW_OPTIONS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
               </option>
             ))}
           </select>
@@ -176,6 +290,24 @@ const TeacherInterventionsPage: React.FC = () => {
             当前页 {records.length} 条，逾期 {overdueCount} 条
           </div>
         </div>
+
+        {(studentUserId || classId) && (
+          <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-500 dark:text-white/45">
+            {classId && <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">班级 #{classId}</span>}
+            {studentUserId && (
+              <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">学生 #{studentUserId}</span>
+            )}
+            {studentUserId && (
+              <button
+                type="button"
+                onClick={() => setStudentUserId('')}
+                className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10"
+              >
+                清空学生上下文
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">

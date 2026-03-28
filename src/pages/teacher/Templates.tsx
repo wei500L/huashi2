@@ -9,6 +9,7 @@ import { diagnosisTemplateService } from '@/lib/services';
 
 function buildDraftEditorSearch(rawSearch: string): string {
   const params = new URLSearchParams(rawSearch);
+  params.delete('intent');
   if (params.get('pairId')) {
     params.set('step', '3');
   }
@@ -22,6 +23,10 @@ const TeacherTemplatesPage: React.FC = () => {
   const location = useLocation();
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const locationSearchParams = React.useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const pairId = locationSearchParams.get('pairId');
+  const source = locationSearchParams.get('source');
+  const wantsCreateDraft = locationSearchParams.get('intent') === 'create-draft';
 
   const draftsQuery = useQuery({
     queryKey: ['teacher-diagnosis-template-drafts'],
@@ -90,7 +95,9 @@ const TeacherTemplatesPage: React.FC = () => {
               type="button"
               onClick={() => createDraftMutation.mutate()}
               disabled={createDraftMutation.isPending}
-              className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2 disabled:opacity-60"
+              className={`btn-liquid px-5 py-3 text-white inline-flex items-center gap-2 disabled:opacity-60 ${
+                wantsCreateDraft ? 'ring-2 ring-amber-400/70 ring-offset-2 ring-offset-transparent' : ''
+              }`}
             >
               <Plus size={14} />
               新建草稿
@@ -99,10 +106,22 @@ const TeacherTemplatesPage: React.FC = () => {
         }
       />
 
-      {new URLSearchParams(location.search).get('pairId') && (
+      {source && (
+        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
+          当前从教师工作台进入，页面会保留上下文参数。你可以直接创建草稿，或打开已有草稿继续推进发布流程。
+        </div>
+      )}
+
+      {wantsCreateDraft && (
+        <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
+          教师工作台建议你先创建一份模板草稿。系统不会自动生成资源，但会把“新建草稿”作为当前主动作保留下来。
+        </div>
+      )}
+
+      {pairId && (
         <div className="rounded-[1.8rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
           当前带入了词对上下文：创建或打开草稿后会自动定位到“词对选择”步骤，并直接插入对应词对，不再要求先记住 Pair 编号。当前 Pair #
-          {new URLSearchParams(location.search).get('pairId')}。
+          {pairId}。
         </div>
       )}
 

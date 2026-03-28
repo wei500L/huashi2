@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import type {
   LexicalImportBatchCreatedVO,
   LexicalImportBatchDetailVO,
@@ -131,7 +132,9 @@ function renderImportCenter() {
 
   return render(
     <QueryClientProvider client={client}>
-      <LexicalImportCenter mode="teacher" />
+      <MemoryRouter>
+        <LexicalImportCenter mode="teacher" />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
