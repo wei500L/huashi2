@@ -7,8 +7,21 @@ import { EChart } from '@/components/common/EChart';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { aiService, diagnosisSessionService, diagnosisTemplateService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
-import type { DiagnosisOptionViewVO } from '@/lib/contracts';
+import type { AnalyticsRadarMetricVO, DiagnosisOptionViewVO, DiagnosisRadarMetric } from '@/lib/contracts';
 import { diagnosisFlowReducer, initialDiagnosisFlowState } from './flow';
+
+const DIAGNOSIS_RADAR_MAX = 1;
+
+export function toDiagnosisRadarChartMetrics(
+  radarMetrics?: DiagnosisRadarMetric[] | null
+): AnalyticsRadarMetricVO[] {
+  return (radarMetrics || []).map((metric) => ({
+    key: metric.code,
+    label: metric.label,
+    value: metric.value,
+    max: DIAGNOSIS_RADAR_MAX,
+  }));
+}
 
 const DiagnosisPage: React.FC = () => {
   const { t } = useTranslation();
@@ -374,14 +387,7 @@ const DiagnosisPage: React.FC = () => {
   }
 
   const result = resultQuery.data;
-  const radarOption = buildRadarOption(
-    result?.chartPayload.radarMetrics.map((metric) => ({
-      key: metric.key,
-      label: metric.label,
-      value: metric.value,
-      max: metric.max,
-    }))
-  );
+  const radarOption = buildRadarOption(toDiagnosisRadarChartMetrics(result?.chartPayload.radarMetrics));
 
   return (
     <div className="space-y-8 pb-20">

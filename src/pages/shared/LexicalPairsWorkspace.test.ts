@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectActiveFilterLabels, embeddingStatusLabel } from './LexicalPairsWorkspace';
+import { collectActiveFilterLabels, describeCsvImportTemplateField, embeddingStatusLabel } from './LexicalPairsWorkspace';
 
 describe('LexicalPairsWorkspace helpers', () => {
   it('maps embedding statuses to visible labels', () => {
@@ -29,5 +29,20 @@ describe('LexicalPairsWorkspace helpers', () => {
         embeddingStatus: 'FAILED',
       })
     ).toEqual(['向量状态：嵌入失败']);
+  });
+
+  it('describes template fields from backend fieldName instead of legacy aliases', () => {
+    expect(
+      describeCsvImportTemplateField({
+        fieldName: 'english_word',
+        required: true,
+        description: null,
+        example: 'coin',
+      })
+    ).toEqual({
+      key: 'english_word',
+      label: '英语词',
+      description: '--',
+    });
   });
 });

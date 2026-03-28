@@ -144,6 +144,7 @@ class LexicalPermissionAndListIntegrationTest extends AbstractWebIntegrationTest
                                 """.formatted(lexicalPairId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.addedCount").value(0))
+                .andExpect(jsonPath("$.data.skippedCount").doesNotExist())
                 .andExpect(jsonPath("$.data.skippedPairIds[0]").value((int) lexicalPairId));
 
         MvcResult detailResult = mockMvc.perform(get("/api/lexical-lists/{listId}", lexicalListId)

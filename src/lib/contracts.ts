@@ -394,31 +394,33 @@ export interface DiagnosisHighRiskLexicalPair {
 }
 
 export interface DiagnosisRadarMetric {
-  key: string;
+  code: string;
   label: string;
   value: number;
-  max: number;
 }
 
 export interface DiagnosisContextPerformance {
-  contextSupportLevel: string;
+  level: string;
   accuracy: number;
-  avgReactionTimeMs: number;
-  attemptCount: number;
+  avgReactionTime: number;
+  totalCount: number;
 }
 
 export interface DiagnosisLexicalTypePerformance {
   lexicalPairType: string;
   accuracy: number;
-  avgReactionTimeMs: number;
-  attemptCount: number;
+  avgReactionTime: number;
+  totalCount: number;
 }
 
 export interface DiagnosisResponseTimelinePoint {
-  order: number;
-  reactionTimeMs: number;
-  hesitationTimeMs: number;
+  presentationOrder: number;
+  itemResultId?: number | null;
+  taskType: string;
+  lexicalPairType: string;
+  reactionTime: number;
   correct: boolean;
+  errorType?: string | null;
 }
 
 export interface DiagnosisChartPayload {
@@ -821,9 +823,8 @@ export interface StudentProfileSummaryVO {
 
 export interface ClassCompletionByModeVO {
   mode: string;
-  label: string;
   completionRate: number;
-  completedCount: number;
+  completedStudentCount: number;
   studentCount: number;
 }
 
@@ -989,9 +990,7 @@ export interface LexicalListDetailVO {
 }
 
 export interface CsvImportTemplateFieldVO {
-  fieldName?: string;
-  key?: string;
-  label?: string;
+  fieldName: string;
   required: boolean;
   description?: string | null;
   example?: string | null;
@@ -1004,12 +1003,10 @@ export interface CsvImportTemplateVO {
 }
 
 export interface CsvImportFailureVO {
-  rowNumber?: number;
-  lineNo?: number;
+  rowNumber: number;
   englishWord?: string | null;
   frenchWord?: string | null;
   reason?: string | null;
-  message?: string | null;
 }
 
 export interface CsvImportResultVO {
@@ -1110,10 +1107,8 @@ export interface LexicalImportRowVO {
 }
 
 export interface AddLexicalListItemsResultVO {
-  lexicalListId: number;
   addedCount: number;
-  skippedCount: number;
-  duplicatedPairIds: number[];
+  skippedPairIds: number[];
 }
 
 export interface DiagnosisTemplateUpsertRequest {

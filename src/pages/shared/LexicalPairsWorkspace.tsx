@@ -146,6 +146,18 @@ export function collectActiveFilterLabels(mode: LexicalPairsWorkspaceMode, filte
   return labels;
 }
 
+export function describeCsvImportTemplateField(field: CsvImportTemplateFieldVO): {
+  key: string;
+  label: string;
+  description: string;
+} {
+  return {
+    key: field.fieldName,
+    label: fieldLabel(field.fieldName),
+    description: field.description || '--',
+  };
+}
+
 function hasText(value?: string | null): boolean {
   return Boolean(value && value.trim());
 }
@@ -971,19 +983,22 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                 </tr>
               </thead>
               <tbody>
-                {templateFields.map((field: CsvImportTemplateFieldVO) => (
-                  <tr key={field.fieldName || field.key} className="border-t border-slate-200/70 dark:border-white/10">
-                    <td className="py-3 font-semibold text-slate-900 dark:text-white">
-                      {fieldLabel(field.fieldName || field.key || '')}
-                      <div className="mt-1 text-xs font-normal text-slate-400 dark:text-white/30">
-                        {field.fieldName || field.key}
-                      </div>
-                    </td>
-                    <td className="py-3 text-slate-500 dark:text-white/50">{field.required ? '必填' : '选填'}</td>
-                    <td className="py-3 text-slate-500 dark:text-white/50">{field.description || field.label || '--'}</td>
-                    <td className="py-3 text-slate-500 dark:text-white/50">{field.example || '--'}</td>
-                  </tr>
-                ))}
+                {templateFields.map((field: CsvImportTemplateFieldVO) => {
+                  const display = describeCsvImportTemplateField(field);
+                  return (
+                    <tr key={display.key} className="border-t border-slate-200/70 dark:border-white/10">
+                      <td className="py-3 font-semibold text-slate-900 dark:text-white">
+                        {display.label}
+                        <div className="mt-1 text-xs font-normal text-slate-400 dark:text-white/30">
+                          {display.key}
+                        </div>
+                      </td>
+                      <td className="py-3 text-slate-500 dark:text-white/50">{field.required ? '必填' : '选填'}</td>
+                      <td className="py-3 text-slate-500 dark:text-white/50">{display.description}</td>
+                      <td className="py-3 text-slate-500 dark:text-white/50">{field.example || '--'}</td>
+                    </tr>
+                  );
+                })}
                 {templateQuery.isLoading && (
                   <tr>
                     <td colSpan={4} className="py-4 text-slate-500 dark:text-white/45">

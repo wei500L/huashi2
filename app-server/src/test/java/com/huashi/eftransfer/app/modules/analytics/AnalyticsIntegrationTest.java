@@ -185,6 +185,8 @@ class AnalyticsIntegrationTest extends AbstractWebIntegrationTest {
                         .with(bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.overallRate").isNumber())
+                .andExpect(jsonPath("$.data.byMode[0].completedStudentCount").isNumber())
+                .andExpect(jsonPath("$.data.byMode[0].label").doesNotExist())
                 .andExpect(jsonPath("$.data.trend.series.length()").value(2));
 
         mockMvc.perform(get("/api/teacher/analytics/classes/{classId}/students", scenario.classId())

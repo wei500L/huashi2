@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Check, Plus, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
+import type { AddLexicalListItemsResultVO } from '@/lib/contracts';
 import { lexicalListService, lexicalPairService } from '@/lib/services';
 
 function parsePairIdsCsv(value: string): number[] {
@@ -14,6 +15,13 @@ function parsePairIdsCsv(value: string): number[] {
         .filter((item) => Number.isFinite(item) && item > 0)
     )
   );
+}
+
+export function formatAddLexicalListItemsFeedback(result: AddLexicalListItemsResultVO): string {
+  const skippedCount = result.skippedPairIds.length;
+  return skippedCount
+    ? `已添加 ${result.addedCount} 个词对，跳过 ${skippedCount} 个已存在词对。`
+    : `已添加 ${result.addedCount} 个词对。`;
 }
 
 const TeacherLexicalListsPage: React.FC = () => {
@@ -105,11 +113,7 @@ const TeacherLexicalListsPage: React.FC = () => {
     onSuccess: async (result) => {
       setPairIdsCsv('');
       setSelectedPairIds([]);
-      setFeedback(
-        result.skippedCount
-          ? `已添加 ${result.addedCount} 个词对，跳过 ${result.skippedCount} 个已存在词对。`
-          : `已添加 ${result.addedCount} 个词对。`
-      );
+      setFeedback(formatAddLexicalListItemsFeedback(result));
       setErrorMessage(null);
       await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', selectedId] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-lists'] });

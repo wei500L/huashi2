@@ -26,6 +26,9 @@ class LexicalPairImportIntegrationTest extends AbstractWebIntegrationTest {
                         .with(bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.fields.length()").value(21))
+                .andExpect(jsonPath("$.data.fields[0].fieldName").value("english_word"))
+                .andExpect(jsonPath("$.data.fields[0].key").doesNotExist())
+                .andExpect(jsonPath("$.data.fields[0].label").doesNotExist())
                 .andExpect(jsonPath("$.data.headerLine").exists());
 
         String csvContent = """
@@ -48,6 +51,9 @@ class LexicalPairImportIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.successCount").value(1))
                 .andExpect(jsonPath("$.data.failedCount").value(2))
+                .andExpect(jsonPath("$.data.failures[0].rowNumber").isNumber())
+                .andExpect(jsonPath("$.data.failures[0].lineNo").doesNotExist())
+                .andExpect(jsonPath("$.data.failures[0].message").doesNotExist())
                 .andExpect(jsonPath("$.data.failures[0].reason").isNotEmpty());
 
         mockMvc.perform(get("/api/lexical-pairs")

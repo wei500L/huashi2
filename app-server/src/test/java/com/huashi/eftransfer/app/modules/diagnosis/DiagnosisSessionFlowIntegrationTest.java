@@ -323,6 +323,16 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.metrics.averageReactionTime").isNumber())
                 .andExpect(jsonPath("$.data.errorTypeDistribution.length()").value(6))
                 .andExpect(jsonPath("$.data.highRiskLexicalPairs.length()").value(2))
+                .andExpect(jsonPath("$.data.chartPayload.radarMetrics[0].code").value("positiveTransferScore"))
+                .andExpect(jsonPath("$.data.chartPayload.radarMetrics[0].max").doesNotExist())
+                .andExpect(jsonPath("$.data.chartPayload.contextPerformance[0].level").isString())
+                .andExpect(jsonPath("$.data.chartPayload.contextPerformance[0].avgReactionTime").isNumber())
+                .andExpect(jsonPath("$.data.chartPayload.contextPerformance[0].totalCount").isNumber())
+                .andExpect(jsonPath("$.data.chartPayload.lexicalTypePerformance[0].avgReactionTime").isNumber())
+                .andExpect(jsonPath("$.data.chartPayload.lexicalTypePerformance[0].totalCount").isNumber())
+                .andExpect(jsonPath("$.data.chartPayload.responseTimeline[0].presentationOrder").value(1))
+                .andExpect(jsonPath("$.data.chartPayload.responseTimeline[0].reactionTime").isNumber())
+                .andExpect(jsonPath("$.data.chartPayload.responseTimeline[0].hesitationTimeMs").doesNotExist())
                 .andExpect(jsonPath("$.data.chartPayload.topRiskPairs.length()").value(2))
                 .andExpect(jsonPath("$.data.items.length()").value(3));
 

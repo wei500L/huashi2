@@ -131,8 +131,62 @@ const statLabelMap: Record<string, string> = {
   upsertedCount: '已写入',
 };
 
+type UnknownRecord = Record<string, unknown>;
+
+export class AdminAiConfigContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AdminAiConfigContractError';
+  }
+}
+
 function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function requireRecord(value: unknown, path: string): UnknownRecord {
+  if (!isRecord(value)) {
+    throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}。`);
+  }
+  return value;
+}
+
+function requireArray(value: unknown, path: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}。`);
+  }
+  return value;
+}
+
+function requireBoolean(value: unknown, path: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}。`);
+  }
+  return value;
+}
+
+function assertAdminAiConfigViewEnvelope(view: unknown): asserts view is Partial<AdminAiConfigViewVO> {
+  const root = requireRecord(view, 'data');
+  const config = requireRecord(root.config, 'config');
+  const provider = requireRecord(config.provider, 'config.provider');
+  requireRecord(provider.providers, 'config.provider.providers');
+  requireRecord(config.resilience, 'config.resilience');
+  const rag = requireRecord(config.rag, 'config.rag');
+  requireRecord(rag.appServer, 'config.rag.appServer');
+  requireRecord(rag.ingestion, 'config.rag.ingestion');
+  requireRecord(rag.retrieval, 'config.rag.retrieval');
+  const secrets = requireRecord(root.secrets, 'secrets');
+  requireRecord(secrets.providers, 'secrets.providers');
+  requireRecord(secrets.appServerInternalToken, 'secrets.appServerInternalToken');
+  const runtime = requireRecord(root.runtime, 'runtime');
+  requireBoolean(runtime.available, 'runtime.available');
+  const stored = requireRecord(root.stored, 'stored');
+  requireBoolean(stored.present, 'stored.present');
+  requireArray(root.notices, 'notices');
 }
 
 function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinition> | null): AiOpsProviderDefinition {
@@ -209,8 +263,8 @@ function normalizeSecretField(field?: Partial<AdminAiSecretFieldVO> | null): Adm
   };
 }
 
-// Older app-server responses may omit nested admin status blocks; normalize first so the page stays renderable.
-function normalizeAdminAiConfigView(view?: Partial<AdminAiConfigViewVO> | null): AdminAiConfigViewVO {
+export function normalizeAdminAiConfigView(view: unknown): AdminAiConfigViewVO {
+  assertAdminAiConfigViewEnvelope(view);
   return {
     config: normalizeAiOpsConfigPayload(view?.config),
     secrets: {
@@ -555,8 +609,7 @@ const AdminConfigCenterPage: React.FC = () => {
   const queryClient = useQueryClient();
   const configQuery = useQuery({
     queryKey: ['admin-ai-config'],
-    queryFn: ({ signal }) => adminService.getAiConfig({ signal }),
-    select: normalizeAdminAiConfigView,
+    queryFn: async ({ signal }) => normalizeAdminAiConfigView(await adminService.getAiConfig({ signal })),
   });
 
   const [activeTab, setActiveTab] = React.useState<ConfigTab>('provider');
