@@ -80,7 +80,7 @@ const TeacherClassDetailPage: React.FC = () => {
     <div className="space-y-10 pb-20">
       <PageHeader
         title={overviewQuery.data?.className || '班级详情'}
-        subtitle={`班级编码 ${overviewQuery.data?.classCode || '--'} · 主风险 ${overviewQuery.data?.primaryRiskLevel || '--'}`}
+        subtitle={`班级编码 ${overviewQuery.data?.classCode || '--'} · 主风险 ${overviewQuery.data?.primaryRiskLevel || '--'} · 下一步建议优先查看高风险学生并发起干预`}
         actions={
           <button type="button" onClick={() => void handleExport()} className="btn-liquid px-5 py-3 text-white flex items-center gap-2">
             <Download size={14} /> 导出 CSV

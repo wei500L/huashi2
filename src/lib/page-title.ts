@@ -4,8 +4,11 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   if (pathname === '/login') {
     return t('login.accountLogin');
   }
+  if (pathname.startsWith('/teacher/workspace')) {
+    return t('shell.titles.teacherWorkspace');
+  }
   if (pathname.startsWith('/teacher/classes')) {
-    return t('shell.titles.teacher');
+    return t('shell.titles.teacherClasses');
   }
   if (pathname.startsWith('/teacher/diagnosis-templates')) {
     return t('shell.titles.teacherTemplates');

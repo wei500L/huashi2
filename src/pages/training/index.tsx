@@ -8,6 +8,9 @@ import { aiService, trainingService } from '@/lib/services';
 import { formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { TrainingOptionViewVO } from '@/lib/contracts';
+import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
+import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
+import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
 import { initialTrainingFlowState, trainingFlowReducer } from './flow';
 
 const TrainingPage: React.FC = () => {
@@ -18,9 +21,6 @@ const TrainingPage: React.FC = () => {
   const [state, dispatch] = React.useReducer(trainingFlowReducer, initialTrainingFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
   const autoStartKeyRef = React.useRef<string | null>(null);
-  const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
-  const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
-  const [isSaving, setIsSaving] = React.useState(false);
 
   const historyQuery = useQuery({
     queryKey: ['training-history', 'in-progress'],
@@ -100,34 +100,6 @@ const TrainingPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ['review-schedule'] });
   }, [queryClient]);
 
-  const saveProgressSnapshot = React.useCallback(async () => {
-    if (!state.sessionId || state.phase !== 'running') {
-      return;
-    }
-    const sessionId = state.sessionId;
-    const snapshot = nextItemQuery.data
-      ? {
-          sessionId,
-          currentItemOrder: nextItemQuery.data.currentItemOrder,
-          answeredItems: nextItemQuery.data.answeredItems,
-          timestamp: new Date().toISOString(),
-        }
-      : { sessionId, timestamp: new Date().toISOString() };
-
-    try {
-      await trainingService.saveProgressKeepalive(sessionId, snapshot);
-    } catch (error) {
-      const normalizedError = normalizeApiError(error);
-      if (normalizedError.status !== 409) {
-        return;
-      }
-      const refreshed = await nextItemQuery.refetch();
-      if (refreshed.data?.sessionStatus === 'COMPLETED') {
-        markCompleted(refreshed.data.sessionId);
-      }
-    }
-  }, [markCompleted, nextItemQuery, state.phase, state.sessionId]);
-
   const answerMutation = useMutation({
     mutationFn: (payload: {
       itemResultId: number;
@@ -178,25 +150,17 @@ const TrainingPage: React.FC = () => {
     }
   }, [markCompleted, nextItemQuery.data, state.phase]);
 
-  React.useEffect(() => {
-    if (!state.sessionId || state.phase !== 'running') {
-      return;
-    }
-    const onVisibilityChange = () => {
-      if (document.hidden) {
-        void saveProgressSnapshot();
-      }
-    };
-    const onBeforeUnload = () => {
-      void saveProgressSnapshot();
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [saveProgressSnapshot, state.phase, state.sessionId]);
+  const runtime = useSessionRuntime({
+    active: state.phase === 'running',
+    sessionId: state.sessionId,
+    nextItem: nextItemQuery.data,
+    refetchCurrent: nextItemQuery.refetch,
+    buildSnapshot: (sessionId, nextItem) => buildSessionSnapshot(sessionId, nextItem),
+    saveProgress: trainingService.saveProgress,
+    saveProgressKeepalive: trainingService.saveProgressKeepalive,
+    isCompleted: (nextItem) => nextItem?.sessionStatus === 'COMPLETED',
+    onCompleted: (nextItem) => markCompleted(nextItem.sessionId),
+  });
 
   const requestedMode = searchParams.get('mode');
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
@@ -225,49 +189,8 @@ const TrainingPage: React.FC = () => {
     if (!currentItem) {
       return;
     }
-    setSaveMessage(null);
-    setSaveErrorMessage(null);
+    runtime.resetFeedback();
   }, [currentItem?.itemResultId]);
-
-  const saveProgressManually = async (navigateToHistory = false) => {
-    if (!state.sessionId || state.phase !== 'running') {
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveMessage(null);
-    setSaveErrorMessage(null);
-
-    const sessionId = state.sessionId;
-    const snapshot = nextItemQuery.data
-      ? {
-          sessionId,
-          currentItemOrder: nextItemQuery.data.currentItemOrder,
-          answeredItems: nextItemQuery.data.answeredItems,
-          timestamp: new Date().toISOString(),
-        }
-      : { sessionId, timestamp: new Date().toISOString() };
-
-    try {
-      await trainingService.saveProgress(sessionId, snapshot);
-      setSaveMessage(navigateToHistory ? '进度已保存，稍后可在历史页继续。' : '进度已保存。');
-      if (navigateToHistory) {
-        navigate('/history');
-      }
-    } catch (error) {
-      const normalizedError = normalizeApiError(error);
-      if (normalizedError.status === 409) {
-        const refreshed = await nextItemQuery.refetch();
-        if (refreshed.data?.sessionStatus === 'COMPLETED') {
-          markCompleted(refreshed.data.sessionId);
-          return;
-        }
-      }
-      setSaveErrorMessage(getApiErrorMessage(error));
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const submitAnswer = async (option: TrainingOptionViewVO) => {
     if (!currentItem) {
@@ -295,51 +218,31 @@ const TrainingPage: React.FC = () => {
   if (state.phase === 'running') {
     return (
       <div className="mx-auto max-w-5xl space-y-8">
-        <PageHeader title={t('training.runningTitle')} subtitle={t('training.runningSubtitle')} />
+        <PageHeader
+          title={t('training.runningTitle')}
+          subtitle={t('training.runningSubtitle')}
+          actions={
+            <SessionSaveActions
+              isBusy={runtime.isSaving || isAnswerLocked}
+              onSave={() => {
+                void runtime.saveProgressManually();
+              }}
+              onSaveAndExit={() => {
+                void runtime.saveProgressManually({
+                  exitAfterSave: true,
+                  onSuccess: () => navigate('/history'),
+                });
+              }}
+            />
+          }
+        />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void saveProgressManually(false)}
-            disabled={isSaving || isAnswerLocked}
-            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold disabled:opacity-60 dark:border-white/10"
-          >
-            保存进度
-          </button>
-          <button
-            type="button"
-            onClick={() => void saveProgressManually(true)}
-            disabled={isSaving || isAnswerLocked}
-            className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
-          >
-            保存并退出
-          </button>
-        </div>
-
-        {saveMessage && (
-          <div className="rounded-[1.6rem] border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-600 dark:text-emerald-400">
-            {saveMessage}
-          </div>
-        )}
-
-        {saveErrorMessage && (
-          <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
-            {saveErrorMessage}
-          </div>
-        )}
-
-        {nextItemQuery.error && (
-          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            <div>{getApiErrorMessage(nextItemQuery.error)}</div>
-            <button
-              type="button"
-              onClick={() => void nextItemQuery.refetch()}
-              className="mt-4 rounded-full border border-rose-500/20 px-4 py-2 text-sm font-bold"
-            >
-              重试加载当前题
-            </button>
-          </div>
-        )}
+        <SessionFeedbackBanners
+          saveMessage={runtime.saveMessage}
+          saveErrorMessage={runtime.saveErrorMessage}
+          loadError={nextItemQuery.error}
+          onRetryLoad={() => void nextItemQuery.refetch()}
+        />
 
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
@@ -349,22 +252,15 @@ const TrainingPage: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-500 dark:text-white/45">
-                {t('training.progress', {
-                  current: nextItemQuery.data?.currentItemOrder || 0,
-                  total: nextItemQuery.data?.totalItems || 0,
-                })}
-              </div>
-              <div className="h-2 w-56 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-                <div
-                  className="h-full bg-gradient-to-r from-emerald-500 to-sky-500"
-                  style={{
-                    width: `${((nextItemQuery.data?.answeredItems || 0) / Math.max(1, nextItemQuery.data?.totalItems || 1)) * 100}%`,
-                  }}
-                />
-              </div>
-            </div>
+            <SessionProgressHeader
+              label={t('training.progress', {
+                current: nextItemQuery.data?.currentItemOrder || 0,
+                total: nextItemQuery.data?.totalItems || 0,
+              })}
+              answeredItems={nextItemQuery.data?.answeredItems}
+              totalItems={nextItemQuery.data?.totalItems}
+              gradientClassName="bg-gradient-to-r from-emerald-500 to-sky-500"
+            />
 
             <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
@@ -403,18 +299,13 @@ const TrainingPage: React.FC = () => {
 
               <div className="mt-8 grid gap-4">
                 {currentItem.options.map((option) => (
-                  <button
+                  <SessionOptionButton
                     key={option.key}
-                    type="button"
                     disabled={isAnswerLocked}
                     onClick={() => void submitAnswer(option)}
-                    className="w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-5 py-4 text-left transition-all hover:border-primary/50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-bold text-slate-900 dark:text-white">{option.label}</span>
-                      <Rocket size={16} className="text-primary" />
-                    </div>
-                  </button>
+                    label={option.label}
+                    icon={<Rocket size={16} className="text-primary" />}
+                  />
                 ))}
               </div>
 

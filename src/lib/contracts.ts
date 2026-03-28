@@ -1521,3 +1521,12 @@ export interface RagReindexJobResponse {
   stats: Record<string, unknown>;
   errorMessage?: string | null;
 }
+
+export type {
+  TeacherWorkspaceClassActivityVO,
+  TeacherWorkspaceDraftTemplateVO,
+  TeacherWorkspaceInterventionVO,
+  TeacherWorkspaceLexicalListVO,
+  TeacherWorkspaceOverviewVO,
+  TeacherWorkspaceSummaryVO,
+} from './contracts/teacherWorkspace';

@@ -55,7 +55,7 @@ export function homePathForCapabilities(capabilities?: Capability[] | null): str
     return '/admin/users';
   }
   if (hasCapability(capabilities, 'TEACHING_WORKSPACE')) {
-    return '/teacher/classes';
+    return '/teacher/workspace';
   }
   return '/dashboard';
 }

@@ -146,8 +146,8 @@ const TeacherStudentDetailPage: React.FC = () => {
         title={detail?.studentName || '学生详情'}
         subtitle={
           detail
-            ? `班级排名 ${detail.classRank} · Percentile ${(detail.classPercentile * 100).toFixed(0)}%`
-            : '正在加载学生分析'
+            ? `班级排名 ${detail.classRank} · Percentile ${(detail.classPercentile * 100).toFixed(0)}% · 可直接在当前页生成并落地教师干预`
+            : '正在加载学生分析与干预上下文'
         }
         actions={
           <button

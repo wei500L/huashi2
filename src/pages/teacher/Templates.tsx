@@ -76,7 +76,7 @@ const TeacherTemplatesPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader
         title="诊断模板"
-        subtitle="默认入口现在是结构化草稿工作流：先建草稿，再按 4 步编辑并发布；JSON 只保留在高级模式里作为兜底。"
+        subtitle="模板工作流现在面向教师执行：先建草稿，再按 4 步编辑、预览和发布；JSON 仅保留为高级模式兜底。"
         actions={
           <div className="flex flex-wrap gap-3">
             <Link
@@ -101,7 +101,7 @@ const TeacherTemplatesPage: React.FC = () => {
 
       {new URLSearchParams(location.search).get('pairId') && (
         <div className="rounded-[1.8rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
-          当前带入了词对上下文：创建或打开草稿后会自动定位到“词对选择”步骤，并尝试插入 Pair #
+          当前带入了词对上下文：创建或打开草稿后会自动定位到“词对选择”步骤，并直接插入对应词对，不再要求先记住 Pair 编号。当前 Pair #
           {new URLSearchParams(location.search).get('pairId')}。
         </div>
       )}

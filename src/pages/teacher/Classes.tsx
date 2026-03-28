@@ -14,7 +14,7 @@ const TeacherClassesPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="班级总览" subtitle="教师可访问班级列表来自真实 teaching class 数据。" />
+      <PageHeader title="班级与学生" subtitle="这里承接教师工作台里的班级动态，继续下钻到班级详情和学生分析，而不是只停留在列表查看。" />
 
       {classesQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{classesQuery.error.message}</div>

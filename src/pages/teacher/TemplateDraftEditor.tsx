@@ -413,7 +413,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   if (detailQuery.isLoading || !schema) {
     return (
       <div className="space-y-8">
-        <PageHeader title="模板草稿" subtitle="正在加载草稿..." />
+        <PageHeader title="模板草稿" subtitle="正在加载草稿与四步编辑上下文..." />
       </div>
     );
   }
@@ -422,7 +422,7 @@ const TemplateDraftEditorPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader
         title={schema.basic.templateName || `模板草稿 #${resolvedDraftId}`}
-        subtitle={`Draft #${resolvedDraftId} · v${draftVersion || '--'} · 最近更新 ${formatDateTime(detailQuery.data?.updatedAt)}`}
+        subtitle={`Draft #${resolvedDraftId} · v${draftVersion || '--'} · 最近更新 ${formatDateTime(detailQuery.data?.updatedAt)} · 当前页负责把草稿推进到可发布状态`}
         actions={
           <div className="flex flex-wrap gap-3">
             <Link

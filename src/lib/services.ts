@@ -295,3 +295,5 @@ export const adminService = {
   triggerRagReindex: (payload: RagReindexRequest) => apiPost<RagReindexResponse>('/admin/ai-config/reindex', payload),
   getRagReindexJob: (jobId: number, options?: RequestOptions) => apiGet<RagReindexJobResponse>(`/admin/ai-config/reindex-jobs/${jobId}`, options),
 };
+
+export { teacherWorkspaceService } from './services/teacherWorkspace';

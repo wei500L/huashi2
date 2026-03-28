@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, ShieldCheck, Users } from 'lucide-react';
+import { Brain, BookOpen, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/store';
 import { homePathForCapabilities } from '@/lib/format';
 import { clearPendingAuthExpired, hasPendingAuthExpired } from '@/lib/session';
@@ -25,24 +25,24 @@ const Login: React.FC = () => {
     usernameOrEmail: z.string().min(1, t('login.validation.usernameRequired')),
     password: z.string().min(1, t('login.validation.passwordRequired')),
   }), [t]);
-  const workspaceCards: Array<{
+  const valuePillars: Array<{
     label: string;
     hint: string;
     icon: React.ComponentType<{ size?: number; className?: string }>;
   }> = React.useMemo(() => [
     {
-      label: t('login.workspaceCards.student.label'),
-      hint: t('login.workspaceCards.student.hint'),
-      icon: GraduationCap,
+      label: t('login.valuePillars.diagnosis.label'),
+      hint: t('login.valuePillars.diagnosis.hint'),
+      icon: Brain,
     },
     {
-      label: t('login.workspaceCards.teacher.label'),
-      hint: t('login.workspaceCards.teacher.hint'),
-      icon: Users,
+      label: t('login.valuePillars.content.label'),
+      hint: t('login.valuePillars.content.hint'),
+      icon: BookOpen,
     },
     {
-      label: t('login.workspaceCards.admin.label'),
-      hint: t('login.workspaceCards.admin.hint'),
+      label: t('login.valuePillars.interventions.label'),
+      hint: t('login.valuePillars.interventions.hint'),
       icon: ShieldCheck,
     },
   ], [t]);
@@ -95,7 +95,7 @@ const Login: React.FC = () => {
             </div>
 
             <div className="grid md:grid-cols-3 gap-4 mt-10">
-              {workspaceCards.map((card) => (
+              {valuePillars.map((card) => (
                 <div
                   key={card.label}
                   className="text-left rounded-[2rem] border border-slate-200/80 dark:border-white/10 bg-white/55 dark:bg-white/5 p-5"

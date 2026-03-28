@@ -18,6 +18,7 @@ const AnalyticsPage = React.lazy(() => import('./pages/analytics/index'));
 const ErrorsPage = React.lazy(() => import('./pages/student/Errors'));
 const HistoryPage = React.lazy(() => import('./pages/student/History'));
 const SettingsPage = React.lazy(() => import('./pages/student/Settings'));
+const TeacherWorkspacePage = React.lazy(() => import('./pages/teacher/Workspace'));
 const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
 const TeacherClassDetailPage = React.lazy(() => import('./pages/teacher/ClassDetail'));
 const TeacherStudentDetailPage = React.lazy(() => import('./pages/teacher/StudentDetail'));
@@ -172,6 +173,12 @@ const App: React.FC = () => {
         />
 
         <Route
+          path="teacher/workspace"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherWorkspacePage />)}</RequireCapability>
+          }
+        />
+        <Route
           path="teacher/classes"
           element={
             <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherClassesPage />)}</RequireCapability>
@@ -277,7 +284,7 @@ const App: React.FC = () => {
           }
         />
 
-        <Route path="teacher" element={<Navigate to="/teacher/classes" replace />} />
+        <Route path="teacher" element={<Navigate to="/teacher/workspace" replace />} />
         <Route path="monitor" element={<Navigate to="/teacher/interventions" replace />} />
         <Route path="settings" element={withSuspense(<SettingsPage />)} />
       </Route>

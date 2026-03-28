@@ -131,7 +131,7 @@ const TeacherInterventionsPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
-      <PageHeader title="干预工作台" subtitle="集中处理 AI 干预草案、排期、执行状态和完成备注。" />
+      <PageHeader title="干预工作台" subtitle="从待办、排期到完成备注推进教师干预闭环；这里不只是看建议，而是把建议变成已执行动作。" />
 
       <section className="rounded-[2.5rem] liquid-glass-panel p-8">
         <div className="grid gap-4 lg:grid-cols-4">

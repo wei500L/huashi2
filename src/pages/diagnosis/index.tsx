@@ -5,10 +5,13 @@ import { Brain, CheckCircle2, ChevronRight, Timer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, PanelSkeleton } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
-import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import type { AnalyticsRadarMetricVO, DiagnosisOptionViewVO, DiagnosisRadarMetric } from '@/lib/contracts';
+import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
+import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
+import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
 import { diagnosisFlowReducer, initialDiagnosisFlowState } from './flow';
 
 const DIAGNOSIS_RADAR_MAX = 1;
@@ -30,9 +33,6 @@ const DiagnosisPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(diagnosisFlowReducer, initialDiagnosisFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
-  const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
-  const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
-  const [isSaving, setIsSaving] = React.useState(false);
 
   const historyQuery = useQuery({
     queryKey: ['diagnosis-history', 'in-progress'],
@@ -87,34 +87,6 @@ const DiagnosisPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
   }, [queryClient]);
 
-  const saveProgressSnapshot = React.useCallback(async () => {
-    if (!state.sessionId || state.phase !== 'running') {
-      return;
-    }
-    const sessionId = state.sessionId;
-    const snapshot = nextItemQuery.data
-      ? {
-          sessionId,
-          currentItemOrder: nextItemQuery.data.currentItemOrder,
-          answeredItems: nextItemQuery.data.answeredItems,
-          timestamp: new Date().toISOString(),
-        }
-      : { sessionId, timestamp: new Date().toISOString() };
-
-    try {
-      await diagnosisSessionService.saveProgressKeepalive(sessionId, snapshot);
-    } catch (error) {
-      const normalizedError = normalizeApiError(error);
-      if (normalizedError.status !== 409) {
-        return;
-      }
-      const refreshed = await nextItemQuery.refetch();
-      if (refreshed.data?.sessionStatus === 'COMPLETED') {
-        markCompleted();
-      }
-    }
-  }, [markCompleted, nextItemQuery, state.phase, state.sessionId]);
-
   const submitAnswerMutation = useMutation({
     mutationFn: (payload: {
       itemResultId: number;
@@ -162,25 +134,17 @@ const DiagnosisPage: React.FC = () => {
     }
   }, [markCompleted, nextItemQuery.data, state.phase]);
 
-  React.useEffect(() => {
-    if (!state.sessionId || state.phase !== 'running') {
-      return;
-    }
-    const onVisibilityChange = () => {
-      if (document.hidden) {
-        void saveProgressSnapshot();
-      }
-    };
-    const onBeforeUnload = () => {
-      void saveProgressSnapshot();
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [saveProgressSnapshot, state.phase, state.sessionId]);
+  const runtime = useSessionRuntime({
+    active: state.phase === 'running',
+    sessionId: state.sessionId,
+    nextItem: nextItemQuery.data,
+    refetchCurrent: nextItemQuery.refetch,
+    buildSnapshot: (sessionId, nextItem) => buildSessionSnapshot(sessionId, nextItem),
+    saveProgress: diagnosisSessionService.saveProgress,
+    saveProgressKeepalive: diagnosisSessionService.saveProgressKeepalive,
+    isCompleted: (nextItem) => nextItem?.sessionStatus === 'COMPLETED',
+    onCompleted: () => markCompleted(),
+  });
 
   const currentItem = nextItemQuery.data?.item;
   const isAnswerLocked = submitAnswerMutation.isPending || nextItemQuery.isFetching;
@@ -189,49 +153,8 @@ const DiagnosisPage: React.FC = () => {
     if (!currentItem) {
       return;
     }
-    setSaveMessage(null);
-    setSaveErrorMessage(null);
+    runtime.resetFeedback();
   }, [currentItem?.itemResultId]);
-
-  const saveProgressManually = async (navigateToHistory = false) => {
-    if (!state.sessionId || state.phase !== 'running') {
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveMessage(null);
-    setSaveErrorMessage(null);
-
-    const sessionId = state.sessionId;
-    const snapshot = nextItemQuery.data
-      ? {
-          sessionId,
-          currentItemOrder: nextItemQuery.data.currentItemOrder,
-          answeredItems: nextItemQuery.data.answeredItems,
-          timestamp: new Date().toISOString(),
-        }
-      : { sessionId, timestamp: new Date().toISOString() };
-
-    try {
-      await diagnosisSessionService.saveProgress(sessionId, snapshot);
-      setSaveMessage(navigateToHistory ? '进度已保存，稍后可在历史页继续。' : '进度已保存。');
-      if (navigateToHistory) {
-        navigate('/history');
-      }
-    } catch (error) {
-      const normalizedError = normalizeApiError(error);
-      if (normalizedError.status === 409) {
-        const refreshed = await nextItemQuery.refetch();
-        if (refreshed.data?.sessionStatus === 'COMPLETED') {
-          markCompleted();
-          return;
-        }
-      }
-      setSaveErrorMessage(getApiErrorMessage(error));
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const submitAnswer = async (option: DiagnosisOptionViewVO) => {
     if (!currentItem) {
@@ -351,51 +274,27 @@ const DiagnosisPage: React.FC = () => {
               : t('diagnosis.runningSubtitle')
           }
           actions={
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => void saveProgressManually(false)}
-                disabled={isSaving || isAnswerLocked}
-                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold disabled:opacity-60 dark:border-white/10"
-              >
-                保存进度
-              </button>
-              <button
-                type="button"
-                onClick={() => void saveProgressManually(true)}
-                disabled={isSaving || isAnswerLocked}
-                className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
-              >
-                保存并退出
-              </button>
-            </div>
+            <SessionSaveActions
+              isBusy={runtime.isSaving || isAnswerLocked}
+              onSave={() => {
+                void runtime.saveProgressManually();
+              }}
+              onSaveAndExit={() => {
+                void runtime.saveProgressManually({
+                  exitAfterSave: true,
+                  onSuccess: () => navigate('/history'),
+                });
+              }}
+            />
           }
         />
 
-        {saveMessage && (
-          <div className="rounded-[1.6rem] border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-600 dark:text-emerald-400">
-            {saveMessage}
-          </div>
-        )}
-
-        {saveErrorMessage && (
-          <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
-            {saveErrorMessage}
-          </div>
-        )}
-
-        {nextItemQuery.error && (
-          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            <div>{getApiErrorMessage(nextItemQuery.error)}</div>
-            <button
-              type="button"
-              onClick={() => void nextItemQuery.refetch()}
-              className="mt-4 rounded-full border border-rose-500/20 px-4 py-2 text-sm font-bold"
-            >
-              重试加载当前题
-            </button>
-          </div>
-        )}
+        <SessionFeedbackBanners
+          saveMessage={runtime.saveMessage}
+          saveErrorMessage={runtime.saveErrorMessage}
+          loadError={nextItemQuery.error}
+          onRetryLoad={() => void nextItemQuery.refetch()}
+        />
 
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
@@ -405,25 +304,16 @@ const DiagnosisPage: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-white/45">
-                <Timer size={16} />
-                <span>
-                  {t('diagnosis.progress', {
-                    current: nextItemQuery.data?.currentItemOrder || 0,
-                    total: nextItemQuery.data?.totalItems || 0,
-                  })}
-                </span>
-              </div>
-              <div className="h-2 w-56 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-                <div
-                  className="h-full bg-gradient-to-r from-sky-500 to-blue-500"
-                  style={{
-                    width: `${((nextItemQuery.data?.answeredItems || 0) / Math.max(1, nextItemQuery.data?.totalItems || 1)) * 100}%`,
-                  }}
-                />
-              </div>
-            </div>
+            <SessionProgressHeader
+              icon={<Timer size={16} />}
+              label={t('diagnosis.progress', {
+                current: nextItemQuery.data?.currentItemOrder || 0,
+                total: nextItemQuery.data?.totalItems || 0,
+              })}
+              answeredItems={nextItemQuery.data?.answeredItems}
+              totalItems={nextItemQuery.data?.totalItems}
+              gradientClassName="bg-gradient-to-r from-sky-500 to-blue-500"
+            />
 
             <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
@@ -472,18 +362,13 @@ const DiagnosisPage: React.FC = () => {
 
               <div className="mt-8 grid gap-4">
                 {currentItem.options.map((option) => (
-                  <button
+                  <SessionOptionButton
                     key={option.key}
-                    type="button"
                     disabled={isAnswerLocked}
                     onClick={() => void submitAnswer(option)}
-                    className="w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-5 py-4 text-left transition-all hover:border-primary/50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-bold text-slate-900 dark:text-white">{option.label}</span>
-                      <ChevronRight className="text-primary" size={16} />
-                    </div>
-                  </button>
+                    label={option.label}
+                    icon={<ChevronRight className="text-primary" size={16} />}
+                  />
                 ))}
               </div>
 

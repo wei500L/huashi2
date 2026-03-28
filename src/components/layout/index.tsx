@@ -59,6 +59,7 @@ function buildSections(t: (key: string) => string, capabilities?: Capability[] |
     sections.push({
       label: t('shell.sections.teaching'),
       items: [
+        { name: t('shell.nav.teacherWorkspace'), path: '/teacher/workspace', icon: LayoutDashboard },
         { name: t('shell.nav.teacherClasses'), path: '/teacher/classes', icon: Users },
         { name: t('shell.nav.teacherTemplates'), path: '/teacher/diagnosis-templates', icon: Brain },
         { name: t('shell.nav.teacherLexicalPairs'), path: '/teacher/lexical-pairs', icon: BookOpen },
@@ -115,7 +116,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
         <Link
           to={homePath}
           className={cn('flex items-center', isCollapsed ? 'justify-center' : 'gap-3')}
-          aria-label={t('shell.nav.dashboard')}
+          aria-label={t('common.appName')}
           onClick={onNavigate}
         >
           <div className="relative w-9 h-9 flex items-center justify-center">
@@ -128,8 +129,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
               <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white leading-none">
                 EF<span className="text-primary">.</span>Transfer
               </span>
-              <span className="text-[10px] font-bold tracking-[0.24em] uppercase text-slate-400 dark:text-white/30 leading-none mt-1">
-                {t('shell.learningWorkspace')}
+              <span className="mt-1 text-[11px] font-bold text-slate-400 dark:text-white/30 leading-none">
+                {t('shell.brandDescriptor')}
               </span>
             </div>
           )}
