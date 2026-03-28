@@ -12,6 +12,7 @@ public record LexicalListDetailVO(
         Boolean active,
         long itemCount,
         LocalDateTime createdAt,
+        LocalDateTime updatedAt,
         List<LexicalListItemVO> items
 ) {
 }

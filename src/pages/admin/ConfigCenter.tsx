@@ -729,6 +729,306 @@ function statusClasses(tone: 'success' | 'warning' | 'info' | 'neutral'): string
   return 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45';
 }
 
+type ConfigDiffEntry = {
+  field: string;
+  before: string;
+  after: string;
+};
+
+type SecretChangeSummary = {
+  field: string;
+  action: string;
+};
+
+type ConfigPreset = {
+  key: string;
+  label: string;
+  description: string;
+  apply: (current: AiOpsConfigPayload, providerNames: string[]) => AiOpsConfigPayload;
+};
+
+function formatDiffValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '--';
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  if (Array.isArray(value)) {
+    return value.join(', ') || '--';
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
+function collectConfigDiffs(base: unknown, next: unknown, path = 'config'): ConfigDiffEntry[] {
+  if (isRecord(base) && isRecord(next)) {
+    const keys = Array.from(new Set([...Object.keys(base), ...Object.keys(next)])).sort();
+    return keys.flatMap((key) => collectConfigDiffs(base[key], next[key], `${path}.${key}`));
+  }
+  const before = formatDiffValue(base);
+  const after = formatDiffValue(next);
+  return before === after ? [] : [{ field: path, before, after }];
+}
+
+function parseDurationToMs(value?: string | null): number | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/^\d+ms$/i.test(trimmed)) {
+    return Number(trimmed.replace(/ms/i, ''));
+  }
+  if (/^\d+(?:\.\d+)?s$/i.test(trimmed)) {
+    return Number(trimmed.replace(/s/i, '')) * 1000;
+  }
+  if (/^\d+(?:\.\d+)?m$/i.test(trimmed)) {
+    return Number(trimmed.replace(/m/i, '')) * 60_000;
+  }
+  const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i.exec(trimmed);
+  if (!match) {
+    return null;
+  }
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  return hours * 3_600_000 + minutes * 60_000 + seconds * 1000;
+}
+
+function collectSecretChanges(view: AdminAiConfigViewVO, secrets: SecretEditorMap): SecretChangeSummary[] {
+  const changes: SecretChangeSummary[] = [];
+  const providerNames = Array.from(
+    new Set([...Object.keys(view.secrets.providers || {}), ...Object.keys(secrets.providers || {})])
+  );
+
+  providerNames.forEach((providerName) => {
+    (['chatApiKey', 'embeddingApiKey', 'rerankApiKey'] as ProviderSecretKey[]).forEach((secretKey) => {
+      const baseline = getProviderSecretField(view, providerName, secretKey);
+      const editor = secrets.providers?.[providerName]?.[secretKey];
+      if (!editor || editor.retainExisting) {
+        return;
+      }
+      const nextValue = editor.value.trim();
+      if (!nextValue && !baseline?.configured) {
+        return;
+      }
+      changes.push({
+        field: `secrets.providers.${providerName}.${secretKey}`,
+        action: nextValue ? (baseline?.configured ? '覆盖现有密钥' : '写入新密钥') : '清空现有密钥',
+      });
+    });
+  });
+
+  if (!secrets.appServerInternalToken.retainExisting) {
+    const nextValue = secrets.appServerInternalToken.value.trim();
+    if (nextValue || view.secrets.appServerInternalToken.configured) {
+      changes.push({
+        field: 'secrets.appServerInternalToken',
+        action: nextValue
+          ? view.secrets.appServerInternalToken.configured
+            ? '覆盖现有内部令牌'
+            : '写入新的内部令牌'
+          : '清空现有内部令牌',
+      });
+    }
+  }
+
+  return changes;
+}
+
+function buildConfigRiskHints(view: AdminAiConfigViewVO, config: AiOpsConfigPayload, secrets: SecretEditorMap): string[] {
+  const hints: string[] = [];
+
+  if (view.config.provider.activeProvider !== config.provider.activeProvider) {
+    hints.push(`当前 Provider 将从 ${view.config.provider.activeProvider || '--'} 切换到 ${config.provider.activeProvider || '--'}。`);
+  }
+  if (view.config.provider.fallbackProvider !== config.provider.fallbackProvider) {
+    hints.push(`备用 Provider 将从 ${view.config.provider.fallbackProvider || '--'} 切换到 ${config.provider.fallbackProvider || '--'}。`);
+  }
+  if (config.resilience.failureRateThreshold < view.config.resilience.failureRateThreshold) {
+    hints.push('熔断失败率阈值被调低，网关会更早触发熔断和切换。');
+  }
+
+  const timeoutComparisons: Array<{ label: string; before?: string | null; after?: string | null }> = [
+    { label: 'App Server 连接超时', before: view.config.rag.appServer.connectTimeout, after: config.rag.appServer.connectTimeout },
+    { label: 'App Server 读取超时', before: view.config.rag.appServer.readTimeout, after: config.rag.appServer.readTimeout },
+    { label: '重试等待时长', before: view.config.resilience.waitDuration, after: config.resilience.waitDuration },
+    { label: '熔断打开时长', before: view.config.resilience.openStateDuration, after: config.resilience.openStateDuration },
+  ];
+
+  Object.entries(config.provider.providers || {}).forEach(([providerName, provider]) => {
+    const baseline = view.config.provider.providers?.[providerName];
+    if (!baseline) {
+      return;
+    }
+    timeoutComparisons.push(
+      { label: `${providerName} Chat 超时`, before: baseline.chat.timeout, after: provider.chat.timeout },
+      { label: `${providerName} Embedding 超时`, before: baseline.embedding.timeout, after: provider.embedding.timeout },
+      { label: `${providerName} Rerank 超时`, before: baseline.rerank.timeout, after: provider.rerank.timeout }
+    );
+  });
+
+  timeoutComparisons.forEach((entry) => {
+    const before = parseDurationToMs(entry.before);
+    const after = parseDurationToMs(entry.after);
+    if (before !== null && after !== null && after < before) {
+      hints.push(`${entry.label} 已缩短，弱网或高峰期更容易触发超时失败。`);
+    }
+  });
+
+  if (
+    view.config.rag.retrieval.recallTopK !== config.rag.retrieval.recallTopK ||
+    view.config.rag.retrieval.recallThreshold !== config.rag.retrieval.recallThreshold ||
+    view.config.rag.retrieval.rerankTopN !== config.rag.retrieval.rerankTopN ||
+    view.config.rag.retrieval.rerankThreshold !== config.rag.retrieval.rerankThreshold ||
+    view.config.rag.retrieval.finalTopK !== config.rag.retrieval.finalTopK
+  ) {
+    hints.push('RAG 召回或重排参数已调整，建议保存后立刻抽样验证检索结果。');
+  }
+
+  collectSecretChanges(view, secrets).forEach((change) => {
+    hints.push(`${humanizeFieldName(change.field)}: ${change.action}。`);
+  });
+
+  return Array.from(new Set(hints));
+}
+
+function buildReindexRiskHints(form: RagReindexRequest): string[] {
+  const hints: string[] = [];
+  if ((form.mode || '').toUpperCase() === 'FULL') {
+    hints.push('当前会执行 FULL 全量重建，耗时明显高于增量同步。');
+  }
+  if (form.forceReembed) {
+    hints.push('已开启强制重嵌入，会忽略 chunk hash 并重新计算 embedding。');
+  }
+  if ((form.sourceTypes || []).some((sourceType) => seedReindexSourceTypes.includes(sourceType))) {
+    hints.push('当前包含 Seed Source Type，会影响内置知识数据。');
+  }
+  if ((form.sourceIds || []).length === 0) {
+    hints.push('当前没有限定 sourceIds，会按所选 sourceTypes 处理全部数据。');
+  }
+  return hints;
+}
+
+const configPresets: ConfigPreset[] = [
+  {
+    key: 'local-debug',
+    label: '本地联调',
+    description: '缩小批量和返回规模，保留现有密钥，适合开发机联调和排错。',
+    apply: (current, providerNames) => ({
+      ...current,
+      provider: {
+        ...current.provider,
+        activeProvider: current.provider.activeProvider || providerNames[0] || '',
+        fallbackProvider: providerNames[1] || current.provider.fallbackProvider || '',
+      },
+      resilience: {
+        ...current.resilience,
+        maxAttempts: 1,
+        waitDuration: 'PT1S',
+        failureRateThreshold: 60,
+        slidingWindowSize: 10,
+        openStateDuration: 'PT10S',
+      },
+      rag: {
+        ...current.rag,
+        ingestion: {
+          ...current.rag.ingestion,
+          exportPageSize: 50,
+          embeddingBatchSize: 8,
+        },
+        retrieval: {
+          ...current.rag.retrieval,
+          recallTopK: 12,
+          recallThreshold: 0.35,
+          rerankTopN: 8,
+          rerankThreshold: 0.18,
+          finalTopK: 4,
+        },
+      },
+    }),
+  },
+  {
+    key: 'single-provider',
+    label: '单 Provider 稳定运行',
+    description: '收敛为单主 Provider，强调保守阈值和稳定性，适合正式班级运行。',
+    apply: (current, providerNames) => ({
+      ...current,
+      provider: {
+        ...current.provider,
+        activeProvider: current.provider.activeProvider || providerNames[0] || '',
+        fallbackProvider: '',
+      },
+      resilience: {
+        ...current.resilience,
+        maxAttempts: 2,
+        waitDuration: 'PT2S',
+        failureRateThreshold: 55,
+        slidingWindowSize: 20,
+        openStateDuration: 'PT30S',
+      },
+      rag: {
+        ...current.rag,
+        ingestion: {
+          ...current.rag.ingestion,
+          exportPageSize: 100,
+          embeddingBatchSize: 16,
+        },
+        retrieval: {
+          ...current.rag.retrieval,
+          recallTopK: 24,
+          recallThreshold: 0.3,
+          rerankTopN: 12,
+          rerankThreshold: 0.15,
+          finalTopK: 6,
+        },
+      },
+    }),
+  },
+  {
+    key: 'dual-provider',
+    label: '双 Provider 容灾',
+    description: '显式启用 active/fallback 组合，保留较强恢复能力，适合生产容灾。',
+    apply: (current, providerNames) => ({
+      ...current,
+      provider: {
+        ...current.provider,
+        activeProvider: current.provider.activeProvider || providerNames[0] || '',
+        fallbackProvider:
+          providerNames.find((providerName) => providerName !== (current.provider.activeProvider || providerNames[0])) ||
+          current.provider.fallbackProvider ||
+          '',
+      },
+      resilience: {
+        ...current.resilience,
+        maxAttempts: 3,
+        waitDuration: 'PT2S',
+        failureRateThreshold: 40,
+        slidingWindowSize: 20,
+        openStateDuration: 'PT45S',
+      },
+      rag: {
+        ...current.rag,
+        ingestion: {
+          ...current.rag.ingestion,
+          exportPageSize: 100,
+          embeddingBatchSize: 16,
+        },
+        retrieval: {
+          ...current.rag.retrieval,
+          recallTopK: 32,
+          recallThreshold: 0.25,
+          rerankTopN: 16,
+          rerankThreshold: 0.12,
+          finalTopK: 8,
+        },
+      },
+    }),
+  },
+];
+
 function getProviderSecretField(view: AdminAiConfigViewVO, providerName: string, key: ProviderSecretKey): AdminAiSecretFieldVO | null {
   return view.secrets.providers?.[providerName]?.[key] || null;
 }
@@ -746,6 +1046,7 @@ const AdminConfigCenterPage: React.FC = () => {
   const [secrets, setSecrets] = React.useState<SecretEditorMap | null>(null);
   const [validation, setValidation] = React.useState<AiOpsConfigValidationResponse | null>(null);
   const [feedback, setFeedback] = React.useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [saveReviewOpen, setSaveReviewOpen] = React.useState(false);
   const [healthState, setHealthState] = React.useState<AiGatewayHealthResponse | null>(null);
   const [reindexForm, setReindexForm] = React.useState<RagReindexRequest>({
     mode: 'INCREMENTAL',
@@ -788,6 +1089,7 @@ const AdminConfigCenterPage: React.FC = () => {
       const normalizedResponse = normalizeAdminAiConfigView(response);
       queryClient.setQueryData<AdminAiConfigViewVO>(['admin-ai-config'], normalizedResponse);
       setEditing(false);
+      setSaveReviewOpen(false);
       setValidation(null);
       setHealthState(null);
       setFeedback({ tone: 'success', message: '配置已保存并下发到 ai-gateway 运行态，请再刷新运行态健康确认链路。' });
@@ -985,6 +1287,20 @@ const AdminConfigCenterPage: React.FC = () => {
   };
 
   const submitSave = () => {
+    if (!config || !secrets || !configQuery.data) {
+      return;
+    }
+    const configDiffs = collectConfigDiffs(configQuery.data.config, config, 'config');
+    const secretChanges = collectSecretChanges(configQuery.data, secrets);
+    if (configDiffs.length === 0 && secretChanges.length === 0) {
+      setFeedback({ tone: 'success', message: '当前没有未保存改动。' });
+      return;
+    }
+    setFeedback(null);
+    setSaveReviewOpen(true);
+  };
+
+  const confirmSave = () => {
     if (!config || !secrets) {
       return;
     }
@@ -1043,6 +1359,12 @@ const AdminConfigCenterPage: React.FC = () => {
   const reindexStatusMeta = buildReindexStatusMeta(reindexJobQuery.data);
   const reindexStats = formatStats(reindexJobQuery.data?.stats);
   const outboxRecords = outboxQuery.data || [];
+  const configDiffs = collectConfigDiffs(view.config, config, 'config');
+  const secretChanges = collectSecretChanges(view, secrets);
+  const draftRiskHints = buildConfigRiskHints(view, config, secrets);
+  const reindexRiskHints = buildReindexRiskHints(reindexForm);
+  const visibleDiffs = configDiffs.slice(0, 10);
+  const visibleSecretChanges = secretChanges.slice(0, 6);
 
   return (
     <div className="space-y-8 pb-20">
@@ -1211,6 +1533,56 @@ const AdminConfigCenterPage: React.FC = () => {
           <div className="rounded-[1.6rem] border border-sky-500/20 bg-sky-500/5 p-4 text-sm text-sky-700 dark:text-sky-300 space-y-2">
             {validationNotices.map((notice) => (
               <div key={notice}>{translateConfigMessage(notice)}</div>
+            ))}
+          </div>
+        )}
+
+        {editing && (
+          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03] space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Presets</div>
+                <div className="mt-2 text-sm text-slate-600 dark:text-white/55">
+                  预设只覆盖非密钥字段，当前密钥保留策略不会被改写。应用后仍建议先校验，再保存并生效。
+                </div>
+              </div>
+              <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+                当前草稿 {configDiffs.length + secretChanges.length} 项待确认改动
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {configPresets.map((preset) => {
+                const disabled = preset.key === 'dual-provider' && providerNames.length < 2;
+                return (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      setConfig((current) => (current ? preset.apply(current, providerNames) : current));
+                      setValidation(null);
+                      setFeedback({
+                        tone: 'success',
+                        message: `已套用“${preset.label}”预设。请校验差异后再保存。`,
+                      });
+                    }}
+                    className="rounded-[1.6rem] border border-slate-200/70 bg-white/70 px-4 py-4 text-left text-sm text-slate-600 transition-all disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/55"
+                  >
+                    <div className="font-bold text-slate-900 dark:text-white">{preset.label}</div>
+                    <div className="mt-2">{preset.description}</div>
+                    {disabled && <div className="mt-3 text-xs text-amber-600 dark:text-amber-400">至少需要两套 provider 定义才能启用该预设。</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {editing && !!draftRiskHints.length && (
+          <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400 space-y-2">
+            <div className="font-bold">当前草稿包含高风险改动</div>
+            {draftRiskHints.map((hint) => (
+              <div key={hint}>{hint}</div>
             ))}
           </div>
         )}
@@ -1867,9 +2239,26 @@ const AdminConfigCenterPage: React.FC = () => {
                 </FieldCard>
               </FieldGrid>
 
+              {!!reindexRiskHints.length && (
+                <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400 space-y-2">
+                  <div className="font-bold">当前 reindex 配置存在较高影响面</div>
+                  {reindexRiskHints.map((hint) => (
+                    <div key={hint}>{hint}</div>
+                  ))}
+                </div>
+              )}
+
               <button
                 type="button"
-                onClick={() => reindexMutation.mutate(reindexForm)}
+                onClick={() => {
+                  if (
+                    reindexRiskHints.length > 0 &&
+                    !window.confirm(`本次 RAG Reindex 包含以下风险项：\n- ${reindexRiskHints.join('\n- ')}\n\n确认继续吗？`)
+                  ) {
+                    return;
+                  }
+                  reindexMutation.mutate(reindexForm);
+                }}
                 disabled={reindexMutation.isPending}
                 className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2"
               >
@@ -2053,6 +2442,108 @@ const AdminConfigCenterPage: React.FC = () => {
               </div>
             )}
           </SectionCard>
+        </div>
+      )}
+
+      {saveReviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-8">
+          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] border border-slate-200/70 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-950">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Change Review</div>
+                <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">保存前确认本次改动</div>
+                <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+                  先确认字段 diff、密钥处理和风险提示，再决定是否保存并立即生效。
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSaveReviewOpen(false)}
+                className="rounded-2xl border border-slate-200/70 px-4 py-2 text-sm text-slate-600 dark:border-white/10 dark:text-white/70"
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="space-y-4">
+                <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-slate-950/20">
+                  <div className="font-bold text-slate-900 dark:text-white">配置字段差异</div>
+                  <div className="mt-3 space-y-3 text-sm">
+                    {visibleDiffs.map((entry) => (
+                      <div key={`${entry.field}-${entry.after}`} className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                        <div className="font-semibold text-slate-900 dark:text-white">{humanizeFieldName(entry.field)}</div>
+                        <div className="mt-2 text-slate-500 dark:text-white/45">旧值: {entry.before}</div>
+                        <div className="mt-1 text-slate-700 dark:text-white/70">新值: {entry.after}</div>
+                      </div>
+                    ))}
+                    {configDiffs.length > visibleDiffs.length && (
+                      <div className="text-xs text-slate-400 dark:text-white/30">还有 {configDiffs.length - visibleDiffs.length} 项差异未展开显示。</div>
+                    )}
+                    {!configDiffs.length && (
+                      <div className="text-slate-500 dark:text-white/45">当前没有普通字段差异。</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-slate-950/20">
+                  <div className="font-bold text-slate-900 dark:text-white">密钥处理</div>
+                  <div className="mt-3 space-y-3 text-sm">
+                    {visibleSecretChanges.map((change) => (
+                      <div key={change.field} className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                        <div className="font-semibold text-slate-900 dark:text-white">{humanizeFieldName(change.field)}</div>
+                        <div className="mt-2 text-slate-600 dark:text-white/60">{change.action}</div>
+                      </div>
+                    ))}
+                    {secretChanges.length > visibleSecretChanges.length && (
+                      <div className="text-xs text-slate-400 dark:text-white/30">还有 {secretChanges.length - visibleSecretChanges.length} 项密钥变更未展开显示。</div>
+                    )}
+                    {!secretChanges.length && (
+                      <div className="text-slate-500 dark:text-white/45">当前没有密钥写入、覆盖或清空操作。</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400 space-y-2">
+                  <div className="font-bold">风险提示</div>
+                  {draftRiskHints.length > 0 ? (
+                    draftRiskHints.map((hint) => <div key={hint}>{hint}</div>)
+                  ) : (
+                    <div>当前草稿没有识别到高风险改动。</div>
+                  )}
+                </div>
+
+                <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/55">
+                  <div className="font-bold text-slate-900 dark:text-white">保存后的建议动作</div>
+                  <div className="mt-3 space-y-2">
+                    <div>1. 先刷新运行态健康检查，确认 active/fallback provider 与模型信息一致。</div>
+                    <div>2. 如果动了 RAG 参数，至少做一轮抽样检索验证。</div>
+                    <div>3. 如果更换了 embedding 或 timeout，必要时再执行 reindex。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setSaveReviewOpen(false)}
+                className="rounded-2xl border border-slate-200/70 px-5 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/70"
+              >
+                返回继续编辑
+              </button>
+              <button
+                type="button"
+                onClick={confirmSave}
+                disabled={saveMutation.isPending}
+                className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
+              >
+                {saveMutation.isPending ? '保存中...' : '确认保存并生效'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

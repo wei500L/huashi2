@@ -138,7 +138,7 @@ function renderImportCenter() {
 
 describe('LexicalImportCenter', () => {
   beforeEach(() => {
-    vi.mocked(adminService.listUsers).mockResolvedValue([]);
+    vi.mocked(adminService.listUsers).mockResolvedValue(pageResult([]));
     vi.mocked(lexicalPairService.listImportBatches).mockResolvedValue(pageResult([batchSummary]));
     vi.mocked(lexicalPairService.getImportBatch).mockResolvedValue(batchDetail);
     vi.mocked(lexicalPairService.listImportRows).mockResolvedValue(pageResult([invalidRow]));

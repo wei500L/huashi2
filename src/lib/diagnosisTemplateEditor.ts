@@ -1,4 +1,6 @@
 import type {
+  DiagnosisTemplateDraftItemRequest,
+  DiagnosisTemplateDraftItemVO,
   DiagnosisTemplateDetailVO,
   DiagnosisTemplateItemRequest,
   DiagnosisTemplateItemVO,
@@ -205,6 +207,18 @@ function normalizePersistedItem(item: DiagnosisTemplateItemVO | DiagnosisTemplat
   return normalizeTemplateItem(item, 'item');
 }
 
+function normalizeDraftItem(
+  item: DiagnosisTemplateDraftItemVO | DiagnosisTemplateDraftItemRequest,
+  path: string
+): DiagnosisTemplateDraftItemRequest {
+  const normalized = normalizeTemplateItem(item, path);
+  const draftItemId = typeof item.draftItemId === 'string' && item.draftItemId.trim() ? item.draftItemId.trim() : crypto.randomUUID();
+  return {
+    draftItemId,
+    ...normalized,
+  };
+}
+
 export function normalizeTemplateStatus(value: string): DiagnosisTemplateStatusValue {
   return normalizeEnum(value, DIAGNOSIS_TEMPLATE_STATUS_ALIASES, 'status');
 }
@@ -219,6 +233,20 @@ export function parseTemplateItemsJson(itemsJson: string): DiagnosisTemplateItem
     throw new Error('items JSON 必须是数组。');
   }
   return parsed.map((item, index) => normalizeTemplateItem(item, `items[${index}]`));
+}
+
+export function serializeTemplateDraftItems(
+  items: DiagnosisTemplateDraftItemVO[] | DiagnosisTemplateDraftItemRequest[]
+): string {
+  return JSON.stringify(items.map((item) => normalizeDraftItem(item, 'item')), null, 2);
+}
+
+export function parseTemplateDraftItemsJson(itemsJson: string): DiagnosisTemplateDraftItemRequest[] {
+  const parsed = JSON.parse(itemsJson) as unknown;
+  if (!Array.isArray(parsed)) {
+    throw new Error('items JSON 必须是数组。');
+  }
+  return parsed.map((item, index) => normalizeDraftItem(item as DiagnosisTemplateDraftItemRequest, `items[${index}]`));
 }
 
 function defaultPairWeight(lexicalPairType: string): number {
@@ -260,6 +288,19 @@ export function buildTemplateItemFromPair(pair: LexicalPairSummaryVO, sortOrder:
       riskAmplifier: Number((pair.falseFriendRisk + 1).toFixed(2)),
       maxReactionTimeMs: 1500,
     },
+  };
+}
+
+export function buildDraftTemplateItemFromPair(
+  pair: Pick<
+    LexicalPairSummaryVO,
+    'id' | 'semanticOverlapScore' | 'defaultContextSupport' | 'englishWord' | 'frenchWord' | 'lexicalPairType' | 'falseFriendRisk'
+  >,
+  sortOrder: number
+): DiagnosisTemplateDraftItemRequest {
+  return {
+    draftItemId: crypto.randomUUID(),
+    ...buildTemplateItemFromPair(pair as LexicalPairSummaryVO, sortOrder),
   };
 }
 

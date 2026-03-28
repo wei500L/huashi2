@@ -10,6 +10,7 @@ public record LexicalListSummaryVO(
         String ownerDisplayName,
         Boolean active,
         long itemCount,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {
 }

@@ -6,7 +6,10 @@ import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.modules.lexicon.dto.AddLexicalListItemsRequest;
 import com.huashi.eftransfer.app.modules.lexicon.dto.CreateLexicalListRequest;
+import com.huashi.eftransfer.app.modules.lexicon.dto.LexicalListItemsPageQuery;
 import com.huashi.eftransfer.app.modules.lexicon.dto.LexicalListPageQuery;
+import com.huashi.eftransfer.app.modules.lexicon.dto.ReorderLexicalListItemsRequest;
+import com.huashi.eftransfer.app.modules.lexicon.dto.UpdateLexicalListRequest;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalListEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalListItemEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
@@ -98,7 +101,8 @@ public class LexicalListService {
                         ownerNameMap.getOrDefault(list.getOwnerUserId(), "Unknown"),
                         list.getActive(),
                         itemCountMap.getOrDefault(list.getId(), 0L),
-                        list.getCreatedAt()
+                        list.getCreatedAt(),
+                        list.getUpdatedAt()
                 ))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
@@ -154,8 +158,28 @@ public class LexicalListService {
                 list.getActive(),
                 itemVOs.size(),
                 list.getCreatedAt(),
+                list.getUpdatedAt(),
                 itemVOs
         );
+    }
+
+    @Transactional
+    public LexicalListDetailVO update(Long lexicalListId, UpdateLexicalListRequest request) {
+        LexicalListEntity list = requireManageableList(lexicalListId);
+        list.setListName(request.listName().trim());
+        list.setDescription(trimToNull(request.description()));
+        list.setActive(request.active());
+        lexicalListMapper.updateById(list);
+        return getDetail(lexicalListId);
+    }
+
+    @Transactional
+    public void delete(Long lexicalListId) {
+        requireManageableList(lexicalListId);
+        lexicalListItemMapper.delete(Wrappers.<LexicalListItemEntity>lambdaQuery()
+                .eq(LexicalListItemEntity::getLexicalListId, lexicalListId));
+        lexicalListMapper.deleteById(lexicalListId);
+        log.info("event=lexical_list_deleted listId={}", lexicalListId);
     }
 
     @Transactional
@@ -204,6 +228,42 @@ public class LexicalListService {
         log.info("event=lexical_list_item_deleted listId={} itemId={}", lexicalListId, itemId);
     }
 
+    public PageResult<LexicalListItemVO> pageItems(Long lexicalListId, LexicalListItemsPageQuery query) {
+        requireList(lexicalListId);
+        PageQuery pageQuery = query.toPageQuery();
+        List<LexicalListItemVO> items = buildItemVOs(lexicalListId);
+        List<LexicalListItemVO> filtered = items.stream()
+                .filter(item -> matchesKeyword(item, query.keyword()))
+                .toList();
+        int fromIndex = (int) Math.min(filtered.size(), pageQuery.offset());
+        int toIndex = Math.min(filtered.size(), fromIndex + pageQuery.pageSize());
+        return new PageResult<>(filtered.size(), pageQuery.pageNo(), pageQuery.pageSize(), filtered.subList(fromIndex, toIndex));
+    }
+
+    @Transactional
+    public LexicalListDetailVO reorderItems(Long lexicalListId, ReorderLexicalListItemsRequest request) {
+        requireManageableList(lexicalListId);
+        List<LexicalListItemEntity> items = lexicalListItemMapper.selectList(Wrappers.<LexicalListItemEntity>lambdaQuery()
+                .eq(LexicalListItemEntity::getLexicalListId, lexicalListId)
+                .orderByAsc(LexicalListItemEntity::getSortOrder)
+                .orderByAsc(LexicalListItemEntity::getId));
+        Set<Long> existingIds = items.stream().map(LexicalListItemEntity::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> requestedIds = new LinkedHashSet<>(request.orderedItemIds());
+        if (!existingIds.equals(requestedIds)) {
+            throw new BusinessException(ResultCode.CONFLICT, "orderedItemIds must match the full set of current lexical list item ids", 409);
+        }
+
+        Map<Long, LexicalListItemEntity> itemMap = items.stream()
+                .collect(Collectors.toMap(LexicalListItemEntity::getId, entity -> entity));
+        int sortOrder = 1;
+        for (Long itemId : request.orderedItemIds()) {
+            LexicalListItemEntity item = itemMap.get(itemId);
+            item.setSortOrder(sortOrder++);
+            lexicalListItemMapper.updateById(item);
+        }
+        return getDetail(lexicalListId);
+    }
+
     private LambdaQueryWrapper<LexicalListEntity> buildListPageWrapper(LexicalListPageQuery query, JwtPrincipal principal) {
         LambdaQueryWrapper<LexicalListEntity> wrapper = Wrappers.lambdaQuery();
         if (query.keyword() != null && !query.keyword().isBlank()) {
@@ -244,6 +304,50 @@ public class LexicalListService {
                         LinkedHashMap::new,
                         Collectors.counting()
                 ));
+    }
+
+    private List<LexicalListItemVO> buildItemVOs(Long lexicalListId) {
+        List<LexicalListItemEntity> items = lexicalListItemMapper.selectList(Wrappers.<LexicalListItemEntity>lambdaQuery()
+                .eq(LexicalListItemEntity::getLexicalListId, lexicalListId)
+                .orderByAsc(LexicalListItemEntity::getSortOrder)
+                .orderByAsc(LexicalListItemEntity::getId));
+        Map<Long, LexicalPairEntity> pairMap = items.isEmpty()
+                ? Map.of()
+                : lexicalPairMapper.selectBatchIds(items.stream().map(LexicalListItemEntity::getLexicalPairId).distinct().toList()).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(LexicalPairEntity::getId, entity -> entity));
+        return items.stream()
+                .map(item -> {
+                    LexicalPairEntity pair = pairMap.get(item.getLexicalPairId());
+                    if (pair == null) {
+                        return null;
+                    }
+                    return new LexicalListItemVO(
+                            item.getId(),
+                            item.getLexicalPairId(),
+                            item.getSortOrder(),
+                            item.getNotes(),
+                            pair.getEnglishWord(),
+                            pair.getFrenchWord(),
+                            pair.getChineseGloss(),
+                            pair.getLexicalPairType(),
+                            pair.getDefaultContextSupport(),
+                            pair.getDifficultyLevel(),
+                            LexicalRiskSupport.resolve(pair.getFalseFriendRisk()).name()
+                    );
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private boolean matchesKeyword(LexicalListItemVO item, String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return true;
+        }
+        String normalized = keyword.trim().toLowerCase();
+        return item.englishWord().toLowerCase().contains(normalized)
+                || item.frenchWord().toLowerCase().contains(normalized)
+                || item.chineseGloss().toLowerCase().contains(normalized);
     }
 
     private LexicalListEntity requireList(Long lexicalListId) {

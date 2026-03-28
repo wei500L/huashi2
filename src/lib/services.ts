@@ -16,8 +16,13 @@ import type {
   DiagnosisSessionProgressVO,
   DiagnosisTemplateDeleteResultVO,
   DiagnosisTemplateDetailVO,
+  DiagnosisTemplateDraftDetailVO,
+  DiagnosisTemplateDraftSaveRequest,
+  DiagnosisTemplateDraftSummaryVO,
+  DiagnosisTemplateDraftValidationResponseVO,
   DiagnosisTemplateSummaryVO,
   LexicalListDetailVO,
+  LexicalListItemVO,
   LexicalListSummaryVO,
   LexicalPairDetailVO,
   LexicalImportBatchCreatedVO,
@@ -32,7 +37,9 @@ import type {
   LoginResponse,
   PageResult,
   RecommendedTrainingPlanVO,
+  ReorderLexicalListItemsRequest,
   ReviewScheduleItemVO,
+  SessionOverviewVO,
   StudentAnalyticsOverviewVO,
   StudentProfileSummaryVO,
   TeacherInterventionSummaryVO,
@@ -44,6 +51,7 @@ import type {
   TrainingSessionCreatedVO,
   TrainingSessionProgressVO,
   TrainingSessionSummaryVO,
+  UpdateLexicalListRequest,
   UserSummaryVO,
   WrongBookItemVO,
   AnalyticsTrendVO,
@@ -58,6 +66,10 @@ import type {
   AdminUserAccessUpdateRequest,
   AdminUserCreateRequest,
   AdminAiConfigViewVO,
+  AdminUserProvisionResultVO,
+  AccountActionLinkVO,
+  AccountActionPreviewVO,
+  CompleteAccountActionRequest,
   AdminOutboxRecordVO,
   AiGatewayHealthResponse,
   AiOpsConfigValidationResponse,
@@ -74,6 +86,10 @@ export const authService = {
   refresh: (refreshToken: string) => apiPost<LoginResponse>('/auth/refresh', { refreshToken }),
   logout: () => apiPost<void>('/auth/logout'),
   me: (options?: RequestOptions) => apiGet<CurrentUserVO>('/auth/me', options),
+  getSessionOverview: (options?: RequestOptions) => apiGet<SessionOverviewVO>('/auth/session-overview', options),
+  previewAccountAction: (token: string, options?: RequestOptions) => apiGet<AccountActionPreviewVO>(`/auth/account-actions/${token}`, options),
+  completeAccountAction: (token: string, payload: CompleteAccountActionRequest) =>
+    apiPost<void>(`/auth/account-actions/${token}/complete`, payload),
 };
 
 export const studentService = {
@@ -96,6 +112,20 @@ export const diagnosisTemplateService = {
     apiGet<PageResult<DiagnosisTemplateSummaryVO>>('/student/diagnosis-templates', { ...options, params }),
   listTeacherTemplates: (params: { pageNo?: number; pageSize?: number; keyword?: string; status?: string; mineOnly?: boolean }, options?: RequestOptions) =>
     apiGet<PageResult<DiagnosisTemplateSummaryVO>>('/teacher/diagnosis-templates', { ...options, params }),
+  listDrafts: (params: { pageNo?: number; pageSize?: number; keyword?: string }, options?: RequestOptions) =>
+    apiGet<PageResult<DiagnosisTemplateDraftSummaryVO>>('/teacher/diagnosis-template-drafts', { ...options, params }),
+  createDraft: () => apiPost<DiagnosisTemplateDraftDetailVO>('/teacher/diagnosis-template-drafts'),
+  createDraftFromTemplate: (templateId: number) =>
+    apiPost<DiagnosisTemplateDraftDetailVO>(`/teacher/diagnosis-template-drafts/from-template/${templateId}`),
+  getDraft: (draftId: number, options?: RequestOptions) =>
+    apiGet<DiagnosisTemplateDraftDetailVO>(`/teacher/diagnosis-template-drafts/${draftId}`, options),
+  saveDraft: (draftId: number, payload: DiagnosisTemplateDraftSaveRequest) =>
+    apiPut<DiagnosisTemplateDraftDetailVO>(`/teacher/diagnosis-template-drafts/${draftId}`, payload),
+  validateDraft: (draftId: number) =>
+    apiPost<DiagnosisTemplateDraftValidationResponseVO>(`/teacher/diagnosis-template-drafts/${draftId}/validate`),
+  publishDraft: (draftId: number) =>
+    apiPost<DiagnosisTemplateDetailVO>(`/teacher/diagnosis-template-drafts/${draftId}/publish`),
+  deleteDraft: (draftId: number) => apiDelete<void>(`/teacher/diagnosis-template-drafts/${draftId}`),
   getTeacherTemplate: (templateId: number, options?: RequestOptions) =>
     apiGet<DiagnosisTemplateDetailVO>(`/teacher/diagnosis-templates/${templateId}`, options),
   createTeacherTemplate: (payload: DiagnosisTemplateUpsertRequest) =>
@@ -230,16 +260,31 @@ export const lexicalListService = {
     apiGet<PageResult<LexicalListSummaryVO>>('/lexical-lists', { ...options, params }),
   getDetail: (lexicalListId: number, options?: RequestOptions) => apiGet<LexicalListDetailVO>(`/lexical-lists/${lexicalListId}`, options),
   create: (payload: CreateLexicalListRequest) => apiPost<number>('/lexical-lists', payload),
+  update: (lexicalListId: number, payload: UpdateLexicalListRequest) =>
+    apiPut<LexicalListDetailVO>(`/lexical-lists/${lexicalListId}`, payload),
+  delete: (lexicalListId: number) => apiDelete<void>(`/lexical-lists/${lexicalListId}`),
   addItems: (lexicalListId: number, payload: AddLexicalListItemsRequest) =>
     apiPost<AddLexicalListItemsResultVO>(`/lexical-lists/${lexicalListId}/items`, payload),
   deleteItem: (lexicalListId: number, itemId: number) => apiDelete<void>(`/lexical-lists/${lexicalListId}/items/${itemId}`),
+  pageItems: (
+    lexicalListId: number,
+    params: { pageNo?: number; pageSize?: number; keyword?: string },
+    options?: RequestOptions
+  ) => apiGet<PageResult<LexicalListItemVO>>(`/lexical-lists/${lexicalListId}/items`, { ...options, params }),
+  reorderItems: (lexicalListId: number, payload: ReorderLexicalListItemsRequest) =>
+    apiPut<LexicalListDetailVO>(`/lexical-lists/${lexicalListId}/items/reorder`, payload),
 };
 
 export const adminService = {
-  listUsers: (options?: RequestOptions) => apiGet<UserSummaryVO[]>('/admin/users', options),
-  createUser: (payload: AdminUserCreateRequest) => apiPost<UserSummaryVO>('/admin/users', payload),
+  listUsers: (
+    params: { pageNo?: number; pageSize?: number; keyword?: string; role?: string; enabled?: boolean; invitationStatus?: string; profileLinkStatus?: string },
+    options?: RequestOptions
+  ) => apiGet<PageResult<UserSummaryVO>>('/admin/users', { ...options, params }),
+  createUser: (payload: AdminUserCreateRequest) => apiPost<AdminUserProvisionResultVO>('/admin/users', payload),
   updateUserAccess: (userId: number, payload: AdminUserAccessUpdateRequest) =>
     apiPut<UserSummaryVO>(`/admin/users/${userId}/access`, payload),
+  createInviteLink: (userId: number) => apiPost<AccountActionLinkVO>(`/admin/users/${userId}/invite-link`),
+  createPasswordResetLink: (userId: number) => apiPost<AccountActionLinkVO>(`/admin/users/${userId}/password-reset-link`),
   getAiConfig: (options?: RequestOptions) => apiGet<AdminAiConfigViewVO>('/admin/ai-config', options),
   validateAiConfig: (payload: AdminAiConfigSaveRequest) => apiPost<AiOpsConfigValidationResponse>('/admin/ai-config/validate', payload),
   saveAiConfig: (payload: AdminAiConfigSaveRequest) => apiPut<AdminAiConfigViewVO>('/admin/ai-config', payload),

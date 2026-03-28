@@ -98,6 +98,7 @@ public class UserQueryService {
                 user.getUsername(),
                 user.getEmail(),
                 user.getDisplayName(),
+                user.getLastLoginAt(),
                 primaryRole(roles),
                 roles,
                 capabilities(roles),
@@ -116,7 +117,13 @@ public class UserQueryService {
                         user.getEmail(),
                         user.getDisplayName(),
                         Boolean.TRUE.equals(user.getEnabled()),
-                        getRoleCodes(user.getId())
+                        getRoleCodes(user.getId()),
+                        user.getLastLoginAt(),
+                        studentProfileMapper.selectCount(Wrappers.<StudentProfileEntity>lambdaQuery().eq(StudentProfileEntity::getUserId, user.getId())) > 0,
+                        teacherProfileMapper.selectCount(Wrappers.<TeacherProfileEntity>lambdaQuery().eq(TeacherProfileEntity::getUserId, user.getId())) > 0,
+                        "UNLINKED",
+                        "NONE",
+                        false
                 ))
                 .toList();
     }

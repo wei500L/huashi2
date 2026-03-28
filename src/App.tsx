@@ -10,6 +10,7 @@ import { homePathForCapabilities, userHasCapability } from './lib/format';
 import type { Capability } from './lib/contracts';
 
 const Login = React.lazy(() => import('./pages/Login'));
+const AccountActionPage = React.lazy(() => import('./pages/AccountAction'));
 const Dashboard = React.lazy(() => import('./pages/dashboard/index'));
 const DiagnosisPage = React.lazy(() => import('./pages/diagnosis/index'));
 const TrainingPage = React.lazy(() => import('./pages/training/index'));
@@ -21,12 +22,17 @@ const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
 const TeacherClassDetailPage = React.lazy(() => import('./pages/teacher/ClassDetail'));
 const TeacherStudentDetailPage = React.lazy(() => import('./pages/teacher/StudentDetail'));
 const TeacherTemplatesPage = React.lazy(() => import('./pages/teacher/Templates'));
+const TeacherTemplateDraftEditorPage = React.lazy(() => import('./pages/teacher/TemplateDraftEditor'));
 const TeacherLexicalPairsPage = React.lazy(() => import('./pages/teacher/LexicalPairs'));
+const TeacherLexicalPairEditorPage = React.lazy(() => import('./pages/teacher/LexicalPairEditor'));
+const TeacherLexicalPairImportsPage = React.lazy(() => import('./pages/teacher/LexicalPairImports'));
 const TeacherLexicalListsPage = React.lazy(() => import('./pages/teacher/LexicalLists'));
 const TeacherInterventionsPage = React.lazy(() => import('./pages/teacher/Interventions'));
 const AdminUsersPage = React.lazy(() => import('./pages/admin/index'));
 const AdminConfigCenterPage = React.lazy(() => import('./pages/admin/ConfigCenter'));
 const AdminLexicalPairsPage = React.lazy(() => import('./pages/admin/LexicalPairs'));
+const AdminLexicalPairEditorPage = React.lazy(() => import('./pages/admin/LexicalPairEditor'));
+const AdminLexicalPairImportsPage = React.lazy(() => import('./pages/admin/LexicalPairImports'));
 
 const BootScreen: React.FC = () => <RouteSkeleton />;
 
@@ -116,6 +122,7 @@ const App: React.FC = () => {
         path="/login"
         element={status === 'authenticated' && user ? <Navigate to={homePathForCapabilities(user.capabilities)} replace /> : withSuspense(<Login />)}
       />
+      <Route path="/account-action/:token" element={withSuspense(<AccountActionPage />)} />
 
       <Route
         path="/"
@@ -189,9 +196,33 @@ const App: React.FC = () => {
           }
         />
         <Route
+          path="teacher/diagnosis-template-drafts/:draftId"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherTemplateDraftEditorPage />)}</RequireCapability>
+          }
+        />
+        <Route
           path="teacher/lexical-pairs"
           element={
             <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherLexicalPairsPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/lexical-pairs/new"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherLexicalPairEditorPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/lexical-pairs/:lexicalPairId/edit"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherLexicalPairEditorPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/lexical-pairs/imports"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherLexicalPairImportsPage />)}</RequireCapability>
           }
         />
         <Route
@@ -218,6 +249,24 @@ const App: React.FC = () => {
           path="admin/lexical-pairs"
           element={
             <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminLexicalPairsPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="admin/lexical-pairs/new"
+          element={
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminLexicalPairEditorPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="admin/lexical-pairs/:lexicalPairId/edit"
+          element={
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminLexicalPairEditorPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="admin/lexical-pairs/imports"
+          element={
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminLexicalPairImportsPage />)}</RequireCapability>
           }
         />
 

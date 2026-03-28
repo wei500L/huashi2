@@ -1,240 +1,82 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Copy, Plus, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { BookOpen, FilePenLine, Plus, Trash2 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
-import {
-  buildTemplateItemFromPair,
-  DIAGNOSIS_TEMPLATE_STATUS_VALUES,
-  normalizeTemplateStatus,
-  parseTemplateItemsJson,
-  serializeTemplateItems,
-  validateTemplateBeforeSave,
-} from '@/lib/diagnosisTemplateEditor';
-import { diagnosisTemplateService, lexicalPairService } from '@/lib/services';
-import type {
-  DiagnosisTemplateDetailVO,
-  DiagnosisTemplateUpsertRequest,
-  LexicalPairSummaryVO,
-} from '@/lib/contracts';
+import { formatDateTime } from '@/lib/format';
+import { diagnosisTemplateService } from '@/lib/services';
 
-type TemplateEditorState = {
-  id?: number;
-  templateName: string;
-  description: string;
-  status: string;
-  estimatedDurationMinutes: number;
-  scoringVersion: string;
-  itemsJson: string;
-};
-
-const defaultTemplateItems: DiagnosisTemplateUpsertRequest['items'] = [
-  {
-    lexicalPairId: 1,
-    taskType: 'REACTION_TIME',
-    blockCode: 'B1',
-    sortOrder: 1,
-    contextSupportLevel: 'LOW',
-    expectedSemanticMatch: true,
-    stimulus: {
-      instruction: '判断词义是否一致',
-      promptText: '请快速作答',
-      contextSentence: '',
-    },
-    options: [
-      { key: 'semantic_match', label: '语义一致', semanticMatch: true, ignoreContextTrap: false },
-      { key: 'semantic_mismatch', label: '语义不一致', semanticMatch: false, ignoreContextTrap: false },
-    ],
-    correctAnswerKey: 'semantic_match',
-    scoringProfile: {
-      formulaKey: 'RULE_V1',
-      pairWeight: 1,
-      riskAmplifier: 1,
-      maxReactionTimeMs: 1500,
-    },
-  },
-];
-
-const emptyTemplateEditor: TemplateEditorState = {
-  templateName: '新建诊断模板',
-  description: '',
-  status: 'DRAFT',
-  estimatedDurationMinutes: 10,
-  scoringVersion: 'RULE_V1',
-  itemsJson: serializeTemplateItems(defaultTemplateItems),
-};
-
-function toEditor(detail?: DiagnosisTemplateDetailVO | null): TemplateEditorState {
-  if (!detail) {
-    return emptyTemplateEditor;
+function buildDraftEditorSearch(rawSearch: string): string {
+  const params = new URLSearchParams(rawSearch);
+  if (params.get('pairId')) {
+    params.set('step', '3');
   }
-  return {
-    id: detail.id,
-    templateName: detail.templateName,
-    description: detail.description || '',
-    status: detail.status,
-    estimatedDurationMinutes: detail.estimatedDurationMinutes,
-    scoringVersion: detail.scoringVersion,
-    itemsJson: serializeTemplateItems(detail.items),
-  };
+  const next = params.toString();
+  return next ? `?${next}` : '';
 }
 
 const TeacherTemplatesPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = React.useState<number | null>(null);
-  const [editor, setEditor] = React.useState<TemplateEditorState>(emptyTemplateEditor);
-  const [parseError, setParseError] = React.useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [feedback, setFeedback] = React.useState<string | null>(null);
-  const [pairSearchKeyword, setPairSearchKeyword] = React.useState('');
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
-  const listQuery = useQuery({
+  const draftsQuery = useQuery({
+    queryKey: ['teacher-diagnosis-template-drafts'],
+    queryFn: ({ signal }) => diagnosisTemplateService.listDrafts({ pageNo: 1, pageSize: 50 }, { signal }),
+  });
+
+  const templatesQuery = useQuery({
     queryKey: ['teacher-diagnosis-templates'],
     queryFn: ({ signal }) => diagnosisTemplateService.listTeacherTemplates({ pageNo: 1, pageSize: 50 }, { signal }),
   });
 
-  const detailQuery = useQuery({
-    queryKey: ['teacher-diagnosis-template', selectedId],
-    queryFn: ({ signal }) => diagnosisTemplateService.getTeacherTemplate(selectedId as number, { signal }),
-    enabled: !!selectedId,
-  });
-
-  const pairSearchQuery = useQuery({
-    queryKey: ['teacher-template-pair-search', pairSearchKeyword],
-    queryFn: ({ signal }) =>
-      lexicalPairService.pageQuery(
-        {
-          pageNo: 1,
-          pageSize: 8,
-          keyword: pairSearchKeyword.trim() || undefined,
-          active: true,
-        },
-        { signal }
-      ),
-  });
-
-  const parsedItemCount = React.useMemo(() => {
-    try {
-      return parseTemplateItemsJson(editor.itemsJson).length;
-    } catch {
-      return null;
-    }
-  }, [editor.itemsJson]);
-
-  const publishValidationErrors = React.useMemo(() => {
-    try {
-      const items = parseTemplateItemsJson(editor.itemsJson);
-      return validateTemplateBeforeSave({ status: editor.status, items });
-    } catch {
-      return [];
-    }
-  }, [editor.itemsJson, editor.status]);
-
-  React.useEffect(() => {
-    if (detailQuery.data) {
-      setEditor(toEditor(detailQuery.data));
-      setParseError(null);
-    }
-  }, [detailQuery.data]);
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const items = parseTemplateItemsJson(editor.itemsJson);
-      const payload: DiagnosisTemplateUpsertRequest = {
-        templateName: editor.templateName,
-        description: editor.description,
-        status: normalizeTemplateStatus(editor.status),
-        estimatedDurationMinutes: Number(editor.estimatedDurationMinutes),
-        scoringVersion: editor.scoringVersion.trim() || 'RULE_V1',
-        items,
-      };
-      const validationErrors = validateTemplateBeforeSave(payload);
-      if (validationErrors.length > 0) {
-        throw new Error(validationErrors.join('\n'));
-      }
-      if (editor.id) {
-        return diagnosisTemplateService.updateTeacherTemplate(editor.id, payload);
-      }
-      return diagnosisTemplateService.createTeacherTemplate(payload);
-    },
-    onSuccess: async (id) => {
-      setSelectedId(id);
-      setParseError(null);
-      setFeedback(editor.id ? '模板已更新。' : '模板已创建。');
-      await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-templates'] });
-      await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template', id] });
-    },
-    onError: (error) => {
-      setParseError(getApiErrorMessage(error, '模板保存失败'));
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (templateId: number) => diagnosisTemplateService.deleteTeacherTemplate(templateId),
-    onSuccess: async (result) => {
-      setParseError(null);
-      if (result.outcome === 'DELETED') {
-        setFeedback('模板已删除。');
-        setSelectedId(null);
-        setEditor(emptyTemplateEditor);
-      } else {
-        setFeedback('模板已有学生使用，已自动归档。');
-        setEditor((state) => ({ ...state, status: result.status || 'ARCHIVED' }));
-      }
-      await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-templates'] });
-      if (result.outcome === 'ARCHIVED') {
-        await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template', result.templateId] });
-      }
+  const createDraftMutation = useMutation({
+    mutationFn: () => diagnosisTemplateService.createDraft(),
+    onSuccess: (draft) => {
+      setFeedback('已创建新草稿。');
+      setErrorMessage(null);
+      navigate(`/teacher/diagnosis-template-drafts/${draft.draftId}${buildDraftEditorSearch(location.search)}`);
     },
     onError: (error) => {
       setFeedback(null);
-      setParseError(getApiErrorMessage(error, '模板删除失败'));
+      setErrorMessage(getApiErrorMessage(error, '创建草稿失败'));
     },
   });
 
-  const insertPairIntoTemplate = React.useCallback(
-    (pair: LexicalPairSummaryVO) => {
-      try {
-        const currentItems = parseTemplateItemsJson(editor.itemsJson);
-        const useEmptySeed = !editor.id && editor.itemsJson === emptyTemplateEditor.itemsJson;
-        const baseItems = useEmptySeed ? [] : currentItems;
-        if (baseItems.some((item) => Number(item.lexicalPairId) === pair.id)) {
-          setFeedback(`Pair #${pair.id} 已存在于当前模板中。`);
-          setParseError(null);
-          return;
-        }
-
-        const nextItems = [...baseItems, buildTemplateItemFromPair(pair, baseItems.length + 1)];
-        setEditor((state) => ({ ...state, itemsJson: serializeTemplateItems(nextItems) }));
-        setFeedback(`已插入 Pair #${pair.id} 的题目草稿。发布前请继续补齐题型、语境覆盖和选项配置。`);
-        setParseError(null);
-      } catch (error) {
-        setFeedback(null);
-        setParseError(getApiErrorMessage(error, '当前 JSON 无法解析，暂时不能插入词对'));
-      }
+  const createFromTemplateMutation = useMutation({
+    mutationFn: (templateId: number) => diagnosisTemplateService.createDraftFromTemplate(templateId),
+    onSuccess: (draft) => {
+      setFeedback('已生成可编辑草稿。');
+      setErrorMessage(null);
+      navigate(`/teacher/diagnosis-template-drafts/${draft.draftId}${buildDraftEditorSearch(location.search)}`);
     },
-    [editor.id, editor.itemsJson]
-  );
-
-  const copyPairId = React.useCallback(async (pairId: number) => {
-    try {
-      if (!navigator.clipboard) {
-        throw new Error('当前浏览器不支持复制到剪贴板');
-      }
-      await navigator.clipboard.writeText(String(pairId));
-      setFeedback(`Pair #${pairId} 已复制到剪贴板。`);
-      setParseError(null);
-    } catch (error) {
+    onError: (error) => {
       setFeedback(null);
-      setParseError(getApiErrorMessage(error, '复制 Pair #id 失败'));
-    }
-  }, []);
+      setErrorMessage(getApiErrorMessage(error, '生成草稿失败'));
+    },
+  });
+
+  const deleteDraftMutation = useMutation({
+    mutationFn: (draftId: number) => diagnosisTemplateService.deleteDraft(draftId),
+    onSuccess: async () => {
+      setFeedback('草稿已删除。');
+      setErrorMessage(null);
+      await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template-drafts'] });
+    },
+    onError: (error) => {
+      setFeedback(null);
+      setErrorMessage(getApiErrorMessage(error, '删除草稿失败'));
+    },
+  });
 
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
         title="诊断模板"
-        subtitle="保留 JSON 编辑模式，但现在会按后端真实请求契约生成草稿，并在发布前拦截覆盖规则缺失的问题。"
+        subtitle="默认入口现在是结构化草稿工作流：先建草稿，再按 4 步编辑并发布；JSON 只保留在高级模式里作为兜底。"
         actions={
           <div className="flex flex-wrap gap-3">
             <Link
@@ -246,225 +88,153 @@ const TeacherTemplatesPage: React.FC = () => {
             </Link>
             <button
               type="button"
-              onClick={() => {
-                setSelectedId(null);
-                setEditor(emptyTemplateEditor);
-                setParseError(null);
-                setFeedback(null);
-                setPairSearchKeyword('');
-              }}
-              className="btn-liquid px-5 py-3 text-white flex items-center gap-2"
+              onClick={() => createDraftMutation.mutate()}
+              disabled={createDraftMutation.isPending}
+              className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2 disabled:opacity-60"
             >
-              <Plus size={14} /> 新建模板
+              <Plus size={14} />
+              新建草稿
             </button>
           </div>
         }
       />
 
-      <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-8">
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">templates</div>
+      {new URLSearchParams(location.search).get('pairId') && (
+        <div className="rounded-[1.8rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
+          当前带入了词对上下文：创建或打开草稿后会自动定位到“词对选择”步骤，并尝试插入 Pair #
+          {new URLSearchParams(location.search).get('pairId')}。
+        </div>
+      )}
+
+      {feedback && (
+        <div className="rounded-[1.8rem] border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-600 dark:text-emerald-400">
+          {feedback}
+        </div>
+      )}
+      {errorMessage && (
+        <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+          {errorMessage}
+        </div>
+      )}
+
+      <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">drafts</div>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">草稿列表</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">草稿会保存结构化 schema，支持继续编辑、校验和发布。</div>
+          </div>
+
           <div className="space-y-4">
-            {(listQuery.data?.records || []).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setParseError(null);
-                  setFeedback(null);
-                  setSelectedId(item.id);
-                }}
-                className={`w-full text-left rounded-[1.6rem] border p-4 transition-all ${
-                  selectedId === item.id
-                    ? 'border-primary/40 bg-primary/5'
-                    : 'border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-white/5'
-                }`}
+            {draftsQuery.isLoading && (
+              <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+                正在加载草稿...
+              </div>
+            )}
+
+            {(draftsQuery.data?.records || []).map((draft) => (
+              <div
+                key={draft.draftId}
+                className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]"
               >
-                <div className="font-black text-slate-900 dark:text-white">{item.templateName}</div>
-                <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.status} · {item.itemCount} 题 · {item.estimatedDurationMinutes} 分钟</div>
-              </button>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-black text-slate-900 dark:text-white">{draft.templateName}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{draft.description || '无描述'}</div>
+                  </div>
+                  <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+                    {draft.syncState}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
+                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">Draft #{draft.draftId}</span>
+                  {draft.publishedTemplateId && (
+                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">Template #{draft.publishedTemplateId}</span>
+                  )}
+                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">v{draft.version}</span>
+                </div>
+
+                <div className="mt-3 text-xs text-slate-400 dark:text-white/30">最近更新 {formatDateTime(draft.updatedAt)}</div>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/teacher/diagnosis-template-drafts/${draft.draftId}${buildDraftEditorSearch(location.search)}`)}
+                    className="btn-liquid inline-flex items-center gap-2 px-4 py-3 text-white"
+                  >
+                    <FilePenLine size={14} />
+                    继续编辑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteDraftMutation.mutate(draft.draftId)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-rose-500/20 px-4 py-3 text-sm text-rose-500"
+                  >
+                    <Trash2 size={14} />
+                    删除草稿
+                  </button>
+                </div>
+              </div>
             ))}
-            {!listQuery.isLoading && !listQuery.data?.records.length && (
-              <div className="text-sm text-slate-500 dark:text-white/45">当前没有模板。</div>
+
+            {!draftsQuery.isLoading && !(draftsQuery.data?.records || []).length && (
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+                当前还没有草稿。建议先创建一个空白草稿，再按 4 步补齐信息。
+              </div>
             )}
           </div>
         </section>
 
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">editor</div>
-          <div className="space-y-5">
-            <input
-              value={editor.templateName}
-              onChange={(event) => setEditor((state) => ({ ...state, templateName: event.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
-              placeholder="模板名称"
-            />
-            <textarea
-              value={editor.description}
-              onChange={(event) => setEditor((state) => ({ ...state, description: event.target.value }))}
-              rows={3}
-              className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
-              placeholder="模板描述"
-            />
-            <div className="grid md:grid-cols-3 gap-4">
-              <select
-                value={editor.status}
-                onChange={(event) => setEditor((state) => ({ ...state, status: normalizeTemplateStatus(event.target.value) }))}
-                className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
-              >
-                {DIAGNOSIS_TEMPLATE_STATUS_VALUES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={editor.estimatedDurationMinutes}
-                onChange={(event) => setEditor((state) => ({ ...state, estimatedDurationMinutes: Number(event.target.value) }))}
-                className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
-                placeholder="时长"
-              />
-              <input
-                value={editor.scoringVersion}
-                onChange={(event) => setEditor((state) => ({ ...state, scoringVersion: event.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
-                placeholder="RULE_V1"
-              />
-            </div>
+        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">published</div>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">已发布模板</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">发布模板不再直接原地编辑，先生成草稿副本再修改。</div>
+          </div>
 
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">检索词对并插入题目骨架</div>
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    插入时会自动带上 lexicalPairId、默认语境支持、排序和一组基础选项。插入结果只保证是可编辑草稿，不保证可直接发布。
-                  </div>
-                </div>
-                <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                  {parsedItemCount === null ? 'JSON 待修正' : `当前 ${parsedItemCount} 题`}
-                </div>
-              </div>
-
-              <div className="relative mt-4">
-                <Search
-                  size={16}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30"
-                />
-                <input
-                  value={pairSearchKeyword}
-                  onChange={(event) => setPairSearchKeyword(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 pl-11 pr-4 py-3"
-                  placeholder="搜索英文、法文或中文释义"
-                />
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {pairSearchQuery.isLoading && (
-                  <div className="text-sm text-slate-500 dark:text-white/45">正在加载可引用的词对...</div>
-                )}
-                {!pairSearchQuery.isLoading &&
-                  (pairSearchQuery.data?.records || []).map((pair) => (
-                    <div
-                      key={pair.id}
-                      className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/5"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="font-black text-slate-900 dark:text-white">
-                            {pair.englishWord} / {pair.frenchWord}
-                          </div>
-                          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                            Pair #{pair.id} · {pair.chineseGloss}
-                          </div>
-                          <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
-                            {pair.lexicalPairType} · {pair.riskLevel} · {pair.defaultContextSupport}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void copyPairId(pair.id);
-                            }}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-white/70"
-                          >
-                            <Copy size={12} />
-                            复制 Pair #id
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertPairIntoTemplate(pair)}
-                            className="btn-liquid px-4 py-2 text-xs text-white"
-                          >
-                            插入题目骨架
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                {!pairSearchQuery.isLoading && !pairSearchQuery.data?.records.length && (
-                  <div className="text-sm text-slate-500 dark:text-white/45">
-                    没有匹配词对。你可以换关键词，或先去词对管理确认导入是否完成。
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-sm font-bold text-slate-900 dark:text-white">题目 JSON</div>
-                <div className="text-xs text-slate-500 dark:text-white/45">
-                  {parsedItemCount === null ? '当前 JSON 无法解析' : `当前共 ${parsedItemCount} 条 item`}
-                </div>
-              </div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                保存时会直接提交这个数组。当前 scoringProfile 字段已经切到 `formulaKey / pairWeight / riskAmplifier / maxReactionTimeMs`。
-              </div>
-              <textarea
-                value={editor.itemsJson}
-                onChange={(event) => setEditor((state) => ({ ...state, itemsJson: event.target.value }))}
-                rows={20}
-                className="mt-4 w-full rounded-3xl border border-slate-200 dark:border-white/10 bg-slate-950 text-slate-100 px-4 py-4 font-mono text-sm"
-              />
-            </div>
-            {editor.status === 'PUBLISHED' && publishValidationErrors.length > 0 && (
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-                <div className="font-bold">当前模板还不能发布：</div>
-                <div className="mt-2 whitespace-pre-line">{publishValidationErrors.join('\n')}</div>
+          <div className="space-y-4">
+            {templatesQuery.isLoading && (
+              <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+                正在加载模板...
               </div>
             )}
-            {feedback && <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">{feedback}</div>}
-            {parseError && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">{parseError}</div>}
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+
+            {(templatesQuery.data?.records || []).map((template) => (
+              <div
+                key={template.id}
+                className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]"
               >
-                {saveMutation.isPending ? '保存中...' : editor.id ? '更新模板' : '创建模板'}
-              </button>
-              {editor.id && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const templateId = editor.id;
-                    if (!templateId) {
-                      return;
-                    }
-                    if (!window.confirm('确认删除该模板？如果已有学生使用，系统会自动改为归档。')) {
-                      return;
-                    }
-                    deleteMutation.mutate(templateId);
-                  }}
-                  disabled={deleteMutation.isPending}
-                  className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-6 py-3 text-rose-500 disabled:opacity-60"
-                >
-                  {deleteMutation.isPending ? '处理中...' : '删除模板'}
-                </button>
-              )}
-            </div>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-black text-slate-900 dark:text-white">{template.templateName}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{template.description || '无描述'}</div>
+                  </div>
+                  <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+                    {template.status}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
+                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{template.itemCount} 个题项</span>
+                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{template.estimatedDurationMinutes} 分钟</span>
+                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{template.scoringVersion}</span>
+                </div>
+
+                <div className="mt-3 text-xs text-slate-400 dark:text-white/30">最近更新 {formatDateTime(template.updatedAt)}</div>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => createFromTemplateMutation.mutate(template.id)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                  >
+                    <FilePenLine size={14} />
+                    基于此模板创建草稿
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       </div>

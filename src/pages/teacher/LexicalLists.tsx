@@ -1,21 +1,32 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Check, Plus, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowDown, ArrowUp, Check, Link as LinkIcon, Plus, Search, Trash2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
-import type { AddLexicalListItemsResultVO } from '@/lib/contracts';
+import { formatDateTime } from '@/lib/format';
+import type {
+  AddLexicalListItemsResultVO,
+  LexicalListDetailVO,
+  LexicalListItemVO,
+  LexicalPairDetailVO,
+  LexicalPairSummaryVO,
+  UpdateLexicalListRequest,
+} from '@/lib/contracts';
 import { lexicalListService, lexicalPairService } from '@/lib/services';
 
-function parsePairIdsCsv(value: string): number[] {
-  return Array.from(
-    new Set(
-      value
-        .split(',')
-        .map((item) => Number(item.trim()))
-        .filter((item) => Number.isFinite(item) && item > 0)
-    )
-  );
-}
+type ListEditorState = UpdateLexicalListRequest;
+
+const emptyCreateForm = {
+  listName: '',
+  description: '',
+  active: true,
+};
+
+const emptyEditorForm: ListEditorState = {
+  listName: '',
+  description: '',
+  active: true,
+};
 
 export function formatAddLexicalListItemsFeedback(result: AddLexicalListItemsResultVO): string {
   const skippedCount = result.skippedPairIds.length;
@@ -24,26 +35,80 @@ export function formatAddLexicalListItemsFeedback(result: AddLexicalListItemsRes
     : `已添加 ${result.addedCount} 个词对。`;
 }
 
+function formatPairLabel(englishWord: string, frenchWord: string): string {
+  return `${englishWord} / ${frenchWord}`;
+}
+
+function moveOrderedItemIds(detail: LexicalListDetailVO, itemId: number, delta: -1 | 1): number[] | null {
+  const currentIndex = detail.items.findIndex((item) => item.itemId === itemId);
+  if (currentIndex < 0) {
+    return null;
+  }
+  const nextIndex = currentIndex + delta;
+  if (nextIndex < 0 || nextIndex >= detail.items.length) {
+    return null;
+  }
+  const orderedIds = detail.items.map((item) => item.itemId);
+  const [targetId] = orderedIds.splice(currentIndex, 1);
+  orderedIds.splice(nextIndex, 0, targetId);
+  return orderedIds;
+}
+
 const TeacherLexicalListsPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pairIdFromQuery = Number(searchParams.get('pairId') || '0');
+  const hasPairContext = Number.isFinite(pairIdFromQuery) && pairIdFromQuery > 0;
+
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
-  const [newListName, setNewListName] = React.useState('');
-  const [newListDescription, setNewListDescription] = React.useState('');
-  const [pairIdsCsv, setPairIdsCsv] = React.useState('');
+  const [listKeyword, setListKeyword] = React.useState('');
+  const [itemKeyword, setItemKeyword] = React.useState('');
+  const [itemPageNo, setItemPageNo] = React.useState(1);
   const [pairSearchKeyword, setPairSearchKeyword] = React.useState('');
   const [selectedPairIds, setSelectedPairIds] = React.useState<number[]>([]);
+  const [createForm, setCreateForm] = React.useState(emptyCreateForm);
+  const [editorForm, setEditorForm] = React.useState<ListEditorState>(emptyEditorForm);
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   const listsQuery = useQuery({
-    queryKey: ['lexical-lists'],
-    queryFn: ({ signal }) => lexicalListService.pageQuery({ pageNo: 1, pageSize: 50 }, { signal }),
+    queryKey: ['lexical-lists', listKeyword],
+    queryFn: ({ signal }) =>
+      lexicalListService.pageQuery(
+        {
+          pageNo: 1,
+          pageSize: 100,
+          keyword: listKeyword.trim() || undefined,
+        },
+        { signal }
+      ),
   });
 
   const detailQuery = useQuery({
     queryKey: ['lexical-list-detail', selectedId],
     queryFn: ({ signal }) => lexicalListService.getDetail(selectedId as number, { signal }),
-    enabled: !!selectedId,
+    enabled: selectedId !== null,
+  });
+
+  const itemsQuery = useQuery({
+    queryKey: ['lexical-list-items', selectedId, itemPageNo, itemKeyword],
+    queryFn: ({ signal }) =>
+      lexicalListService.pageItems(
+        selectedId as number,
+        {
+          pageNo: itemPageNo,
+          pageSize: 8,
+          keyword: itemKeyword.trim() || undefined,
+        },
+        { signal }
+      ),
+    enabled: selectedId !== null,
+  });
+
+  const pairFocusQuery = useQuery({
+    queryKey: ['lexical-list-focus-pair', pairIdFromQuery],
+    queryFn: ({ signal }) => lexicalPairService.getDetail(pairIdFromQuery, { signal }),
+    enabled: hasPairContext,
   });
 
   const pairSearchQuery = useQuery({
@@ -58,46 +123,92 @@ const TeacherLexicalListsPage: React.FC = () => {
         },
         { signal }
       ),
-    enabled: !!selectedId,
+    enabled: selectedId !== null,
   });
 
-  const manualPairIds = React.useMemo(() => parsePairIdsCsv(pairIdsCsv), [pairIdsCsv]);
   const existingPairIds = React.useMemo(
     () => detailQuery.data?.items.map((item) => item.lexicalPairId) || [],
     [detailQuery.data?.items]
   );
   const existingPairIdSet = React.useMemo(() => new Set(existingPairIds), [existingPairIds]);
-  const pendingAddPairIds = React.useMemo(
-    () =>
-      Array.from(new Set([...manualPairIds, ...selectedPairIds])).filter((pairId) => !existingPairIdSet.has(pairId)),
-    [existingPairIdSet, manualPairIds, selectedPairIds]
-  );
-  const skippedPairIds = React.useMemo(
-    () =>
-      Array.from(new Set([...manualPairIds, ...selectedPairIds])).filter((pairId) => existingPairIdSet.has(pairId)),
-    [existingPairIdSet, manualPairIds, selectedPairIds]
+
+  const candidatePairs = React.useMemo(() => {
+    const byId = new Map<number, LexicalPairDetailVO | LexicalPairSummaryVO>();
+    if (pairFocusQuery.data) {
+      byId.set(pairFocusQuery.data.id, pairFocusQuery.data);
+    }
+    for (const pair of pairSearchQuery.data?.records || []) {
+      byId.set(pair.id, pair);
+    }
+    return Array.from(byId.values());
+  }, [pairFocusQuery.data, pairSearchQuery.data?.records]);
+
+  const pendingPairIds = React.useMemo(
+    () => selectedPairIds.filter((pairId) => !existingPairIdSet.has(pairId)),
+    [existingPairIdSet, selectedPairIds]
   );
 
-  React.useEffect(() => {
-    setSelectedPairIds((current) => current.filter((pairId) => !existingPairIdSet.has(pairId)));
-  }, [existingPairIdSet]);
+  const totalItemPages = React.useMemo(() => {
+    if (!itemsQuery.data) {
+      return 1;
+    }
+    return Math.max(1, Math.ceil(itemsQuery.data.total / itemsQuery.data.pageSize));
+  }, [itemsQuery.data]);
 
   React.useEffect(() => {
-    setPairIdsCsv('');
+    const availableIds = new Set((listsQuery.data?.records || []).map((item) => item.id));
+    if (selectedId !== null && availableIds.has(selectedId)) {
+      return;
+    }
+    const firstId = listsQuery.data?.records?.[0]?.id ?? null;
+    setSelectedId(firstId);
+  }, [listsQuery.data?.records, selectedId]);
+
+  React.useEffect(() => {
+    if (!detailQuery.data) {
+      return;
+    }
+    setEditorForm({
+      listName: detailQuery.data.listName,
+      description: detailQuery.data.description || '',
+      active: detailQuery.data.active,
+    });
+  }, [detailQuery.data]);
+
+  React.useEffect(() => {
+    setItemPageNo(1);
+    setItemKeyword('');
     setPairSearchKeyword('');
     setSelectedPairIds([]);
+    setFeedback(null);
+    setErrorMessage(null);
   }, [selectedId]);
 
+  React.useEffect(() => {
+    if (!hasPairContext || selectedId === null || !pairFocusQuery.data) {
+      return;
+    }
+    if (existingPairIdSet.has(pairFocusQuery.data.id)) {
+      return;
+    }
+    setSelectedPairIds((current) =>
+      current.includes(pairFocusQuery.data.id) ? current : [...current, pairFocusQuery.data.id]
+    );
+  }, [existingPairIdSet, hasPairContext, pairFocusQuery.data, selectedId]);
+
   const createMutation = useMutation({
-    mutationFn: () => lexicalListService.create({ listName: newListName, description: newListDescription, active: true }),
+    mutationFn: () =>
+      lexicalListService.create({
+        listName: createForm.listName.trim(),
+        description: createForm.description.trim() || undefined,
+        active: createForm.active,
+      }),
     onSuccess: async (id) => {
+      setCreateForm(emptyCreateForm);
       setSelectedId(id);
-      setNewListName('');
-      setNewListDescription('');
       setFeedback('词表已创建。现在可以直接搜索词对并加入当前词表。');
       setErrorMessage(null);
       await queryClient.invalidateQueries({ queryKey: ['lexical-lists'] });
-      await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', id] });
     },
     onError: (error) => {
       setFeedback(null);
@@ -105,18 +216,57 @@ const TeacherLexicalListsPage: React.FC = () => {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: () => lexicalListService.update(selectedId as number, editorForm),
+    onSuccess: async () => {
+      setFeedback('词表信息已更新。');
+      setErrorMessage(null);
+      await queryClient.invalidateQueries({ queryKey: ['lexical-lists'] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', selectedId] });
+    },
+    onError: (error) => {
+      setFeedback(null);
+      setErrorMessage(error instanceof Error ? error.message : '词表更新失败');
+    },
+  });
+
+  const deleteListMutation = useMutation({
+    mutationFn: () => lexicalListService.delete(selectedId as number),
+    onSuccess: async () => {
+      const deletedId = selectedId;
+      setFeedback('词表已删除。');
+      setErrorMessage(null);
+      setSelectedId(null);
+      await queryClient.invalidateQueries({ queryKey: ['lexical-lists'] });
+      if (deletedId !== null) {
+        await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', deletedId] });
+        await queryClient.invalidateQueries({ queryKey: ['lexical-list-items', deletedId] });
+      }
+    },
+    onError: (error) => {
+      setFeedback(null);
+      setErrorMessage(error instanceof Error ? error.message : '词表删除失败');
+    },
+  });
+
   const addItemsMutation = useMutation({
     mutationFn: () =>
       lexicalListService.addItems(selectedId as number, {
-        lexicalPairIds: pendingAddPairIds,
+        lexicalPairIds: pendingPairIds,
       }),
     onSuccess: async (result) => {
-      setPairIdsCsv('');
       setSelectedPairIds([]);
+      setPairSearchKeyword('');
       setFeedback(formatAddLexicalListItemsFeedback(result));
       setErrorMessage(null);
-      await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', selectedId] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-lists'] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', selectedId] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-list-items', selectedId] });
+      if (hasPairContext) {
+        const nextSearchParams = new URLSearchParams(searchParams);
+        nextSearchParams.delete('pairId');
+        setSearchParams(nextSearchParams, { replace: true });
+      }
     },
     onError: (error) => {
       setFeedback(null);
@@ -129,12 +279,30 @@ const TeacherLexicalListsPage: React.FC = () => {
     onSuccess: async () => {
       setFeedback('词对已从当前词表移除。');
       setErrorMessage(null);
-      await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', selectedId] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-lists'] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', selectedId] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-list-items', selectedId] });
     },
     onError: (error) => {
       setFeedback(null);
       setErrorMessage(error instanceof Error ? error.message : '词对删除失败');
+    },
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: (orderedItemIds: number[]) =>
+      lexicalListService.reorderItems(selectedId as number, {
+        orderedItemIds,
+      }),
+    onSuccess: async () => {
+      setFeedback('词表排序已更新。');
+      setErrorMessage(null);
+      await queryClient.invalidateQueries({ queryKey: ['lexical-list-detail', selectedId] });
+      await queryClient.invalidateQueries({ queryKey: ['lexical-list-items', selectedId] });
+    },
+    onError: (error) => {
+      setFeedback(null);
+      setErrorMessage(error instanceof Error ? error.message : '词表排序保存失败');
     },
   });
 
@@ -152,204 +320,322 @@ const TeacherLexicalListsPage: React.FC = () => {
     [existingPairIdSet]
   );
 
+  const moveItem = React.useCallback(
+    (item: LexicalListItemVO, delta: -1 | 1) => {
+      if (!detailQuery.data) {
+        return;
+      }
+      const orderedItemIds = moveOrderedItemIds(detailQuery.data, item.itemId, delta);
+      if (!orderedItemIds) {
+        return;
+      }
+      reorderMutation.mutate(orderedItemIds);
+    },
+    [detailQuery.data, reorderMutation]
+  );
+
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
         title="词表管理"
-        subtitle="当前词表仍通过 lexicalPairId 建立关联，但现在可以直接搜索词对并批量加入。手动输入 Pair #id 仍作为兜底入口保留。"
+        subtitle="词表已经拆成列表、详情和可执行动作。优先通过搜索加入词对，来自词对工作台的条目可以直接带入当前词表。"
         actions={
           <Link
             to="/teacher/lexical-pairs"
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
           >
-            <BookOpen size={14} />
+            <LinkIcon size={14} />
             去词对管理
           </Link>
         }
       />
 
-      <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-8">
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">lists</div>
+      {(feedback || errorMessage) && (
+        <div
+          className={`rounded-[1.8rem] border px-5 py-4 text-sm ${
+            errorMessage
+              ? 'border-rose-500/20 bg-rose-500/5 text-rose-500'
+              : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
+          }`}
+        >
+          {errorMessage || feedback}
+        </div>
+      )}
+
+      <div className="grid gap-8 xl:grid-cols-[0.82fr_1.18fr]">
+        <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">lists</div>
+              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">词表列表</div>
+            </div>
+            <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+              共 {listsQuery.data?.total ?? 0} 个
+            </div>
+          </div>
+
+          <div className="relative">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30"
+            />
+            <input
+              value={listKeyword}
+              onChange={(event) => setListKeyword(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white/70 py-3 pl-11 pr-4 dark:border-white/10 dark:bg-white/5"
+              placeholder="搜索词表名称"
+            />
+          </div>
+
           <div className="space-y-4">
             {(listsQuery.data?.records || []).map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => {
-                  setFeedback(null);
-                  setErrorMessage(null);
-                  setSelectedId(item.id);
-                }}
-                className={`w-full text-left rounded-[1.6rem] border p-4 transition-all ${
+                onClick={() => setSelectedId(item.id)}
+                className={`w-full rounded-[1.7rem] border p-4 text-left transition-all ${
                   selectedId === item.id
                     ? 'border-primary/40 bg-primary/5'
-                    : 'border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-white/5'
+                    : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
                 }`}
               >
-                <div className="font-black text-slate-900 dark:text-white">{item.listName}</div>
-                <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.itemCount} 个词对 · {item.ownerDisplayName || item.ownerUserId}</div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-black text-slate-900 dark:text-white">{item.listName}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      {item.itemCount} 个词对 · {item.active ? '启用中' : '已停用'}
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-400 dark:text-white/30">{formatDateTime(item.updatedAt || item.createdAt)}</div>
+                </div>
               </button>
             ))}
+
+            {!listsQuery.isLoading && !(listsQuery.data?.records || []).length && (
+              <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/55 px-5 py-6 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+                当前还没有词表。先创建一个词表，再把词对接到模板或训练链路里。
+              </div>
+            )}
           </div>
 
-          <div className="mt-8 space-y-4">
-            <input value={newListName} onChange={(event) => setNewListName(event.target.value)} className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3" placeholder="新词表名称" />
-            <textarea value={newListDescription} onChange={(event) => setNewListDescription(event.target.value)} rows={3} className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3" placeholder="词表描述" />
-            <button type="button" onClick={() => createMutation.mutate()} className="btn-liquid px-5 py-3 text-white flex items-center gap-2">
-              <Plus size={14} /> 创建词表
+          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
+            <div>
+              <div className="text-sm font-bold text-slate-900 dark:text-white">新建词表</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                词表创建完成后，可直接从右侧搜索词对加入，也可以接收词对工作台带来的条目。
+              </div>
+            </div>
+            <input
+              value={createForm.listName}
+              onChange={(event) => setCreateForm((current) => ({ ...current, listName: event.target.value }))}
+              className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+              placeholder="词表名称"
+            />
+            <textarea
+              value={createForm.description}
+              onChange={(event) => setCreateForm((current) => ({ ...current, description: event.target.value }))}
+              rows={3}
+              className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+              placeholder="词表描述"
+            />
+            <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
+              <input
+                type="checkbox"
+                checked={createForm.active}
+                onChange={(event) => setCreateForm((current) => ({ ...current, active: event.target.checked }))}
+              />
+              创建后立即启用
+            </label>
+            <button
+              type="button"
+              onClick={() => createMutation.mutate()}
+              disabled={!createForm.listName.trim() || createMutation.isPending}
+              className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
+            >
+              <Plus size={14} />
+              {createMutation.isPending ? '创建中...' : '创建词表'}
             </button>
           </div>
         </section>
 
         <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">detail</div>
           {detailQuery.data ? (
-            <div className="space-y-6">
-              <div>
-                <div className="text-3xl font-black text-slate-900 dark:text-white">{detailQuery.data.listName}</div>
-                <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{detailQuery.data.description || '无描述'}</div>
+            <div className="space-y-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">detail</div>
+                  <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{detailQuery.data.listName}</div>
+                  <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+                    创建于 {formatDateTime(detailQuery.data.createdAt)} · 最近更新 {formatDateTime(detailQuery.data.updatedAt || detailQuery.data.createdAt)}
+                  </div>
+                </div>
+                <div className="rounded-full border border-slate-200/70 px-4 py-2 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
+                  {detailQuery.data.itemCount} 个词对
+                </div>
               </div>
 
-              {feedback && (
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
-                  {feedback}
-                </div>
-              )}
-              {errorMessage && (
-                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                  {errorMessage}
-                </div>
-              )}
-
-              <div className="rounded-[1.8rem] border border-slate-200/70 dark:border-white/10 p-5 bg-white/60 dark:bg-white/5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white">添加词对</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                      先在这里检索词对，再批量加入当前词表。搜索不到时，仍可直接输入 lexicalPairId。
-                    </div>
-                  </div>
-                  <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                    待添加 {pendingAddPairIds.length} 个
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/5">
-                  <div className="relative">
-                    <Search
-                      size={16}
-                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30"
-                    />
-                    <input
-                      value={pairSearchKeyword}
-                      onChange={(event) => setPairSearchKeyword(event.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 pl-11 pr-4 py-3"
-                      placeholder="搜索英文、法文或中文释义"
-                    />
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {pairSearchQuery.isLoading && (
-                      <div className="text-sm text-slate-500 dark:text-white/45">正在加载可选词对...</div>
-                    )}
-                    {!pairSearchQuery.isLoading &&
-                      (pairSearchQuery.data?.records || []).map((pair) => {
-                        const isSelected = selectedPairIds.includes(pair.id);
-                        const isExisting = existingPairIdSet.has(pair.id);
-                        return (
-                          <button
-                            key={pair.id}
-                            type="button"
-                            onClick={() => togglePairSelection(pair.id)}
-                            disabled={isExisting}
-                            className={`w-full rounded-[1.4rem] border p-4 text-left transition-all ${
-                              isExisting
-                                ? 'cursor-not-allowed border-slate-200/70 bg-slate-100/70 opacity-60 dark:border-white/10 dark:bg-white/5'
-                                : isSelected
-                                  ? 'border-primary/40 bg-primary/5'
-                                  : 'border-slate-200/70 bg-white/70 dark:border-white/10 dark:bg-white/5'
-                            }`}
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <div className="font-black text-slate-900 dark:text-white">
-                                  {pair.englishWord} / {pair.frenchWord}
-                                </div>
-                                <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                                  Pair #{pair.id} · {pair.chineseGloss}
-                                </div>
-                                <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
-                                  {pair.lexicalPairType} · {pair.riskLevel} · {pair.defaultContextSupport}
-                                </div>
-                              </div>
-                              <span
-                                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold ${
-                                  isExisting
-                                    ? 'border border-slate-200/70 text-slate-400 dark:border-white/10 dark:text-white/30'
-                                    : isSelected
-                                      ? 'bg-primary text-white'
-                                      : 'border border-slate-200/70 text-slate-600 dark:border-white/10 dark:text-white/70'
-                                }`}
-                              >
-                                {isSelected && <Check size={12} />}
-                                {isExisting ? '已在词表' : isSelected ? '已选择' : '选择'}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    {!pairSearchQuery.isLoading && !pairSearchQuery.data?.records.length && (
-                      <div className="text-sm text-slate-500 dark:text-white/45">
-                        没有匹配结果。可以换关键词，或在下方直接输入 Pair #id。
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">manual ids</div>
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    兼容旧流程：直接输入 lexicalPairId，逗号分隔，例如 `12, 18, 21`。
-                  </div>
+              <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
+                <div className="text-sm font-bold text-slate-900 dark:text-white">词表信息</div>
+                <div className="grid gap-4 md:grid-cols-2">
                   <input
-                    value={pairIdsCsv}
-                    onChange={(event) => setPairIdsCsv(event.target.value)}
-                    className="mt-3 w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
-                    placeholder="1, 2, 3"
+                    value={editorForm.listName}
+                    onChange={(event) => setEditorForm((current) => ({ ...current, listName: event.target.value }))}
+                    className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    placeholder="词表名称"
                   />
+                  <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+                    <input
+                      type="checkbox"
+                      checked={editorForm.active}
+                      onChange={(event) => setEditorForm((current) => ({ ...current, active: event.target.checked }))}
+                    />
+                    词表启用
+                  </label>
                 </div>
-
-                {!!pendingAddPairIds.length && (
-                  <div className="mt-4 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/65">
-                    即将添加 {pendingAddPairIds.map((pairId) => `Pair #${pairId}`).join('、')}
-                  </div>
-                )}
-
-                {!!skippedPairIds.length && (
-                  <div className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-                    这些词对已在当前词表中，提交时会自动跳过：{skippedPairIds.map((pairId) => `Pair #${pairId}`).join('、')}
-                  </div>
-                )}
-
-                <div className="mt-4 flex gap-3">
+                <textarea
+                  value={editorForm.description || ''}
+                  onChange={(event) => setEditorForm((current) => ({ ...current, description: event.target.value }))}
+                  rows={3}
+                  className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                  placeholder="词表描述"
+                />
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => addItemsMutation.mutate()}
-                    disabled={!pendingAddPairIds.length || addItemsMutation.isPending}
+                    onClick={() => updateMutation.mutate()}
+                    disabled={!editorForm.listName.trim() || updateMutation.isPending}
                     className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
                   >
-                    {addItemsMutation.isPending ? '添加中...' : `添加词对${pendingAddPairIds.length ? ` (${pendingAddPairIds.length})` : ''}`}
+                    {updateMutation.isPending ? '保存中...' : '保存词表'}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setPairIdsCsv('');
-                      setPairSearchKeyword('');
-                      setSelectedPairIds([]);
-                      setFeedback(null);
-                      setErrorMessage(null);
+                      if (!window.confirm(`确认删除词表“${detailQuery.data.listName}”吗？此操作不可撤销。`)) {
+                        return;
+                      }
+                      deleteListMutation.mutate();
                     }}
+                    disabled={deleteListMutation.isPending}
+                    className="rounded-2xl border border-rose-500/20 px-5 py-3 text-sm text-rose-500 disabled:opacity-60"
+                  >
+                    <Trash2 size={14} className="mr-2 inline-block" />
+                    {deleteListMutation.isPending ? '删除中...' : '删除词表'}
+                  </button>
+                </div>
+              </div>
+
+              {pairFocusQuery.data && (
+                <div className="rounded-[1.8rem] border border-sky-500/20 bg-sky-500/5 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-black text-sky-800 dark:text-sky-200">来自词对工作台的待加入词对</div>
+                      <div className="mt-2 text-sm text-sky-700 dark:text-sky-300">
+                        {formatPairLabel(pairFocusQuery.data.englishWord, pairFocusQuery.data.frenchWord)} · {pairFocusQuery.data.chineseGloss}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => togglePairSelection(pairFocusQuery.data.id)}
+                      disabled={existingPairIdSet.has(pairFocusQuery.data.id)}
+                      className="rounded-2xl border border-sky-500/20 px-4 py-3 text-sm text-sky-700 disabled:opacity-60 dark:text-sky-300"
+                    >
+                      {existingPairIdSet.has(pairFocusQuery.data.id) ? '已在词表中' : '加入待选'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5 space-y-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">加入词对</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      直接搜索词对并加入当前词表，不再要求手工记录 Pair ID。
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+                    待加入 {pendingPairIds.length} 个
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30"
+                  />
+                  <input
+                    value={pairSearchKeyword}
+                    onChange={(event) => setPairSearchKeyword(event.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white/70 py-3 pl-11 pr-4 dark:border-white/10 dark:bg-white/5"
+                    placeholder="搜索英文、法文或中文释义"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  {pairSearchQuery.isLoading && (
+                    <div className="text-sm text-slate-500 dark:text-white/45">正在加载可选词对...</div>
+                  )}
+                  {!pairSearchQuery.isLoading &&
+                    candidatePairs.map((pair) => {
+                      const isSelected = selectedPairIds.includes(pair.id);
+                      const isExisting = existingPairIdSet.has(pair.id);
+                      return (
+                        <button
+                          key={pair.id}
+                          type="button"
+                          onClick={() => togglePairSelection(pair.id)}
+                          disabled={isExisting}
+                          className={`w-full rounded-[1.5rem] border p-4 text-left transition-all ${
+                            isExisting
+                              ? 'cursor-not-allowed border-slate-200/70 bg-slate-100/70 opacity-60 dark:border-white/10 dark:bg-white/5'
+                              : isSelected
+                                ? 'border-primary/40 bg-primary/5'
+                                : 'border-slate-200/70 bg-white/70 dark:border-white/10 dark:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="font-black text-slate-900 dark:text-white">
+                                {formatPairLabel(pair.englishWord, pair.frenchWord)}
+                              </div>
+                              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{pair.chineseGloss}</div>
+                            </div>
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold ${
+                                isExisting
+                                  ? 'border border-slate-200/70 text-slate-400 dark:border-white/10 dark:text-white/30'
+                                  : isSelected
+                                    ? 'bg-primary text-white'
+                                    : 'border border-slate-200/70 text-slate-600 dark:border-white/10 dark:text-white/70'
+                              }`}
+                            >
+                              {isSelected && <Check size={12} />}
+                              {isExisting ? '已在词表' : isSelected ? '已选择' : '选择'}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  {!pairSearchQuery.isLoading && !candidatePairs.length && (
+                    <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white/55 px-4 py-5 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+                      当前没有匹配词对，换个关键词后再试。
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => addItemsMutation.mutate()}
+                    disabled={!pendingPairIds.length || addItemsMutation.isPending}
+                    className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
+                  >
+                    {addItemsMutation.isPending ? '添加中...' : `加入词表${pendingPairIds.length ? ` (${pendingPairIds.length})` : ''}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPairIds([])}
                     className="rounded-2xl border border-slate-200/70 px-5 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/70"
                   >
                     清空待选
@@ -358,28 +644,120 @@ const TeacherLexicalListsPage: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                {detailQuery.data.items.map((item) => (
-                  <div key={item.itemId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                          Pair #{item.lexicalPairId} · 排序 {item.sortOrder}
-                        </div>
-                      </div>
-                      <button type="button" onClick={() => deleteItemMutation.mutate(item.itemId)} className="rounded-full border border-rose-500/20 px-4 py-2 text-sm text-rose-500">
-                        删除
-                      </button>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">词表条目</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      支持按关键词筛选、移除条目，并对当前词表顺序做显式调整。
                     </div>
                   </div>
-                ))}
-                {!detailQuery.data.items.length && (
-                  <div className="text-sm text-slate-500 dark:text-white/45">当前词表还没有词对。</div>
+                  <div className="flex flex-wrap gap-3">
+                    <input
+                      value={itemKeyword}
+                      onChange={(event) => {
+                        setItemKeyword(event.target.value);
+                        setItemPageNo(1);
+                      }}
+                      className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-white/5"
+                      placeholder="筛选当前词表条目"
+                    />
+                  </div>
+                </div>
+
+                {(itemsQuery.data?.records || []).map((item) => {
+                  const allItems = detailQuery.data.items;
+                  const itemIndex = allItems.findIndex((current) => current.itemId === item.itemId);
+                  const canMoveUp = itemIndex > 0;
+                  const canMoveDown = itemIndex >= 0 && itemIndex < allItems.length - 1;
+                  return (
+                    <div
+                      key={item.itemId}
+                      className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="font-black text-slate-900 dark:text-white">
+                            {formatPairLabel(item.englishWord, item.frenchWord)}
+                          </div>
+                          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                            {item.chineseGloss} · 排序 {item.sortOrder}
+                          </div>
+                          <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
+                            {item.lexicalPairType} · {item.riskLevel} · {item.defaultContextSupport}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            to={`/teacher/lexical-pairs/${item.lexicalPairId}/edit`}
+                            className="rounded-2xl border border-slate-200/70 px-4 py-2 text-sm text-slate-600 dark:border-white/10 dark:text-white/70"
+                          >
+                            查看词对
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => moveItem(item, -1)}
+                            disabled={!canMoveUp || reorderMutation.isPending}
+                            className="rounded-2xl border border-slate-200/70 px-3 py-2 text-sm text-slate-600 disabled:opacity-40 dark:border-white/10 dark:text-white/70"
+                          >
+                            <ArrowUp size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveItem(item, 1)}
+                            disabled={!canMoveDown || reorderMutation.isPending}
+                            className="rounded-2xl border border-slate-200/70 px-3 py-2 text-sm text-slate-600 disabled:opacity-40 dark:border-white/10 dark:text-white/70"
+                          >
+                            <ArrowDown size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteItemMutation.mutate(item.itemId)}
+                            disabled={deleteItemMutation.isPending}
+                            className="rounded-2xl border border-rose-500/20 px-4 py-2 text-sm text-rose-500 disabled:opacity-60"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {!itemsQuery.isLoading && !(itemsQuery.data?.records || []).length && (
+                  <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/55 px-5 py-6 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+                    当前词表还没有符合筛选条件的条目。
+                  </div>
                 )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+                  <div>
+                    第 {itemsQuery.data?.pageNo ?? 1} / {totalItemPages} 页 · 共 {itemsQuery.data?.total ?? 0} 条
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setItemPageNo((current) => Math.max(1, current - 1))}
+                      disabled={itemPageNo <= 1}
+                      className="rounded-2xl border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+                    >
+                      上一页
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItemPageNo((current) => Math.min(totalItemPages, current + 1))}
+                      disabled={itemPageNo >= totalItemPages}
+                      className="rounded-2xl border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
+                    >
+                      下一页
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-slate-500 dark:text-white/45">选择左侧词表查看详情。</div>
+            <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/55 px-6 py-10 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+              先从左侧选择词表，或者新建一个词表后再开始维护条目。
+            </div>
           )}
         </section>
       </div>

@@ -289,7 +289,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
 
   const usersQuery = useQuery({
     queryKey: ['admin-users-for-import-history'],
-    queryFn: ({ signal }) => adminService.listUsers({ signal }),
+    queryFn: ({ signal }) => adminService.listUsers({ pageNo: 1, pageSize: 200 }, { signal }),
     enabled: isAdmin,
     staleTime: 5 * 60 * 1000,
   });
@@ -557,7 +557,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                 type="select"
                 options={[
                   { value: '', label: '全部操作者' },
-                  ...((usersQuery.data || []).map((user) => ({
+                  ...((usersQuery.data?.records || []).map((user) => ({
                     value: String(user.id),
                     label: user.displayName || user.username,
                   })) || []),

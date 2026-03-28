@@ -13,7 +13,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { saveBlob } from '@/lib/api';
@@ -24,11 +24,12 @@ import type {
   LexicalPairUpsertRequest,
 } from '@/lib/contracts';
 import { fieldLabel, translateImportMessage } from '@/lib/lexical-import';
-import { lexicalPairService } from '@/lib/services';
+import { adminService, lexicalPairService } from '@/lib/services';
 import { useAuthStore } from '@/store';
 import LexicalImportCenter from './LexicalImportCenter';
 
 export type LexicalPairsWorkspaceMode = 'teacher' | 'admin';
+export type LexicalPairsWorkspaceView = 'all' | 'list' | 'editor' | 'imports';
 
 type ExampleEditorState = {
   sortOrder: number;
@@ -103,17 +104,17 @@ const workspaceMeta: Record<
 > = {
   teacher: {
     title: '词对管理',
-    subtitle: '支持结构化创建、CSV / XLSX 导入和失败行回查。导入成功后仍需接到模板或词表，学生端才会真正用到。',
+    subtitle: '按列表、编辑区和导入中心拆开维护。词对入库后可直接加入模板或词表，不再要求手记 Pair ID。',
     guideTitle: '教师维护指南',
-    guideDescription: '先导入词对并抽样核对，再把需要的 Pair #id 接到诊断模板或词表。词库入库不等于学生端立即可见。',
-    successHint: '导入完成后，建议先抽样检查义项和例句，再继续配置模板或词表。',
+    guideDescription: '先导入词对并抽样核对，再通过“加入模板”或“加入词表”把内容接到教学链路里。',
+    successHint: '导入完成后，优先把目标词对接进模板或词表，而不是额外记录 Pair 编号。',
   },
   admin: {
     title: '语料库管理',
-    subtitle: '管理员可直接完成词对创建、批量导入和复核。新词条进入词库后，还要接到模板 / 词表 / RAG 才会完整生效。',
+    subtitle: '管理员可按列表、编辑区和导入中心拆分运营，并对单个词对发起定向 reindex。',
     guideTitle: '管理员操作指南',
-    guideDescription: '先下载模板核对字段，再执行批量导入；若要联调学生链路，还需要继续配置模板或词表。RAG 检索异常时再把 reindex 当作兜底。',
-    successHint: '导入成功不等于学生端或检索端立即可见，后续还要完成模板 / 词表 / RAG 同步。',
+    guideDescription: '先下载模板核对字段，再执行批量导入；导入完成后继续把词对接入模板、词表或定向 reindex。',
+    successHint: '导入成功后还需要继续把词对接到产品链路里，单次 reindex 只作为检索同步兜底。',
   },
 };
 
@@ -454,12 +455,20 @@ const RangeField: React.FC<{
   </div>
 );
 
-export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }> = ({ mode }) => {
+export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; view?: LexicalPairsWorkspaceView }> = ({ mode, view = 'all' }) => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const params = useParams<{ lexicalPairId?: string }>();
+  const routePairId = params.lexicalPairId ? Number(params.lexicalPairId) : null;
   const user = useAuthStore((state) => state.user);
   const meta = workspaceMeta[mode];
   const canAccessAdminConsole = userHasCapability(user, 'ADMIN_CONSOLE');
   const canAccessTeachingWorkspace = userHasCapability(user, 'TEACHING_WORKSPACE');
+  const basePath = mode === 'teacher' ? '/teacher/lexical-pairs' : '/admin/lexical-pairs';
+  const showGuideSection = view !== 'editor';
+  const showListSection = view === 'all' || view === 'list';
+  const showEditorSection = view === 'all' || view === 'editor';
+  const showImportSection = view === 'all' || view === 'imports';
   const editorSectionRef = React.useRef<HTMLDivElement | null>(null);
   const englishWordInputRef = React.useRef<HTMLInputElement | null>(null);
   const deleteDialogRef = React.useRef<HTMLDivElement | null>(null);
@@ -559,6 +568,19 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
   }, [detailQuery.data]);
 
   React.useEffect(() => {
+    if (view !== 'editor') {
+      return;
+    }
+    if (routePairId && Number.isFinite(routePairId)) {
+      setSelectedId(routePairId);
+      return;
+    }
+    setSelectedId(null);
+    setEditor(createEmptyEditor());
+    setShowStructuredEditor(false);
+  }, [routePairId, view]);
+
+  React.useEffect(() => {
     if (!resetFeedback) {
       return;
     }
@@ -582,6 +604,9 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
       setSelectedId(id);
       setError(null);
       setResetFeedback(null);
+      if (view === 'editor') {
+        navigate(`${basePath}/${id}/edit`, { replace: true });
+      }
       await queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-detail', id] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
@@ -600,12 +625,32 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
       setShowStructuredEditor(false);
       setError(null);
       setResetFeedback(null);
+      if (view === 'editor') {
+        navigate(basePath, { replace: true });
+      }
       await queryClient.invalidateQueries({ queryKey: ['lexical-pairs'] });
       await queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
     },
     onError: (mutationError) => {
       setPendingDeleteId(null);
       setError(mutationError instanceof Error ? mutationError.message : '词对删除失败。');
+    },
+  });
+
+  const reindexMutation = useMutation({
+    mutationFn: (lexicalPairId: number) =>
+      adminService.triggerRagReindex({
+        mode: 'MANUAL',
+        sourceTypes: ['LEXICAL_PAIR'],
+        sourceIds: [String(lexicalPairId)],
+        forceReembed: true,
+      }),
+    onSuccess: (response, lexicalPairId) => {
+      setError(null);
+      setResetFeedback(`已提交 Pair #${lexicalPairId} 的 reindex 任务，Job #${response.jobId}。`);
+    },
+    onError: (mutationError) => {
+      setError(mutationError instanceof Error ? mutationError.message : 'reindex 提交失败。');
     },
   });
 
@@ -644,6 +689,10 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
 
   const resetEditor = () => {
     const alreadyBlank = isBlankEditor(editor, selectedId, showStructuredEditor);
+    if (view === 'list') {
+      navigate(`${basePath}/new`);
+      return;
+    }
     setSelectedId(null);
     setEditor(createEmptyEditor());
     setShowStructuredEditor(false);
@@ -758,13 +807,13 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
     if (canAccessTeachingWorkspace) {
       links.push({
         to: '/teacher/diagnosis-templates',
-        label: '去配置诊断模板',
-        description: '把导入后的 Pair #id 接到诊断 item，学生诊断才会真正用到这些词对。',
+        label: '加入模板',
+        description: '把词对直接带到模板草稿里，继续完成题项配置。',
       });
       links.push({
         to: '/teacher/lexical-lists',
-        label: '去维护词表',
-        description: '把 Pair #id 收进词表，后续教学配置和内容组织会更清晰。',
+        label: '加入词表',
+        description: '把词对收进词表，后续教学配置和内容组织会更清晰。',
       });
     }
     if (canAccessAdminConsole) {
@@ -903,6 +952,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
         </div>
       )}
 
+      {showGuideSection && (
       <SectionCard
         title={meta.guideTitle}
         description={meta.guideDescription}
@@ -918,7 +968,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
               '1. 下载模板并核对必填列。',
               '2. 优先填写基础字段，义项和例句按需补充。',
               '3. 导入后先处理失败行，确认可导入行都已转为 READY。',
-              '4. 导入完成后继续把 Pair #id 接到模板或词表；若检索没更新，再检查 RAG reindex。',
+              '4. 导入完成后继续使用“加入模板”“加入词表”或定向 reindex，别停留在词库层。',
             ].map((step) => (
               <div
                 key={step}
@@ -1025,12 +1075,14 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
           </div>
         </details>
       </SectionCard>
+      )}
 
-      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <div className={`grid items-start gap-8 ${showListSection && showEditorSection ? 'xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]' : ''}`}>
+        {showListSection && (
         <div className="min-w-0 space-y-8">
           <SectionCard
             title="词对列表"
-            description="支持关键词、词对类型、启用状态和向量状态过滤。词表和模板页当前仍通过 lexicalPairId 建立引用，导入后请顺手记录 Pair #id。"
+            description="支持关键词、词对类型、启用状态和向量状态过滤，并直接把词对送到模板、词表或 reindex。"
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或 searchable text 模糊查询。">
@@ -1204,7 +1256,13 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setSelectedId(item.id)}
+                    onClick={() => {
+                      if (view === 'list') {
+                        navigate(`${basePath}/${item.id}/edit`);
+                        return;
+                      }
+                      setSelectedId(item.id);
+                    }}
                     className={`w-full rounded-[1.8rem] border p-5 text-left transition ${
                       selectedId === item.id
                         ? 'border-primary/30 bg-primary/5'
@@ -1240,15 +1298,55 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
                     <div className="mt-3 text-xs text-slate-400 dark:text-white/30">
                       向量状态 {item.embeddingStatus || '--'} · 最近嵌入 {formatDateTime(item.lastEmbeddedAt)}
                     </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {mode === 'teacher' && (
+                        <>
+                          <Link
+                            to={`/teacher/diagnosis-templates?pairId=${item.id}`}
+                            className="rounded-full border border-slate-200/70 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-white/60"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            加入模板
+                          </Link>
+                          <Link
+                            to={`/teacher/lexical-lists?pairId=${item.id}`}
+                            className="rounded-full border border-slate-200/70 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-white/60"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            加入词表
+                          </Link>
+                        </>
+                      )}
+                      {mode === 'admin' && canAccessAdminConsole && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            reindexMutation.mutate(item.id);
+                          }}
+                          className="rounded-full border border-slate-200/70 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:text-white/60"
+                        >
+                          重新索引
+                        </button>
+                      )}
+                    </div>
                   </button>
                 );
               })}
             </div>
           </SectionCard>
 
-          <LexicalImportCenter mode={mode} />
+          {showImportSection && <LexicalImportCenter mode={mode} />}
         </div>
+        )}
 
+        {!showListSection && showImportSection && (
+          <div className="min-w-0">
+            <LexicalImportCenter mode={mode} />
+          </div>
+        )}
+
+        {showEditorSection && (
         <div ref={editorSectionRef} className="scroll-mt-24">
           <SectionCard
             title={editor.id ? `编辑词对 #${editor.id}` : '新建词对'}
@@ -1610,6 +1708,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode }
           </div>
           </SectionCard>
         </div>
+        )}
       </div>
 
       {pendingDeleteId !== null && (

@@ -37,6 +37,7 @@ export interface CurrentUserVO {
   username: string;
   email: string;
   displayName: string;
+  lastLoginAt?: string | null;
   primaryRole: Role;
   roles: Role[];
   capabilities: Capability[];
@@ -294,6 +295,104 @@ export interface DiagnosisTemplateDetailVO {
   createdAt: string;
   updatedAt: string;
   items: DiagnosisTemplateItemVO[];
+}
+
+export interface DiagnosisTemplateDraftBasicVO {
+  templateName: string;
+  description?: string | null;
+  publishTarget?: string | null;
+  estimatedDurationMinutes: number;
+  scoringVersion: string;
+}
+
+export interface DiagnosisTemplateDraftItemVO {
+  draftItemId: string;
+  lexicalPairId?: number | null;
+  englishWord?: string | null;
+  frenchWord?: string | null;
+  chineseGloss?: string | null;
+  lexicalPairType?: string | null;
+  taskType?: string | null;
+  blockCode?: string | null;
+  sortOrder?: number | null;
+  contextSupportLevel?: string | null;
+  expectedSemanticMatch?: boolean | null;
+  stimulus: DiagnosisTemplateStimulus;
+  options: DiagnosisTemplateOption[];
+  correctAnswerKey?: string | null;
+  scoringProfile?: DiagnosisTemplateScoringProfile | null;
+}
+
+export interface DiagnosisTemplateDraftSchemaVO {
+  basic: DiagnosisTemplateDraftBasicVO;
+  items: DiagnosisTemplateDraftItemVO[];
+}
+
+export interface DiagnosisTemplateDraftItemValidationVO {
+  draftItemId?: string | null;
+  itemIndex: number;
+  fieldErrors: Record<string, string>;
+}
+
+export interface DiagnosisTemplateDraftValidationResponseVO {
+  valid: boolean;
+  fieldErrors: Record<string, string>;
+  itemErrors: DiagnosisTemplateDraftItemValidationVO[];
+  blockingSteps: string[];
+}
+
+export interface DiagnosisTemplateDraftSummaryVO {
+  draftId: number;
+  sourceTemplateId?: number | null;
+  publishedTemplateId?: number | null;
+  templateName: string;
+  description?: string | null;
+  syncState: string;
+  version: number;
+  updatedAt: string;
+}
+
+export interface DiagnosisTemplateDraftDetailVO {
+  draftId: number;
+  sourceTemplateId?: number | null;
+  publishedTemplateId?: number | null;
+  syncState: string;
+  version: number;
+  schema: DiagnosisTemplateDraftSchemaVO;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiagnosisTemplateDraftBasicRequest {
+  templateName: string;
+  description?: string | null;
+  publishTarget?: string | null;
+  estimatedDurationMinutes: number;
+  scoringVersion: string;
+}
+
+export interface DiagnosisTemplateDraftItemRequest {
+  draftItemId: string;
+  lexicalPairId?: number | null;
+  taskType?: string | null;
+  blockCode?: string | null;
+  sortOrder?: number | null;
+  contextSupportLevel?: string | null;
+  expectedSemanticMatch?: boolean | null;
+  stimulus: DiagnosisTemplateStimulusRequest;
+  options: DiagnosisTemplateOptionRequest[];
+  correctAnswerKey?: string | null;
+  scoringProfile?: DiagnosisTemplateScoringProfileRequest | null;
+}
+
+export interface DiagnosisTemplateDraftSchemaRequest {
+  basic: DiagnosisTemplateDraftBasicRequest;
+  items: DiagnosisTemplateDraftItemRequest[];
+}
+
+export interface DiagnosisTemplateDraftSaveRequest {
+  version: number;
+  schema: DiagnosisTemplateDraftSchemaRequest;
 }
 
 export interface DiagnosisTemplateDeleteResultVO {
@@ -875,13 +974,20 @@ export interface UserSummaryVO {
   displayName: string;
   enabled: boolean;
   roles: Role[];
+  lastLoginAt?: string | null;
+  studentProfileLinked?: boolean;
+  teacherProfileLinked?: boolean;
+  profileLinkStatus?: string | null;
+  invitationStatus?: string | null;
+  hasActiveSession?: boolean;
 }
 
 export interface AdminUserCreateRequest {
   username: string;
   email: string;
   displayName: string;
-  initialPassword: string;
+  initialPassword?: string;
+  credentialMode?: 'INVITE_LINK' | 'MANUAL_PASSWORD';
   enabled: boolean;
   roles: Role[];
 }
@@ -889,6 +995,41 @@ export interface AdminUserCreateRequest {
 export interface AdminUserAccessUpdateRequest {
   enabled: boolean;
   roles: Role[];
+}
+
+export interface AdminUserProvisionResultVO {
+  user: UserSummaryVO;
+  accountAction?: AccountActionLinkVO | null;
+}
+
+export interface AccountActionLinkVO {
+  purpose: string;
+  linkUrl: string;
+  expiresAt: string;
+  status: string;
+}
+
+export interface AccountActionPreviewVO {
+  purpose: string;
+  username: string;
+  email: string;
+  displayName: string;
+  enabled: boolean;
+  expiresAt: string;
+}
+
+export interface CompleteAccountActionRequest {
+  password: string;
+}
+
+export interface SessionOverviewVO {
+  lastLoginAt?: string | null;
+  refreshSessionIssuedAt?: string | null;
+  refreshSessionExpiresAt?: string | null;
+  accessTokenExpiresAt?: string | null;
+  userAgentFingerprint?: string | null;
+  issuedIpAddress?: string | null;
+  hasActiveSession: boolean;
 }
 
 export interface LexicalPairSummaryVO {
@@ -971,6 +1112,7 @@ export interface LexicalListSummaryVO {
   active: boolean;
   itemCount: number;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface LexicalListItemVO {
@@ -996,7 +1138,18 @@ export interface LexicalListDetailVO {
   active: boolean;
   itemCount: number;
   createdAt: string;
+  updatedAt?: string | null;
   items: LexicalListItemVO[];
+}
+
+export interface UpdateLexicalListRequest {
+  listName: string;
+  description?: string | null;
+  active: boolean;
+}
+
+export interface ReorderLexicalListItemsRequest {
+  orderedItemIds: number[];
 }
 
 export interface CsvImportTemplateFieldVO {
