@@ -10,6 +10,7 @@ public record LexicalImportBatchPageQuery(
         @Min(value = 1, message = "pageSize must be greater than 0")
         @Max(value = 200, message = "pageSize must be less than or equal to 200")
         Integer pageSize,
+        String view,
         String status,
         String keyword,
         Long ownerUserId

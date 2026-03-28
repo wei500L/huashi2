@@ -51,6 +51,24 @@ export function matchInterventionView(item: TeacherInterventionSummaryVO, view: 
   return item.status !== 'COMPLETED' && !!item.plannedAt && new Date(item.plannedAt).getTime() < Date.now();
 }
 
+export function buildInterventionListParams(params: {
+  classId: string;
+  studentUserId: string;
+  view: InterventionView;
+  priority: string;
+  pageNo: number;
+  pageSize: number;
+}) {
+  return {
+    classId: params.classId ? Number(params.classId) : undefined,
+    studentUserId: params.studentUserId ? Number(params.studentUserId) : undefined,
+    view: params.view,
+    priority: params.priority === 'ALL' ? undefined : params.priority,
+    pageNo: params.pageNo,
+    pageSize: params.pageSize,
+  };
+}
+
 function buildInterventionSearch(params: {
   view: InterventionView;
   priority: string;
@@ -83,13 +101,6 @@ function buildInterventionSearch(params: {
     next.set('source', params.source);
   }
   return next;
-}
-
-function buildBackendStatus(view: InterventionView): string | undefined {
-  if (view === 'completed') {
-    return 'COMPLETED';
-  }
-  return undefined;
 }
 
 function toDateTimeLocalValue(value?: string | null): string {
@@ -144,14 +155,14 @@ const TeacherInterventionsPage: React.FC = () => {
     queryKey: ['teacher-interventions', classId, studentUserId, view, priority, pageNo],
     queryFn: ({ signal }) =>
       teacherInterventionService.list(
-        {
-          classId: classId ? Number(classId) : undefined,
-          status: buildBackendStatus(view),
-          priority: priority === 'ALL' ? undefined : priority,
-          studentUserId: studentUserId ? Number(studentUserId) : undefined,
+        buildInterventionListParams({
+          classId,
+          studentUserId,
+          view,
+          priority,
           pageNo,
           pageSize,
-        },
+        }),
         { signal }
       ),
   });
@@ -192,10 +203,7 @@ const TeacherInterventionsPage: React.FC = () => {
     },
   });
 
-  const records = React.useMemo(
-    () => (interventionsQuery.data?.records || []).filter((item) => matchInterventionView(item, view)),
-    [interventionsQuery.data?.records, view]
-  );
+  const records = interventionsQuery.data?.records || [];
   const selectedIntervention =
     records.find((item) => item.id === selectedInterventionId) || records[0] || null;
   const overdueCount = records.filter((item) => item.status !== 'COMPLETED' && !!item.plannedAt && new Date(item.plannedAt).getTime() < Date.now()).length;

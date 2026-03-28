@@ -277,16 +277,6 @@ function normalizeImportView(value?: string | null): ImportView {
   return 'all';
 }
 
-function matchImportView(status: LexicalImportBatchStatus, view: ImportView): boolean {
-  if (view === 'all') {
-    return true;
-  }
-  if (view === 'failed') {
-    return status === 'FAILED';
-  }
-  return status === 'PARSING' || status === 'DRAFT' || status === 'IMPORTING';
-}
-
 export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = ({ mode }) => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -303,7 +293,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
   const [rowPageNo, setRowPageNo] = React.useState(1);
   const [rowPageSize, setRowPageSize] = React.useState(20);
   const [view, setView] = React.useState<ImportView>(() => normalizeImportView(searchParams.get('view')));
-  const [batchStatus, setBatchStatus] = React.useState(() => (searchParams.get('view') === 'failed' ? 'FAILED' : ''));
+  const [batchStatus, setBatchStatus] = React.useState(() => searchParams.get('status') || (searchParams.get('view') === 'failed' ? 'FAILED' : ''));
   const [batchKeyword, setBatchKeyword] = React.useState('');
   const [batchOwnerUserId, setBatchOwnerUserId] = React.useState('');
   const [rowStatus, setRowStatus] = React.useState('');
@@ -320,12 +310,13 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
   });
 
   const batchesQuery = useQuery({
-    queryKey: ['lexical-import-batches', mode, batchStatus, batchKeyword, batchOwnerUserId, batchPageNo, batchPageSize],
+    queryKey: ['lexical-import-batches', mode, view, batchStatus, batchKeyword, batchOwnerUserId, batchPageNo, batchPageSize],
     queryFn: ({ signal }) =>
       lexicalPairService.listImportBatches(
         {
           pageNo: batchPageNo,
           pageSize: batchPageSize,
+          view,
           status: batchStatus || undefined,
           keyword: batchKeyword.trim() || undefined,
           ownerUserId: batchOwnerUserId ? Number(batchOwnerUserId) : undefined,
@@ -334,20 +325,17 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
       ),
   });
 
-  const visibleBatches = React.useMemo(
-    () => (batchesQuery.data?.records || []).filter((batch) => matchImportView(batch.status, view)),
-    [batchesQuery.data?.records, view]
-  );
-
   React.useEffect(() => {
-    if (!visibleBatches.length) {
+    const records = batchesQuery.data?.records || [];
+    if (!records.length) {
+      setSelectedBatchId(null);
       return;
     }
-    if (selectedBatchId !== null && visibleBatches.some((batch) => batch.id === selectedBatchId)) {
+    if (selectedBatchId !== null && records.some((batch) => batch.id === selectedBatchId)) {
       return;
     }
-    setSelectedBatchId(visibleBatches[0].id);
-  }, [selectedBatchId, visibleBatches]);
+    setSelectedBatchId(records[0].id);
+  }, [batchesQuery.data?.records, selectedBatchId]);
 
   React.useEffect(() => {
     const nextSearchParams = new URLSearchParams(searchParams);
@@ -355,6 +343,11 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
       nextSearchParams.set('view', view);
     } else {
       nextSearchParams.delete('view');
+    }
+    if (batchStatus) {
+      nextSearchParams.set('status', batchStatus);
+    } else {
+      nextSearchParams.delete('status');
     }
     if (selectedBatchId) {
       nextSearchParams.set('batchId', String(selectedBatchId));
@@ -367,7 +360,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
     if (nextSearchParams.toString() !== searchParams.toString()) {
       setSearchParams(nextSearchParams, { replace: true });
     }
-  }, [searchParams, selectedBatchId, setSearchParams, source, view]);
+  }, [batchStatus, searchParams, selectedBatchId, setSearchParams, source, view]);
 
   const batchDetailQuery = useQuery({
     queryKey: ['lexical-import-batch-detail', selectedBatchId],
@@ -653,7 +646,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
           </div>
 
           <div className="space-y-4">
-            {visibleBatches.map((batch) => {
+            {(batchesQuery.data?.records || []).map((batch) => {
               const meta = buildBatchStatusMeta(batch.status);
               return (
                 <button

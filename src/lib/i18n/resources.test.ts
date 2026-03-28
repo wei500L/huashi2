@@ -16,5 +16,6 @@ describe('i18n resources', () => {
     expect(resources['zh-CN'].translation.teacherWorkspace.pageTitle).toBe('教师工作台');
     expect(resources['en-US'].translation.shell.nav.teacherWorkspace).toBe('Teacher Workspace');
     expect(resources['en-US'].translation.training.summaryTitle).toBe('Training Summary');
+    expect(resources['zh-CN'].translation.teacherWorkspace.generated.focus.interventions.title).toBe('处理待跟进干预');
   });
 });

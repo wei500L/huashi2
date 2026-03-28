@@ -116,7 +116,7 @@ function pageResult<T>(records: T[]): PageResult<T> {
 
 const queryClients: QueryClient[] = [];
 
-function renderImportCenter() {
+function renderImportCenter(initialEntries: string[] = ['/teacher/lexical-pairs/imports']) {
   const client = new QueryClient({
     defaultOptions: {
       queries: {
@@ -132,7 +132,7 @@ function renderImportCenter() {
 
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <LexicalImportCenter mode="teacher" />
       </MemoryRouter>
     </QueryClientProvider>
@@ -231,5 +231,22 @@ describe('LexicalImportCenter', () => {
     });
 
     expect(await screen.findByText('已保存第 2 行草稿。')).toBeInTheDocument();
+  });
+
+  it('uses semantic view filters from the URL when listing batches', async () => {
+    renderImportCenter(['/teacher/lexical-pairs/imports?view=pending&batchId=41&source=workspace']);
+
+    await waitFor(() => {
+      expect(lexicalPairService.listImportBatches).toHaveBeenCalled();
+    });
+
+    const [params] = vi.mocked(lexicalPairService.listImportBatches).mock.calls[0];
+    expect(params).toMatchObject({
+      view: 'pending',
+      status: undefined,
+      pageNo: 1,
+      pageSize: 12,
+    });
+    expect(await screen.findByText(/当前从教师工作台进入/)).toBeInTheDocument();
   });
 });

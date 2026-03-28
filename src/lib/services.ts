@@ -213,7 +213,7 @@ export const teacherAnalyticsService = {
 
 export const teacherInterventionService = {
   list: (
-    params: { classId?: number; status?: string; priority?: string; studentUserId?: number; pageNo?: number; pageSize?: number },
+    params: { classId?: number; view?: string; status?: string; priority?: string; studentUserId?: number; pageNo?: number; pageSize?: number },
     options?: RequestOptions
   ) =>
     apiGet<PageResult<TeacherInterventionSummaryVO>>('/teacher/interventions', { ...options, params }),
@@ -237,7 +237,7 @@ export const lexicalPairService = {
   createImportBatch: (formData: FormData, options?: RequestOptions) =>
     apiUpload<LexicalImportBatchCreatedVO>('/lexical-pairs/import-batches', formData, options),
   listImportBatches: (
-    params: { pageNo?: number; pageSize?: number; status?: string; keyword?: string; ownerUserId?: number },
+    params: { pageNo?: number; pageSize?: number; view?: string; status?: string; keyword?: string; ownerUserId?: number },
     options?: RequestOptions
   ) => apiGet<PageResult<LexicalImportBatchSummaryVO>>('/lexical-pairs/import-batches', { ...options, params }),
   getImportBatch: (batchId: number, options?: RequestOptions) =>

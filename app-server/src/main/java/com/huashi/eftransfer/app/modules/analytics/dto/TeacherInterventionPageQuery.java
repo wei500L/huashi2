@@ -11,6 +11,7 @@ public record TeacherInterventionPageQuery(
         @Max(value = 200, message = "pageSize must be less than or equal to 200")
         Integer pageSize,
         Long classId,
+        String view,
         String status,
         String priority,
         Long studentUserId

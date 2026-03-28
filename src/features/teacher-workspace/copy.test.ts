@@ -5,9 +5,12 @@ import {
   buildTeacherWorkspaceOnboardingItems,
 } from './copy';
 
+const t = ((key: string, options?: Record<string, unknown>) =>
+  options ? `${key}:${JSON.stringify(options)}` : key) as any;
+
 describe('teacher workspace copy helpers', () => {
   it('prioritizes intervention, draft, import, and lexical-list actions', () => {
-    const items = buildTeacherWorkspaceFocusItems({
+    const items = buildTeacherWorkspaceFocusItems(t, {
       teacherName: 'Teacher',
       organizationLabel: 'Org',
       summary: {
@@ -21,7 +24,7 @@ describe('teacher workspace copy helpers', () => {
       },
       recentClasses: [],
       draftTemplates: [],
-      pendingInterventions: [{ id: 11, priority: 'URGENT', status: 'PENDING', plannedAt: null }],
+      pendingInterventions: [{ id: 11, classId: 21, studentUserId: 31, priority: 'URGENT', status: 'PENDING', plannedAt: null }],
       recentLexicalLists: [],
     });
 
@@ -31,10 +34,13 @@ describe('teacher workspace copy helpers', () => {
       'imports',
       'lists-empty',
     ]);
+    expect(items[0]?.to).toContain('focusId=11');
+    expect(items[0]?.to).toContain('classId=21');
+    expect(items[0]?.to).toContain('studentUserId=31');
   });
 
   it('returns a stable maintenance cue when assets already exist', () => {
-    const items = buildTeacherWorkspaceFocusItems({
+    const items = buildTeacherWorkspaceFocusItems(t, {
       teacherName: 'Teacher',
       organizationLabel: 'Org',
       summary: {
@@ -57,7 +63,7 @@ describe('teacher workspace copy helpers', () => {
   });
 
   it('returns a blocking onboarding step when class context is missing', () => {
-    const items = buildTeacherWorkspaceOnboardingItems({
+    const items = buildTeacherWorkspaceOnboardingItems(t, {
       teacherName: 'Teacher',
       organizationLabel: 'Org',
       summary: {
@@ -80,7 +86,7 @@ describe('teacher workspace copy helpers', () => {
   });
 
   it('maps lexical-list empty state to template creation when drafts are missing', () => {
-    const state = buildTeacherWorkspaceEmptyState('lexicalLists', {
+    const state = buildTeacherWorkspaceEmptyState(t, 'lexicalLists', {
       teacherName: 'Teacher',
       organizationLabel: 'Org',
       summary: {
@@ -98,7 +104,7 @@ describe('teacher workspace copy helpers', () => {
       recentLexicalLists: [],
     });
 
-    expect(state.actionLabel).toBe('进入模板与草稿');
+    expect(state.actionLabel).toBe('teacherWorkspace.generated.emptyState.lexicalLists.blockedActionLabel');
     expect(state.to).toContain('/teacher/diagnosis-templates');
   });
 });

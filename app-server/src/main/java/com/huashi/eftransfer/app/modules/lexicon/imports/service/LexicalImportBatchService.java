@@ -141,9 +141,7 @@ public class LexicalImportBatchService {
         if (ownerFilter != null) {
             wrapper.eq(LexicalImportBatchEntity::getOwnerUserId, ownerFilter);
         }
-        if (query.status() != null && !query.status().isBlank()) {
-            wrapper.eq(LexicalImportBatchEntity::getStatus, parseBatchStatus(query.status()).name());
-        }
+        applyStatusOrViewFilter(wrapper, query.status(), query.view());
         if (query.keyword() != null && !query.keyword().isBlank()) {
             String keyword = "%" + query.keyword().trim().toLowerCase(Locale.ROOT) + "%";
             wrapper.apply("LOWER(original_filename) LIKE {0}", keyword);
@@ -162,6 +160,62 @@ public class LexicalImportBatchService {
                 .map(batch -> toSummaryVO(batch, ownerNameMap.get(batch.getOwnerUserId())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
+    }
+
+    static String normalizeView(String view) {
+        if (view == null || view.isBlank()) {
+            return "ALL";
+        }
+        return switch (view.trim().toUpperCase(Locale.ROOT)) {
+            case "PENDING", "FAILED" -> view.trim().toUpperCase(Locale.ROOT);
+            default -> "ALL";
+        };
+    }
+
+    static String normalizeStatusFilter(String status) {
+        return status == null || status.isBlank() ? null : parseStaticBatchStatus(status);
+    }
+
+    static String parseStaticBatchStatus(String value) {
+        try {
+            return LexicalImportBatchStatus.valueOf(value.trim().toUpperCase(Locale.ROOT)).name();
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported import batch status: " + value, 400);
+        }
+    }
+
+    static boolean shouldApplyPendingView(String status, String view) {
+        return normalizeStatusFilter(status) == null && "PENDING".equals(normalizeView(view));
+    }
+
+    static boolean shouldApplyFailedView(String status, String view) {
+        return normalizeStatusFilter(status) == null && "FAILED".equals(normalizeView(view));
+    }
+
+    private void applyStatusOrViewFilter(
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LexicalImportBatchEntity> wrapper,
+            String status,
+            String view
+    ) {
+        String normalizedStatus = normalizeStatusFilter(status);
+        if (normalizedStatus != null) {
+            wrapper.eq(LexicalImportBatchEntity::getStatus, normalizedStatus);
+            return;
+        }
+        if (shouldApplyPendingView(null, view)) {
+            wrapper.in(
+                    LexicalImportBatchEntity::getStatus,
+                    List.of(
+                            LexicalImportBatchStatus.PARSING.name(),
+                            LexicalImportBatchStatus.DRAFT.name(),
+                            LexicalImportBatchStatus.IMPORTING.name()
+                    )
+            );
+            return;
+        }
+        if (shouldApplyFailedView(null, view)) {
+            wrapper.eq(LexicalImportBatchEntity::getStatus, LexicalImportBatchStatus.FAILED.name());
+        }
     }
 
     public LexicalImportBatchDetailVO getBatchDetail(Long batchId) {

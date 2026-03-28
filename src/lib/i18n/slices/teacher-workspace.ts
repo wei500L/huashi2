@@ -64,6 +64,120 @@ export const teacherWorkspaceSlice: TranslationSlice = {
       emptyInterventionsDescription: '待办清空后，仍建议定期回看学生详情和班级动态，避免高风险学生长期无人跟进。',
       emptyLexicalListsTitle: '还没有词表资产',
       emptyLexicalListsDescription: '词表是把词对沉淀成可复用教学资产的关键节点，建议先补出一份基础词表。',
+      generated: {
+        focus: {
+          interventions: {
+            title: '处理待跟进干预',
+            description: '还有 {{count}} 条干预未闭环，优先把排期和完成备注补齐。',
+            actionLabel: '进入干预工作台',
+          },
+          draftsEmpty: {
+            title: '创建第一份模板草稿',
+            description: '模板仍然是教师工作流的起点，先把诊断草稿建起来，后续才能串联词对和班级执行。',
+            actionLabel: '新建模板草稿',
+          },
+          draftsExisting: {
+            title: '整理待发布草稿',
+            description: '当前有 {{count}} 份草稿，优先把最接近发布的一份推进到预览与发布。',
+            actionLabel: '查看模板草稿',
+          },
+          imports: {
+            title: '收敛导入批次',
+            description: '还有 {{count}} 个导入批次未处理完成，建议先清理草稿或重试导入。',
+            actionLabel: '进入导入中心',
+          },
+          listsEmpty: {
+            title: '补出第一份词表',
+            description: '词表是把词对沉淀成可复用教学资产的关键节点，至少需要一份基础词表承接模板和训练。',
+            actionLabel: '创建词表',
+          },
+          listsExisting: {
+            title: '维护词表资产',
+            description: '当前已沉淀 {{count}} 份词表，继续清理排序和条目命名可以降低后续教学配置成本。',
+            actionLabel: '查看词表',
+          },
+          classesEmpty: {
+            title: '补齐班级与学生',
+            description: '还没有可访问班级，教师工作台会缺少真实教学上下文，建议先确认班级和学生关联。',
+            actionLabel: '查看班级与学生',
+          },
+        },
+        onboarding: {
+          setupClasses: {
+            title: '先补齐班级与学生',
+            description: '当前没有班级上下文，后续草稿、干预和学生跟进都很难形成真实教学闭环。优先确认班级与学生关联，再回来推进内容资产。',
+            actionLabel: '进入班级与学生',
+          },
+          setupDraft: {
+            title: '创建第一份模板草稿',
+            description: '先用四步编辑器搭起一份可发布草稿，后续词对和词表才能被接进诊断与训练链路。',
+            actionLabel: '新建模板草稿',
+          },
+          setupList: {
+            title: '创建第一份词表',
+            description: '已经有草稿后，下一步建议补一份基础词表，把词对沉淀成可复用资产，降低后续配置成本。',
+            actionLabel: '创建词表',
+          },
+          triageImports: {
+            title: '处理待确认导入批次',
+            description: '还有 {{count}} 个导入批次停留在解析或草稿阶段，先把可导入内容收口，避免词对资产长期堆积。',
+            actionLabel: '进入导入中心',
+          },
+          triageInterventions: {
+            title: '处理待跟进干预',
+            description: '还有 {{count}} 条干预待推进，建议优先补齐排期、课堂执行方式和完成备注。',
+            actionLabel: '进入干预工作台',
+          },
+          steadyState: {
+            draftTitle: '从最近工作继续推进',
+            draftDescription: '基础资产已经齐备，建议优先完成最近更新的草稿预览与发布，或者回看最近活跃班级继续跟进学生。',
+            draftActionLabel: '打开最近草稿',
+            classTitle: '从最近工作继续推进',
+            classDescription: '基础资产已经齐备，建议从最近活跃班级继续回看高风险学生和教学动作。',
+            classActionLabel: '查看最近班级',
+          },
+        },
+        emptyState: {
+          loading: {
+            title: '暂无工作台数据',
+            description: '教师工作台正在等待数据返回。稍后重试，或先回到班级与学生页确认当前账号权限。',
+            actionLabel: '查看班级与学生',
+          },
+          classes: {
+            blockedTitle: '先补齐班级与学生',
+            blockedDescription: '没有班级时，教师工作台缺少真实教学上下文。先确认班级与学生关系，再回来查看班级动态。',
+            blockedActionLabel: '进入班级与学生',
+            readyTitle: '还没有近期班级动态',
+            readyDescription: '当前没有最近活跃班级卡片，建议直接查看班级与学生列表，继续下钻到班级详情和学生分析。',
+            readyActionLabel: '查看班级与学生',
+          },
+          drafts: {
+            blockedTitle: '先补教学上下文，再建草稿',
+            blockedDescription: '建议先补齐班级与学生，再创建第一份模板草稿。这样草稿、干预和班级执行之间的关系会更清晰。',
+            blockedActionLabel: '进入班级与学生',
+            readyTitle: '创建第一份模板草稿',
+            readyDescription: '当前还没有草稿。先用四步编辑器创建一份草稿，后续词对、词表和发布流程才能真正接入。',
+            readyActionLabel: '新建模板草稿',
+          },
+          interventions: {
+            blockedTitle: '先补班级上下文，再形成干预待办',
+            blockedDescription: '没有班级和学生时，系统很难生成可执行的教学干预。先补齐教学对象，再回来看干预工作流。',
+            blockedActionLabel: '进入班级与学生',
+            readyTitle: '当前没有待处理干预',
+            readyDescription: '当前待办已经清空。建议回到最近活跃班级或学生详情，继续检查高风险学生是否需要新的跟进。',
+            readyActionLabel: '查看干预工作台',
+            recentClassActionLabel: '打开最近班级',
+          },
+          lexicalLists: {
+            blockedTitle: '先整理模板和词对，再沉淀词表',
+            blockedDescription: '词表更适合承接已经明确的模板和词对结构。先把草稿或词对准备好，再创建首个词表。',
+            blockedActionLabel: '进入模板与草稿',
+            readyTitle: '创建第一份词表',
+            readyDescription: '已经具备模板草稿后，建议尽快沉淀至少一份词表，把词对资产变成可复用的教学配置。',
+            readyActionLabel: '创建词表',
+          },
+        },
+      },
     },
   },
   'en-US': {
@@ -129,6 +243,120 @@ export const teacherWorkspaceSlice: TranslationSlice = {
       emptyInterventionsDescription: 'Even when the queue is clear, it is still worth checking class activity and student detail regularly for new risks.',
       emptyLexicalListsTitle: 'No lexical lists yet',
       emptyLexicalListsDescription: 'Lexical lists turn pairs into reusable teaching assets. Create a starter list to reduce future setup friction.',
+      generated: {
+        focus: {
+          interventions: {
+            title: 'Handle pending interventions',
+            description: '{{count}} interventions are still open. Fill in schedules and completion notes first.',
+            actionLabel: 'Open interventions',
+          },
+          draftsEmpty: {
+            title: 'Create the first template draft',
+            description: 'Drafts are still the starting point of the teacher workflow. Create one first so lexical assets and classes can connect to execution.',
+            actionLabel: 'Create a draft',
+          },
+          draftsExisting: {
+            title: 'Triage draft templates',
+            description: 'There are {{count}} drafts right now. Move the closest one toward preview and publication first.',
+            actionLabel: 'Open drafts',
+          },
+          imports: {
+            title: 'Close import batches',
+            description: '{{count}} import batches are still unfinished. Clear drafts or retry imports before new work piles up.',
+            actionLabel: 'Open import center',
+          },
+          listsEmpty: {
+            title: 'Create the first lexical list',
+            description: 'Lexical lists turn pairs into reusable teaching assets. Create at least one starter list to support templates and training.',
+            actionLabel: 'Create a lexical list',
+          },
+          listsExisting: {
+            title: 'Maintain lexical-list assets',
+            description: '{{count}} lexical lists already exist. Continue cleaning names and ordering to reduce future setup cost.',
+            actionLabel: 'Open lexical lists',
+          },
+          classesEmpty: {
+            title: 'Complete classes and students',
+            description: 'Without accessible classes, the teacher workspace lacks real teaching context. Confirm class and student links first.',
+            actionLabel: 'Open classes',
+          },
+        },
+        onboarding: {
+          setupClasses: {
+            title: 'Start with classes and students',
+            description: 'There is no class context yet, so drafts, interventions, and student follow-up cannot form a real loop. Confirm class and student assignment first.',
+            actionLabel: 'Open classes',
+          },
+          setupDraft: {
+            title: 'Create the first template draft',
+            description: 'Use the four-step editor to create a publishable draft first, then connect lexical pairs and lists into diagnosis and training.',
+            actionLabel: 'Create a draft',
+          },
+          setupList: {
+            title: 'Create the first lexical list',
+            description: 'Now that drafts exist, create a starter lexical list next so pairs become reusable teaching assets.',
+            actionLabel: 'Create a lexical list',
+          },
+          triageImports: {
+            title: 'Handle pending import batches',
+            description: '{{count}} import batches are still in parsing or draft state. Close the usable ones before lexical assets pile up.',
+            actionLabel: 'Open import center',
+          },
+          triageInterventions: {
+            title: 'Handle pending interventions',
+            description: '{{count}} interventions still need follow-through. Fill in schedules, classroom actions, and completion notes first.',
+            actionLabel: 'Open interventions',
+          },
+          steadyState: {
+            draftTitle: 'Continue from the latest work',
+            draftDescription: 'Core assets are ready. Continue with the most recently updated draft or return to the most active class for student follow-up.',
+            draftActionLabel: 'Open latest draft',
+            classTitle: 'Continue from the latest work',
+            classDescription: 'Core assets are ready. Return to the most active class and continue reviewing high-risk students.',
+            classActionLabel: 'Open recent class',
+          },
+        },
+        emptyState: {
+          loading: {
+            title: 'Workspace data is not ready yet',
+            description: 'The teacher workspace is still waiting for data. Try again later, or go back to classes to confirm current access.',
+            actionLabel: 'Open classes',
+          },
+          classes: {
+            blockedTitle: 'Complete classes and students first',
+            blockedDescription: 'Without classes, the teacher workspace lacks real teaching context. Confirm class and student links first.',
+            blockedActionLabel: 'Open classes',
+            readyTitle: 'No recent class activity yet',
+            readyDescription: 'There are no recent class cards right now. Go straight to classes and students to continue drilling into class and student detail.',
+            readyActionLabel: 'Open classes',
+          },
+          drafts: {
+            blockedTitle: 'Complete teaching context before drafting',
+            blockedDescription: 'Set up classes and students first, then create the first draft. That keeps drafts, interventions, and class execution aligned.',
+            blockedActionLabel: 'Open classes',
+            readyTitle: 'Create the first template draft',
+            readyDescription: 'There are no drafts yet. Create one in the four-step editor so lexical pairs, lists, and publication can connect later.',
+            readyActionLabel: 'Create a draft',
+          },
+          interventions: {
+            blockedTitle: 'Build class context before intervention work',
+            blockedDescription: 'Without classes and students, the system cannot form actionable teaching interventions. Set up teaching context first.',
+            blockedActionLabel: 'Open classes',
+            readyTitle: 'There are no pending interventions',
+            readyDescription: 'The current queue is clear. Return to the most active class or student detail to check whether any new high-risk follow-up is needed.',
+            readyActionLabel: 'Open interventions',
+            recentClassActionLabel: 'Open recent class',
+          },
+          lexicalLists: {
+            blockedTitle: 'Organize templates and pairs before lists',
+            blockedDescription: 'Lexical lists work best when templates and pairs are already defined. Prepare those first, then create the first list.',
+            blockedActionLabel: 'Open templates and drafts',
+            readyTitle: 'Create the first lexical list',
+            readyDescription: 'Now that template drafts exist, create at least one lexical list so pairs become reusable classroom configuration.',
+            readyActionLabel: 'Create a lexical list',
+          },
+        },
+      },
     },
   },
 };

@@ -28,13 +28,13 @@ const TeacherWorkspacePage: React.FC = () => {
   });
 
   const focusItems = React.useMemo(
-    () => buildTeacherWorkspaceFocusItems(overviewQuery.data),
-    [overviewQuery.data]
+    () => buildTeacherWorkspaceFocusItems(t, overviewQuery.data),
+    [overviewQuery.data, t]
   );
 
   const onboardingItems = React.useMemo(
-    () => buildTeacherWorkspaceOnboardingItems(overviewQuery.data),
-    [overviewQuery.data]
+    () => buildTeacherWorkspaceOnboardingItems(t, overviewQuery.data),
+    [overviewQuery.data, t]
   );
 
   const quickActions = React.useMemo(
@@ -238,7 +238,7 @@ const TeacherWorkspacePage: React.FC = () => {
                   ))
                 ) : (
                   <WorkspaceEmptyState
-                    {...buildTeacherWorkspaceEmptyState('classes', overviewQuery.data)}
+                    {...buildTeacherWorkspaceEmptyState(t, 'classes', overviewQuery.data)}
                   />
                 )}
               </div>
@@ -278,7 +278,7 @@ const TeacherWorkspacePage: React.FC = () => {
                     ))
                   ) : (
                     <WorkspaceEmptyState
-                      {...buildTeacherWorkspaceEmptyState('drafts', overviewQuery.data)}
+                      {...buildTeacherWorkspaceEmptyState(t, 'drafts', overviewQuery.data)}
                     />
                   )}
                 </div>
@@ -299,6 +299,8 @@ const TeacherWorkspacePage: React.FC = () => {
                         to={buildWorkspaceLink('/teacher/interventions', {
                           view: 'pending',
                           focusId: item.id,
+                          classId: item.classId,
+                          studentUserId: item.studentUserId,
                           source: 'workspace',
                         })}
                         className="block rounded-[1.6rem] border border-slate-200/80 bg-white/65 p-4 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
@@ -315,7 +317,7 @@ const TeacherWorkspacePage: React.FC = () => {
                     ))
                   ) : (
                     <WorkspaceEmptyState
-                      {...buildTeacherWorkspaceEmptyState('interventions', overviewQuery.data)}
+                      {...buildTeacherWorkspaceEmptyState(t, 'interventions', overviewQuery.data)}
                     />
                   )}
                 </div>
@@ -350,7 +352,7 @@ const TeacherWorkspacePage: React.FC = () => {
                     ))
                   ) : (
                     <WorkspaceEmptyState
-                      {...buildTeacherWorkspaceEmptyState('lexicalLists', overviewQuery.data)}
+                      {...buildTeacherWorkspaceEmptyState(t, 'lexicalLists', overviewQuery.data)}
                     />
                   )}
                 </div>

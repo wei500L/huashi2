@@ -146,6 +146,8 @@ public class TeacherWorkspaceService {
         List<TeacherWorkspaceInterventionVO> pendingInterventions = pendingRecords.stream()
                 .map(record -> new TeacherWorkspaceInterventionVO(
                         record.getId(),
+                        record.getTeachingClassId(),
+                        record.getStudentUserId(),
                         studentNameMap.get(record.getStudentUserId()),
                         record.getPriority(),
                         record.getStatus(),

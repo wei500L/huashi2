@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 public record TeacherWorkspaceInterventionVO(
         Long id,
+        Long classId,
+        Long studentUserId,
         String studentName,
         String priority,
         String status,

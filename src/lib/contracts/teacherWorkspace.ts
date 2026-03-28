@@ -26,6 +26,8 @@ export interface TeacherWorkspaceDraftTemplateVO {
 
 export interface TeacherWorkspaceInterventionVO {
   id: number;
+  classId?: number | null;
+  studentUserId?: number | null;
   studentName?: string | null;
   priority: string;
   status: string;

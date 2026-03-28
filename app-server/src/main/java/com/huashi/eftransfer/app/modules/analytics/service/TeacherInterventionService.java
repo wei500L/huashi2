@@ -63,9 +63,7 @@ public class TeacherInterventionService {
                 .orderByDesc(InterventionRecordEntity::getPlannedAt)
                 .orderByDesc(InterventionRecordEntity::getId);
 
-        if (query.status() != null && !query.status().isBlank()) {
-            wrapper.eq(InterventionRecordEntity::getStatus, query.status().trim().toUpperCase());
-        }
+        applyStatusOrViewFilter(wrapper, query.status(), query.view());
         if (query.priority() != null && !query.priority().isBlank()) {
             wrapper.eq(InterventionRecordEntity::getPriority, query.priority().trim().toUpperCase());
         }
@@ -88,6 +86,57 @@ public class TeacherInterventionService {
                 .map(record -> toSummary(record, classMap.get(record.getTeachingClassId()), userMap.get(record.getStudentUserId())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), items);
+    }
+
+    static String normalizeView(String view) {
+        if (view == null || view.isBlank()) {
+            return "ALL";
+        }
+        return switch (view.trim().toUpperCase()) {
+            case "PENDING", "OVERDUE", "COMPLETED" -> view.trim().toUpperCase();
+            default -> "ALL";
+        };
+    }
+
+    static String normalizeStatusFilter(String status) {
+        return status == null || status.isBlank() ? null : status.trim().toUpperCase();
+    }
+
+    static boolean shouldApplyPendingView(String status, String view) {
+        return normalizeStatusFilter(status) == null && "PENDING".equals(normalizeView(view));
+    }
+
+    static boolean shouldApplyCompletedView(String status, String view) {
+        return normalizeStatusFilter(status) == null && "COMPLETED".equals(normalizeView(view));
+    }
+
+    static boolean shouldApplyOverdueView(String status, String view) {
+        return normalizeStatusFilter(status) == null && "OVERDUE".equals(normalizeView(view));
+    }
+
+    private void applyStatusOrViewFilter(
+            LambdaQueryWrapper<InterventionRecordEntity> wrapper,
+            String status,
+            String view
+    ) {
+        String normalizedStatus = normalizeStatusFilter(status);
+        if (normalizedStatus != null) {
+            wrapper.eq(InterventionRecordEntity::getStatus, normalizedStatus);
+            return;
+        }
+        if (shouldApplyPendingView(null, view)) {
+            wrapper.ne(InterventionRecordEntity::getStatus, "COMPLETED");
+            return;
+        }
+        if (shouldApplyCompletedView(null, view)) {
+            wrapper.eq(InterventionRecordEntity::getStatus, "COMPLETED");
+            return;
+        }
+        if (shouldApplyOverdueView(null, view)) {
+            wrapper.ne(InterventionRecordEntity::getStatus, "COMPLETED")
+                    .isNotNull(InterventionRecordEntity::getPlannedAt)
+                    .lt(InterventionRecordEntity::getPlannedAt, LocalDateTime.now());
+        }
     }
 
     @Transactional
