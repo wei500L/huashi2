@@ -465,14 +465,16 @@ public class DiagnosisTemplateDraftService {
                 }
             }
 
-            Map<String, DiagnosisOptionPayload> optionMap = options.stream()
+            List<String> duplicateOptionKeys = findDuplicateOptionKeys(options);
+            if (!duplicateOptionKeys.isEmpty()) {
+                errors.put("options", buildDuplicateOptionKeyMessage(duplicateOptionKeys));
+                blockingSteps.add(STEP_ITEM_CONFIGURATION);
+            }
+
+            Map<String, DiagnosisOptionPayload> optionMap = new LinkedHashMap<>();
+            options.stream()
                     .filter(option -> hasText(option.key()))
-                    .collect(Collectors.toMap(
-                            DiagnosisOptionPayload::key,
-                            option -> option,
-                            (left, right) -> right,
-                            LinkedHashMap::new
-                    ));
+                    .forEach(option -> optionMap.putIfAbsent(option.key(), option));
             if (hasText(item.correctAnswerKey())) {
                 DiagnosisOptionPayload correctOption = optionMap.get(item.correctAnswerKey());
                 if (correctOption == null) {
@@ -526,6 +528,24 @@ public class DiagnosisTemplateDraftService {
         }
 
         return new DiagnosisTemplateDraftValidationResponseVO(fieldErrors.isEmpty() && itemErrors.isEmpty(), fieldErrors, itemErrors, blockingSteps);
+    }
+
+    private List<String> findDuplicateOptionKeys(List<DiagnosisOptionPayload> options) {
+        LinkedHashSet<String> seenKeys = new LinkedHashSet<>();
+        LinkedHashSet<String> duplicateKeys = new LinkedHashSet<>();
+        options.stream()
+                .map(DiagnosisOptionPayload::key)
+                .filter(this::hasText)
+                .forEach(key -> {
+                    if (!seenKeys.add(key)) {
+                        duplicateKeys.add(key);
+                    }
+                });
+        return List.copyOf(duplicateKeys);
+    }
+
+    private String buildDuplicateOptionKeyMessage(List<String> duplicateOptionKeys) {
+        return "选项 key 不能重复：" + String.join("、", duplicateOptionKeys) + "。";
     }
 
     private DiagnosisTemplateUpsertRequest toTemplateUpsertRequest(DiagnosisTemplateDraftSchemaVO schema, String status) {

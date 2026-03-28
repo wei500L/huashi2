@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -171,5 +172,96 @@ class LexicalPermissionAndListIntegrationTest extends AbstractWebIntegrationTest
                         .with(bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.itemCount").value(0));
+    }
+
+    @Test
+    void shouldRejectDuplicateItemIdsDuringLexicalListReorder() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long firstPairId = createLexicalPair(teacherToken, "coin", "coin", "硬币；角落");
+        long secondPairId = createLexicalPair(teacherToken, "table", "table", "桌子");
+        long thirdPairId = createLexicalPair(teacherToken, "actually", "actuellement", "实际上；目前");
+
+        long lexicalListId = createLexicalList(teacherToken, "Reorder Guard");
+        mockMvc.perform(post("/api/lexical-lists/{listId}/items", lexicalListId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "lexicalPairIds": [%d, %d, %d]
+                                }
+                                """.formatted(firstPairId, secondPairId, thirdPairId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.addedCount").value(3));
+
+        MvcResult detailResult = mockMvc.perform(get("/api/lexical-lists/{listId}", lexicalListId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        long firstItemId = readJson(detailResult).path("data").path("items").get(0).path("itemId").asLong();
+        long secondItemId = readJson(detailResult).path("data").path("items").get(1).path("itemId").asLong();
+        long thirdItemId = readJson(detailResult).path("data").path("items").get(2).path("itemId").asLong();
+
+        mockMvc.perform(put("/api/lexical-lists/{listId}/items/reorder", lexicalListId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "orderedItemIds": [%d, %d, %d]
+                                }
+                                """.formatted(firstItemId, secondItemId, secondItemId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value("orderedItemIds must not contain duplicate lexical list item ids"));
+
+        mockMvc.perform(get("/api/lexical-lists/{listId}", lexicalListId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.itemCount").value(3))
+                .andExpect(jsonPath("$.data.items[0].itemId").value((int) firstItemId))
+                .andExpect(jsonPath("$.data.items[0].sortOrder").value(1))
+                .andExpect(jsonPath("$.data.items[1].itemId").value((int) secondItemId))
+                .andExpect(jsonPath("$.data.items[1].sortOrder").value(2))
+                .andExpect(jsonPath("$.data.items[2].itemId").value((int) thirdItemId))
+                .andExpect(jsonPath("$.data.items[2].sortOrder").value(3));
+    }
+
+    private long createLexicalPair(String teacherToken, String englishWord, String frenchWord, String chineseGloss) throws Exception {
+        MvcResult createPairResult = mockMvc.perform(post("/api/lexical-pairs")
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "englishWord": "%s",
+                                  "frenchWord": "%s",
+                                  "chineseGloss": "%s",
+                                  "lexicalPairType": "false_friend",
+                                  "semanticOverlapScore": 0.20,
+                                  "falseFriendRisk": 0.88,
+                                  "defaultContextSupport": "medium",
+                                  "difficultyLevel": 4,
+                                  "active": true,
+                                  "tags": ["false-friend"]
+                                }
+                                """.formatted(englishWord, frenchWord, chineseGloss)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(createPairResult).path("data").asLong();
+    }
+
+    private long createLexicalList(String teacherToken, String listName) throws Exception {
+        MvcResult createListResult = mockMvc.perform(post("/api/lexical-lists")
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "listName": "%s",
+                                  "description": "Week 1 focus",
+                                  "active": true
+                                }
+                                """.formatted(listName)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(createListResult).path("data").asLong();
     }
 }

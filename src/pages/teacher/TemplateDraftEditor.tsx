@@ -150,11 +150,27 @@ const TemplateDraftEditorPage: React.FC = () => {
     enabled: pairSearchKeyword.trim().length > 0,
   });
 
+  const updateSchema = React.useCallback((updater: React.SetStateAction<DiagnosisTemplateDraftSchemaRequest | null>) => {
+    setValidation(null);
+    setSchema(updater);
+  }, []);
+
+  const syncStep = React.useCallback(
+    (stepIndex: number) => {
+      const params = new URLSearchParams(searchParams);
+      params.set('step', String(stepIndex + 1));
+      setSearchParams(params, { replace: true });
+      setCurrentStep(stepIndex);
+    },
+    [searchParams, setSearchParams]
+  );
+
   React.useEffect(() => {
     if (!detailQuery.data) {
       return;
     }
     const nextSchema = toRequestSchema(detailQuery.data.schema);
+    setValidation(null);
     setSchema(nextSchema);
     setDraftVersion(detailQuery.data.version);
     setSelectedItemId(nextSchema.items[0]?.draftItemId || null);
@@ -241,11 +257,11 @@ const TemplateDraftEditorPage: React.FC = () => {
       return;
     }
     const nextSchema = applyPairToDraftSchema(schema, pairByIdQuery.data);
-    setSchema(nextSchema);
+    updateSchema(nextSchema);
     setSelectedItemId(nextSchema.items[nextSchema.items.length - 1]?.draftItemId || null);
     setCurrentStep(2);
     setFeedback(`已把 Pair #${pairId} 插入草稿，请保存并继续配置题项。`);
-  }, [pairByIdQuery.data, pairId, schema]);
+  }, [pairByIdQuery.data, pairId, schema, updateSchema]);
 
   const selectedItem = React.useMemo(
     () => schema?.items.find((item) => item.draftItemId === selectedItemId) || null,
@@ -256,11 +272,11 @@ const TemplateDraftEditorPage: React.FC = () => {
     key: K,
     value: DiagnosisTemplateDraftSchemaRequest['basic'][K]
   ) => {
-    setSchema((current) => current ? { ...current, basic: { ...current.basic, [key]: value } } : current);
+    updateSchema((current) => current ? { ...current, basic: { ...current.basic, [key]: value } } : current);
   };
 
   const updateItem = (draftItemId: string, patch: Partial<DiagnosisTemplateDraftItemRequest>) => {
-    setSchema((current) => {
+    updateSchema((current) => {
       if (!current) {
         return current;
       }
@@ -272,7 +288,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   };
 
   const updateOption = (draftItemId: string, optionIndex: number, patch: Partial<DiagnosisTemplateDraftItemRequest['options'][number]>) => {
-    setSchema((current) => {
+    updateSchema((current) => {
       if (!current) {
         return current;
       }
@@ -291,7 +307,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   };
 
   const addOption = (draftItemId: string) => {
-    setSchema((current) => {
+    updateSchema((current) => {
       if (!current) {
         return current;
       }
@@ -318,7 +334,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   };
 
   const removeOption = (draftItemId: string, optionIndex: number) => {
-    setSchema((current) => {
+    updateSchema((current) => {
       if (!current) {
         return current;
       }
@@ -337,7 +353,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   };
 
   const removeItem = (draftItemId: string) => {
-    setSchema((current) => {
+    updateSchema((current) => {
       if (!current) {
         return current;
       }
@@ -350,7 +366,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   const handleApplyJson = () => {
     try {
       const parsed = parseTemplateDraftItemsJson(itemsJson);
-      setSchema((current) => current ? { ...current, items: parsed } : current);
+      updateSchema((current) => current ? { ...current, items: parsed } : current);
       setSelectedItemId(parsed[0]?.draftItemId || null);
       setFeedback('已从 JSON 同步题项。');
       setErrorMessage(null);
@@ -369,45 +385,67 @@ const TemplateDraftEditorPage: React.FC = () => {
       setFeedback(`Pair #${pair.id} 已存在于当前草稿。`);
       return;
     }
-    setSchema(nextSchema);
+    updateSchema(nextSchema);
     setSelectedItemId(nextSchema.items[nextSchema.items.length - 1]?.draftItemId || null);
     setFeedback(`已加入 ${pair.englishWord} / ${pair.frenchWord}。`);
     setErrorMessage(null);
+  };
+
+  const isBusy = saveMutation.isPending || validateMutation.isPending || publishMutation.isPending;
+
+  const handleSave = async () => {
+    if (!schema) {
+      return;
+    }
+    try {
+      await persistSchema(schema);
+    } catch {
+      return;
+    }
   };
 
   const handleStepChange = async (stepIndex: number) => {
     if (!schema) {
       return;
     }
-    await persistSchema(schema);
-    const params = new URLSearchParams(searchParams);
-    params.set('step', String(stepIndex + 1));
-    setSearchParams(params, { replace: true });
-    setCurrentStep(stepIndex);
+    try {
+      await persistSchema(schema);
+      syncStep(stepIndex);
+    } catch {
+      return;
+    }
   };
 
   const handleValidate = async () => {
-    const result = await validateMutation.mutateAsync();
-    if (!result.valid) {
-      const stepIndex = firstBlockingStep(result);
-      const params = new URLSearchParams(searchParams);
-      params.set('step', String(stepIndex + 1));
-      setSearchParams(params, { replace: true });
-      setCurrentStep(stepIndex);
+    if (!schema) {
+      return;
+    }
+    try {
+      await persistSchema(schema);
+      const result = await validateMutation.mutateAsync();
+      if (!result.valid) {
+        syncStep(firstBlockingStep(result));
+      }
+    } catch {
+      return;
     }
   };
 
   const handlePublish = async () => {
-    const result = await validateMutation.mutateAsync();
-    if (!result.valid) {
-      const stepIndex = firstBlockingStep(result);
-      const params = new URLSearchParams(searchParams);
-      params.set('step', String(stepIndex + 1));
-      setSearchParams(params, { replace: true });
-      setCurrentStep(stepIndex);
+    if (!schema) {
       return;
     }
-    await publishMutation.mutateAsync();
+    try {
+      await persistSchema(schema);
+      const result = await validateMutation.mutateAsync();
+      if (!result.valid) {
+        syncStep(firstBlockingStep(result));
+        return;
+      }
+      await publishMutation.mutateAsync();
+    } catch {
+      return;
+    }
   };
 
   if (detailQuery.isLoading || !schema) {
@@ -434,8 +472,8 @@ const TemplateDraftEditorPage: React.FC = () => {
             </Link>
             <button
               type="button"
-              onClick={() => void persistSchema(schema)}
-              disabled={saveMutation.isPending}
+              onClick={() => void handleSave()}
+              disabled={isBusy}
               className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10 disabled:opacity-60"
             >
               保存草稿
@@ -443,7 +481,7 @@ const TemplateDraftEditorPage: React.FC = () => {
             <button
               type="button"
               onClick={() => void handleValidate()}
-              disabled={validateMutation.isPending}
+              disabled={isBusy}
               className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10 disabled:opacity-60"
             >
               校验
@@ -451,7 +489,7 @@ const TemplateDraftEditorPage: React.FC = () => {
             <button
               type="button"
               onClick={() => void handlePublish()}
-              disabled={publishMutation.isPending}
+              disabled={isBusy}
               className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
             >
               发布模板
@@ -468,9 +506,10 @@ const TemplateDraftEditorPage: React.FC = () => {
               key={step.key}
               type="button"
               onClick={() => void handleStepChange(index)}
+              disabled={isBusy}
               className={`rounded-[1.6rem] border px-4 py-4 text-left transition ${
                 active ? 'border-primary/30 bg-primary/5' : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
-              }`}
+              } disabled:opacity-60`}
             >
               <div className="text-sm font-black text-slate-900 dark:text-white">{step.label}</div>
             </button>

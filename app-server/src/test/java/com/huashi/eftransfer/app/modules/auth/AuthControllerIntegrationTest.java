@@ -451,6 +451,74 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void shouldRevokeExistingAccessTokenWhenPasswordResetCompletes() throws Exception {
+        UserEntity teacher = userMapper.selectByUsernameOrEmail("teacher.zhang");
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "teacher.zhang",
+                                  "password": "Teacher@123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
+        String oldAccessToken = loginJson.path("data").path("accessToken").asText();
+        String oldRefreshToken = loginJson.path("data").path("refreshToken").asText();
+
+        MvcResult resetLinkResult = mockMvc.perform(post("/api/admin/users/{userId}/password-reset-link", teacher.getId())
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String resetToken = extractAccountActionToken(objectMapper.readTree(resetLinkResult.getResponse().getContentAsString())
+                .path("data")
+                .path("linkUrl")
+                .asText());
+        String newPassword = "TeacherReset@123456";
+
+        mockMvc.perform(post("/api/auth/account-actions/{token}/complete", resetToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "password": "%s"
+                                }
+                                """.formatted(newPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Account action completed"));
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer " + oldAccessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(oldRefreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "teacher.zhang",
+                                  "password": "%s"
+                                }
+                                """.formatted(newPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userInfo.username").value("teacher.zhang"));
+    }
+
+    @Test
     void shouldRejectOversizedLoginRequest() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -511,6 +579,22 @@ class AuthControllerIntegrationTest {
         return loginJson.path("data").path("refreshToken").asText();
     }
 
+    private String loginAndGetAccessToken(String usernameOrEmail, String password) throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "%s",
+                                  "password": "%s"
+                                }
+                                """.formatted(usernameOrEmail, password)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
+        return loginJson.path("data").path("accessToken").asText();
+    }
+
     private String refreshAndGetRotatedRefreshToken(String refreshToken) throws Exception {
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -531,5 +615,10 @@ class AuthControllerIntegrationTest {
             request.setRemoteAddr(remoteAddress);
             return request;
         };
+    }
+
+    private String extractAccountActionToken(String linkUrl) {
+        int separatorIndex = linkUrl.lastIndexOf('/');
+        return separatorIndex >= 0 ? linkUrl.substring(separatorIndex + 1) : linkUrl;
     }
 }

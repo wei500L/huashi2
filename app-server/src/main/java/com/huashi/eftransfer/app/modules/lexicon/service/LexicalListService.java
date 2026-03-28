@@ -247,16 +247,20 @@ public class LexicalListService {
                 .eq(LexicalListItemEntity::getLexicalListId, lexicalListId)
                 .orderByAsc(LexicalListItemEntity::getSortOrder)
                 .orderByAsc(LexicalListItemEntity::getId));
+        List<Long> orderedItemIds = request.orderedItemIds();
+        Set<Long> requestedIds = new LinkedHashSet<>(orderedItemIds);
+        if (requestedIds.size() != orderedItemIds.size()) {
+            throw new BusinessException(ResultCode.CONFLICT, "orderedItemIds must not contain duplicate lexical list item ids", 409);
+        }
         Set<Long> existingIds = items.stream().map(LexicalListItemEntity::getId).collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<Long> requestedIds = new LinkedHashSet<>(request.orderedItemIds());
-        if (!existingIds.equals(requestedIds)) {
+        if (orderedItemIds.size() != items.size() || !existingIds.equals(requestedIds)) {
             throw new BusinessException(ResultCode.CONFLICT, "orderedItemIds must match the full set of current lexical list item ids", 409);
         }
 
         Map<Long, LexicalListItemEntity> itemMap = items.stream()
                 .collect(Collectors.toMap(LexicalListItemEntity::getId, entity -> entity));
         int sortOrder = 1;
-        for (Long itemId : request.orderedItemIds()) {
+        for (Long itemId : orderedItemIds) {
             LexicalListItemEntity item = itemMap.get(itemId);
             item.setSortOrder(sortOrder++);
             lexicalListItemMapper.updateById(item);

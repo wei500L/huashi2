@@ -88,7 +88,7 @@ public class AccountActionService {
         token.setStatus(AccountActionStatus.CONSUMED.name());
         token.setConsumedAt(LocalDateTime.now());
         accountActionTokenMapper.updateById(token);
-        authTokenStore.revokeAllUserSessions(user.getId());
+        revokeUserSession(user.getId());
     }
 
     public SessionOverviewVO getSessionOverview(JwtPrincipal principal) {
@@ -200,6 +200,23 @@ public class AccountActionService {
             case INVITE_ACTIVATION -> INVITE_TTL;
             case PASSWORD_RESET -> RESET_TTL;
         };
+    }
+
+    private void revokeUserSession(Long userId) {
+        authTokenStore.findActiveRefreshTokenHash(userId)
+                .flatMap(authTokenStore::findRefreshSession)
+                .ifPresent(this::blacklistAccessToken);
+        authTokenStore.revokeAllUserSessions(userId);
+    }
+
+    private void blacklistAccessToken(RefreshTokenSession session) {
+        if (session.accessTokenId() == null || session.accessTokenId().isBlank() || session.accessTokenExpiresAt() == null) {
+            return;
+        }
+        authTokenStore.blacklistAccessToken(
+                session.accessTokenId(),
+                Duration.between(Instant.now(), session.accessTokenExpiresAt())
+        );
     }
 
     private UserEntity requireUser(Long userId) {
