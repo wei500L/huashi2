@@ -36,6 +36,7 @@ import type {
   StudentAnalyticsOverviewVO,
   StudentProfileSummaryVO,
   TeacherInterventionSummaryVO,
+  TeacherInterventionUpdateRequest,
   TeacherStudentDetailVO,
   TeachingClassSummaryVO,
   TrainingHistorySummaryVO,
@@ -181,8 +182,13 @@ export const teacherAnalyticsService = {
 };
 
 export const teacherInterventionService = {
-  list: (params: { classId?: number; status?: string; pageNo?: number; pageSize?: number }, options?: RequestOptions) =>
+  list: (
+    params: { classId?: number; status?: string; priority?: string; studentUserId?: number; pageNo?: number; pageSize?: number },
+    options?: RequestOptions
+  ) =>
     apiGet<PageResult<TeacherInterventionSummaryVO>>('/teacher/interventions', { ...options, params }),
+  update: (interventionId: number, payload: TeacherInterventionUpdateRequest) =>
+    apiPut<TeacherInterventionSummaryVO>(`/teacher/interventions/${interventionId}`, payload),
   complete: (interventionId: number) => apiPost<void>(`/teacher/interventions/${interventionId}/complete`),
 };
 

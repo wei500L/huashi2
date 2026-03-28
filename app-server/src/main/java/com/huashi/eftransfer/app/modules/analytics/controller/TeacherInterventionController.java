@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.modules.analytics.controller;
 
 import com.huashi.eftransfer.app.modules.analytics.dto.TeacherInterventionPageQuery;
+import com.huashi.eftransfer.app.modules.analytics.dto.TeacherInterventionUpdateRequest;
 import com.huashi.eftransfer.app.modules.analytics.service.TeacherInterventionService;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherInterventionSummaryVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
@@ -12,6 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +34,14 @@ public class TeacherInterventionController {
             @Valid @ModelAttribute TeacherInterventionPageQuery query
     ) {
         return ApiResponse.success(teacherInterventionService.pageQuery(query), MDC.get("traceId"));
+    }
+
+    @PutMapping("/{interventionId}")
+    public ApiResponse<TeacherInterventionSummaryVO> update(
+            @PathVariable Long interventionId,
+            @Valid @RequestBody TeacherInterventionUpdateRequest request
+    ) {
+        return ApiResponse.success(teacherInterventionService.update(interventionId, request), MDC.get("traceId"));
     }
 
     @PostMapping("/{interventionId}/complete")

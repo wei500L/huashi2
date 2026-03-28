@@ -78,7 +78,7 @@ const DashboardPage: React.FC = () => {
       <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
         <div className="flex flex-col lg:flex-row gap-8 items-start justify-between">
           <div className="max-w-3xl">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">student profile</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">学生画像</div>
             <h1 className="mt-3 text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
               {overview?.studentName || '加载中'}，当前主风险为 {overview?.primaryRiskLevel || '--'}
             </h1>
@@ -139,7 +139,7 @@ const DashboardPage: React.FC = () => {
         />
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">high risk pairs</div>
+          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">高风险词对</div>
           <div className="space-y-4">
             {(highRiskPairsQuery.data || []).map((item) => (
               <div key={item.lexicalPairId} className="rounded-[1.5rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
@@ -162,7 +162,7 @@ const DashboardPage: React.FC = () => {
         </section>
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">recommended plan</div>
+          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">推荐训练计划</div>
           {recommendedPlanQuery.data ? (
             <div className="space-y-4">
               <div className="text-2xl font-black text-slate-900 dark:text-white">{recommendedPlanQuery.data.priorityMode}</div>
@@ -172,7 +172,7 @@ const DashboardPage: React.FC = () => {
                   <button
                     key={session.mode}
                     type="button"
-                    onClick={() => navigate('/training')}
+                    onClick={() => navigate(`/training?mode=${encodeURIComponent(session.mode)}&source=dashboard`)}
                     className="w-full text-left rounded-[1.4rem] border border-slate-200/70 dark:border-white/10 p-4 hover:border-primary/40 transition-all"
                   >
                     <div className="font-bold text-slate-900 dark:text-white">{session.label}</div>
@@ -185,6 +185,9 @@ const DashboardPage: React.FC = () => {
             <div className="space-y-3">
               <div className="text-lg font-black text-slate-900 dark:text-white">尚未生成训练计划</div>
               <p className="text-sm leading-6 text-slate-500 dark:text-white/45">先完成一轮诊断，系统才能基于最新 summary 生成训练计划。</p>
+              <button type="button" onClick={() => navigate('/diagnosis')} className="btn-liquid px-5 py-3 text-white">
+                立即去诊断
+              </button>
             </div>
           ) : recommendedPlanQuery.isLoading ? (
             <div className="text-sm text-slate-500 dark:text-white/45">正在拉取推荐计划...</div>
@@ -197,7 +200,7 @@ const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
           <div className="flex items-center justify-between mb-6">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">wrong book</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">错题本</div>
             <button type="button" onClick={() => navigate('/errors')} className="text-sm text-primary flex items-center gap-2">
               查看全部 <ArrowRight size={14} />
             </button>
@@ -218,9 +221,20 @@ const DashboardPage: React.FC = () => {
         </section>
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <Brain size={16} className="text-primary" />
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">review schedule</div>
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <Brain size={16} className="text-primary" />
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">待复习计划</div>
+            </div>
+            {!!reviewScheduleQuery.data?.length && (
+              <button
+                type="button"
+                onClick={() => navigate(`/training?mode=${encodeURIComponent(reviewScheduleQuery.data[0].reviewMode)}&source=dashboard-review`)}
+                className="text-sm text-primary"
+              >
+                立即开始
+              </button>
+            )}
           </div>
           <div className="space-y-4">
             {(reviewScheduleQuery.data || []).slice(0, 4).map((item) => (

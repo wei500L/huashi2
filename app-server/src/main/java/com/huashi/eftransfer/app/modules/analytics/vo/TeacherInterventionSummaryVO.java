@@ -12,6 +12,9 @@ public record TeacherInterventionSummaryVO(
         String status,
         LocalDateTime plannedAt,
         LocalDateTime completedAt,
+        String teacherNote,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt,
         String patternDetected,
         String suggestedAction
 ) {

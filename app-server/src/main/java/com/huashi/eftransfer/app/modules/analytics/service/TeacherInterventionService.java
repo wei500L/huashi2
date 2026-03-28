@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.modules.analytics.dto.TeacherInterventionPageQuery;
+import com.huashi.eftransfer.app.modules.analytics.dto.TeacherInterventionUpdateRequest;
 import com.huashi.eftransfer.app.modules.analytics.entity.InterventionRecordEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.InterventionRecordMapper;
@@ -65,6 +66,12 @@ public class TeacherInterventionService {
         if (query.status() != null && !query.status().isBlank()) {
             wrapper.eq(InterventionRecordEntity::getStatus, query.status().trim().toUpperCase());
         }
+        if (query.priority() != null && !query.priority().isBlank()) {
+            wrapper.eq(InterventionRecordEntity::getPriority, query.priority().trim().toUpperCase());
+        }
+        if (query.studentUserId() != null) {
+            wrapper.eq(InterventionRecordEntity::getStudentUserId, query.studentUserId());
+        }
 
         long total = interventionRecordMapper.selectCount(wrapper);
         List<InterventionRecordEntity> records = interventionRecordMapper.selectList(wrapper
@@ -81,6 +88,41 @@ public class TeacherInterventionService {
                 .map(record -> toSummary(record, classMap.get(record.getTeachingClassId()), userMap.get(record.getStudentUserId())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), items);
+    }
+
+    @Transactional
+    public TeacherInterventionSummaryVO update(Long interventionId, TeacherInterventionUpdateRequest request) {
+        InterventionRecordEntity entity = interventionRecordMapper.selectById(interventionId);
+        if (entity == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Intervention record was not found", 404);
+        }
+        requireAccessible(entity);
+
+        if (request.priority() != null) {
+            entity.setPriority(request.priority().trim().toUpperCase());
+        }
+        if (request.status() != null) {
+            entity.setStatus(request.status().trim().toUpperCase());
+        }
+        entity.setPlannedAt(request.plannedAt());
+        entity.setNote(normalizeNullableText(request.teacherNote()));
+
+        if ("COMPLETED".equalsIgnoreCase(entity.getStatus())) {
+            if (entity.getCompletedAt() == null) {
+                entity.setCompletedAt(LocalDateTime.now());
+            }
+        } else {
+            entity.setCompletedAt(null);
+        }
+
+        interventionRecordMapper.updateById(entity);
+        TeachingClassEntity teachingClass = entity.getTeachingClassId() == null
+                ? null
+                : teachingClassMapper.selectById(entity.getTeachingClassId());
+        UserEntity student = entity.getStudentUserId() == null
+                ? null
+                : userMapper.selectById(entity.getStudentUserId());
+        return toSummary(entity, teachingClass, student);
     }
 
     @Transactional
@@ -171,6 +213,9 @@ public class TeacherInterventionService {
                 entity.getStatus(),
                 entity.getPlannedAt(),
                 entity.getCompletedAt(),
+                entity.getNote(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt(),
                 patternDetected,
                 suggestedAction
         );
@@ -236,6 +281,14 @@ public class TeacherInterventionService {
     private Long currentUserId() {
         return SecurityUtils.getCurrentUserId()
                 .orElseThrow(() -> new BusinessException(ResultCode.UNAUTHORIZED, "Authentication required", 401));
+    }
+
+    private String normalizeNullableText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private boolean isAdmin() {

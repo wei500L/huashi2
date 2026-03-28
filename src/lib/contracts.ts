@@ -854,8 +854,18 @@ export interface TeacherInterventionSummaryVO {
   status: string;
   plannedAt?: string | null;
   completedAt?: string | null;
+  teacherNote?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   patternDetected: string;
   suggestedAction: string;
+}
+
+export interface TeacherInterventionUpdateRequest {
+  priority?: string | null;
+  status?: string | null;
+  plannedAt?: string | null;
+  teacherNote?: string | null;
 }
 
 export interface UserSummaryVO {

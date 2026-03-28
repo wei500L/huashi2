@@ -90,7 +90,7 @@ const HistoryPage: React.FC = () => {
                 : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
             }`}
           >
-            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">diagnosis history</div>
+            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">诊断记录</div>
             <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">诊断历史</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看模板、结果得分和完成时间。</div>
           </button>
@@ -103,7 +103,7 @@ const HistoryPage: React.FC = () => {
                 : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
             }`}
           >
-            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">training history</div>
+            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">训练记录</div>
             <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">训练历史</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看模式、正确率和风险词复习建议。</div>
           </button>
@@ -224,10 +224,28 @@ const HistoryPage: React.FC = () => {
               </div>
             ) : diagnosisDetailQuery.data ? (
               <>
-                <div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white">{diagnosisDetailQuery.data.templateName}</div>
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    完成于 {formatDateTime(diagnosisDetailQuery.data.completedAt)}
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="text-2xl font-black text-slate-900 dark:text-white">{diagnosisDetailQuery.data.templateName}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      完成于 {formatDateTime(diagnosisDetailQuery.data.completedAt)}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/training')}
+                      className="btn-liquid px-5 py-3 text-white"
+                    >
+                      基于结果开始训练
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/analytics')}
+                      className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                    >
+                      查看学情分析
+                    </button>
                   </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -393,9 +411,29 @@ const HistoryPage: React.FC = () => {
               </div>
             ) : trainingDetailQuery.data ? (
               <>
-                <div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingDetailQuery.data.mode}</div>
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{trainingDetailQuery.data.improvementHint}</div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingDetailQuery.data.mode}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{trainingDetailQuery.data.improvementHint}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(`/training?mode=${encodeURIComponent(trainingDetailQuery.data.nextRecommendedMode)}&source=history`)
+                      }
+                      className="btn-liquid px-5 py-3 text-white"
+                    >
+                      继续下一推荐训练
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/errors')}
+                      className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                    >
+                      去做错题复习
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
