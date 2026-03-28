@@ -169,24 +169,152 @@ function requireBoolean(value: unknown, path: string): boolean {
   return value;
 }
 
+function requireString(value: unknown, path: string): string {
+  if (typeof value !== 'string') {
+    throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}。`);
+  }
+  return value;
+}
+
+function requireNullableString(value: unknown, path: string): string | null | undefined {
+  if (value !== null && value !== undefined && typeof value !== 'string') {
+    throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}。`);
+  }
+  return value as string | null | undefined;
+}
+
+function requireNullableNumber(value: unknown, path: string): number | null | undefined {
+  if (value !== null && value !== undefined && typeof value !== 'number') {
+    throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}。`);
+  }
+  return value as number | null | undefined;
+}
+
+function assertSecretField(field: unknown, path: string): void {
+  const secretField = requireRecord(field, path);
+  requireBoolean(secretField.configured, `${path}.configured`);
+  requireString(secretField.maskedValue, `${path}.maskedValue`);
+}
+
+function assertProviderSecretGroup(group: unknown, path: string): void {
+  const secretGroup = requireRecord(group, path);
+  assertSecretField(secretGroup.chatApiKey, `${path}.chatApiKey`);
+  assertSecretField(secretGroup.embeddingApiKey, `${path}.embeddingApiKey`);
+  assertSecretField(secretGroup.rerankApiKey, `${path}.rerankApiKey`);
+}
+
+function assertProviderDefinition(definition: unknown, path: string): void {
+  const providerDefinition = requireRecord(definition, path);
+  const chat = requireRecord(providerDefinition.chat, `${path}.chat`);
+  requireNullableString(chat.baseUrl, `${path}.chat.baseUrl`);
+  requireNullableString(chat.apiKey, `${path}.chat.apiKey`);
+  requireNullableString(chat.model, `${path}.chat.model`);
+  requireNullableString(chat.timeout, `${path}.chat.timeout`);
+  requireNullableNumber(chat.temperature, `${path}.chat.temperature`);
+  requireNullableNumber(chat.maxTokens, `${path}.chat.maxTokens`);
+
+  const embedding = requireRecord(providerDefinition.embedding, `${path}.embedding`);
+  requireNullableString(embedding.baseUrl, `${path}.embedding.baseUrl`);
+  requireNullableString(embedding.apiKey, `${path}.embedding.apiKey`);
+  requireNullableString(embedding.model, `${path}.embedding.model`);
+  requireNullableString(embedding.timeout, `${path}.embedding.timeout`);
+  requireNullableNumber(embedding.dimension, `${path}.embedding.dimension`);
+
+  const rerank = requireRecord(providerDefinition.rerank, `${path}.rerank`);
+  requireNullableString(rerank.baseUrl, `${path}.rerank.baseUrl`);
+  requireNullableString(rerank.apiKey, `${path}.rerank.apiKey`);
+  requireNullableString(rerank.model, `${path}.rerank.model`);
+  requireNullableString(rerank.timeout, `${path}.rerank.timeout`);
+}
+
+function assertProviderConfig(provider: unknown, path: string): string[] {
+  const providerConfig = requireRecord(provider, path);
+  requireNullableString(providerConfig.activeProvider, `${path}.activeProvider`);
+  requireNullableString(providerConfig.fallbackProvider, `${path}.fallbackProvider`);
+  const providers = requireRecord(providerConfig.providers, `${path}.providers`);
+  const providerNames = Object.keys(providers);
+  providerNames.forEach((providerName) =>
+    assertProviderDefinition(providers[providerName], `${path}.providers.${providerName}`)
+  );
+  return providerNames;
+}
+
+function assertAiOpsConfigPayload(payload: unknown, path: string): string[] {
+  const config = requireRecord(payload, path);
+  const providerNames = assertProviderConfig(config.provider, `${path}.provider`);
+
+  const resilience = requireRecord(config.resilience, `${path}.resilience`);
+  requireNullableNumber(resilience.maxAttempts, `${path}.resilience.maxAttempts`);
+  requireNullableString(resilience.waitDuration, `${path}.resilience.waitDuration`);
+  requireNullableNumber(resilience.failureRateThreshold, `${path}.resilience.failureRateThreshold`);
+  requireNullableNumber(resilience.slidingWindowSize, `${path}.resilience.slidingWindowSize`);
+  requireNullableString(resilience.openStateDuration, `${path}.resilience.openStateDuration`);
+
+  const rag = requireRecord(config.rag, `${path}.rag`);
+  const appServer = requireRecord(rag.appServer, `${path}.rag.appServer`);
+  requireNullableString(appServer.baseUrl, `${path}.rag.appServer.baseUrl`);
+  requireNullableString(appServer.internalToken, `${path}.rag.appServer.internalToken`);
+  requireNullableString(appServer.connectTimeout, `${path}.rag.appServer.connectTimeout`);
+  requireNullableString(appServer.readTimeout, `${path}.rag.appServer.readTimeout`);
+
+  const ingestion = requireRecord(rag.ingestion, `${path}.rag.ingestion`);
+  requireNullableNumber(ingestion.exportPageSize, `${path}.rag.ingestion.exportPageSize`);
+  requireNullableNumber(ingestion.embeddingBatchSize, `${path}.rag.ingestion.embeddingBatchSize`);
+
+  const retrieval = requireRecord(rag.retrieval, `${path}.rag.retrieval`);
+  requireNullableNumber(retrieval.recallTopK, `${path}.rag.retrieval.recallTopK`);
+  requireNullableNumber(retrieval.recallThreshold, `${path}.rag.retrieval.recallThreshold`);
+  requireNullableNumber(retrieval.rerankTopN, `${path}.rag.retrieval.rerankTopN`);
+  requireNullableNumber(retrieval.rerankThreshold, `${path}.rag.retrieval.rerankThreshold`);
+  requireNullableNumber(retrieval.finalTopK, `${path}.rag.retrieval.finalTopK`);
+
+  return providerNames;
+}
+
+function assertSecretFields(secrets: unknown, expectedProviderNames: string[], path: string): void {
+  const secretFields = requireRecord(secrets, path);
+  const providers = requireRecord(secretFields.providers, `${path}.providers`);
+  const secretProviderNames = Object.keys(providers);
+  expectedProviderNames.forEach((providerName) => {
+    if (!(providerName in providers)) {
+      throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}.providers.${providerName}。`);
+    }
+    assertProviderSecretGroup(providers[providerName], `${path}.providers.${providerName}`);
+  });
+  secretProviderNames.forEach((providerName) => {
+    if (!expectedProviderNames.includes(providerName)) {
+      throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：存在未定义的 ${path}.providers.${providerName}。`);
+    }
+  });
+  assertSecretField(secretFields.appServerInternalToken, `${path}.appServerInternalToken`);
+}
+
+function assertRuntimeState(runtime: unknown, path: string): void {
+  const runtimeState = requireRecord(runtime, path);
+  requireBoolean(runtimeState.available, `${path}.available`);
+  requireNullableString(runtimeState.source, `${path}.source`);
+  requireNullableNumber(runtimeState.version, `${path}.version`);
+  requireNullableString(runtimeState.appliedAt, `${path}.appliedAt`);
+  requireBoolean(runtimeState.inSync, `${path}.inSync`);
+}
+
+function assertStoredState(stored: unknown, path: string): void {
+  const storedState = requireRecord(stored, path);
+  requireBoolean(storedState.present, `${path}.present`);
+  requireNullableNumber(storedState.version, `${path}.version`);
+  requireNullableString(storedState.updatedAt, `${path}.updatedAt`);
+}
+
 function assertAdminAiConfigViewEnvelope(view: unknown): asserts view is Partial<AdminAiConfigViewVO> {
   const root = requireRecord(view, 'data');
-  const config = requireRecord(root.config, 'config');
-  const provider = requireRecord(config.provider, 'config.provider');
-  requireRecord(provider.providers, 'config.provider.providers');
-  requireRecord(config.resilience, 'config.resilience');
-  const rag = requireRecord(config.rag, 'config.rag');
-  requireRecord(rag.appServer, 'config.rag.appServer');
-  requireRecord(rag.ingestion, 'config.rag.ingestion');
-  requireRecord(rag.retrieval, 'config.rag.retrieval');
-  const secrets = requireRecord(root.secrets, 'secrets');
-  requireRecord(secrets.providers, 'secrets.providers');
-  requireRecord(secrets.appServerInternalToken, 'secrets.appServerInternalToken');
-  const runtime = requireRecord(root.runtime, 'runtime');
-  requireBoolean(runtime.available, 'runtime.available');
-  const stored = requireRecord(root.stored, 'stored');
-  requireBoolean(stored.present, 'stored.present');
-  requireArray(root.notices, 'notices');
+  requireNullableString(root.source, 'source');
+  requireNullableNumber(root.version, 'version');
+  requireNullableString(root.updatedAt, 'updatedAt');
+  const providerNames = assertAiOpsConfigPayload(root.config, 'config');
+  assertSecretFields(root.secrets, providerNames, 'secrets');
+  assertRuntimeState(root.runtime, 'runtime');
+  assertStoredState(root.stored, 'stored');
+  requireArray(root.notices, 'notices').forEach((notice, index) => requireString(notice, `notices[${index}]`));
 }
 
 function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinition> | null): AiOpsProviderDefinition {

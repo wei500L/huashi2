@@ -118,6 +118,48 @@ describe('ConfigCenter contract guards', () => {
     expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/stored/);
   });
 
+  it('rejects responses that omit provider secret groups', () => {
+    const invalid = createConfigViewEnvelope() as unknown as Record<string, unknown>;
+    const secrets = invalid.secrets as Record<string, unknown>;
+    const providers = secrets.providers as Record<string, unknown>;
+    delete providers.qwen;
+
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(AdminAiConfigContractError);
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/secrets\.providers\.qwen/);
+  });
+
+  it('rejects responses with malformed runtime flags', () => {
+    const invalid = createConfigViewEnvelope() as Record<string, unknown>;
+    invalid.runtime = {
+      ...createConfigViewEnvelope().runtime,
+      inSync: 'yes',
+    };
+
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(AdminAiConfigContractError);
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/runtime\.inSync/);
+  });
+
+  it('rejects responses with non-string notices', () => {
+    const invalid = createConfigViewEnvelope() as Record<string, unknown>;
+    invalid.notices = ['ok', 42];
+
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(AdminAiConfigContractError);
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/notices\[1\]/);
+  });
+
+  it('rejects responses with malformed provider config scalars', () => {
+    const invalid = createConfigViewEnvelope() as unknown as Record<string, unknown>;
+    const config = invalid.config as Record<string, unknown>;
+    const provider = config.provider as Record<string, unknown>;
+    const providers = provider.providers as Record<string, unknown>;
+    const qwen = providers.qwen as Record<string, unknown>;
+    const chat = qwen.chat as Record<string, unknown>;
+    chat.temperature = 'low';
+
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(AdminAiConfigContractError);
+    expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/chat\.temperature/);
+  });
+
   it('converts a valid envelope with null leaves into an editable draft', () => {
     const normalized = normalizeAdminAiConfigView(createConfigViewEnvelope());
 
