@@ -29,11 +29,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 @Service
 public class AiRuntimeConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(AiRuntimeConfigService.class);
+    private static final Pattern PROVIDER_KEY_PATTERN = Pattern.compile("^[a-z0-9_-]+$");
     private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigEffectiveResponse>> EFFECTIVE_TYPE =
             new ParameterizedTypeReference<>() {
             };
@@ -173,6 +175,7 @@ public class AiRuntimeConfigService {
             issues.add(new AiOpsConfigIssue("provider.fallbackProvider", "fallbackProvider must be different from activeProvider"));
         }
         for (Map.Entry<String, AiOpsProviderDefinition> entry : payload.provider().providers().entrySet()) {
+            validateProviderKey(entry.getKey(), issues);
             validateProviderDefinition(entry.getKey(), entry.getValue(), issues);
         }
     }
@@ -303,6 +306,19 @@ public class AiRuntimeConfigService {
         }
         if (!providers.containsKey(providerName)) {
             issues.add(new AiOpsConfigIssue(field, "must reference a configured provider"));
+        }
+    }
+
+    private void validateProviderKey(String providerName, List<AiOpsConfigIssue> issues) {
+        if (!StringUtils.hasText(providerName)) {
+            issues.add(new AiOpsConfigIssue("provider.providers", "provider key must not be blank"));
+            return;
+        }
+        if (!PROVIDER_KEY_PATTERN.matcher(providerName).matches()) {
+            issues.add(new AiOpsConfigIssue(
+                    "provider.providers." + providerName,
+                    "provider key must contain only lowercase letters, numbers, hyphen, or underscore"
+            ));
         }
     }
 

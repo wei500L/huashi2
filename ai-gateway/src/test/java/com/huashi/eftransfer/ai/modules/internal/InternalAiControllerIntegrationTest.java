@@ -99,28 +99,28 @@ class InternalAiControllerIntegrationTest {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("ai.provider.active-provider", () -> "qwen");
-        registry.add("ai.provider.fallback-provider", () -> "deepseek");
-        registry.add("ai.provider.providers.qwen.chat.base-url", () -> wireMockServer.baseUrl() + "/v1");
-        registry.add("ai.provider.providers.qwen.chat.api-key", () -> "test-api-key");
-        registry.add("ai.provider.providers.qwen.chat.model", () -> "qwen-max");
-        registry.add("ai.provider.providers.qwen.embedding.base-url", () -> wireMockServer.baseUrl() + "/v1");
-        registry.add("ai.provider.providers.qwen.embedding.api-key", () -> "test-api-key");
-        registry.add("ai.provider.providers.qwen.embedding.model", () -> "text-embedding-v4");
-        registry.add("ai.provider.providers.qwen.embedding.dimension", () -> "3");
-        registry.add("ai.provider.providers.qwen.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
-        registry.add("ai.provider.providers.qwen.rerank.api-key", () -> "test-api-key");
-        registry.add("ai.provider.providers.qwen.rerank.model", () -> "gte-rerank-v2");
-        registry.add("ai.provider.providers.deepseek.chat.base-url", () -> wireMockServer.baseUrl() + "/v1");
-        registry.add("ai.provider.providers.deepseek.chat.api-key", () -> "backup-api-key");
-        registry.add("ai.provider.providers.deepseek.chat.model", () -> "deepseek-chat");
-        registry.add("ai.provider.providers.deepseek.embedding.base-url", () -> wireMockServer.baseUrl() + "/v1");
-        registry.add("ai.provider.providers.deepseek.embedding.api-key", () -> "backup-api-key");
-        registry.add("ai.provider.providers.deepseek.embedding.model", () -> "text-embedding-v4");
-        registry.add("ai.provider.providers.deepseek.embedding.dimension", () -> "3");
-        registry.add("ai.provider.providers.deepseek.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
-        registry.add("ai.provider.providers.deepseek.rerank.api-key", () -> "backup-api-key");
-        registry.add("ai.provider.providers.deepseek.rerank.model", () -> "gte-rerank-v2");
+        registry.add("ai.provider.active-provider", () -> "primary_openai");
+        registry.add("ai.provider.fallback-provider", () -> "backup_1");
+        registry.add("ai.provider.providers.primary_openai.chat.base-url", () -> wireMockServer.baseUrl() + "/v1");
+        registry.add("ai.provider.providers.primary_openai.chat.api-key", () -> "test-api-key");
+        registry.add("ai.provider.providers.primary_openai.chat.model", () -> "qwen-max");
+        registry.add("ai.provider.providers.primary_openai.embedding.base-url", () -> wireMockServer.baseUrl() + "/v1");
+        registry.add("ai.provider.providers.primary_openai.embedding.api-key", () -> "test-api-key");
+        registry.add("ai.provider.providers.primary_openai.embedding.model", () -> "text-embedding-v4");
+        registry.add("ai.provider.providers.primary_openai.embedding.dimension", () -> "3");
+        registry.add("ai.provider.providers.primary_openai.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
+        registry.add("ai.provider.providers.primary_openai.rerank.api-key", () -> "test-api-key");
+        registry.add("ai.provider.providers.primary_openai.rerank.model", () -> "gte-rerank-v2");
+        registry.add("ai.provider.providers.backup_1.chat.base-url", () -> wireMockServer.baseUrl() + "/v1");
+        registry.add("ai.provider.providers.backup_1.chat.api-key", () -> "backup-api-key");
+        registry.add("ai.provider.providers.backup_1.chat.model", () -> "deepseek-chat");
+        registry.add("ai.provider.providers.backup_1.embedding.base-url", () -> wireMockServer.baseUrl() + "/v1");
+        registry.add("ai.provider.providers.backup_1.embedding.api-key", () -> "backup-api-key");
+        registry.add("ai.provider.providers.backup_1.embedding.model", () -> "text-embedding-v4");
+        registry.add("ai.provider.providers.backup_1.embedding.dimension", () -> "3");
+        registry.add("ai.provider.providers.backup_1.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
+        registry.add("ai.provider.providers.backup_1.rerank.api-key", () -> "backup-api-key");
+        registry.add("ai.provider.providers.backup_1.rerank.model", () -> "gte-rerank-v2");
         registry.add("ai.resilience.max-attempts", () -> "1");
         registry.add("rag.app-server.base-url", () -> "http://localhost:8080");
         registry.add("rag.app-server.internal-token", () -> "test-internal-token");
@@ -170,7 +170,7 @@ class InternalAiControllerIntegrationTest {
                 .andExpect(header().string("X-Trace-Id", "trace-chat-int"))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.traceId").value("trace-chat-int"))
-                .andExpect(jsonPath("$.data.provider").value("qwen"))
+                .andExpect(jsonPath("$.data.provider").value("primary_openai"))
                 .andExpect(jsonPath("$.data.content").value("integration hello"))
                 .andExpect(jsonPath("$.data.usage.totalTokens").value(10));
     }

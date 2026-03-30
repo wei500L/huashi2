@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, Info, LoaderCircle, Play, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, LoaderCircle, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
 import { PageHeader } from '@/components/common';
 import { ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -27,11 +27,14 @@ type SecretEditorState = {
 };
 
 type ProviderSecretEditorMap = Record<ProviderSecretKey, SecretEditorState>;
+type ProviderOriginMap = Record<string, string>;
 
 type SecretEditorMap = {
   providers: Record<string, ProviderSecretEditorMap>;
   appServerInternalToken: SecretEditorState;
 };
+
+const providerKeyPattern = /^[a-z0-9_-]+$/;
 
 const tabs: Array<{ key: ConfigTab; label: string }> = [
   { key: 'provider', label: '模型接入' },
@@ -431,6 +434,14 @@ function createSecretEditor(configured: boolean): SecretEditorState {
   return { retainExisting: configured, value: '' };
 }
 
+function createEmptyProviderSecretEditors(): ProviderSecretEditorMap {
+  return {
+    chatApiKey: createSecretEditor(false),
+    embeddingApiKey: createSecretEditor(false),
+    rerankApiKey: createSecretEditor(false),
+  };
+}
+
 function createProviderSecretEditors(view: AdminAiConfigViewVO, providerName: string): ProviderSecretEditorMap {
   const providerSecrets = view.secrets.providers?.[providerName];
   return {
@@ -452,10 +463,74 @@ function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
   };
 }
 
-function buildSavePayload(config: AiOpsConfigPayload, secrets: SecretEditorMap, expectedVersion?: number | null): AdminAiConfigSaveRequest {
+function createEmptyProviderDefinition(): AiOpsProviderDefinition {
+  return {
+    chat: {
+      baseUrl: '',
+      apiKey: null,
+      model: '',
+      timeout: '',
+      temperature: 0,
+      maxTokens: 0,
+    },
+    embedding: {
+      baseUrl: '',
+      apiKey: null,
+      model: '',
+      timeout: '',
+      dimension: 1024,
+    },
+    rerank: {
+      baseUrl: '',
+      apiKey: null,
+      model: '',
+      timeout: '',
+    },
+  };
+}
+
+function normalizeProviderKey(value: string): string {
+  return value.trim();
+}
+
+function validateProviderKeyDraft(value: string, existingProviderNames: string[], currentProviderName?: string): string | null {
+  const normalized = normalizeProviderKey(value);
+  if (!normalized) {
+    return 'Provider key 不能为空。';
+  }
+  if (!providerKeyPattern.test(normalized)) {
+    return 'Provider key 仅支持小写字母、数字、连字符和下划线。';
+  }
+  if (existingProviderNames.includes(normalized) && normalized !== currentProviderName) {
+    return `Provider key ${normalized} 已存在。`;
+  }
+  return null;
+}
+
+function renameRecordKey<T>(record: Record<string, T>, currentKey: string, nextKey: string): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key === currentKey ? nextKey : key, value])
+  );
+}
+
+function sanitizeProviderOrigins(providerOrigins: ProviderOriginMap, providerNames: string[]): ProviderOriginMap | undefined {
+  const filteredEntries = Object.entries(providerOrigins).filter(([providerName, originName]) =>
+    providerNames.includes(providerName) && Boolean(originName) && providerName !== originName
+  );
+  return filteredEntries.length > 0 ? Object.fromEntries(filteredEntries) : undefined;
+}
+
+export function buildSavePayload(
+  config: AiOpsConfigPayload,
+  secrets: SecretEditorMap,
+  expectedVersion?: number | null,
+  providerOrigins: ProviderOriginMap = {}
+): AdminAiConfigSaveRequest {
+  const sanitizedProviderOrigins = sanitizeProviderOrigins(providerOrigins, Object.keys(config.provider.providers || {}));
   return {
     config,
     expectedVersion: expectedVersion ?? null,
+    providerOrigins: sanitizedProviderOrigins,
     secrets: {
       providers: Object.fromEntries(
         Object.entries(secrets.providers).map(([providerName, providerSecrets]) => [
@@ -606,6 +681,12 @@ function translateConfigMessage(message: string): string {
   if (trimmed.includes('must be a positive duration')) {
     return '时长字段必须大于 0。';
   }
+  if (trimmed.includes('provider key must not be blank')) {
+    return 'Provider key 不能为空。';
+  }
+  if (trimmed.includes('provider key must contain only lowercase letters, numbers, hyphen, or underscore')) {
+    return 'Provider key 仅支持小写字母、数字、连字符和下划线。';
+  }
   if (trimmed.includes('runtime is unavailable')) {
     return 'ai-gateway 运行态当前不可达，页面正在展示数据库权威快照。';
   }
@@ -628,6 +709,14 @@ function buildProviderOptions(providerNames: string[], currentValue: string | nu
     return [{ value: '', label: '暂无 provider 定义' }];
   }
   return options;
+}
+
+function collectLocalProviderKeyIssues(config: AiOpsConfigPayload): AiOpsConfigValidationResponse['issues'] {
+  return Object.keys(config.provider.providers || {}).flatMap((providerName) => (
+    providerKeyPattern.test(providerName)
+      ? []
+      : [{ field: `provider.providers.${providerName}`, message: 'provider key must contain only lowercase letters, numbers, hyphen, or underscore' }]
+  ));
 }
 
 function normalizeSelectedSourceTypes(sourceTypes: string[]): string[] {
@@ -952,14 +1041,17 @@ const configPresets: ConfigPreset[] = [
   },
   {
     key: 'single-provider',
-    label: '单 Provider 稳定运行',
-    description: '收敛为单主 Provider，强调保守阈值和稳定性，适合正式班级运行。',
+    label: '保守双 Provider 运行',
+    description: '保留 active/fallback 双 provider，但采用更保守的阈值，适合稳定优先场景。',
     apply: (current, providerNames) => ({
       ...current,
       provider: {
         ...current.provider,
         activeProvider: current.provider.activeProvider || providerNames[0] || '',
-        fallbackProvider: '',
+        fallbackProvider:
+          providerNames.find((providerName) => providerName !== (current.provider.activeProvider || providerNames[0])) ||
+          current.provider.fallbackProvider ||
+          '',
       },
       resilience: {
         ...current.resilience,
@@ -1044,9 +1136,13 @@ const AdminConfigCenterPage: React.FC = () => {
   const [editing, setEditing] = React.useState(false);
   const [config, setConfig] = React.useState<AiOpsConfigPayload | null>(null);
   const [secrets, setSecrets] = React.useState<SecretEditorMap | null>(null);
+  const [providerOrigins, setProviderOrigins] = React.useState<ProviderOriginMap>({});
   const [validation, setValidation] = React.useState<AiOpsConfigValidationResponse | null>(null);
   const [feedback, setFeedback] = React.useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const [saveReviewOpen, setSaveReviewOpen] = React.useState(false);
+  const [newProviderName, setNewProviderName] = React.useState('');
+  const [renamingProviderName, setRenamingProviderName] = React.useState<string | null>(null);
+  const [renameProviderDraft, setRenameProviderDraft] = React.useState('');
   const [healthState, setHealthState] = React.useState<AiGatewayHealthResponse | null>(null);
   const [reindexForm, setReindexForm] = React.useState<RagReindexRequest>({
     mode: 'INCREMENTAL',
@@ -1066,7 +1162,11 @@ const AdminConfigCenterPage: React.FC = () => {
     }
     setConfig(cloneConfig(configQuery.data.config));
     setSecrets(buildSecretEditors(configQuery.data));
+    setProviderOrigins({});
     setValidation(null);
+    setNewProviderName('');
+    setRenamingProviderName(null);
+    setRenameProviderDraft('');
   }, [configQuery.data]);
 
   const validateMutation = useMutation({
@@ -1095,6 +1195,10 @@ const AdminConfigCenterPage: React.FC = () => {
       setFeedback({ tone: 'success', message: '配置已保存并下发到 ai-gateway 运行态，请再刷新运行态健康确认链路。' });
       setConfig(cloneConfig(normalizedResponse.config));
       setSecrets(buildSecretEditors(normalizedResponse));
+      setProviderOrigins({});
+      setNewProviderName('');
+      setRenamingProviderName(null);
+      setRenameProviderDraft('');
     },
     onError: (error: Error, payload) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -1218,11 +1322,7 @@ const AdminConfigCenterPage: React.FC = () => {
       if (!current) {
         return current;
       }
-      const providerSecrets = current.providers[providerName] || {
-        chatApiKey: createSecretEditor(false),
-        embeddingApiKey: createSecretEditor(false),
-        rerankApiKey: createSecretEditor(false),
-      };
+      const providerSecrets = current.providers[providerName] || createEmptyProviderSecretEditors();
       return {
         ...current,
         providers: {
@@ -1238,6 +1338,142 @@ const AdminConfigCenterPage: React.FC = () => {
       };
     });
   }, []);
+
+  const addProvider = React.useCallback(() => {
+    if (!config || !secrets) {
+      return;
+    }
+    const providerName = normalizeProviderKey(newProviderName);
+    const validationMessage = validateProviderKeyDraft(providerName, Object.keys(config.provider.providers || {}));
+    if (validationMessage) {
+      setFeedback({ tone: 'error', message: validationMessage });
+      return;
+    }
+    updateConfig((current) => ({
+      ...current,
+      provider: {
+        ...current.provider,
+        providers: {
+          ...current.provider.providers,
+          [providerName]: createEmptyProviderDefinition(),
+        },
+      },
+    }));
+    setSecrets((current) => current ? {
+      ...current,
+      providers: {
+        ...current.providers,
+        [providerName]: createEmptyProviderSecretEditors(),
+      },
+    } : current);
+    setNewProviderName('');
+    setValidation(null);
+    setFeedback({ tone: 'success', message: `已新增 provider：${providerName}。` });
+  }, [config, newProviderName, secrets, updateConfig]);
+
+  const startRenameProvider = React.useCallback((providerName: string) => {
+    setRenamingProviderName(providerName);
+    setRenameProviderDraft(providerName);
+    setFeedback(null);
+  }, []);
+
+  const cancelRenameProvider = React.useCallback(() => {
+    setRenamingProviderName(null);
+    setRenameProviderDraft('');
+  }, []);
+
+  const renameProvider = React.useCallback((providerName: string) => {
+    if (!config || !secrets) {
+      return;
+    }
+    const nextProviderName = normalizeProviderKey(renameProviderDraft);
+    const validationMessage = validateProviderKeyDraft(
+      nextProviderName,
+      Object.keys(config.provider.providers || {}),
+      providerName
+    );
+    if (validationMessage) {
+      setFeedback({ tone: 'error', message: validationMessage });
+      return;
+    }
+    if (nextProviderName === providerName) {
+      cancelRenameProvider();
+      return;
+    }
+    updateConfig((current) => ({
+      ...current,
+      provider: {
+        ...current.provider,
+        activeProvider: current.provider.activeProvider === providerName ? nextProviderName : current.provider.activeProvider,
+        fallbackProvider: current.provider.fallbackProvider === providerName ? nextProviderName : current.provider.fallbackProvider,
+        providers: renameRecordKey(current.provider.providers, providerName, nextProviderName),
+      },
+    }));
+    setSecrets((current) => current ? {
+      ...current,
+      providers: renameRecordKey(current.providers, providerName, nextProviderName),
+    } : current);
+    setProviderOrigins((current) => {
+      const nextOrigins = { ...current };
+      const originName = current[providerName] || providerName;
+      delete nextOrigins[providerName];
+      if (originName !== nextProviderName) {
+        nextOrigins[nextProviderName] = originName;
+      }
+      return nextOrigins;
+    });
+    setValidation(null);
+    setFeedback({ tone: 'success', message: `Provider 已重命名为 ${nextProviderName}。` });
+    setRenamingProviderName(null);
+    setRenameProviderDraft('');
+  }, [cancelRenameProvider, config, renameProviderDraft, secrets, updateConfig]);
+
+  const deleteProvider = React.useCallback((providerName: string) => {
+    if (!config || !secrets) {
+      return;
+    }
+    if (providerName === config.provider.activeProvider || providerName === config.provider.fallbackProvider) {
+      setFeedback({ tone: 'error', message: '当前 active / fallback provider 不能直接删除，请先切换引用。' });
+      return;
+    }
+    if (Object.keys(config.provider.providers || {}).length <= 2) {
+      setFeedback({ tone: 'error', message: 'fallbackProvider 为必填，至少需要保留两组 provider 定义。' });
+      return;
+    }
+    updateConfig((current) => {
+      const nextProviders = { ...current.provider.providers };
+      delete nextProviders[providerName];
+      return {
+        ...current,
+        provider: {
+          ...current.provider,
+          providers: nextProviders,
+        },
+      };
+    });
+    setSecrets((current) => {
+      if (!current) {
+        return current;
+      }
+      const nextProviders = { ...current.providers };
+      delete nextProviders[providerName];
+      return {
+        ...current,
+        providers: nextProviders,
+      };
+    });
+    setProviderOrigins((current) => {
+      const nextOrigins = { ...current };
+      delete nextOrigins[providerName];
+      return nextOrigins;
+    });
+    if (renamingProviderName === providerName) {
+      setRenamingProviderName(null);
+      setRenameProviderDraft('');
+    }
+    setValidation(null);
+    setFeedback({ tone: 'success', message: `已删除 provider：${providerName}。` });
+  }, [config, renamingProviderName, secrets, updateConfig]);
 
   const updateAppServerSecret = React.useCallback((patch: Partial<SecretEditorState>) => {
     setSecrets((current) =>
@@ -1274,16 +1510,26 @@ const AdminConfigCenterPage: React.FC = () => {
     }
     setConfig(cloneConfig(configQuery.data.config));
     setSecrets(buildSecretEditors(configQuery.data));
+    setProviderOrigins({});
     setValidation(null);
     setFeedback(null);
+    setNewProviderName('');
+    setRenamingProviderName(null);
+    setRenameProviderDraft('');
   }, [configQuery.data]);
 
   const submitValidation = () => {
     if (!config || !secrets) {
       return;
     }
+    const localIssues = collectLocalProviderKeyIssues(config);
+    if (localIssues.length > 0) {
+      setValidation({ valid: false, issues: localIssues, notices: [] });
+      setFeedback({ tone: 'error', message: '配置校验未通过，请先修正 provider key。' });
+      return;
+    }
     setFeedback(null);
-    validateMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data)));
+    validateMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data), providerOrigins));
   };
 
   const submitSave = () => {
@@ -1304,8 +1550,14 @@ const AdminConfigCenterPage: React.FC = () => {
     if (!config || !secrets) {
       return;
     }
+    const localIssues = collectLocalProviderKeyIssues(config);
+    if (localIssues.length > 0) {
+      setValidation({ valid: false, issues: localIssues, notices: [] });
+      setFeedback({ tone: 'error', message: '保存前请先修正 provider key。' });
+      return;
+    }
     setFeedback(null);
-    saveMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data)));
+    saveMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data), providerOrigins));
   };
 
   const currentIssues = validation?.issues ?? [];
@@ -1552,7 +1804,7 @@ const AdminConfigCenterPage: React.FC = () => {
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {configPresets.map((preset) => {
-                const disabled = preset.key === 'dual-provider' && providerNames.length < 2;
+                const disabled = (preset.key === 'dual-provider' || preset.key === 'single-provider') && providerNames.length < 2;
                 return (
                   <button
                     key={preset.key}
@@ -1615,11 +1867,49 @@ const AdminConfigCenterPage: React.FC = () => {
             </FieldCard>
           </FieldGrid>
 
+          {editing && (
+            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03] space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Provider 管理</div>
+                  <div className="mt-2 text-sm text-slate-600 dark:text-white/55">
+                    分组名即 provider key，会进入保存配置、运行态标签和错误字段。建议使用技术 key，例如 `openai_main`、`backup-1`。
+                  </div>
+                </div>
+                <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+                  现有 {providerNames.length} 组 provider
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                <TextInput
+                  value={newProviderName}
+                  onChange={setNewProviderName}
+                  disabled={!editing}
+                  placeholder="new_provider_key"
+                />
+                <button
+                  type="button"
+                  onClick={addProvider}
+                  className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/75 inline-flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  新增 Provider
+                </button>
+              </div>
+            </div>
+          )}
+
           {(config.provider.activeProvider && !providerNames.includes(config.provider.activeProvider)) || (config.provider.fallbackProvider && !providerNames.includes(config.provider.fallbackProvider)) ? (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
               active / fallback provider 只能引用已有 provider key。当前配置里至少有一个引用已经失效，请改回现有 provider 定义后再保存。
             </div>
           ) : null}
+
+          {providerEntries.length > 0 && providerEntries.length < 2 && (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
+              当前 provider 数量少于 2，而 fallbackProvider 为必填。请至少补齐两组 provider 定义后再保存。
+            </div>
+          )}
 
           {providerEntries.length === 0 && (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
@@ -1638,9 +1928,38 @@ const AdminConfigCenterPage: React.FC = () => {
             return (
               <div key={providerName} className="rounded-[1.9rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03] space-y-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
+                  <div className="space-y-3">
+                    <div>
                     <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Provider Definition</div>
                     <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">{providerName}</div>
+                    </div>
+                    {editing && renamingProviderName === providerName && (
+                      <div className="flex flex-col gap-3 md:flex-row">
+                        <TextInput
+                          value={renameProviderDraft}
+                          onChange={setRenameProviderDraft}
+                          disabled={!editing}
+                          placeholder="provider_key"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => renameProvider(providerName)}
+                            className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/75"
+                          >
+                            确认重命名
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRenameProvider}
+                            className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/45 inline-flex items-center gap-2"
+                          >
+                            <X size={16} />
+                            取消
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <div className={`rounded-2xl border px-3 py-2 text-xs font-bold ${providerTone}`}>{providerName}</div>
@@ -1649,6 +1968,26 @@ const AdminConfigCenterPage: React.FC = () => {
                     )}
                     {providerName === config.provider.fallbackProvider && (
                       <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs font-bold text-amber-600 dark:text-amber-400">FALLBACK</div>
+                    )}
+                    {editing && renamingProviderName !== providerName && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startRenameProvider(providerName)}
+                          className="rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-2 text-xs font-bold text-slate-600 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/60 inline-flex items-center gap-2"
+                        >
+                          <Pencil size={14} />
+                          重命名
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteProvider(providerName)}
+                          className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-xs font-bold text-rose-500 inline-flex items-center gap-2"
+                        >
+                          <Trash2 size={14} />
+                          删除
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

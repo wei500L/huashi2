@@ -61,8 +61,8 @@ class InternalAiConfigControllerTest {
     void shouldReturnValidationIssues() throws Exception {
         when(aiRuntimeConfigService.validate(any(AiOpsConfigPayload.class))).thenReturn(new AiOpsConfigValidationResponse(
                 false,
-                List.of(new AiOpsConfigIssue("provider.activeProvider", "Only qwen is currently implemented as active provider")),
-                List.of("fallbackProvider is currently informational only; automatic failover is not implemented.")
+                List.of(new AiOpsConfigIssue("provider.providers.Primary OpenAI", "provider key must contain only lowercase letters, numbers, hyphen, or underscore")),
+                List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.")
         ));
 
         mockMvc.perform(post("/internal/ai/config/validate")

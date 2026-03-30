@@ -151,23 +151,66 @@ class AiRuntimeConfigServiceTest {
         assertThat(providerRuntime.definition().rerank().model()).isEqualTo("stored-rerank-model");
     }
 
+    @Test
+    void shouldSupportCustomProviderKeysDuringBootstrap() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token", "primary_openai", "backup_1");
+
+        assertThat(service.current().providerRuntime("primary_openai")).isNotNull();
+        assertThat(service.current().providerRuntime("backup_1")).isNotNull();
+        assertThat(service.current().providerRuntime("qwen")).isNull();
+    }
+
+    @Test
+    void shouldRejectInvalidProviderKeyDuringValidation() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        AiOpsConfigPayload payload = payload(baseUrl, "test-internal-token");
+        payload = new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        payload.provider().activeProvider(),
+                        payload.provider().fallbackProvider(),
+                        Map.of(
+                                "Primary OpenAI", payload.provider().providers().get("qwen"),
+                                "deepseek", payload.provider().providers().get("deepseek")
+                        )
+                ),
+                payload.resilience(),
+                payload.rag()
+        );
+
+        var validation = service.validate(payload);
+
+        assertThat(validation.valid()).isFalse();
+        assertThat(validation.issues())
+                .extracting(AiOpsConfigIssue::field)
+                .contains("provider.providers.Primary OpenAI");
+    }
+
     private AiRuntimeConfigService runtimeConfigService(String appServerBaseUrl, String internalToken) {
+        return runtimeConfigService(appServerBaseUrl, internalToken, "qwen", "deepseek");
+    }
+
+    private AiRuntimeConfigService runtimeConfigService(
+            String appServerBaseUrl,
+            String internalToken,
+            String activeProvider,
+            String fallbackProvider
+    ) {
         AiProviderProperties providerProperties = new AiProviderProperties();
-        providerProperties.setActiveProvider("qwen");
-        providerProperties.setFallbackProvider("deepseek");
-        AiProviderProperties.ProviderProperties qwen = new AiProviderProperties.ProviderProperties();
-        qwen.getChat().setBaseUrl("https://example.com/v1");
-        qwen.getChat().setApiKey("chat-key");
-        qwen.getChat().setModel("qwen-max");
-        qwen.getEmbedding().setBaseUrl("https://example.com/v1");
-        qwen.getEmbedding().setApiKey("embed-key");
-        qwen.getEmbedding().setModel("text-embedding-v4");
-        qwen.getEmbedding().setDimension(1024);
-        qwen.getRerank().setBaseUrl("https://example.com");
-        qwen.getRerank().setApiKey("rerank-key");
-        qwen.getRerank().setModel("gte-rerank-v2");
-        providerProperties.getProviders().put("qwen", qwen);
-        providerProperties.getProviders().put("deepseek", qwen);
+        providerProperties.setActiveProvider(activeProvider);
+        providerProperties.setFallbackProvider(fallbackProvider);
+        AiProviderProperties.ProviderProperties primary = new AiProviderProperties.ProviderProperties();
+        primary.getChat().setBaseUrl("https://example.com/v1");
+        primary.getChat().setApiKey("chat-key");
+        primary.getChat().setModel("qwen-max");
+        primary.getEmbedding().setBaseUrl("https://example.com/v1");
+        primary.getEmbedding().setApiKey("embed-key");
+        primary.getEmbedding().setModel("text-embedding-v4");
+        primary.getEmbedding().setDimension(1024);
+        primary.getRerank().setBaseUrl("https://example.com");
+        primary.getRerank().setApiKey("rerank-key");
+        primary.getRerank().setModel("gte-rerank-v2");
+        providerProperties.getProviders().put(activeProvider, primary);
+        providerProperties.getProviders().put(fallbackProvider, primary);
 
         AiResilienceProperties resilienceProperties = new AiResilienceProperties();
         RagProperties ragProperties = new RagProperties();

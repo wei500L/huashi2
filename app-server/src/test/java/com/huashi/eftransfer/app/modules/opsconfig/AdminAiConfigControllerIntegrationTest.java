@@ -62,7 +62,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 "DEFAULTS",
                 1L,
                 OffsetDateTime.now(),
-                List.of("fallbackProvider is currently informational only; automatic failover is not implemented.")
+                List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.")
         );
 
         mockMvc.perform(put("/api/admin/ai-config")
@@ -121,6 +121,139 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
 
         assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
         assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
+    }
+
+    @Test
+    void renameProviderRetainsExistingSecretsViaProviderOrigins() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                samplePayload("chat-secret-001"),
+                "DEFAULTS",
+                1L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", samplePayload(null),
+                                "expectedVersion", 1,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
+                                )
+                        ))))
+                .andExpect(status().isOk());
+
+        AiOpsConfigPayload renamedPayload = samplePayload(null);
+        renamedPayload = new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        "primary_openai",
+                        "deepseek",
+                        Map.of(
+                                "primary_openai", renamedPayload.provider().providers().get("qwen"),
+                                "deepseek", renamedPayload.provider().providers().get("deepseek")
+                        )
+                ),
+                renamedPayload.resilience(),
+                renamedPayload.rag()
+        );
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", renamedPayload,
+                                "expectedVersion", 2,
+                                "providerOrigins", Map.of("primary_openai", "qwen"),
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "primary_openai", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", true)
+                                )
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.config.provider.activeProvider").value("primary_openai"))
+                .andExpect(jsonPath("$.data.secrets.providers.primary_openai.chatApiKey.maskedValue").value(org.hamcrest.Matchers.containsString("cha")));
+
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers()).containsKey("primary_openai");
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers()).doesNotContainKey("qwen");
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("primary_openai").chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(storageService.load().orElseThrow().config().provider().providers().get("primary_openai").chat().apiKey()).isEqualTo("chat-secret-001");
+    }
+
+    @Test
+    void saveRejectsUnknownProviderOrigins() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                samplePayload("chat-secret-001"),
+                "DEFAULTS",
+                1L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+
+        AiOpsConfigPayload renamedPayload = samplePayload(null);
+        renamedPayload = new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        "primary_openai",
+                        "deepseek",
+                        Map.of(
+                                "primary_openai", renamedPayload.provider().providers().get("qwen"),
+                                "deepseek", renamedPayload.provider().providers().get("deepseek")
+                        )
+                ),
+                renamedPayload.resilience(),
+                renamedPayload.rag()
+        );
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", renamedPayload,
+                                "expectedVersion", 1,
+                                "providerOrigins", Map.of("primary_openai", "missing_provider"),
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "primary_openai", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", true)
+                                )
+                        ))))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -269,7 +402,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         );
         stubAiGatewayClient.validationResponse = new AiOpsConfigValidationResponse(
                 false,
-                List.of(new AiOpsConfigIssue("provider.activeProvider", "Only qwen is currently implemented as active provider")),
+                List.of(new AiOpsConfigIssue("provider.providers.Primary OpenAI", "provider key must contain only lowercase letters, numbers, hyphen, or underscore")),
                 List.of()
         );
 

@@ -43,11 +43,13 @@ import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class AiOpsAdminService {
@@ -88,7 +90,13 @@ public class AiOpsAdminService {
     }
 
     public AiOpsConfigValidationResponse validate(AdminAiConfigSaveRequest request) {
-        AiOpsConfigPayload candidate = mergeSecrets(resolveBaseConfig(), requestPayload(request), request.secrets());
+        AdminAiConfigSaveRequest safeRequest = requireRequest(request);
+        AiOpsConfigPayload candidate = mergeSecrets(
+                resolveBaseConfig(),
+                requestPayload(safeRequest),
+                safeRequest.providerOrigins(),
+                safeRequest.secrets()
+        );
         try {
             return aiGatewayClient.validateConfig(candidate);
         } catch (RuntimeException ex) {
@@ -112,6 +120,7 @@ public class AiOpsAdminService {
         AiOpsConfigPayload candidate = mergeSecrets(
                 authoritativePayload(currentRuntime, storedConfig),
                 requestPayload(safeRequest),
+                safeRequest.providerOrigins(),
                 safeRequest.secrets()
         );
 
@@ -441,6 +450,7 @@ public class AiOpsAdminService {
     private AiOpsConfigPayload mergeSecrets(
             AiOpsConfigPayload base,
             AiOpsConfigPayload requestPayload,
+            Map<String, String> providerOrigins,
             AdminAiSecretUpdateGroup secrets
     ) {
         AiOpsConfigPayload normalizedBase = normalizePayload(base);
@@ -450,11 +460,12 @@ public class AiOpsAdminService {
                 : secrets;
         Map<String, AiOpsProviderDefinition> requestProviders = normalizedRequest.provider().providers();
         Map<String, AiOpsProviderDefinition> baseProviders = normalizedBase.provider().providers();
+        Map<String, String> safeProviderOrigins = validateProviderOrigins(providerOrigins, baseProviders, requestProviders);
         return new AiOpsConfigPayload(
                 new AiOpsProviderConfig(
                         normalizedRequest.provider().activeProvider(),
                         normalizedRequest.provider().fallbackProvider(),
-                        mergeProviders(baseProviders, requestProviders, safeSecrets.providers())
+                        mergeProviders(baseProviders, requestProviders, safeProviderOrigins, safeSecrets.providers())
                 ),
                 normalizedRequest.resilience(),
                 new AiOpsRagConfig(
@@ -523,6 +534,7 @@ public class AiOpsAdminService {
     private Map<String, AiOpsProviderDefinition> mergeProviders(
             Map<String, AiOpsProviderDefinition> baseProviders,
             Map<String, AiOpsProviderDefinition> requestProviders,
+            Map<String, String> providerOrigins,
             Map<String, AdminAiProviderSecretUpdateGroup> secretProviders
     ) {
         Map<String, AiOpsProviderDefinition> merged = new LinkedHashMap<>();
@@ -531,8 +543,9 @@ public class AiOpsAdminService {
         }
         for (Map.Entry<String, AiOpsProviderDefinition> entry : requestProviders.entrySet()) {
             String providerName = entry.getKey();
+            String baseLookupName = providerOrigins == null ? providerName : providerOrigins.getOrDefault(providerName, providerName);
             AiOpsProviderDefinition requested = normalizeProviderDefinition(entry.getValue());
-            AiOpsProviderDefinition existing = normalizeProviderDefinition(baseProviders == null ? null : baseProviders.get(providerName));
+            AiOpsProviderDefinition existing = normalizeProviderDefinition(baseProviders == null ? null : baseProviders.get(baseLookupName));
             AdminAiProviderSecretUpdateGroup secretGroup = secretProviders == null ? null : secretProviders.get(providerName);
             merged.put(providerName, new AiOpsProviderDefinition(
                     new AiOpsChatConfig(
@@ -562,6 +575,43 @@ public class AiOpsAdminService {
             ));
         }
         return merged;
+    }
+
+    private Map<String, String> validateProviderOrigins(
+            Map<String, String> providerOrigins,
+            Map<String, AiOpsProviderDefinition> baseProviders,
+            Map<String, AiOpsProviderDefinition> requestProviders
+    ) {
+        Map<String, String> normalizedOrigins = new LinkedHashMap<>();
+        if (providerOrigins == null || providerOrigins.isEmpty()) {
+            return normalizedOrigins;
+        }
+
+        Set<String> claimedOrigins = new HashSet<>();
+        for (Map.Entry<String, String> entry : providerOrigins.entrySet()) {
+            String currentKey = entry.getKey();
+            String originKey = entry.getValue();
+            if (!StringUtils.hasText(currentKey) || !StringUtils.hasText(originKey)) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "providerOrigins contains blank keys", 400);
+            }
+            if (requestProviders == null || !requestProviders.containsKey(currentKey)) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "providerOrigins must point to a configured provider", 400);
+            }
+            if (Objects.equals(currentKey, originKey)) {
+                continue;
+            }
+            if (baseProviders == null || !baseProviders.containsKey(originKey)) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "providerOrigins must reference an existing stored provider", 400);
+            }
+            if (requestProviders.containsKey(originKey)) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "providerOrigins cannot reuse a source provider that still exists in the request", 400);
+            }
+            if (!claimedOrigins.add(originKey)) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "providerOrigins cannot reuse the same source provider more than once", 400);
+            }
+            normalizedOrigins.put(currentKey, originKey);
+        }
+        return normalizedOrigins;
     }
 
     private String resolveSecret(String existingValue, AdminAiSecretValueUpdate update) {

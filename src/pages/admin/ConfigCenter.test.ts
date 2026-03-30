@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AdminAiConfigContractError, normalizeAdminAiConfigView } from './ConfigCenter';
+import { AdminAiConfigContractError, buildSavePayload, normalizeAdminAiConfigView } from './ConfigCenter';
 
 function createConfigViewEnvelope() {
   return {
@@ -169,5 +169,51 @@ describe('ConfigCenter contract guards', () => {
     expect(normalized.config.rag.retrieval.finalTopK).toBe(0);
     expect(normalized.runtime.available).toBe(true);
     expect(normalized.stored.version).toBe(9);
+  });
+
+  it('accepts arbitrary technical provider keys', () => {
+    const envelope = createConfigViewEnvelope() as any;
+    envelope.config.provider.providers = {
+      openai_main: envelope.config.provider.providers.qwen,
+      backup_1: envelope.config.provider.providers.qwen,
+    };
+    envelope.config.provider.activeProvider = 'openai_main';
+    envelope.config.provider.fallbackProvider = 'backup_1';
+    envelope.secrets.providers = {
+      openai_main: envelope.secrets.providers.qwen,
+      backup_1: envelope.secrets.providers.qwen,
+    };
+
+    const normalized = normalizeAdminAiConfigView(envelope);
+
+    expect(normalized.config.provider.activeProvider).toBe('openai_main');
+    expect(normalized.config.provider.fallbackProvider).toBe('backup_1');
+    expect(Object.keys(normalized.config.provider.providers)).toEqual(['openai_main', 'backup_1']);
+  });
+
+  it('includes providerOrigins for renamed providers when building save payload', () => {
+    const normalized = normalizeAdminAiConfigView(createConfigViewEnvelope());
+    normalized.config.provider.providers = {
+      primary_openai: normalized.config.provider.providers.qwen,
+    };
+    normalized.config.provider.activeProvider = 'primary_openai';
+    normalized.config.provider.fallbackProvider = 'primary_openai';
+    const payload = buildSavePayload(
+      normalized.config,
+      {
+        providers: {
+          primary_openai: {
+            chatApiKey: { retainExisting: true, value: '' },
+            embeddingApiKey: { retainExisting: true, value: '' },
+            rerankApiKey: { retainExisting: true, value: '' },
+          },
+        },
+        appServerInternalToken: { retainExisting: true, value: '' },
+      },
+      9,
+      { primary_openai: 'qwen' }
+    );
+
+    expect(payload.providerOrigins).toEqual({ primary_openai: 'qwen' });
   });
 });

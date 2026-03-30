@@ -1458,6 +1458,7 @@ export interface AdminAiSecretUpdateGroup {
 export interface AdminAiConfigSaveRequest {
   config: AiOpsConfigPayload;
   expectedVersion?: number | null;
+  providerOrigins?: Record<string, string>;
   secrets: AdminAiSecretUpdateGroup;
 }
 
