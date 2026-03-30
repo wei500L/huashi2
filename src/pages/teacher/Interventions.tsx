@@ -260,7 +260,7 @@ const TeacherInterventionsPage: React.FC = () => {
           <select
             value={classId}
             onChange={(event) => setClassId(event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+            className="native-select w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
           >
             <option value="">全部班级</option>
             {(classesQuery.data || []).map((item) => (
@@ -273,7 +273,7 @@ const TeacherInterventionsPage: React.FC = () => {
           <select
             value={view}
             onChange={(event) => setView(normalizeInterventionView(event.target.value))}
-            className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+            className="native-select w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
           >
             {VIEW_OPTIONS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -285,7 +285,7 @@ const TeacherInterventionsPage: React.FC = () => {
           <select
             value={priority}
             onChange={(event) => setPriority(event.target.value as (typeof PRIORITY_OPTIONS)[number])}
-            className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+            className="native-select w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
           >
             {PRIORITY_OPTIONS.map((item) => (
               <option key={item} value={item}>
@@ -418,7 +418,7 @@ const TeacherInterventionsPage: React.FC = () => {
                   <select
                     value={form.priority}
                     onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
-                    className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   >
                     {PRIORITY_OPTIONS.slice(1).map((item) => (
                       <option key={item} value={item}>
@@ -433,7 +433,7 @@ const TeacherInterventionsPage: React.FC = () => {
                   <select
                     value={form.status}
                     onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-                    className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   >
                     {STATUS_OPTIONS.slice(1).map((item) => (
                       <option key={item} value={item}>

@@ -330,7 +330,7 @@ const TeacherStudentDetailPage: React.FC = () => {
                       <select
                         value={form.priority}
                         onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
-                        className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                        className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                       >
                         {PRIORITY_OPTIONS.map((item) => (
                           <option key={item} value={item}>
@@ -345,7 +345,7 @@ const TeacherStudentDetailPage: React.FC = () => {
                       <select
                         value={form.status}
                         onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-                        className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                        className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                       >
                         {STATUS_OPTIONS.map((item) => (
                           <option key={item} value={item}>

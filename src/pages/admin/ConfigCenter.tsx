@@ -550,7 +550,7 @@ const SelectInput: React.FC<{
     value={value ?? ''}
     onChange={(event) => onChange(event.target.value)}
     disabled={disabled}
-    className="w-full rounded-2xl bg-white/80 dark:bg-slate-950/45 border border-slate-200 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
+    className="native-select w-full rounded-2xl bg-white/80 dark:bg-slate-950/45 border border-slate-200 dark:border-white/10 px-4 py-3 text-sm outline-none focus:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
   >
     {options.map((option) => (
       <option key={option.value} value={option.value}>

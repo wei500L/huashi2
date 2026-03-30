@@ -248,7 +248,7 @@ const TextField: React.FC<{
       <select
         value={String(value ?? '')}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/45"
+        className="native-select w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/45"
       >
         {(options || []).map((option) => (
           <option key={option.value} value={option.value}>

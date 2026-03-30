@@ -118,7 +118,7 @@ const HistoryPage: React.FC = () => {
               <select
                 value={diagnosisStatus}
                 onChange={(event) => setDiagnosisStatus(event.target.value)}
-                className="rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                className="native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
               >
                 <option value="ALL">全部状态</option>
                 <option value="IN_PROGRESS">进行中</option>
@@ -306,7 +306,7 @@ const HistoryPage: React.FC = () => {
               <select
                 value={trainingStatus}
                 onChange={(event) => setTrainingStatus(event.target.value)}
-                className="rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                className="native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
               >
                 <option value="ALL">全部状态</option>
                 <option value="IN_PROGRESS">进行中</option>

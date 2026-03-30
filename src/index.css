@@ -118,6 +118,26 @@
     cursor: default !important;
   }
 
+  .dark select {
+    color-scheme: dark;
+  }
+
+  .dark select option,
+  .dark select optgroup {
+    background-color: rgb(2 6 23);
+    color: rgba(248, 250, 252, 0.92);
+  }
+
+  .dark select option:checked {
+    background-color: rgb(30 41 59);
+    color: rgb(255 255 255);
+  }
+
+  .dark select option:disabled,
+  .dark select optgroup:disabled {
+    color: rgba(248, 250, 252, 0.38);
+  }
+
   @media (hover: hover) and (pointer: fine) {
     html[data-custom-cursor="enabled"] body,
     html[data-custom-cursor="enabled"] a,
@@ -130,6 +150,10 @@
 }
 
 @layer utilities {
+  .native-select {
+    @apply text-slate-900 dark:text-white/90 disabled:text-slate-400 dark:disabled:text-white/35;
+  }
+
   .liquid-glass {
     @apply backdrop-blur-2xl border relative overflow-hidden;
     background: rgba(255, 255, 255, 0.75);

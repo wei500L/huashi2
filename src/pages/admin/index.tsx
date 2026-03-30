@@ -269,7 +269,7 @@ const AdminUsersPage: React.FC = () => {
             <select
               value={createForm.credentialMode}
               onChange={(event) => setCreateForm((state) => ({ ...state, credentialMode: event.target.value as AdminUserCreateRequest['credentialMode'] }))}
-              className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+              className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
             >
               <option value="INVITE_LINK">邀请链接</option>
               <option value="MANUAL_PASSWORD">手动密码</option>
@@ -324,16 +324,16 @@ const AdminUsersPage: React.FC = () => {
             placeholder="搜索用户名 / 邮箱 / 显示名"
             className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 md:col-span-2 dark:border-white/10 dark:bg-white/5"
           />
-          <select value={filters.role} onChange={(event) => setFilters((state) => ({ ...state, role: event.target.value, pageNo: 1 }))} className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <select value={filters.role} onChange={(event) => setFilters((state) => ({ ...state, role: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
             <option value="">全部角色</option>
             {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
           </select>
-          <select value={filters.enabled} onChange={(event) => setFilters((state) => ({ ...state, enabled: event.target.value, pageNo: 1 }))} className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <select value={filters.enabled} onChange={(event) => setFilters((state) => ({ ...state, enabled: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
             <option value="ALL">全部状态</option>
             <option value="ENABLED">仅启用</option>
             <option value="DISABLED">仅禁用</option>
           </select>
-          <select value={filters.invitationStatus} onChange={(event) => setFilters((state) => ({ ...state, invitationStatus: event.target.value, pageNo: 1 }))} className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <select value={filters.invitationStatus} onChange={(event) => setFilters((state) => ({ ...state, invitationStatus: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
             <option value="">全部邀请状态</option>
             <option value="PENDING">PENDING</option>
             <option value="CONSUMED">CONSUMED</option>
@@ -343,7 +343,7 @@ const AdminUsersPage: React.FC = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-[1fr_auto_auto]">
-          <select value={filters.profileLinkStatus} onChange={(event) => setFilters((state) => ({ ...state, profileLinkStatus: event.target.value, pageNo: 1 }))} className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <select value={filters.profileLinkStatus} onChange={(event) => setFilters((state) => ({ ...state, profileLinkStatus: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
             <option value="">全部资料关联状态</option>
             <option value="UNLINKED">UNLINKED</option>
             <option value="STUDENT_ONLY">STUDENT_ONLY</option>

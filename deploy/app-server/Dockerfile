@@ -1,5 +1,3 @@
-FROM busybox:1.37.0 AS busybox
-
 FROM eclipse-temurin:25-jdk AS builder
 WORKDIR /workspace
 
@@ -15,12 +13,9 @@ COPY shared-kernel/src shared-kernel/src
 COPY app-server/src app-server/src
 RUN ./mvnw -pl app-server -am -q clean package -DskipTests
 
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25-jdk
 WORKDIR /app
-COPY --from=busybox /bin/busybox /bin/busybox
-RUN ln -sf /bin/busybox /usr/local/bin/wget \
-    && ln -sf /bin/busybox /usr/local/bin/grep \
-    && useradd --system --create-home --shell /usr/sbin/nologin appuser \
+RUN useradd --system --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 COPY --from=builder /workspace/app-server/target/app-server-0.1.0-SNAPSHOT.jar /app/app.jar
 RUN chown appuser:appuser /app/app.jar

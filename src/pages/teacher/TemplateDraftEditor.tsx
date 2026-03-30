@@ -662,7 +662,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                     <select
                       value={selectedItem.taskType || 'REACTION_TIME'}
                       onChange={(event) => updateItem(selectedItem.draftItemId, { taskType: event.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                      className="native-select w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                     >
                       {DIAGNOSIS_TASK_TYPE_VALUES.map((value) => (
                         <option key={value} value={value}>{value}</option>
@@ -692,7 +692,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                     <select
                       value={selectedItem.contextSupportLevel || 'LOW'}
                       onChange={(event) => updateItem(selectedItem.draftItemId, { contextSupportLevel: event.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                      className="native-select w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                     >
                       {CONTEXT_SUPPORT_LEVEL_VALUES.map((value) => (
                         <option key={value} value={value}>{value}</option>
@@ -706,7 +706,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                   <select
                     value={selectedItem.expectedSemanticMatch ? 'true' : 'false'}
                     onChange={(event) => updateItem(selectedItem.draftItemId, { expectedSemanticMatch: event.target.value === 'true' })}
-                    className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    className="native-select w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   >
                     <option value="true">语义一致</option>
                     <option value="false">语义不一致</option>
@@ -773,7 +773,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                         <select
                           value={String(option.semanticMatch ?? false)}
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { semanticMatch: event.target.value === 'true' })}
-                          className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                          className="native-select rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                         >
                           <option value="true">semanticMatch = true</option>
                           <option value="false">semanticMatch = false</option>
@@ -781,7 +781,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                         <select
                           value={String(option.ignoreContextTrap ?? false)}
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { ignoreContextTrap: event.target.value === 'true' })}
-                          className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                          className="native-select rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                         >
                           <option value="false">正常选项</option>
                           <option value="true">忽略语境陷阱</option>

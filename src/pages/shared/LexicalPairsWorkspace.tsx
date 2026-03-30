@@ -417,7 +417,7 @@ const SelectInput: React.FC<{
     value={String(value)}
     onChange={(event) => onChange(event.target.value)}
     disabled={disabled}
-    className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/45"
+    className="native-select w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/45"
   >
     {options.map((option) => (
       <option key={option.value} value={option.value}>
@@ -1168,7 +1168,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                 <select
                   value={pageSize}
                   onChange={(event) => setPageSize(Number(event.target.value))}
-                  className="bg-transparent px-2 py-1 outline-none"
+                  className="native-select bg-transparent px-2 py-1 outline-none"
                 >
                   {[20, 50, 100].map((value) => (
                     <option key={value} value={value}>

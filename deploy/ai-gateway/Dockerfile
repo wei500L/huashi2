@@ -13,12 +13,9 @@ COPY shared-kernel/src shared-kernel/src
 COPY ai-gateway/src ai-gateway/src
 RUN ./mvnw -pl ai-gateway -am -q clean package -DskipTests
 
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25-jdk
 WORKDIR /app
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --create-home --shell /usr/sbin/nologin appuser \
+RUN useradd --system --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 COPY --from=builder /workspace/ai-gateway/target/ai-gateway-0.1.0-SNAPSHOT.jar /app/app.jar
 RUN chown appuser:appuser /app/app.jar
