@@ -698,9 +698,10 @@ const TeacherAssessmentEditorPage: React.FC = () => {
 
               <div className="space-y-4">
                 {(detailQuery.data?.publishes || []).map((publish) => (
-                  <div
+                  <Link
                     key={publish.publishId}
-                    className="rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 text-sm dark:border-white/10 dark:bg-white/5"
+                    to={`/teacher/assessments/publishes/${publish.publishId}`}
+                    className="block rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 text-sm transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
@@ -714,8 +715,10 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
+                      <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">已分配 {publish.assignedCount}</span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">尝试 {publish.attemptCount}</span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">已交卷 {publish.submittedCount}</span>
+                      <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">待完成 {publish.pendingCount}</span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">发布于 {formatDateTime(publish.publishedAt)}</span>
                     </div>
                     {publish.instructionsText && (
@@ -723,7 +726,8 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                         {publish.instructionsText}
                       </div>
                     )}
-                  </div>
+                    <div className="mt-3 text-xs font-bold text-primary">查看发布详情与学生名册</div>
+                  </Link>
                 ))}
               </div>
             </div>

@@ -7,6 +7,9 @@ public record TeacherWorkspaceSummaryVO(
         long pendingInterventionCount,
         long lexicalPairCount,
         long lexicalListCount,
-        long pendingImportBatchCount
+        long pendingImportBatchCount,
+        long assessmentPaperCount,
+        long activeAssessmentPublishCount,
+        long pendingAssessmentSubmissionCount
 ) {
 }

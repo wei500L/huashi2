@@ -25,6 +25,8 @@ const TeacherWorkspacePage = React.lazy(() => import('./pages/teacher/Workspace'
 const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
 const TeacherAssessmentsPage = React.lazy(() => import('./pages/teacher/Assessments'));
 const TeacherAssessmentEditorPage = React.lazy(() => import('./pages/teacher/AssessmentEditor'));
+const TeacherAssessmentPublishDetailPage = React.lazy(() => import('./pages/teacher/AssessmentPublishDetail'));
+const TeacherAssessmentAttemptResultPage = React.lazy(() => import('./pages/teacher/AssessmentAttemptResult'));
 const TeacherClassDetailPage = React.lazy(() => import('./pages/teacher/ClassDetail'));
 const TeacherStudentDetailPage = React.lazy(() => import('./pages/teacher/StudentDetail'));
 const TeacherTemplatesPage = React.lazy(() => import('./pages/teacher/Templates'));
@@ -223,6 +225,18 @@ const App: React.FC = () => {
           path="teacher/assessments/:paperId"
           element={
             <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherAssessmentEditorPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/assessments/publishes/:publishId"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherAssessmentPublishDetailPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/assessments/attempts/:attemptId/result"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherAssessmentAttemptResultPage />)}</RequireCapability>
           }
         />
         <Route

@@ -70,6 +70,12 @@ const TeacherWorkspacePage: React.FC = () => {
         }),
       },
       {
+        id: 'assessments',
+        label: t('teacherWorkspace.quickActions.assessments'),
+        description: t('teacherWorkspace.quickActions.assessmentsDescription'),
+        to: buildWorkspaceLink('/teacher/assessments', { source: 'workspace' }),
+      },
+      {
         id: 'classes',
         label: t('teacherWorkspace.quickActions.classes'),
         description: t('teacherWorkspace.quickActions.classesDescription'),
@@ -107,6 +113,17 @@ const TeacherWorkspacePage: React.FC = () => {
             ? `${overviewQuery.data.summary.lexicalPairCount}/${overviewQuery.data.summary.lexicalListCount}`
             : '--',
         hint: t('teacherWorkspace.metrics.assetsHint'),
+      },
+      {
+        id: 'assessments',
+        label: t('teacherWorkspace.metrics.assessments'),
+        value:
+          overviewQuery.data
+            ? `${overviewQuery.data.summary.assessmentPaperCount}/${overviewQuery.data.summary.activeAssessmentPublishCount}`
+            : '--',
+        hint: t('teacherWorkspace.metrics.assessmentsHint', {
+          pendingCount: overviewQuery.data?.summary.pendingAssessmentSubmissionCount ?? 0,
+        }),
       },
     ],
     [overviewQuery.data, t]
@@ -200,6 +217,49 @@ const TeacherWorkspacePage: React.FC = () => {
           />
 
           <MetricGrid items={metricItems} />
+
+          <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+              {t('teacherWorkspace.sections.assessments')}
+            </div>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+              {t('teacherWorkspace.sections.assessmentsSubtitle')}
+            </div>
+            <div className="mt-6 space-y-4">
+              {overviewQuery.data?.recentAssessmentPublishes.length ? (
+                overviewQuery.data.recentAssessmentPublishes.map((item) => (
+                  <Link
+                    key={item.publishId}
+                    to={buildWorkspaceLink(`/teacher/assessments/publishes/${item.publishId}`, { source: 'workspace' })}
+                    className="block rounded-[1.8rem] border border-slate-200/80 bg-white/65 p-5 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                          {item.className}
+                        </div>
+                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{item.title}</div>
+                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                          {t('teacherWorkspace.assessmentMeta', {
+                            assignedCount: item.assignedCount,
+                            submittedCount: item.submittedCount,
+                            pendingCount: item.pendingCount,
+                          })}
+                        </div>
+                      </div>
+                      <div className="text-sm text-slate-500 dark:text-white/45">
+                        {t('teacherWorkspace.assessmentDue', { dueAt: formatDateTime(item.dueAt) })}
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <WorkspaceEmptyState
+                  {...buildTeacherWorkspaceEmptyState(t, 'assessments', overviewQuery.data)}
+                />
+              )}
+            </div>
+          </section>
 
           <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">

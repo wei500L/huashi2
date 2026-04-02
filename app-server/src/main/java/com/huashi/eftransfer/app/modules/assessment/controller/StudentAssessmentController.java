@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.modules.assessment.controller;
 
+import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentHistoryPageQuery;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
 import com.huashi.eftransfer.app.modules.assessment.service.AssessmentService;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptDetailVO;
@@ -7,12 +8,15 @@ import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgress
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptStartVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptSubmitVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.StudentAssessmentHistorySummaryVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.StudentAssessmentSummaryVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
+import com.huashi.eftransfer.shared.page.PageResult;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,6 +39,13 @@ public class StudentAssessmentController {
     @GetMapping
     public ApiResponse<List<StudentAssessmentSummaryVO>> listAssessments() {
         return ApiResponse.success(assessmentService.listStudentAssessments(), MDC.get("traceId"));
+    }
+
+    @GetMapping("/history")
+    public ApiResponse<PageResult<StudentAssessmentHistorySummaryVO>> pageHistory(
+            @Valid @ModelAttribute AssessmentHistoryPageQuery query
+    ) {
+        return ApiResponse.success(assessmentService.pageStudentHistory(query), MDC.get("traceId"));
     }
 
     @PostMapping("/publishes/{publishId}/start")

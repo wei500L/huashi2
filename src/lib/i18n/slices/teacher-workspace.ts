@@ -28,6 +28,8 @@ export const teacherWorkspaceSlice: TranslationSlice = {
         lexicalListsDescription: '维护词表详情、排序和条目承接。',
         interventions: '进入干预工作台',
         interventionsDescription: '查看待办、逾期和完成备注，推动教师干预闭环。',
+        assessments: '进入通用测评',
+        assessmentsDescription: '创建试卷、查看发布名册，并下钻到学生答卷结果。',
         classes: '查看班级与学生',
         classesDescription: '查看最近活跃班级，并继续下钻到学生详情。',
       },
@@ -40,8 +42,12 @@ export const teacherWorkspaceSlice: TranslationSlice = {
         draftsHint: '等待继续编辑或发布的模板草稿。',
         assets: '词对/词表',
         assetsHint: '词汇资产规模，格式为词对数/词表数。',
+        assessments: '试卷/发布',
+        assessmentsHint: '通用测评规模，格式为试卷数/活跃发布数；待收卷 {{pendingCount}} 份。',
       },
       sections: {
+        assessments: 'assessment publishes',
+        assessmentsSubtitle: '近期测评发布',
         classes: 'class activity',
         classesSubtitle: '班级动态',
         drafts: 'template drafts',
@@ -56,6 +62,8 @@ export const teacherWorkspaceSlice: TranslationSlice = {
       draftMeta: '{{syncState}} · 更新于 {{updatedAt}}',
       interventionMeta: '{{priority}} · {{status}} · 计划 {{plannedAt}}',
       lexicalListMeta: '{{itemCount}} 个条目 · 更新于 {{updatedAt}}',
+      assessmentMeta: '{{assignedCount}} 人分配 · {{submittedCount}} 人已交卷 · {{pendingCount}} 人待完成',
+      assessmentDue: '截止 {{dueAt}}',
       emptyClassesTitle: '还没有班级动态',
       emptyClassesDescription: '没有可访问班级时，教师工作台无法形成真实教学上下文。先确认班级和学生关系，再回来查看动态。',
       emptyDraftsTitle: '还没有模板草稿',
@@ -70,6 +78,11 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             title: '处理待跟进干预',
             description: '还有 {{count}} 条干预未闭环，优先把排期和完成备注补齐。',
             actionLabel: '进入干预工作台',
+          },
+          assessmentsPending: {
+            title: '跟进待收卷测评',
+            description: '当前还有 {{count}} 份测评作答未完成，建议先查看发布名册和在答学生。',
+            actionLabel: '查看测评发布',
           },
           draftsEmpty: {
             title: '创建第一份模板草稿',
@@ -101,6 +114,11 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             description: '还没有可访问班级，教师工作台会缺少真实教学上下文，建议先确认班级和学生关联。',
             actionLabel: '查看班级与学生',
           },
+          assessmentsEmpty: {
+            title: '创建第一份通用测评',
+            description: '除了诊断与训练外，还需要一份整卷测评来承接通用作业/测验场景。',
+            actionLabel: '新建通用测评',
+          },
         },
         onboarding: {
           setupClasses: {
@@ -127,6 +145,16 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             title: '处理待跟进干预',
             description: '还有 {{count}} 条干预待推进，建议优先补齐排期、课堂执行方式和完成备注。',
             actionLabel: '进入干预工作台',
+          },
+          triageAssessments: {
+            title: '跟进待收卷测评',
+            description: '还有 {{count}} 份测评未完成，建议先检查发布名册、在答学生和即将到期的班级任务。',
+            actionLabel: '查看测评发布',
+          },
+          setupAssessment: {
+            title: '创建第一份通用测评',
+            description: '基础班级与内容已经具备，接下来可以补一份整卷测评，承接课堂测验和统一交卷场景。',
+            actionLabel: '新建通用测评',
           },
           steadyState: {
             draftTitle: '从最近工作继续推进',
@@ -168,6 +196,17 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             readyActionLabel: '查看干预工作台',
             recentClassActionLabel: '打开最近班级',
           },
+          assessments: {
+            blockedTitle: '先补班级，再发布测评',
+            blockedDescription: '通用测评需要明确的教学班级承接，先确认班级与学生上下文，再创建或发布试卷。',
+            blockedActionLabel: '进入班级与学生',
+            readyTitle: '创建第一份通用测评',
+            readyDescription: '当前还没有通用测评试卷。先创建一份整卷，后续才能发布到班级并查看完成情况。',
+            readyActionLabel: '新建通用测评',
+            publishedTitle: '当前没有近期测评发布',
+            publishedDescription: '已经具备试卷资产，但近期没有活跃发布。可以回到测评中心创建新发布或查看历史试卷。',
+            publishedActionLabel: '查看通用测评',
+          },
           lexicalLists: {
             blockedTitle: '先整理模板和词对，再沉淀词表',
             blockedDescription: '词表更适合承接已经明确的模板和词对结构。先把草稿或词对准备好，再创建首个词表。',
@@ -207,6 +246,8 @@ export const teacherWorkspaceSlice: TranslationSlice = {
         lexicalListsDescription: 'Maintain lexical-list details, ordering, and asset handoff.',
         interventions: 'Open Interventions',
         interventionsDescription: 'Work through pending items, overdue tasks, and completion notes.',
+        assessments: 'Open Assessments',
+        assessmentsDescription: 'Create papers, inspect publish rosters, and drill into student attempt results.',
         classes: 'Open Classes & Students',
         classesDescription: 'Review recent class activity and drill down into student details.',
       },
@@ -219,8 +260,12 @@ export const teacherWorkspaceSlice: TranslationSlice = {
         draftsHint: 'Template drafts waiting for refinement or publication.',
         assets: 'Pairs/Lists',
         assetsHint: 'Lexical asset footprint, shown as pairs/lists.',
+        assessments: 'Papers/Publishes',
+        assessmentsHint: 'General assessment scale, shown as papers/active publishes; {{pendingCount}} submissions still pending.',
       },
       sections: {
+        assessments: 'assessment publishes',
+        assessmentsSubtitle: 'Recent Assessment Publishes',
         classes: 'class activity',
         classesSubtitle: 'Class Activity',
         drafts: 'template drafts',
@@ -235,6 +280,8 @@ export const teacherWorkspaceSlice: TranslationSlice = {
       draftMeta: '{{syncState}} · updated {{updatedAt}}',
       interventionMeta: '{{priority}} · {{status}} · planned {{plannedAt}}',
       lexicalListMeta: '{{itemCount}} items · updated {{updatedAt}}',
+      assessmentMeta: '{{assignedCount}} assigned · {{submittedCount}} submitted · {{pendingCount}} pending',
+      assessmentDue: 'Due {{dueAt}}',
       emptyClassesTitle: 'No class activity yet',
       emptyClassesDescription: 'Without accessible classes, the teacher workspace cannot surface real teaching context. Confirm class and student assignment first.',
       emptyDraftsTitle: 'No template drafts yet',
@@ -249,6 +296,11 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             title: 'Handle pending interventions',
             description: '{{count}} interventions are still open. Fill in schedules and completion notes first.',
             actionLabel: 'Open interventions',
+          },
+          assessmentsPending: {
+            title: 'Follow up on pending assessment submissions',
+            description: '{{count}} assessment submissions are still missing. Review the publish roster and in-progress students first.',
+            actionLabel: 'Open assessment publish',
           },
           draftsEmpty: {
             title: 'Create the first template draft',
@@ -280,6 +332,11 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             description: 'Without accessible classes, the teacher workspace lacks real teaching context. Confirm class and student links first.',
             actionLabel: 'Open classes',
           },
+          assessmentsEmpty: {
+            title: 'Create the first general assessment',
+            description: 'Beyond diagnosis and training, add a full-paper assessment to cover quizzes, homework, and unified submission scenarios.',
+            actionLabel: 'Create an assessment',
+          },
         },
         onboarding: {
           setupClasses: {
@@ -306,6 +363,16 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             title: 'Handle pending interventions',
             description: '{{count}} interventions still need follow-through. Fill in schedules, classroom actions, and completion notes first.',
             actionLabel: 'Open interventions',
+          },
+          triageAssessments: {
+            title: 'Follow up on pending assessment submissions',
+            description: '{{count}} assessment submissions are still missing. Check publish rosters, in-progress students, and soon-to-close tasks first.',
+            actionLabel: 'Open assessment publish',
+          },
+          setupAssessment: {
+            title: 'Create the first general assessment',
+            description: 'Now that classes and core content exist, add a full-paper assessment to support quizzes and unified submission workflows.',
+            actionLabel: 'Create an assessment',
           },
           steadyState: {
             draftTitle: 'Continue from the latest work',
@@ -346,6 +413,17 @@ export const teacherWorkspaceSlice: TranslationSlice = {
             readyDescription: 'The current queue is clear. Return to the most active class or student detail to check whether any new high-risk follow-up is needed.',
             readyActionLabel: 'Open interventions',
             recentClassActionLabel: 'Open recent class',
+          },
+          assessments: {
+            blockedTitle: 'Add classes before publishing assessments',
+            blockedDescription: 'General assessments need a real class target. Confirm class and student context before creating or publishing papers.',
+            blockedActionLabel: 'Open classes',
+            readyTitle: 'Create the first general assessment',
+            readyDescription: 'There are no assessment papers yet. Create a full paper first so you can publish it to a class and track submission status.',
+            readyActionLabel: 'Create an assessment',
+            publishedTitle: 'No recent assessment publishes',
+            publishedDescription: 'Assessment papers already exist, but there are no recent active publishes. Return to the assessment center to publish another one or review existing papers.',
+            publishedActionLabel: 'Open assessments',
           },
           lexicalLists: {
             blockedTitle: 'Organize templates and pairs before lists',

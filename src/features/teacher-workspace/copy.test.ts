@@ -21,18 +21,22 @@ describe('teacher workspace copy helpers', () => {
         lexicalPairCount: 120,
         lexicalListCount: 0,
         pendingImportBatchCount: 1,
+        assessmentPaperCount: 0,
+        activeAssessmentPublishCount: 0,
+        pendingAssessmentSubmissionCount: 0,
       },
       recentClasses: [],
       draftTemplates: [],
       pendingInterventions: [{ id: 11, classId: 21, studentUserId: 31, priority: 'URGENT', status: 'PENDING', plannedAt: null }],
       recentLexicalLists: [],
+      recentAssessmentPublishes: [],
     });
 
     expect(items.map((item) => item.id)).toEqual([
       'interventions',
       'drafts-empty',
+      'assessments-empty',
       'imports',
-      'lists-empty',
     ]);
     expect(items[0]?.to).toContain('focusId=11');
     expect(items[0]?.to).toContain('classId=21');
@@ -51,11 +55,15 @@ describe('teacher workspace copy helpers', () => {
         lexicalPairCount: 80,
         lexicalListCount: 3,
         pendingImportBatchCount: 0,
+        assessmentPaperCount: 2,
+        activeAssessmentPublishCount: 1,
+        pendingAssessmentSubmissionCount: 0,
       },
       recentClasses: [],
       draftTemplates: [{ draftId: 5, templateName: 'Draft', syncState: 'DIRTY', updatedAt: null }],
       pendingInterventions: [],
       recentLexicalLists: [{ id: 9, listName: 'Starter', itemCount: 8, updatedAt: null }],
+      recentAssessmentPublishes: [],
     });
 
     expect(items.some((item) => item.id === 'lists-existing')).toBe(true);
@@ -74,11 +82,15 @@ describe('teacher workspace copy helpers', () => {
         lexicalPairCount: 0,
         lexicalListCount: 0,
         pendingImportBatchCount: 0,
+        assessmentPaperCount: 0,
+        activeAssessmentPublishCount: 0,
+        pendingAssessmentSubmissionCount: 0,
       },
       recentClasses: [],
       draftTemplates: [],
       pendingInterventions: [],
       recentLexicalLists: [],
+      recentAssessmentPublishes: [],
     });
 
     expect(items).toHaveLength(1);
@@ -97,11 +109,15 @@ describe('teacher workspace copy helpers', () => {
         lexicalPairCount: 10,
         lexicalListCount: 0,
         pendingImportBatchCount: 0,
+        assessmentPaperCount: 0,
+        activeAssessmentPublishCount: 0,
+        pendingAssessmentSubmissionCount: 0,
       },
       recentClasses: [],
       draftTemplates: [],
       pendingInterventions: [],
       recentLexicalLists: [],
+      recentAssessmentPublishes: [],
     });
 
     expect(state.actionLabel).toBe('teacherWorkspace.generated.emptyState.lexicalLists.blockedActionLabel');

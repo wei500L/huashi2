@@ -77,6 +77,7 @@ import type {
   AssessmentPaperDetailVO,
   AssessmentPaperSaveRequest,
   AssessmentPaperSummaryVO,
+  AssessmentPublishDetailVO,
   AssessmentPublishRequest,
   AssessmentPublishSummaryVO,
   CompleteAccountActionRequest,
@@ -87,7 +88,9 @@ import type {
   RagReindexRequest,
   RagReindexResponse,
   SaveAssessmentResponsesRequest,
+  StudentAssessmentHistorySummaryVO,
   StudentAssessmentSummaryVO,
+  TeacherAssessmentAttemptResultVO,
 } from './contracts';
 
 type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout'>;
@@ -212,14 +215,24 @@ export const assessmentService = {
     apiPut<AssessmentPaperDetailVO>(`/teacher/assessments/papers/${paperId}`, payload),
   publishTeacherPaper: (paperId: number, payload: AssessmentPublishRequest) =>
     apiPost<AssessmentPublishSummaryVO>(`/teacher/assessments/papers/${paperId}/publish`, payload),
+  getTeacherPublish: (publishId: number, options?: RequestOptions) =>
+    apiGet<AssessmentPublishDetailVO>(`/teacher/assessments/publishes/${publishId}`, options),
+  getTeacherAttemptResult: (attemptId: number, options?: RequestOptions) =>
+    apiGet<TeacherAssessmentAttemptResultVO>(`/teacher/assessments/attempts/${attemptId}/result`, options),
   listStudentAssessments: (options?: RequestOptions) =>
     apiGet<StudentAssessmentSummaryVO[]>('/student/assessments', options),
+  listStudentHistory: (
+    params: { pageNo?: number; pageSize?: number; status?: string },
+    options?: RequestOptions
+  ) => apiGet<PageResult<StudentAssessmentHistorySummaryVO>>('/student/assessments/history', { ...options, params }),
   startStudentAttempt: (publishId: number) =>
     apiPost<AssessmentAttemptStartVO>(`/student/assessments/publishes/${publishId}/start`),
   getStudentAttempt: (attemptId: number, options?: RequestOptions) =>
     apiGet<AssessmentAttemptDetailVO>(`/student/assessments/attempts/${attemptId}`, options),
   saveStudentResponses: (attemptId: number, payload: SaveAssessmentResponsesRequest) =>
     apiPost<AssessmentAttemptProgressVO>(`/student/assessments/attempts/${attemptId}/responses`, payload),
+  saveStudentResponsesKeepalive: (attemptId: number, payload: SaveAssessmentResponsesRequest) =>
+    apiPostKeepalive<AssessmentAttemptProgressVO>(`/student/assessments/attempts/${attemptId}/responses`, payload),
   submitStudentAttempt: (attemptId: number) =>
     apiPost<AssessmentAttemptSubmitVO>(`/student/assessments/attempts/${attemptId}/submit`),
   getStudentAttemptResult: (attemptId: number, options?: RequestOptions) =>

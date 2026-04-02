@@ -3,9 +3,11 @@ package com.huashi.eftransfer.app.modules.assessment.controller;
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentPaperSaveRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentPublishRequest;
 import com.huashi.eftransfer.app.modules.assessment.service.AssessmentService;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPublishDetailVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPaperDetailVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPaperSummaryVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPublishSummaryVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.TeacherAssessmentAttemptResultVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
@@ -60,5 +62,15 @@ public class TeacherAssessmentController {
             @Valid @RequestBody AssessmentPublishRequest request
     ) {
         return ApiResponse.success(assessmentService.publishPaper(paperId, request), MDC.get("traceId"));
+    }
+
+    @GetMapping("/publishes/{publishId}")
+    public ApiResponse<AssessmentPublishDetailVO> getPublishDetail(@PathVariable Long publishId) {
+        return ApiResponse.success(assessmentService.getPublishDetail(publishId), MDC.get("traceId"));
+    }
+
+    @GetMapping("/attempts/{attemptId}/result")
+    public ApiResponse<TeacherAssessmentAttemptResultVO> getTeacherAttemptResult(@PathVariable Long attemptId) {
+        return ApiResponse.success(assessmentService.getTeacherAttemptResult(attemptId), MDC.get("traceId"));
     }
 }

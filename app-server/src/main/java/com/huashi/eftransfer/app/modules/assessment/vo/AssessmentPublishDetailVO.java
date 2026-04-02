@@ -1,9 +1,13 @@
 package com.huashi.eftransfer.app.modules.assessment.vo;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
-public record AssessmentPublishSummaryVO(
+public record AssessmentPublishDetailVO(
         Long publishId,
+        Long paperId,
+        String paperTitle,
+        String paperDescription,
         Long teachingClassId,
         String className,
         String status,
@@ -15,8 +19,10 @@ public record AssessmentPublishSummaryVO(
         LocalDateTime dueAt,
         LocalDateTime publishedAt,
         Integer assignedCount,
-        Integer attemptCount,
+        Integer notStartedCount,
+        Integer inProgressCount,
         Integer submittedCount,
-        Integer pendingCount
+        Double averageScore,
+        List<AssessmentPublishRosterItemVO> roster
 ) {
 }

@@ -6,6 +6,9 @@ export interface TeacherWorkspaceSummaryVO {
   lexicalPairCount: number;
   lexicalListCount: number;
   pendingImportBatchCount: number;
+  assessmentPaperCount: number;
+  activeAssessmentPublishCount: number;
+  pendingAssessmentSubmissionCount: number;
 }
 
 export interface TeacherWorkspaceClassActivityVO {
@@ -41,6 +44,19 @@ export interface TeacherWorkspaceLexicalListVO {
   updatedAt?: string | null;
 }
 
+export interface TeacherWorkspaceAssessmentPublishVO {
+  publishId: number;
+  paperId: number;
+  title: string;
+  classId: number;
+  className: string;
+  publishedAt?: string | null;
+  dueAt?: string | null;
+  assignedCount: number;
+  submittedCount: number;
+  pendingCount: number;
+}
+
 export interface TeacherWorkspaceOverviewVO {
   teacherName: string;
   organizationLabel?: string | null;
@@ -49,4 +65,5 @@ export interface TeacherWorkspaceOverviewVO {
   draftTemplates: TeacherWorkspaceDraftTemplateVO[];
   pendingInterventions: TeacherWorkspaceInterventionVO[];
   recentLexicalLists: TeacherWorkspaceLexicalListVO[];
+  recentAssessmentPublishes: TeacherWorkspaceAssessmentPublishVO[];
 }

@@ -92,17 +92,19 @@ describe('App auth-expired handling', () => {
       },
     });
 
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/dashboard']}>
-          <App />
-        </MemoryRouter>
-      </QueryClientProvider>
-    );
+    await act(async () => {
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/dashboard']}>
+            <App />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    });
 
     expect(await screen.findByText('dashboard')).toBeInTheDocument();
 
-    act(() => {
+    await act(async () => {
       clearStoredSession();
       dispatchAuthExpired();
     });

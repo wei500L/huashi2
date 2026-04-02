@@ -9,6 +9,7 @@ public record TeacherWorkspaceOverviewVO(
         List<TeacherWorkspaceClassActivityVO> recentClasses,
         List<TeacherWorkspaceDraftTemplateVO> draftTemplates,
         List<TeacherWorkspaceInterventionVO> pendingInterventions,
-        List<TeacherWorkspaceLexicalListVO> recentLexicalLists
+        List<TeacherWorkspaceLexicalListVO> recentLexicalLists,
+        List<TeacherWorkspaceAssessmentPublishVO> recentAssessmentPublishes
 ) {
 }

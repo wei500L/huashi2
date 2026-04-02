@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Save, Send } from 'lucide-react';
 import { useBeforeUnload, useBlocker } from 'react-router';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -54,6 +54,8 @@ function hasResponses(responses?: string[]) {
   return !!responses?.map((item) => item.trim()).filter(Boolean).length;
 }
 
+type PersistMode = 'manual' | 'auto' | 'background';
+
 const StudentAssessmentAttemptPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -63,14 +65,20 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const [responsesByOrder, setResponsesByOrder] = React.useState<Record<number, string[]>>({});
   const [answeredCount, setAnsweredCount] = React.useState(0);
   const [lastSavedAt, setLastSavedAt] = React.useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = React.useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [clientNow, setClientNow] = React.useState(Date.now());
   const [serverOffsetMs, setServerOffsetMs] = React.useState(0);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitLocked, setSubmitLocked] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
   const hydratedAttemptIdRef = React.useRef<number | null>(null);
   const allowNavigationRef = React.useRef(false);
   const autoSubmitTriggeredRef = React.useRef(false);
+  const autoSaveTimerRef = React.useRef<number | null>(null);
+  const skipAutosaveRef = React.useRef(true);
+  const latestSaveRequestRef = React.useRef(0);
 
   const detailQuery = useQuery({
     queryKey: ['student-assessment-attempt', attemptId],
@@ -92,8 +100,19 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     setResponsesByOrder(buildInitialResponses(detailQuery.data));
     setAnsweredCount(detailQuery.data.answeredCount);
     setLastSavedAt(detailQuery.data.lastSavedAt || null);
-    const firstUnanswered = detailQuery.data.questions.find((question) => !question.answered)?.questionOrder;
-    setSelectedQuestionOrder(firstUnanswered || detailQuery.data.questions[0]?.questionOrder || 1);
+    setSelectedQuestionOrder(detailQuery.data.questions.find((question) => !question.answered)?.questionOrder || detailQuery.data.questions[0]?.questionOrder || 1);
+    setSaveNotice(null);
+    setSaveErrorMessage(null);
+    setSubmitErrorMessage(null);
+    setIsSubmitting(false);
+    setIsSaving(false);
+    setSubmitLocked(false);
+    autoSubmitTriggeredRef.current = false;
+    skipAutosaveRef.current = true;
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
   }, [detailQuery.data]);
 
   React.useEffect(() => {
@@ -101,13 +120,123 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     return () => window.clearInterval(timer);
   }, []);
 
+  React.useEffect(
+    () => () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+      }
+    },
+    []
+  );
+
   const detail = detailQuery.data;
-  const active = detail?.status === 'IN_PROGRESS';
   const currentServerNow = clientNow + serverOffsetMs;
   const remainingMs = detail ? new Date(detail.expiresAt).getTime() - currentServerNow : null;
   const orderedQuestions = detail?.questions || [];
   const currentQuestion = orderedQuestions.find((question) => question.questionOrder === selectedQuestionOrder) || orderedQuestions[0];
   const answeredCountFromLocal = orderedQuestions.filter((question) => hasResponses(responsesByOrder[question.questionOrder])).length;
+  const canEdit = detail?.status === 'IN_PROGRESS' && !submitLocked;
+  const shouldWarnBeforeLeave = detail?.status === 'IN_PROGRESS' && !submitLocked;
+
+  const persistResponses = React.useCallback(
+    async (
+      mode: PersistMode,
+      snapshot: Record<number, string[]>,
+      options?: { ignoreLock?: boolean; keepalive?: boolean; silentSuccess?: boolean }
+    ) => {
+      if (!detail || detail.status !== 'IN_PROGRESS') {
+        return null;
+      }
+      if (submitLocked && !options?.ignoreLock) {
+        return null;
+      }
+
+      const requestId = ++latestSaveRequestRef.current;
+      if (!options?.keepalive) {
+        setIsSaving(true);
+        setSaveErrorMessage(null);
+        if (!options?.silentSuccess) {
+          setSaveNotice(mode === 'manual' ? '正在保存答案...' : '正在自动保存答案...');
+        }
+      }
+
+      try {
+        const payload = buildSavePayload(detail, snapshot);
+        const progress = options?.keepalive
+          ? await assessmentService.saveStudentResponsesKeepalive(attemptId, payload)
+          : await assessmentService.saveStudentResponses(attemptId, payload);
+
+        if (options?.keepalive || requestId === latestSaveRequestRef.current) {
+          setAnsweredCount(progress.answeredCount);
+          setLastSavedAt(progress.lastSavedAt || null);
+          if (!options?.silentSuccess) {
+            setSaveNotice(
+              mode === 'manual'
+                ? '答案已保存。'
+                : progress.lastSavedAt
+                  ? `已自动保存于 ${formatDateTime(progress.lastSavedAt)}`
+                  : '答案已自动保存。'
+            );
+          }
+        }
+
+        if (mode === 'manual') {
+          await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
+          await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
+        }
+        return progress;
+      } catch (error) {
+        if (!options?.keepalive && requestId === latestSaveRequestRef.current) {
+          setSaveNotice(null);
+          setSaveErrorMessage(getApiErrorMessage(error, mode === 'manual' ? '保存答案失败' : '自动保存失败'));
+        }
+        throw error;
+      } finally {
+        if (!options?.keepalive && requestId === latestSaveRequestRef.current) {
+          setIsSaving(false);
+        }
+      }
+    },
+    [attemptId, detail, queryClient, submitLocked]
+  );
+
+  const handleSubmit = React.useCallback(
+    async (reason: 'manual' | 'timeout' = 'manual') => {
+      if (!detail || detail.status !== 'IN_PROGRESS') {
+        return;
+      }
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+
+      setSubmitLocked(true);
+      setIsSubmitting(true);
+      setSubmitErrorMessage(null);
+      setSaveErrorMessage(null);
+      setSaveNotice(reason === 'timeout' ? '作答时间已结束，系统正在自动交卷...' : '正在提交答卷，请勿关闭页面。');
+
+      try {
+        await persistResponses('manual', responsesByOrder, { ignoreLock: true, silentSuccess: true });
+        const result = await assessmentService.submitStudentAttempt(attemptId);
+        await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
+        await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
+        await queryClient.invalidateQueries({ queryKey: ['student-assessment-attempt', attemptId] });
+        allowNavigationRef.current = true;
+        navigate(`/assessments/attempts/${result.attemptId}/result`, { replace: true });
+      } catch (error) {
+        setIsSubmitting(false);
+        setSaveNotice(null);
+        setSubmitErrorMessage(
+          getApiErrorMessage(
+            error,
+            reason === 'timeout' ? '自动交卷失败，请点击“重新提交”确认最终状态。' : '交卷失败，请点击“重新提交”确认最终状态。'
+          )
+        );
+      }
+    },
+    [attemptId, detail, navigate, persistResponses, queryClient, responsesByOrder]
+  );
 
   React.useEffect(() => {
     if (detail?.status !== 'SUBMITTED') {
@@ -117,72 +246,36 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     navigate(`/assessments/attempts/${detail.attemptId}/result`, { replace: true });
   }, [detail?.attemptId, detail?.status, navigate]);
 
-  const saveMutation = useMutation({
-    mutationFn: () => assessmentService.saveStudentResponses(attemptId, buildSavePayload(detail as AssessmentAttemptDetailVO, responsesByOrder)),
-    onSuccess: async (progress) => {
-      setAnsweredCount(progress.answeredCount);
-      setLastSavedAt(progress.lastSavedAt || null);
-      setSaveMessage('答案已保存。');
-      setSaveErrorMessage(null);
-      setSubmitErrorMessage(null);
-      await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
-    },
-    onError: (error) => {
-      setSaveMessage(null);
-      setSaveErrorMessage(getApiErrorMessage(error, '保存答案失败'));
-    },
-  });
-
-  const submitMutation = useMutation({
-    mutationFn: () => assessmentService.submitStudentAttempt(attemptId),
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
-      await queryClient.invalidateQueries({ queryKey: ['student-assessment-attempt', attemptId] });
-      allowNavigationRef.current = true;
-      navigate(`/assessments/attempts/${result.attemptId}/result`, { replace: true });
-    },
-    onError: (error) => {
-      setSubmitErrorMessage(getApiErrorMessage(error, '提交测评失败'));
-    },
-  });
-
-  const autoSave = React.useCallback(async () => {
-    if (!detail || detail.status !== 'IN_PROGRESS') {
+  React.useEffect(() => {
+    if (!detail || detail.status !== 'IN_PROGRESS' || submitLocked) {
       return;
     }
-    try {
-      const progress = await assessmentService.saveStudentResponses(attemptId, buildSavePayload(detail, responsesByOrder));
-      setAnsweredCount(progress.answeredCount);
-      setLastSavedAt(progress.lastSavedAt || null);
-      setSaveErrorMessage(null);
-    } catch (error) {
-      setSaveErrorMessage(getApiErrorMessage(error, '自动保存失败'));
-    }
-  }, [attemptId, detail, responsesByOrder]);
-
-  const handleSubmit = React.useCallback(async () => {
-    if (!detail) {
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
       return;
     }
-    setSubmitErrorMessage(null);
-    setSaveMessage(null);
-    try {
-      await assessmentService.saveStudentResponses(attemptId, buildSavePayload(detail, responsesByOrder));
-      await submitMutation.mutateAsync();
-    } catch (error) {
-      setSubmitErrorMessage(getApiErrorMessage(error, '提交测评失败'));
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
     }
-  }, [attemptId, detail, responsesByOrder, submitMutation]);
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      void persistResponses('auto', responsesByOrder).catch(() => undefined);
+    }, 1200);
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [detail, persistResponses, responsesByOrder, submitLocked]);
 
   React.useEffect(() => {
     if (!detail || detail.status !== 'IN_PROGRESS' || remainingMs === null || remainingMs > 0 || autoSubmitTriggeredRef.current) {
       return;
     }
     autoSubmitTriggeredRef.current = true;
-    void handleSubmit();
+    void handleSubmit('timeout');
   }, [detail, handleSubmit, remainingMs]);
 
-  const blocker = useBlocker(() => active && !allowNavigationRef.current);
+  const blocker = useBlocker(() => shouldWarnBeforeLeave && !allowNavigationRef.current);
 
   React.useEffect(() => {
     if (blocker.state !== 'blocked') {
@@ -191,47 +284,49 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     const shouldLeave = window.confirm('当前测评仍在进行中。离开页面前会尝试自动保存，确认离开吗？');
     if (shouldLeave) {
       allowNavigationRef.current = true;
-      void autoSave().finally(() => {
-        blocker.proceed();
-        window.setTimeout(() => {
-          allowNavigationRef.current = false;
-        }, 0);
-      });
+      void persistResponses('background', responsesByOrder, { keepalive: true, silentSuccess: true })
+        .catch(() => undefined)
+        .finally(() => {
+          blocker.proceed();
+          window.setTimeout(() => {
+            allowNavigationRef.current = false;
+          }, 0);
+        });
       return;
     }
     blocker.reset();
-  }, [autoSave, blocker]);
+  }, [blocker, persistResponses, responsesByOrder]);
 
   useBeforeUnload(
     React.useCallback(
       (event) => {
-        if (!active || allowNavigationRef.current) {
+        if (!shouldWarnBeforeLeave || allowNavigationRef.current || !detail) {
           return;
         }
         event.preventDefault();
         event.returnValue = '当前测评仍在进行中。';
-        void autoSave();
+        void persistResponses('background', responsesByOrder, { keepalive: true, silentSuccess: true }).catch(() => undefined);
       },
-      [active, autoSave]
+      [detail, persistResponses, responsesByOrder, shouldWarnBeforeLeave]
     )
   );
 
   React.useEffect(() => {
-    if (!active) {
+    if (!shouldWarnBeforeLeave || !detail) {
       return;
     }
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        void autoSave();
+        void persistResponses('background', responsesByOrder, { keepalive: true, silentSuccess: true }).catch(() => undefined);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [active, autoSave]);
+  }, [detail, persistResponses, responsesByOrder, shouldWarnBeforeLeave]);
 
   const updateSingleResponse = React.useCallback((questionOrder: number, value: string) => {
     setResponsesByOrder((current) => ({ ...current, [questionOrder]: value ? [value] : [] }));
-    setSaveMessage(null);
+    setSaveNotice(null);
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
   }, []);
@@ -242,14 +337,14 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       const next = existing.includes(value) ? existing.filter((item) => item !== value) : [...existing, value];
       return { ...current, [questionOrder]: next };
     });
-    setSaveMessage(null);
+    setSaveNotice(null);
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
   }, []);
 
   const updateFillBlankResponse = React.useCallback((questionOrder: number, value: string) => {
     setResponsesByOrder((current) => ({ ...current, [questionOrder]: value.trim() ? [value] : [] }));
-    setSaveMessage(null);
+    setSaveNotice(null);
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
   }, []);
@@ -262,7 +357,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
           value={responses[0] || ''}
           onChange={(event) => updateFillBlankResponse(question.questionOrder, event.target.value)}
           rows={5}
-          className="w-full rounded-[1.8rem] border border-slate-200 bg-white/75 px-4 py-3 text-base dark:border-white/10 dark:bg-white/5"
+          disabled={!canEdit}
+          className="w-full rounded-[1.8rem] border border-slate-200 bg-white/75 px-4 py-3 text-base disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
           placeholder="请输入答案"
         />
       );
@@ -275,16 +371,17 @@ const StudentAssessmentAttemptPage: React.FC = () => {
           return (
             <label
               key={option.key}
-              className={`flex cursor-pointer items-start gap-3 rounded-[1.4rem] border px-4 py-4 text-sm transition-all ${
+              className={`flex items-start gap-3 rounded-[1.4rem] border px-4 py-4 text-sm transition-all ${
                 checked
                   ? 'border-primary/30 bg-primary/10 text-slate-900 dark:text-white'
                   : 'border-slate-200/70 bg-white/70 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60'
-              }`}
+              } ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
             >
               <input
                 type={question.questionType === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'}
                 name={`question-${question.questionOrder}`}
                 checked={checked}
+                disabled={!canEdit}
                 onChange={() =>
                   question.questionType === 'SINGLE_CHOICE'
                     ? updateSingleResponse(question.questionOrder, option.key)
@@ -314,8 +411,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             </Link>
             <button
               type="button"
-              disabled={!detail || detail.status !== 'IN_PROGRESS' || saveMutation.isPending}
-              onClick={() => saveMutation.mutate()}
+              disabled={!canEdit || isSaving || isSubmitting}
+              onClick={() => void persistResponses('manual', responsesByOrder)}
               className="rounded-full border border-slate-200 px-4 py-3 text-sm font-bold text-primary disabled:opacity-60 dark:border-white/10"
             >
               <Save size={14} className="inline-block mr-2" />
@@ -323,32 +420,34 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={!detail || detail.status !== 'IN_PROGRESS' || submitMutation.isPending}
-              onClick={() => void handleSubmit()}
+              disabled={!detail || detail.status !== 'IN_PROGRESS' || isSubmitting}
+              onClick={() => void handleSubmit('manual')}
               className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
             >
               <Send size={14} className="inline-block mr-2" />
-              交卷
+              {submitLocked && submitErrorMessage ? '重新提交' : '交卷'}
             </button>
           </div>
         }
       />
 
-      {(saveMessage || saveErrorMessage || submitErrorMessage) && (
+      {(saveNotice || saveErrorMessage || submitErrorMessage) && (
         <div
           className={`rounded-[1.8rem] px-5 py-4 text-sm ${
             submitErrorMessage || saveErrorMessage
               ? 'border border-rose-500/20 bg-rose-500/5 text-rose-500'
-              : 'border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
+              : isSubmitting || isSaving
+                ? 'border border-sky-500/20 bg-sky-500/5 text-sky-700 dark:text-sky-300'
+                : 'border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
           }`}
         >
-          {submitErrorMessage || saveErrorMessage || saveMessage}
+          {submitErrorMessage || saveErrorMessage || saveNotice}
         </div>
       )}
 
       {detailQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {detailQuery.error.message}
+          {getApiErrorMessage(detailQuery.error)}
         </div>
       )}
 
@@ -360,7 +459,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
 
       {detail && currentQuestion && (
         <div className="grid gap-8 xl:grid-cols-[280px_1fr]">
-          <aside className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+          <aside className="space-y-5 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/75 px-4 py-4 dark:border-white/10 dark:bg-white/5">
               <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">timer</div>
               <div className={`mt-3 text-3xl font-black ${remainingMs !== null && remainingMs <= 5 * 60 * 1000 ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
@@ -408,7 +507,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             )}
           </aside>
 
-          <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+          <section className="space-y-6 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">
@@ -451,17 +550,22 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               </button>
             </div>
 
-            {remainingMs !== null && remainingMs <= 5 * 60 * 1000 && (
+            {!canEdit && detail.status === 'IN_PROGRESS' && (
+              <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
+                答卷已锁定，正在等待最终交卷结果。此时不能再修改答案。
+              </div>
+            )}
+            {remainingMs !== null && remainingMs <= 5 * 60 * 1000 && remainingMs > 0 && (
               <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
                 倒计时已进入最后 5 分钟，请尽快检查并交卷。
               </div>
             )}
             {remainingMs !== null && remainingMs <= 0 && (
               <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/10 px-4 py-4 text-sm text-rose-600 dark:text-rose-300">
-                测评已到时限，系统正在自动交卷。
+                测评已到时限。{submitErrorMessage ? '自动交卷未确认，请点击“重新提交”完成最终交卷。' : '系统正在自动交卷。'}
               </div>
             )}
-            {answeredCountFromLocal === detail.questionCount && detail.questionCount > 0 && (
+            {answeredCountFromLocal === detail.questionCount && detail.questionCount > 0 && canEdit && (
               <div className="rounded-[1.6rem] border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-600 dark:text-emerald-300">
                 <CheckCircle2 size={14} className="mr-2 inline-block" />
                 所有题目均已填写，可以直接交卷。

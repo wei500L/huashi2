@@ -1626,8 +1626,10 @@ export interface AssessmentPublishSummaryVO {
   startsAt?: string | null;
   dueAt?: string | null;
   publishedAt: string;
+  assignedCount: number;
   attemptCount: number;
   submittedCount: number;
+  pendingCount: number;
 }
 
 export interface AssessmentPaperSummaryVO {
@@ -1675,6 +1677,24 @@ export interface StudentAssessmentSummaryVO {
   attemptId?: number | null;
   answeredCount?: number | null;
   startedAt?: string | null;
+  expiresAt?: string | null;
+  submittedAt?: string | null;
+}
+
+export interface StudentAssessmentHistorySummaryVO {
+  attemptId: number;
+  publishId: number;
+  paperId: number;
+  title: string;
+  description?: string | null;
+  className: string;
+  status: AssessmentAttemptStatus | string;
+  questionCount: number;
+  answeredCount: number;
+  objectiveScore: number;
+  totalScore: number;
+  startedAt: string;
+  lastSavedAt?: string | null;
   expiresAt?: string | null;
   submittedAt?: string | null;
 }
@@ -1769,7 +1789,69 @@ export interface AssessmentAttemptResultVO {
   questions: AssessmentAttemptResultQuestionVO[];
 }
 
+export interface AssessmentPublishRosterItemVO {
+  studentUserId: number;
+  studentName: string;
+  attemptStatus: 'NOT_STARTED' | AssessmentAttemptStatus | string;
+  attemptId?: number | null;
+  answeredCount?: number | null;
+  questionCount?: number | null;
+  objectiveScore?: number | null;
+  totalScore?: number | null;
+  startedAt?: string | null;
+  expiresAt?: string | null;
+  submittedAt?: string | null;
+  lastSavedAt?: string | null;
+}
+
+export interface AssessmentPublishDetailVO {
+  publishId: number;
+  paperId: number;
+  paperTitle: string;
+  paperDescription?: string | null;
+  teachingClassId: number;
+  className: string;
+  status: string;
+  durationMinutes: number;
+  questionCount: number;
+  totalScore: number;
+  instructionsText?: string | null;
+  startsAt?: string | null;
+  dueAt?: string | null;
+  publishedAt: string;
+  assignedCount: number;
+  notStartedCount: number;
+  inProgressCount: number;
+  submittedCount: number;
+  averageScore?: number | null;
+  roster: AssessmentPublishRosterItemVO[];
+}
+
+export interface TeacherAssessmentAttemptResultVO {
+  attemptId: number;
+  publishId: number;
+  paperId: number;
+  teachingClassId: number;
+  studentUserId: number;
+  studentName: string;
+  paperTitle: string;
+  paperDescription?: string | null;
+  className: string;
+  status: AssessmentAttemptStatus | string;
+  instructionsText?: string | null;
+  questionCount: number;
+  answeredCount: number;
+  correctCount: number;
+  objectiveScore: number;
+  totalScore: number;
+  startedAt: string;
+  expiresAt: string;
+  submittedAt: string;
+  questions: AssessmentAttemptResultQuestionVO[];
+}
+
 export type {
+  TeacherWorkspaceAssessmentPublishVO,
   TeacherWorkspaceClassActivityVO,
   TeacherWorkspaceDraftTemplateVO,
   TeacherWorkspaceInterventionVO,

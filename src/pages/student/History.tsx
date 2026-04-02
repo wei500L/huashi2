@@ -9,16 +9,18 @@ import {
   formatMs,
   lexicalPairTypeLabel,
 } from '@/lib/format';
-import { diagnosisSessionService, trainingService } from '@/lib/services';
+import { assessmentService, diagnosisSessionService, trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
 import type {
+  AssessmentAttemptResultQuestionVO,
+  AssessmentOptionVO,
   DiagnosisItemResultDetailVO,
   DiagnosisOptionPayload,
   TrainingItemResultDetailVO,
   TrainingOptionViewVO,
 } from '@/lib/contracts';
 
-type HistoryTab = 'diagnosis' | 'training';
+type HistoryTab = 'diagnosis' | 'training' | 'assessment';
 
 const pageSize = 10;
 
@@ -110,15 +112,89 @@ function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetai
   );
 }
 
+function findAssessmentOptionLabel(options: AssessmentOptionVO[], answerKey?: string | null) {
+  if (!answerKey) {
+    return null;
+  }
+  return options.find((option) => option.key === answerKey)?.label || answerKey;
+}
+
+function AssessmentHistoryItemReviewCard({ item }: { item: AssessmentAttemptResultQuestionVO }) {
+  const selectedLabel = item.options.length
+    ? item.responses.map((answerKey) => findAssessmentOptionLabel(item.options, answerKey) || answerKey).join(' / ')
+    : item.responses.join(' / ');
+  const correctLabel = item.options.length
+    ? item.correctAnswers.map((answerKey) => findAssessmentOptionLabel(item.options, answerKey) || answerKey).join(' / ')
+    : item.correctAnswers.join(' / ');
+
+  return (
+    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-black text-slate-900 dark:text-white">
+            第 {item.questionOrder} 题 · {item.questionType}
+          </div>
+          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.stemText}</div>
+          {item.promptText && <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.promptText}</div>}
+        </div>
+        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+          <div>{item.correct ? '答对' : '答错'}</div>
+          <div>
+            {item.scoreAwarded ?? 0} / {item.score}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm text-slate-500 dark:text-white/45">
+        <div>你的答案：{selectedLabel || '未作答'}</div>
+        <div>正确答案：{correctLabel || '未返回'}</div>
+      </div>
+
+      {!!item.options.length && (
+        <div className="mt-4 grid gap-2">
+          {item.options.map((option) => {
+            const selected = item.responses.includes(option.key);
+            const correct = item.correctAnswers.includes(option.key);
+            return (
+              <div
+                key={option.key}
+                className={`rounded-[1.2rem] border px-4 py-3 text-sm ${
+                  correct
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : selected
+                      ? 'border-rose-500/20 bg-rose-500/5 text-rose-600 dark:text-rose-300'
+                      : 'border-slate-200/70 bg-white/70 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60'
+                }`}
+              >
+                <div className="font-semibold">{option.key}</div>
+                <div className="mt-1">{option.label}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {item.explanationText && (
+        <div className="mt-4 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+          {item.explanationText}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const HistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = React.useState<HistoryTab>('diagnosis');
   const [diagnosisStatus, setDiagnosisStatus] = React.useState('ALL');
   const [trainingStatus, setTrainingStatus] = React.useState('ALL');
+  const [assessmentStatus, setAssessmentStatus] = React.useState('ALL');
   const [diagnosisPageNo, setDiagnosisPageNo] = React.useState(1);
   const [trainingPageNo, setTrainingPageNo] = React.useState(1);
+  const [assessmentPageNo, setAssessmentPageNo] = React.useState(1);
   const [selectedDiagnosisSessionId, setSelectedDiagnosisSessionId] = React.useState<number | null>(null);
   const [selectedTrainingSessionId, setSelectedTrainingSessionId] = React.useState<number | null>(null);
+  const [selectedAssessmentAttemptId, setSelectedAssessmentAttemptId] = React.useState<number | null>(null);
 
   const diagnosisHistoryQuery = useQuery({
     queryKey: ['diagnosis-history', 'history-page', diagnosisPageNo, diagnosisStatus],
@@ -145,6 +221,18 @@ const HistoryPage: React.FC = () => {
         { signal }
       ),
   });
+  const assessmentHistoryQuery = useQuery({
+    queryKey: ['student-assessment-history', assessmentPageNo, assessmentStatus],
+    queryFn: ({ signal }) =>
+      assessmentService.listStudentHistory(
+        {
+          pageNo: assessmentPageNo,
+          pageSize,
+          status: assessmentStatus === 'ALL' ? undefined : assessmentStatus,
+        },
+        { signal }
+      ),
+  });
 
   const diagnosisDetailQuery = useQuery({
     queryKey: ['diagnosis-result', 'history-page', selectedDiagnosisSessionId],
@@ -157,6 +245,15 @@ const HistoryPage: React.FC = () => {
     queryFn: ({ signal }) => trainingService.getSummary(selectedTrainingSessionId as number, { signal }),
     enabled: selectedTrainingSessionId !== null,
   });
+  const selectedAssessmentRecord = React.useMemo(
+    () => assessmentHistoryQuery.data?.records.find((record) => record.attemptId === selectedAssessmentAttemptId) || null,
+    [assessmentHistoryQuery.data?.records, selectedAssessmentAttemptId]
+  );
+  const assessmentDetailQuery = useQuery({
+    queryKey: ['student-assessment-result', 'history-page', selectedAssessmentAttemptId],
+    queryFn: ({ signal }) => assessmentService.getStudentAttemptResult(selectedAssessmentAttemptId as number, { signal }),
+    enabled: selectedAssessmentAttemptId !== null && selectedAssessmentRecord?.status === 'SUBMITTED',
+  });
 
   React.useEffect(() => {
     setDiagnosisPageNo(1);
@@ -166,18 +263,23 @@ const HistoryPage: React.FC = () => {
     setTrainingPageNo(1);
   }, [trainingStatus]);
 
+  React.useEffect(() => {
+    setAssessmentPageNo(1);
+  }, [assessmentStatus]);
+
   const diagnosisData = diagnosisHistoryQuery.data;
   const trainingData = trainingHistoryQuery.data;
+  const assessmentData = assessmentHistoryQuery.data;
 
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
         title="学习历史"
-        subtitle="统一查看诊断与训练记录；进行中的 session 会跳回对应页面继续，已完成记录可在当前页查看详情。"
+        subtitle="统一查看诊断、训练与通用测评记录；进行中的 session 会跳回对应页面继续，已完成记录可在当前页查看详情。"
       />
 
       <section className="rounded-[2.5rem] liquid-glass-panel p-4">
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-3">
           <button
             type="button"
             onClick={() => setActiveTab('diagnosis')}
@@ -203,6 +305,19 @@ const HistoryPage: React.FC = () => {
             <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">训练记录</div>
             <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">训练历史</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看模式、正确率和风险词复习建议。</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('assessment')}
+            className={`rounded-[1.8rem] px-5 py-4 text-left transition-all ${
+              activeTab === 'assessment'
+                ? 'border border-primary/30 bg-primary/10'
+                : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
+            }`}
+          >
+            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">通用测评</div>
+            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">测评历史</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看整卷测评、继续作答与题目级回看。</div>
           </button>
         </div>
       </section>
@@ -412,7 +527,7 @@ const HistoryPage: React.FC = () => {
             ) : null}
           </section>
         </div>
-      ) : (
+      ) : activeTab === 'training' ? (
         <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
@@ -601,6 +716,193 @@ const HistoryPage: React.FC = () => {
                   {trainingDetailQuery.data.items.length ? (
                     trainingDetailQuery.data.items.map((item) => (
                       <TrainingHistoryItemReviewCard key={item.itemResultId} item={item} />
+                    ))
+                  ) : (
+                    <div className="text-sm text-slate-500 dark:text-white/45">本次没有返回题目级结果。</div>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </section>
+        </div>
+      ) : (
+        <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">filters</div>
+              <select
+                value={assessmentStatus}
+                onChange={(event) => setAssessmentStatus(event.target.value)}
+                className="native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+              >
+                <option value="ALL">全部状态</option>
+                <option value="IN_PROGRESS">进行中</option>
+                <option value="SUBMITTED">已提交</option>
+              </select>
+            </div>
+
+            {assessmentHistoryQuery.isLoading ? (
+              <PanelSkeleton />
+            ) : assessmentHistoryQuery.error ? (
+              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                {getApiErrorMessage(assessmentHistoryQuery.error)}
+              </div>
+            ) : !assessmentData?.records.length ? (
+              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+                当前没有匹配的测评记录。
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {assessmentData.records.map((record) => (
+                  <div
+                    key={record.attemptId}
+                    className={`rounded-[1.8rem] border p-5 ${
+                      selectedAssessmentAttemptId === record.attemptId
+                        ? 'border-primary/30 bg-primary/5'
+                        : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{record.status}</div>
+                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{record.title}</div>
+                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                          {record.className} · 开始于 {formatDateTime(record.startedAt)} · 提交于 {formatDateTime(record.submittedAt)}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500 dark:text-white/45">
+                          <span>进度 {record.answeredCount}/{record.questionCount}</span>
+                          <span>得分 {record.totalScore ?? '--'}</span>
+                          <span>最后保存 {formatDateTime(record.lastSavedAt)}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {record.status === 'IN_PROGRESS' ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/assessments/attempts/${record.attemptId}`)}
+                            className="btn-liquid px-5 py-3 text-white"
+                          >
+                            继续作答
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAssessmentAttemptId(record.attemptId)}
+                            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                          >
+                            查看结果
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-sm text-slate-500 dark:text-white/45">
+              <span>
+                第 {assessmentPageNo}/{totalPages(assessmentData?.total)} 页
+              </span>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAssessmentPageNo((page) => Math.max(1, page - 1))}
+                  disabled={assessmentPageNo === 1}
+                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                >
+                  上一页
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssessmentPageNo((page) => Math.min(totalPages(assessmentData?.total), page + 1))}
+                  disabled={assessmentPageNo >= totalPages(assessmentData?.total)}
+                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                >
+                  下一页
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">assessment detail</div>
+            {selectedAssessmentAttemptId === null ? (
+              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+                选择一条测评记录后，在这里查看结果。
+              </div>
+            ) : selectedAssessmentRecord?.status === 'IN_PROGRESS' ? (
+              <div className="space-y-4">
+                <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
+                  这份测评仍在进行中，学生需要回到测评页继续作答。
+                </div>
+                <div className="grid gap-3 text-sm text-slate-500 dark:text-white/45">
+                  <div>开始时间：{formatDateTime(selectedAssessmentRecord.startedAt)}</div>
+                  <div>最后保存：{formatDateTime(selectedAssessmentRecord.lastSavedAt)}</div>
+                  <div>作答时限：{formatDateTime(selectedAssessmentRecord.expiresAt)}</div>
+                  <div>当前进度：{selectedAssessmentRecord.answeredCount}/{selectedAssessmentRecord.questionCount}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/assessments/attempts/${selectedAssessmentRecord.attemptId}`)}
+                  className="btn-liquid px-5 py-3 text-white"
+                >
+                  回到测评继续作答
+                </button>
+              </div>
+            ) : assessmentDetailQuery.isLoading ? (
+              <PanelSkeleton />
+            ) : assessmentDetailQuery.error ? (
+              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                {getApiErrorMessage(assessmentDetailQuery.error)}
+              </div>
+            ) : assessmentDetailQuery.data ? (
+              <>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="text-2xl font-black text-slate-900 dark:text-white">{assessmentDetailQuery.data.paperTitle}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      {assessmentDetailQuery.data.className} · 提交于 {formatDateTime(assessmentDetailQuery.data.submittedAt)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/assessments/attempts/${assessmentDetailQuery.data.attemptId}/result`)}
+                    className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                  >
+                    打开独立结果页
+                  </button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">总分</div>
+                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{assessmentDetailQuery.data.totalScore}</div>
+                  </div>
+                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">答对率</div>
+                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                      {assessmentDetailQuery.data.questionCount
+                        ? `${Math.round((assessmentDetailQuery.data.correctCount / assessmentDetailQuery.data.questionCount) * 100)}%`
+                        : '0%'}
+                    </div>
+                  </div>
+                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">作答题数</div>
+                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                      {assessmentDetailQuery.data.answeredCount}/{assessmentDetailQuery.data.questionCount}
+                    </div>
+                  </div>
+                </div>
+                {assessmentDetailQuery.data.instructionsText && (
+                  <div className="rounded-[1.6rem] border border-dashed border-slate-200/80 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+                    {assessmentDetailQuery.data.instructionsText}
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">题目回看</div>
+                  {assessmentDetailQuery.data.questions.length ? (
+                    assessmentDetailQuery.data.questions.map((item) => (
+                      <AssessmentHistoryItemReviewCard key={item.answerId} item={item} />
                     ))
                   ) : (
                     <div className="text-sm text-slate-500 dark:text-white/45">本次没有返回题目级结果。</div>

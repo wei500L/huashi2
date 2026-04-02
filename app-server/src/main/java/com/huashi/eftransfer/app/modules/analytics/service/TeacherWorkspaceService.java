@@ -8,12 +8,21 @@ import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.InterventionRecordMapper;
 import com.huashi.eftransfer.app.modules.analytics.mapper.LearningProfileSnapshotMapper;
 import com.huashi.eftransfer.app.modules.analytics.support.AnalyticsConstants;
+import com.huashi.eftransfer.app.modules.analytics.vo.TeacherWorkspaceAssessmentPublishVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherWorkspaceClassActivityVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherWorkspaceDraftTemplateVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherWorkspaceInterventionVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherWorkspaceLexicalListVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherWorkspaceOverviewVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherWorkspaceSummaryVO;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPaperEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPublishEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPublishRecipientEntity;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPaperMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublishMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublishRecipientMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisTemplateDraftEntity;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisTemplateDraftMapper;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalListEntity;
@@ -29,6 +38,8 @@ import com.huashi.eftransfer.app.modules.user.entity.TeacherProfileEntity;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.TeacherProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
+import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
+import com.huashi.eftransfer.shared.enums.AssessmentPublishStatus;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
@@ -58,6 +69,10 @@ public class TeacherWorkspaceService {
     private final LexicalListMapper lexicalListMapper;
     private final LexicalListItemMapper lexicalListItemMapper;
     private final LexicalImportBatchMapper lexicalImportBatchMapper;
+    private final AssessmentPaperMapper assessmentPaperMapper;
+    private final AssessmentPublishMapper assessmentPublishMapper;
+    private final AssessmentPublishRecipientMapper assessmentPublishRecipientMapper;
+    private final AssessmentAttemptMapper assessmentAttemptMapper;
     private final UserMapper userMapper;
     private final TeacherProfileMapper teacherProfileMapper;
 
@@ -70,6 +85,10 @@ public class TeacherWorkspaceService {
             LexicalListMapper lexicalListMapper,
             LexicalListItemMapper lexicalListItemMapper,
             LexicalImportBatchMapper lexicalImportBatchMapper,
+            AssessmentPaperMapper assessmentPaperMapper,
+            AssessmentPublishMapper assessmentPublishMapper,
+            AssessmentPublishRecipientMapper assessmentPublishRecipientMapper,
+            AssessmentAttemptMapper assessmentAttemptMapper,
             UserMapper userMapper,
             TeacherProfileMapper teacherProfileMapper
     ) {
@@ -81,6 +100,10 @@ public class TeacherWorkspaceService {
         this.lexicalListMapper = lexicalListMapper;
         this.lexicalListItemMapper = lexicalListItemMapper;
         this.lexicalImportBatchMapper = lexicalImportBatchMapper;
+        this.assessmentPaperMapper = assessmentPaperMapper;
+        this.assessmentPublishMapper = assessmentPublishMapper;
+        this.assessmentPublishRecipientMapper = assessmentPublishRecipientMapper;
+        this.assessmentAttemptMapper = assessmentAttemptMapper;
         this.userMapper = userMapper;
         this.teacherProfileMapper = teacherProfileMapper;
     }
@@ -127,6 +150,7 @@ public class TeacherWorkspaceService {
         Set<Long> accessibleClassIds = classes.stream()
                 .map(TeachingClassEntity::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        LocalDateTime now = LocalDateTime.now();
         List<InterventionRecordEntity> pendingRecords = accessibleClassIds.isEmpty()
                 ? interventionRecordMapper.selectList(Wrappers.<InterventionRecordEntity>lambdaQuery()
                         .eq(InterventionRecordEntity::getTeacherUserId, userId)
@@ -192,6 +216,65 @@ public class TeacherWorkspaceService {
                         LexicalImportBatchStatus.DRAFT.name(),
                         LexicalImportBatchStatus.IMPORTING.name()
                 )));
+        long assessmentPaperCount = assessmentPaperMapper.selectCount(isAdmin()
+                ? Wrappers.<AssessmentPaperEntity>lambdaQuery()
+                : Wrappers.<AssessmentPaperEntity>lambdaQuery()
+                        .eq(AssessmentPaperEntity::getOwnerUserId, userId));
+
+        List<AssessmentPublishEntity> assessmentPublishes = accessibleClassIds.isEmpty()
+                ? List.of()
+                : assessmentPublishMapper.selectList(Wrappers.<AssessmentPublishEntity>lambdaQuery()
+                        .in(AssessmentPublishEntity::getTeachingClassId, accessibleClassIds)
+                        .eq(AssessmentPublishEntity::getStatus, AssessmentPublishStatus.PUBLISHED.name())
+                        .orderByDesc(AssessmentPublishEntity::getPublishedAt)
+                        .orderByDesc(AssessmentPublishEntity::getId));
+        List<AssessmentPublishEntity> activeAssessmentPublishes = assessmentPublishes.stream()
+                .filter(publish -> publish.getDueAt() == null || publish.getDueAt().isAfter(now))
+                .toList();
+        Map<Long, Integer> assignedCountByPublishId = loadAssessmentAssignedCountMap(assessmentPublishes.stream()
+                .map(AssessmentPublishEntity::getId)
+                .toList());
+        Map<Long, List<AssessmentAttemptEntity>> attemptsByPublishId = loadAssessmentAttemptGroups(assessmentPublishes.stream()
+                .map(AssessmentPublishEntity::getId)
+                .toList());
+        Map<Long, TeachingClassEntity> classById = classes.stream()
+                .collect(Collectors.toMap(TeachingClassEntity::getId, teachingClass -> teachingClass, (left, right) -> left, LinkedHashMap::new));
+
+        long pendingAssessmentSubmissionCount = activeAssessmentPublishes.stream()
+                .mapToLong(publish -> {
+                    AssessmentPublishStatusSnapshot snapshot = summarizeAssessmentPublish(
+                            publish,
+                            assignedCountByPublishId.getOrDefault(publish.getId(), 0),
+                            attemptsByPublishId.getOrDefault(publish.getId(), List.of()),
+                            now
+                    );
+                    return snapshot.pendingCount();
+                })
+                .sum();
+        List<TeacherWorkspaceAssessmentPublishVO> recentAssessmentPublishes = activeAssessmentPublishes.stream()
+                .limit(4)
+                .map(publish -> {
+                    AssessmentPublishStatusSnapshot snapshot = summarizeAssessmentPublish(
+                            publish,
+                            assignedCountByPublishId.getOrDefault(publish.getId(), 0),
+                            attemptsByPublishId.getOrDefault(publish.getId(), List.of()),
+                            now
+                    );
+                    TeachingClassEntity teachingClass = classById.get(publish.getTeachingClassId());
+                    return new TeacherWorkspaceAssessmentPublishVO(
+                            publish.getId(),
+                            publish.getPaperId(),
+                            publish.getPaperTitleSnapshot(),
+                            publish.getTeachingClassId(),
+                            teachingClass == null ? "未知班级" : teachingClass.getClassName(),
+                            publish.getPublishedAt(),
+                            publish.getDueAt(),
+                            snapshot.assignedCount(),
+                            snapshot.submittedCount(),
+                            snapshot.pendingCount()
+                    );
+                })
+                .toList();
 
         TeacherWorkspaceSummaryVO summary = new TeacherWorkspaceSummaryVO(
                 classes.size(),
@@ -200,7 +283,10 @@ public class TeacherWorkspaceService {
                 pendingInterventionCount,
                 lexicalPairCount,
                 lexicalListCount,
-                pendingImportBatchCount
+                pendingImportBatchCount,
+                assessmentPaperCount,
+                activeAssessmentPublishes.size(),
+                pendingAssessmentSubmissionCount
         );
 
         return new TeacherWorkspaceOverviewVO(
@@ -210,7 +296,63 @@ public class TeacherWorkspaceService {
                 recentClasses,
                 draftTemplates,
                 pendingInterventions,
-                recentLexicalLists
+                recentLexicalLists,
+                recentAssessmentPublishes
+        );
+    }
+
+    private Map<Long, Integer> loadAssessmentAssignedCountMap(Collection<Long> publishIds) {
+        LinkedHashSet<Long> deduplicated = publishIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (deduplicated.isEmpty()) {
+            return Map.of();
+        }
+        return assessmentPublishRecipientMapper.selectList(Wrappers.<AssessmentPublishRecipientEntity>lambdaQuery()
+                        .in(AssessmentPublishRecipientEntity::getPublishId, deduplicated))
+                .stream()
+                .collect(Collectors.groupingBy(
+                        AssessmentPublishRecipientEntity::getPublishId,
+                        LinkedHashMap::new,
+                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)
+                ));
+    }
+
+    private Map<Long, List<AssessmentAttemptEntity>> loadAssessmentAttemptGroups(Collection<Long> publishIds) {
+        LinkedHashSet<Long> deduplicated = publishIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (deduplicated.isEmpty()) {
+            return Map.of();
+        }
+        return assessmentAttemptMapper.selectList(Wrappers.<AssessmentAttemptEntity>lambdaQuery()
+                        .in(AssessmentAttemptEntity::getPublishId, deduplicated))
+                .stream()
+                .collect(Collectors.groupingBy(
+                        AssessmentAttemptEntity::getPublishId,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+    }
+
+    private AssessmentPublishStatusSnapshot summarizeAssessmentPublish(
+            AssessmentPublishEntity publish,
+            int assignedCount,
+            List<AssessmentAttemptEntity> attempts,
+            LocalDateTime now
+    ) {
+        int submittedCount = 0;
+        for (AssessmentAttemptEntity attempt : attempts) {
+            boolean submitted = AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(attempt.getStatus())
+                    || (attempt.getExpiresAt() != null && !now.isBefore(attempt.getExpiresAt()));
+            if (submitted) {
+                submittedCount++;
+            }
+        }
+        return new AssessmentPublishStatusSnapshot(
+                assignedCount,
+                submittedCount,
+                Math.max(0, assignedCount - submittedCount)
         );
     }
 
@@ -351,5 +493,18 @@ public class TeacherWorkspaceService {
     private Long currentUserId() {
         return SecurityUtils.getCurrentUserId()
                 .orElseThrow(() -> new BusinessException(ResultCode.UNAUTHORIZED, "Authentication required", 401));
+    }
+
+    private boolean isAdmin() {
+        return SecurityUtils.getCurrentPrincipal()
+                .map(principal -> principal.roles().contains("ADMIN"))
+                .orElse(false);
+    }
+
+    private record AssessmentPublishStatusSnapshot(
+            int assignedCount,
+            int submittedCount,
+            int pendingCount
+    ) {
     }
 }
