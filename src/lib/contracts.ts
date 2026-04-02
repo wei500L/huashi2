@@ -403,6 +403,7 @@ export interface DiagnosisTemplateDeleteResultVO {
 
 export interface DiagnosisHistorySummaryVO {
   sessionId: number;
+  summaryId?: number | null;
   templateId: number;
   templateName: string;
   ownerUserId: number;
@@ -564,6 +565,7 @@ export interface DiagnosisItemResultDetailVO {
 }
 
 export interface DiagnosisResultDetailVO {
+  summaryId: number;
   sessionId: number;
   status: string;
   templateId: number;
@@ -626,6 +628,7 @@ export interface WrongBookItemVO {
   frenchWord: string;
   chineseGloss: string;
   lexicalPairType: string;
+  recommendedMode: string;
   wrongCount: number;
   lastErrorType: string;
   masteryStatus: string;
@@ -752,6 +755,34 @@ export interface TrainingRiskWordVO {
   dominantErrorType: string;
 }
 
+export interface TrainingItemResultDetailVO {
+  itemResultId: number;
+  planItemId?: number | null;
+  presentationOrder: number;
+  mode: string;
+  itemType: string;
+  lexicalPairId: number;
+  englishWord?: string | null;
+  frenchWord?: string | null;
+  chineseGloss?: string | null;
+  lexicalPairType?: string | null;
+  wordPair?: TrainingWordPairVO | null;
+  difficultyLevel?: number | null;
+  cognitiveTag: string;
+  content: TrainingExerciseContentVO;
+  stimulus: TrainingStimulusPayload;
+  options: TrainingOptionViewVO[];
+  correctAnswerKey?: string | null;
+  selectedAnswerKey?: string | null;
+  submittedAt?: string | null;
+  reactionTimeMs?: number | null;
+  hesitationTimeMs?: number | null;
+  correct?: boolean | null;
+  detectedErrorType?: string | null;
+  reviewRequired?: boolean | null;
+  adaptationAction?: string | null;
+}
+
 export interface TrainingSessionSummaryVO {
   sessionId: number;
   mode: string;
@@ -760,6 +791,7 @@ export interface TrainingSessionSummaryVO {
   improvementHint: string;
   nextRecommendedMode: string;
   riskWordsToReview: TrainingRiskWordVO[];
+  items: TrainingItemResultDetailVO[];
 }
 
 export interface AiRecommendationPathItemVO {
@@ -1521,6 +1553,220 @@ export interface RagReindexJobResponse {
   finishedAt?: string | null;
   stats: Record<string, unknown>;
   errorMessage?: string | null;
+}
+
+export type AssessmentQuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'FILL_BLANK';
+export type AssessmentPaperStatus = 'DRAFT' | 'PUBLISHED';
+export type AssessmentAttemptStatus = 'IN_PROGRESS' | 'SUBMITTED';
+
+export interface AssessmentOptionRequest {
+  key: string;
+  label: string;
+}
+
+export interface AssessmentQuestionRequest {
+  questionType: AssessmentQuestionType;
+  stemText: string;
+  promptText?: string | null;
+  options?: AssessmentOptionRequest[];
+  correctAnswers: string[];
+  explanationText?: string | null;
+  score: number;
+}
+
+export interface AssessmentPaperSaveRequest {
+  title: string;
+  description?: string | null;
+  durationMinutes: number;
+  questions: AssessmentQuestionRequest[];
+}
+
+export interface AssessmentPublishRequest {
+  teachingClassId: number;
+  startsAt?: string | null;
+  dueAt?: string | null;
+  instructionsText?: string | null;
+}
+
+export interface AssessmentAttemptResponseRequest {
+  questionOrder: number;
+  responses?: string[];
+}
+
+export interface SaveAssessmentResponsesRequest {
+  responses: AssessmentAttemptResponseRequest[];
+}
+
+export interface AssessmentOptionVO {
+  key: string;
+  label: string;
+}
+
+export interface AssessmentPaperQuestionVO {
+  questionId: number;
+  questionType: AssessmentQuestionType;
+  sortOrder: number;
+  stemText: string;
+  promptText?: string | null;
+  options: AssessmentOptionVO[];
+  correctAnswers: string[];
+  explanationText?: string | null;
+  score: number;
+}
+
+export interface AssessmentPublishSummaryVO {
+  publishId: number;
+  teachingClassId: number;
+  className: string;
+  status: string;
+  durationMinutes: number;
+  questionCount: number;
+  totalScore: number;
+  instructionsText?: string | null;
+  startsAt?: string | null;
+  dueAt?: string | null;
+  publishedAt: string;
+  attemptCount: number;
+  submittedCount: number;
+}
+
+export interface AssessmentPaperSummaryVO {
+  paperId: number;
+  paperCode: string;
+  title: string;
+  description?: string | null;
+  status: AssessmentPaperStatus | string;
+  durationMinutes: number;
+  questionCount: number;
+  totalScore: number;
+  latestPublishAt?: string | null;
+  updatedAt: string;
+}
+
+export interface AssessmentPaperDetailVO {
+  paperId: number;
+  paperCode: string;
+  title: string;
+  description?: string | null;
+  status: AssessmentPaperStatus | string;
+  durationMinutes: number;
+  questionCount: number;
+  totalScore: number;
+  latestPublishAt?: string | null;
+  questions: AssessmentPaperQuestionVO[];
+  publishes: AssessmentPublishSummaryVO[];
+}
+
+export interface StudentAssessmentSummaryVO {
+  publishId: number;
+  paperId: number;
+  title: string;
+  description?: string | null;
+  teachingClassId: number;
+  className: string;
+  instructionsText?: string | null;
+  durationMinutes: number;
+  questionCount: number;
+  totalScore: number;
+  startsAt?: string | null;
+  dueAt?: string | null;
+  publishedAt: string;
+  attemptStatus?: AssessmentAttemptStatus | string | null;
+  attemptId?: number | null;
+  answeredCount?: number | null;
+  startedAt?: string | null;
+  expiresAt?: string | null;
+  submittedAt?: string | null;
+}
+
+export interface AssessmentAttemptStartVO {
+  attemptId: number;
+  publishId: number;
+  status: AssessmentAttemptStatus | string;
+  resumed: boolean;
+}
+
+export interface AssessmentAttemptQuestionVO {
+  answerId: number;
+  questionId: number;
+  questionOrder: number;
+  questionType: AssessmentQuestionType;
+  stemText: string;
+  promptText?: string | null;
+  options: AssessmentOptionVO[];
+  score: number;
+  responses: string[];
+  answered: boolean;
+}
+
+export interface AssessmentAttemptDetailVO {
+  attemptId: number;
+  publishId: number;
+  paperId: number;
+  paperTitle: string;
+  paperDescription?: string | null;
+  className: string;
+  status: AssessmentAttemptStatus | string;
+  instructionsText?: string | null;
+  durationMinutes: number;
+  questionCount: number;
+  answeredCount: number;
+  totalScore: number;
+  startedAt: string;
+  expiresAt: string;
+  submittedAt?: string | null;
+  lastSavedAt?: string | null;
+  serverTime: string;
+  questions: AssessmentAttemptQuestionVO[];
+}
+
+export interface AssessmentAttemptProgressVO {
+  attemptId: number;
+  status: AssessmentAttemptStatus | string;
+  answeredCount: number;
+  lastSavedAt?: string | null;
+}
+
+export interface AssessmentAttemptSubmitVO {
+  attemptId: number;
+  status: AssessmentAttemptStatus | string;
+  submittedAt?: string | null;
+}
+
+export interface AssessmentAttemptResultQuestionVO {
+  answerId: number;
+  questionId: number;
+  questionOrder: number;
+  questionType: AssessmentQuestionType;
+  stemText: string;
+  promptText?: string | null;
+  options: AssessmentOptionVO[];
+  score: number;
+  responses: string[];
+  correctAnswers: string[];
+  correct?: boolean | null;
+  scoreAwarded?: number | null;
+  explanationText?: string | null;
+}
+
+export interface AssessmentAttemptResultVO {
+  attemptId: number;
+  publishId: number;
+  paperId: number;
+  paperTitle: string;
+  paperDescription?: string | null;
+  className: string;
+  status: AssessmentAttemptStatus | string;
+  instructionsText?: string | null;
+  questionCount: number;
+  answeredCount: number;
+  correctCount: number;
+  objectiveScore: number;
+  totalScore: number;
+  startedAt: string;
+  expiresAt: string;
+  submittedAt: string;
+  questions: AssessmentAttemptResultQuestionVO[];
 }
 
 export type {

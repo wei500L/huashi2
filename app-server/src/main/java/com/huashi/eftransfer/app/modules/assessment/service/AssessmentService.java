@@ -1,0 +1,937 @@
+package com.huashi.eftransfer.app.modules.assessment.service;
+
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.common.util.SecurityUtils;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
+import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
+import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentAttemptResponseRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentOptionRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentPaperSaveRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentPublishRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentQuestionRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptAnswerEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPaperEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPublishEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentQuestionEntity;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptAnswerMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPaperMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublishMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentQuestionMapper;
+import com.huashi.eftransfer.app.modules.assessment.support.AssessmentJsonCodec;
+import com.huashi.eftransfer.app.modules.assessment.support.AssessmentOptionPayload;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptDetailVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgressVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptQuestionVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultQuestionVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptStartVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptSubmitVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentOptionVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPaperDetailVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPaperQuestionVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPaperSummaryVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPublishSummaryVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.StudentAssessmentSummaryVO;
+import com.huashi.eftransfer.shared.api.ResultCode;
+import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
+import com.huashi.eftransfer.shared.enums.AssessmentPaperStatus;
+import com.huashi.eftransfer.shared.enums.AssessmentPublishStatus;
+import com.huashi.eftransfer.shared.enums.AssessmentQuestionType;
+import com.huashi.eftransfer.shared.exception.BusinessException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Service
+public class AssessmentService {
+
+    private static final DateTimeFormatter PAPER_CODE_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+    private final AssessmentPaperMapper assessmentPaperMapper;
+    private final AssessmentQuestionMapper assessmentQuestionMapper;
+    private final AssessmentPublishMapper assessmentPublishMapper;
+    private final AssessmentAttemptMapper assessmentAttemptMapper;
+    private final AssessmentAttemptAnswerMapper assessmentAttemptAnswerMapper;
+    private final TeachingClassMapper teachingClassMapper;
+    private final TeachingClassService teachingClassService;
+    private final AssessmentJsonCodec assessmentJsonCodec;
+
+    public AssessmentService(
+            AssessmentPaperMapper assessmentPaperMapper,
+            AssessmentQuestionMapper assessmentQuestionMapper,
+            AssessmentPublishMapper assessmentPublishMapper,
+            AssessmentAttemptMapper assessmentAttemptMapper,
+            AssessmentAttemptAnswerMapper assessmentAttemptAnswerMapper,
+            TeachingClassMapper teachingClassMapper,
+            TeachingClassService teachingClassService,
+            AssessmentJsonCodec assessmentJsonCodec
+    ) {
+        this.assessmentPaperMapper = assessmentPaperMapper;
+        this.assessmentQuestionMapper = assessmentQuestionMapper;
+        this.assessmentPublishMapper = assessmentPublishMapper;
+        this.assessmentAttemptMapper = assessmentAttemptMapper;
+        this.assessmentAttemptAnswerMapper = assessmentAttemptAnswerMapper;
+        this.teachingClassMapper = teachingClassMapper;
+        this.teachingClassService = teachingClassService;
+        this.assessmentJsonCodec = assessmentJsonCodec;
+    }
+
+    public List<AssessmentPaperSummaryVO> listTeacherPapers() {
+        var query = Wrappers.<AssessmentPaperEntity>lambdaQuery()
+                .orderByDesc(AssessmentPaperEntity::getUpdatedAt)
+                .orderByDesc(AssessmentPaperEntity::getId);
+        if (!isAdmin()) {
+            query.eq(AssessmentPaperEntity::getOwnerUserId, currentUserId());
+        }
+        return assessmentPaperMapper.selectList(query).stream()
+                .map(this::toPaperSummary)
+                .toList();
+    }
+
+    @Transactional
+    public AssessmentPaperDetailVO createPaper(AssessmentPaperSaveRequest request) {
+        List<NormalizedQuestion> normalizedQuestions = normalizeQuestions(request.questions());
+        AssessmentPaperEntity paper = new AssessmentPaperEntity();
+        paper.setPaperCode(generatePaperCode());
+        paper.setTitle(normalizeRequiredText(request.title(), "title"));
+        paper.setDescription(normalizeOptionalText(request.description()));
+        paper.setOwnerUserId(currentUserId());
+        paper.setStatus(AssessmentPaperStatus.DRAFT.name());
+        paper.setDurationMinutes(request.durationMinutes());
+        paper.setQuestionCount(normalizedQuestions.size());
+        paper.setTotalScore(normalizedQuestions.stream().mapToInt(NormalizedQuestion::score).sum());
+        assessmentPaperMapper.insert(paper);
+        replacePaperQuestions(paper.getId(), normalizedQuestions);
+        return buildPaperDetail(requireAccessiblePaper(paper.getId()));
+    }
+
+    @Transactional
+    public AssessmentPaperDetailVO updatePaper(Long paperId, AssessmentPaperSaveRequest request) {
+        AssessmentPaperEntity paper = requireEditablePaper(paperId);
+        List<NormalizedQuestion> normalizedQuestions = normalizeQuestions(request.questions());
+        paper.setTitle(normalizeRequiredText(request.title(), "title"));
+        paper.setDescription(normalizeOptionalText(request.description()));
+        paper.setDurationMinutes(request.durationMinutes());
+        paper.setQuestionCount(normalizedQuestions.size());
+        paper.setTotalScore(normalizedQuestions.stream().mapToInt(NormalizedQuestion::score).sum());
+        assessmentPaperMapper.updateById(paper);
+        replacePaperQuestions(paperId, normalizedQuestions);
+        return buildPaperDetail(requireAccessiblePaper(paperId));
+    }
+
+    public AssessmentPaperDetailVO getPaperDetail(Long paperId) {
+        return buildPaperDetail(requireAccessiblePaper(paperId));
+    }
+
+    @Transactional
+    public AssessmentPublishSummaryVO publishPaper(Long paperId, AssessmentPublishRequest request) {
+        AssessmentPaperEntity paper = requireAccessiblePaper(paperId);
+        validatePublishWindow(request.startsAt(), request.dueAt());
+        if (loadQuestionsByPaper(paperId).isEmpty()) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment paper must contain questions before publishing", 409);
+        }
+        TeachingClassEntity teachingClass = teachingClassService.requireAccessibleClass(request.teachingClassId());
+
+        AssessmentPublishEntity publish = new AssessmentPublishEntity();
+        publish.setPaperId(paper.getId());
+        publish.setTeachingClassId(teachingClass.getId());
+        publish.setPublishedBy(currentUserId());
+        publish.setStatus(AssessmentPublishStatus.PUBLISHED.name());
+        publish.setPaperTitleSnapshot(paper.getTitle());
+        publish.setPaperDescriptionSnapshot(paper.getDescription());
+        publish.setQuestionCountSnapshot(paper.getQuestionCount());
+        publish.setTotalScoreSnapshot(paper.getTotalScore());
+        publish.setDurationMinutes(paper.getDurationMinutes());
+        publish.setInstructionsText(normalizeOptionalText(request.instructionsText()));
+        publish.setStartsAt(request.startsAt());
+        publish.setDueAt(request.dueAt());
+        publish.setPublishedAt(LocalDateTime.now());
+        assessmentPublishMapper.insert(publish);
+
+        paper.setStatus(AssessmentPaperStatus.PUBLISHED.name());
+        paper.setLatestPublishAt(publish.getPublishedAt());
+        assessmentPaperMapper.updateById(paper);
+
+        return buildPublishSummary(publish, teachingClass.getClassName(), 0, 0);
+    }
+
+    public List<StudentAssessmentSummaryVO> listStudentAssessments() {
+        Long studentUserId = currentUserId();
+        LocalDateTime now = LocalDateTime.now();
+        List<Long> classIds = teachingClassService.listActiveClassIdsByStudent(studentUserId, now);
+        if (classIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<AssessmentPublishEntity> publishes = assessmentPublishMapper.selectList(Wrappers.<AssessmentPublishEntity>lambdaQuery()
+                .in(AssessmentPublishEntity::getTeachingClassId, classIds)
+                .eq(AssessmentPublishEntity::getStatus, AssessmentPublishStatus.PUBLISHED.name())
+                .orderByDesc(AssessmentPublishEntity::getPublishedAt)
+                .orderByDesc(AssessmentPublishEntity::getId));
+        if (publishes.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, TeachingClassEntity> classMap = loadTeachingClassMap(
+                publishes.stream().map(AssessmentPublishEntity::getTeachingClassId).toList()
+        );
+        Map<Long, AssessmentAttemptEntity> attemptByPublishId = assessmentAttemptMapper.selectList(
+                        Wrappers.<AssessmentAttemptEntity>lambdaQuery()
+                                .eq(AssessmentAttemptEntity::getStudentUserId, studentUserId)
+                                .in(AssessmentAttemptEntity::getPublishId, publishes.stream().map(AssessmentPublishEntity::getId).toList())
+                ).stream()
+                .collect(Collectors.toMap(AssessmentAttemptEntity::getPublishId, Function.identity(), (left, right) -> right, LinkedHashMap::new));
+
+        return publishes.stream()
+                .map(publish -> {
+                    AssessmentAttemptEntity attempt = attemptByPublishId.get(publish.getId());
+                    String attemptStatus = attempt == null
+                            ? null
+                            : isAttemptExpired(attempt, publish, now)
+                            ? AssessmentAttemptStatus.SUBMITTED.name()
+                            : attempt.getStatus();
+                    TeachingClassEntity teachingClass = classMap.get(publish.getTeachingClassId());
+                    return new StudentAssessmentSummaryVO(
+                            publish.getId(),
+                            publish.getPaperId(),
+                            publish.getPaperTitleSnapshot(),
+                            publish.getPaperDescriptionSnapshot(),
+                            publish.getTeachingClassId(),
+                            teachingClass == null ? "未知班级" : teachingClass.getClassName(),
+                            publish.getInstructionsText(),
+                            publish.getDurationMinutes(),
+                            publish.getQuestionCountSnapshot(),
+                            publish.getTotalScoreSnapshot(),
+                            publish.getStartsAt(),
+                            publish.getDueAt(),
+                            publish.getPublishedAt(),
+                            attemptStatus,
+                            attempt == null ? null : attempt.getId(),
+                            attempt == null ? null : attempt.getAnsweredCount(),
+                            attempt == null ? null : attempt.getStartedAt(),
+                            attempt == null ? null : attempt.getExpiresAt(),
+                            attempt == null ? null : attempt.getSubmittedAt()
+                    );
+                })
+                .toList();
+    }
+
+    @Transactional
+    public AssessmentAttemptStartVO startOrResumeAttempt(Long publishId) {
+        Long studentUserId = currentUserId();
+        AssessmentPublishEntity publish = requireAccessiblePublishForStudent(publishId, studentUserId);
+        LocalDateTime now = LocalDateTime.now();
+        AssessmentAttemptEntity existingAttempt = loadAttemptByPublishAndStudent(publishId, studentUserId);
+        if (existingAttempt != null) {
+            existingAttempt = finalizeExpiredAttemptIfNecessary(existingAttempt, publish, now);
+            return new AssessmentAttemptStartVO(
+                    existingAttempt.getId(),
+                    publishId,
+                    existingAttempt.getStatus(),
+                    true
+            );
+        }
+
+        requirePublishAvailableForStart(publish, now);
+        List<AssessmentQuestionEntity> questions = loadQuestionsByPaper(publish.getPaperId());
+        if (questions.isEmpty()) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment paper does not contain any question", 409);
+        }
+
+        AssessmentAttemptEntity attempt = new AssessmentAttemptEntity();
+        attempt.setPublishId(publish.getId());
+        attempt.setPaperId(publish.getPaperId());
+        attempt.setStudentUserId(studentUserId);
+        attempt.setStatus(AssessmentAttemptStatus.IN_PROGRESS.name());
+        attempt.setStartedAt(now);
+        attempt.setExpiresAt(resolveAttemptExpiresAt(publish, now));
+        attempt.setAnsweredCount(0);
+        attempt.setObjectiveScore(0);
+        attempt.setTotalScore(0);
+        attempt.setLastSavedAt(now);
+        assessmentAttemptMapper.insert(attempt);
+
+        int questionOrder = 1;
+        for (AssessmentQuestionEntity question : questions) {
+            AssessmentAttemptAnswerEntity answer = new AssessmentAttemptAnswerEntity();
+            answer.setAttemptId(attempt.getId());
+            answer.setQuestionId(question.getId());
+            answer.setQuestionOrder(questionOrder++);
+            answer.setQuestionType(question.getQuestionType());
+            answer.setStemTextSnapshot(question.getStemText());
+            answer.setPromptTextSnapshot(question.getPromptText());
+            answer.setOptionsJsonSnapshot(question.getOptionsJson());
+            answer.setCorrectAnswerJson(question.getCorrectAnswerJson());
+            answer.setExplanationTextSnapshot(question.getExplanationText());
+            answer.setQuestionScore(question.getScore());
+            answer.setAnswered(Boolean.FALSE);
+            answer.setCorrect(null);
+            answer.setScoreAwarded(null);
+            assessmentAttemptAnswerMapper.insert(answer);
+        }
+
+        return new AssessmentAttemptStartVO(attempt.getId(), publishId, attempt.getStatus(), false);
+    }
+
+    public AssessmentAttemptDetailVO getAttemptDetail(Long attemptId) {
+        AttemptBundle bundle = requireAccessibleAttempt(attemptId);
+        LocalDateTime now = LocalDateTime.now();
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
+
+        return new AssessmentAttemptDetailVO(
+                attempt.getId(),
+                bundle.publish().getId(),
+                bundle.publish().getPaperId(),
+                bundle.publish().getPaperTitleSnapshot(),
+                bundle.publish().getPaperDescriptionSnapshot(),
+                bundle.teachingClass().getClassName(),
+                attempt.getStatus(),
+                bundle.publish().getInstructionsText(),
+                bundle.publish().getDurationMinutes(),
+                bundle.publish().getQuestionCountSnapshot(),
+                attempt.getAnsweredCount(),
+                bundle.publish().getTotalScoreSnapshot(),
+                attempt.getStartedAt(),
+                attempt.getExpiresAt(),
+                attempt.getSubmittedAt(),
+                attempt.getLastSavedAt(),
+                now,
+                answers.stream().map(this::toAttemptQuestion).toList()
+        );
+    }
+
+    @Transactional
+    public AssessmentAttemptProgressVO saveResponses(Long attemptId, SaveAssessmentResponsesRequest request) {
+        AttemptBundle bundle = requireAccessibleAttempt(attemptId);
+        LocalDateTime now = LocalDateTime.now();
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt has already been submitted", 409);
+        }
+
+        Map<Integer, AssessmentAttemptResponseRequest> requestByOrder = new LinkedHashMap<>();
+        for (AssessmentAttemptResponseRequest response : request.responses()) {
+            if (requestByOrder.put(response.questionOrder(), response) != null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Duplicate question order in responses", 400);
+            }
+        }
+
+        List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
+        Map<Integer, AssessmentAttemptAnswerEntity> answerByOrder = answers.stream()
+                .collect(Collectors.toMap(AssessmentAttemptAnswerEntity::getQuestionOrder, Function.identity(), (left, right) -> left, LinkedHashMap::new));
+
+        for (AssessmentAttemptResponseRequest response : requestByOrder.values()) {
+            AssessmentAttemptAnswerEntity answer = answerByOrder.get(response.questionOrder());
+            if (answer == null) {
+                throw new BusinessException(ResultCode.NOT_FOUND, "Assessment question was not found", 404);
+            }
+            applyResponse(answer, response.responses());
+            assessmentAttemptAnswerMapper.updateById(answer);
+        }
+
+        recomputeAttemptProgress(attempt, answers, now);
+        assessmentAttemptMapper.updateById(attempt);
+        return new AssessmentAttemptProgressVO(attempt.getId(), attempt.getStatus(), attempt.getAnsweredCount(), attempt.getLastSavedAt());
+    }
+
+    @Transactional
+    public AssessmentAttemptSubmitVO submitAttempt(Long attemptId) {
+        AttemptBundle bundle = requireAccessibleAttempt(attemptId);
+        LocalDateTime now = LocalDateTime.now();
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
+            return new AssessmentAttemptSubmitVO(attempt.getId(), attempt.getStatus(), attempt.getSubmittedAt());
+        }
+        AssessmentAttemptEntity submitted = submitAttemptInternal(attempt, now);
+        return new AssessmentAttemptSubmitVO(submitted.getId(), submitted.getStatus(), submitted.getSubmittedAt());
+    }
+
+    public AssessmentAttemptResultVO getAttemptResult(Long attemptId) {
+        AttemptBundle bundle = requireAccessibleAttempt(attemptId);
+        LocalDateTime now = LocalDateTime.now();
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        if (!AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(attempt.getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt is still in progress", 409);
+        }
+
+        List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
+        int correctCount = (int) answers.stream().filter(answer -> Boolean.TRUE.equals(answer.getCorrect())).count();
+        return new AssessmentAttemptResultVO(
+                attempt.getId(),
+                bundle.publish().getId(),
+                bundle.publish().getPaperId(),
+                bundle.publish().getPaperTitleSnapshot(),
+                bundle.publish().getPaperDescriptionSnapshot(),
+                bundle.teachingClass().getClassName(),
+                attempt.getStatus(),
+                bundle.publish().getInstructionsText(),
+                bundle.publish().getQuestionCountSnapshot(),
+                attempt.getAnsweredCount(),
+                correctCount,
+                attempt.getObjectiveScore(),
+                attempt.getTotalScore(),
+                attempt.getStartedAt(),
+                attempt.getExpiresAt(),
+                attempt.getSubmittedAt(),
+                answers.stream().map(this::toAttemptResultQuestion).toList()
+        );
+    }
+
+    private AssessmentPaperDetailVO buildPaperDetail(AssessmentPaperEntity paper) {
+        List<AssessmentQuestionEntity> questions = loadQuestionsByPaper(paper.getId());
+        List<AssessmentPublishEntity> publishes = assessmentPublishMapper.selectList(Wrappers.<AssessmentPublishEntity>lambdaQuery()
+                .eq(AssessmentPublishEntity::getPaperId, paper.getId())
+                .orderByDesc(AssessmentPublishEntity::getPublishedAt)
+                .orderByDesc(AssessmentPublishEntity::getId));
+
+        Map<Long, TeachingClassEntity> classMap = loadTeachingClassMap(
+                publishes.stream().map(AssessmentPublishEntity::getTeachingClassId).toList()
+        );
+        Map<Long, List<AssessmentAttemptEntity>> attemptsByPublishId = new LinkedHashMap<>();
+        if (!publishes.isEmpty()) {
+            attemptsByPublishId = assessmentAttemptMapper.selectList(Wrappers.<AssessmentAttemptEntity>lambdaQuery()
+                            .in(AssessmentAttemptEntity::getPublishId, publishes.stream().map(AssessmentPublishEntity::getId).toList()))
+                    .stream()
+                    .collect(Collectors.groupingBy(AssessmentAttemptEntity::getPublishId, LinkedHashMap::new, Collectors.toList()));
+        }
+
+        List<AssessmentPublishSummaryVO> publishSummaries = publishes.stream()
+                .map(publish -> {
+                    List<AssessmentAttemptEntity> attempts = attemptsByPublishId.getOrDefault(publish.getId(), List.of());
+                    TeachingClassEntity teachingClass = classMap.get(publish.getTeachingClassId());
+                    int submittedCount = (int) attempts.stream()
+                            .filter(attempt -> AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(attempt.getStatus()))
+                            .count();
+                    return buildPublishSummary(
+                            publish,
+                            teachingClass == null ? "未知班级" : teachingClass.getClassName(),
+                            attempts.size(),
+                            submittedCount
+                    );
+                })
+                .toList();
+
+        return new AssessmentPaperDetailVO(
+                paper.getId(),
+                paper.getPaperCode(),
+                paper.getTitle(),
+                paper.getDescription(),
+                paper.getStatus(),
+                paper.getDurationMinutes(),
+                paper.getQuestionCount(),
+                paper.getTotalScore(),
+                paper.getLatestPublishAt(),
+                questions.stream().map(this::toPaperQuestion).toList(),
+                publishSummaries
+        );
+    }
+
+    private AssessmentPublishSummaryVO buildPublishSummary(
+            AssessmentPublishEntity publish,
+            String className,
+            Integer attemptCount,
+            Integer submittedCount
+    ) {
+        return new AssessmentPublishSummaryVO(
+                publish.getId(),
+                publish.getTeachingClassId(),
+                className,
+                publish.getStatus(),
+                publish.getDurationMinutes(),
+                publish.getQuestionCountSnapshot(),
+                publish.getTotalScoreSnapshot(),
+                publish.getInstructionsText(),
+                publish.getStartsAt(),
+                publish.getDueAt(),
+                publish.getPublishedAt(),
+                attemptCount,
+                submittedCount
+        );
+    }
+
+    private AssessmentPaperSummaryVO toPaperSummary(AssessmentPaperEntity paper) {
+        return new AssessmentPaperSummaryVO(
+                paper.getId(),
+                paper.getPaperCode(),
+                paper.getTitle(),
+                paper.getDescription(),
+                paper.getStatus(),
+                paper.getDurationMinutes(),
+                paper.getQuestionCount(),
+                paper.getTotalScore(),
+                paper.getLatestPublishAt(),
+                paper.getUpdatedAt()
+        );
+    }
+
+    private AssessmentPaperQuestionVO toPaperQuestion(AssessmentQuestionEntity question) {
+        return new AssessmentPaperQuestionVO(
+                question.getId(),
+                question.getQuestionType(),
+                question.getSortOrder(),
+                question.getStemText(),
+                question.getPromptText(),
+                assessmentJsonCodec.readOptions(question.getOptionsJson()).stream()
+                        .map(option -> new AssessmentOptionVO(option.key(), option.label()))
+                        .toList(),
+                assessmentJsonCodec.readStringList(question.getCorrectAnswerJson()),
+                question.getExplanationText(),
+                question.getScore()
+        );
+    }
+
+    private AssessmentAttemptQuestionVO toAttemptQuestion(AssessmentAttemptAnswerEntity answer) {
+        return new AssessmentAttemptQuestionVO(
+                answer.getId(),
+                answer.getQuestionId(),
+                answer.getQuestionOrder(),
+                answer.getQuestionType(),
+                answer.getStemTextSnapshot(),
+                answer.getPromptTextSnapshot(),
+                assessmentJsonCodec.readOptions(answer.getOptionsJsonSnapshot()).stream()
+                        .map(option -> new AssessmentOptionVO(option.key(), option.label()))
+                        .toList(),
+                answer.getQuestionScore(),
+                assessmentJsonCodec.readStringList(answer.getResponseJson()),
+                Boolean.TRUE.equals(answer.getAnswered())
+        );
+    }
+
+    private AssessmentAttemptResultQuestionVO toAttemptResultQuestion(AssessmentAttemptAnswerEntity answer) {
+        return new AssessmentAttemptResultQuestionVO(
+                answer.getId(),
+                answer.getQuestionId(),
+                answer.getQuestionOrder(),
+                answer.getQuestionType(),
+                answer.getStemTextSnapshot(),
+                answer.getPromptTextSnapshot(),
+                assessmentJsonCodec.readOptions(answer.getOptionsJsonSnapshot()).stream()
+                        .map(option -> new AssessmentOptionVO(option.key(), option.label()))
+                        .toList(),
+                answer.getQuestionScore(),
+                assessmentJsonCodec.readStringList(answer.getResponseJson()),
+                assessmentJsonCodec.readStringList(answer.getCorrectAnswerJson()),
+                answer.getCorrect(),
+                answer.getScoreAwarded(),
+                answer.getExplanationTextSnapshot()
+        );
+    }
+
+    private void replacePaperQuestions(Long paperId, List<NormalizedQuestion> normalizedQuestions) {
+        assessmentQuestionMapper.delete(Wrappers.<AssessmentQuestionEntity>lambdaQuery()
+                .eq(AssessmentQuestionEntity::getPaperId, paperId));
+
+        int sortOrder = 1;
+        for (NormalizedQuestion question : normalizedQuestions) {
+            AssessmentQuestionEntity entity = new AssessmentQuestionEntity();
+            entity.setPaperId(paperId);
+            entity.setQuestionType(question.questionType().name());
+            entity.setSortOrder(sortOrder++);
+            entity.setStemText(question.stemText());
+            entity.setPromptText(question.promptText());
+            entity.setOptionsJson(question.options().isEmpty() ? null : assessmentJsonCodec.write(question.options()));
+            entity.setCorrectAnswerJson(assessmentJsonCodec.write(question.correctAnswers()));
+            entity.setExplanationText(question.explanationText());
+            entity.setScore(question.score());
+            assessmentQuestionMapper.insert(entity);
+        }
+    }
+
+    private List<NormalizedQuestion> normalizeQuestions(List<AssessmentQuestionRequest> questions) {
+        List<NormalizedQuestion> normalizedQuestions = new ArrayList<>();
+        for (AssessmentQuestionRequest question : questions) {
+            AssessmentQuestionType questionType = parseQuestionType(question.questionType());
+            String stemText = normalizeRequiredText(question.stemText(), "stemText");
+            String promptText = normalizeOptionalText(question.promptText());
+            String explanationText = normalizeOptionalText(question.explanationText());
+
+            if (questionType == AssessmentQuestionType.FILL_BLANK) {
+                List<String> correctAnswers = normalizeFillBlankAnswers(question.correctAnswers());
+                normalizedQuestions.add(new NormalizedQuestion(
+                        questionType,
+                        stemText,
+                        promptText,
+                        List.of(),
+                        correctAnswers,
+                        explanationText,
+                        question.score()
+                ));
+                continue;
+            }
+
+            List<AssessmentOptionPayload> options = normalizeChoiceOptions(question.options());
+            Map<String, String> canonicalOptionKeys = options.stream()
+                    .collect(Collectors.toMap(
+                            option -> option.key().toUpperCase(Locale.ROOT),
+                            AssessmentOptionPayload::key,
+                            (left, right) -> left,
+                            LinkedHashMap::new
+                    ));
+            List<String> correctAnswers = normalizeChoiceCorrectAnswers(question.correctAnswers(), canonicalOptionKeys);
+            if (questionType == AssessmentQuestionType.SINGLE_CHOICE && correctAnswers.size() != 1) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question must contain exactly one correct answer", 400);
+            }
+            normalizedQuestions.add(new NormalizedQuestion(
+                    questionType,
+                    stemText,
+                    promptText,
+                    options,
+                    correctAnswers,
+                    explanationText,
+                    question.score()
+            ));
+        }
+        return normalizedQuestions;
+    }
+
+    private List<AssessmentOptionPayload> normalizeChoiceOptions(List<AssessmentOptionRequest> options) {
+        if (options == null || options.size() < 2) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Choice question must contain at least two options", 400);
+        }
+        List<AssessmentOptionPayload> normalizedOptions = new ArrayList<>();
+        Set<String> seenKeys = new LinkedHashSet<>();
+        for (AssessmentOptionRequest option : options) {
+            String key = normalizeRequiredText(option.key(), "option.key").toUpperCase(Locale.ROOT);
+            String label = normalizeRequiredText(option.label(), "option.label");
+            if (!seenKeys.add(key)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Choice option keys must be unique", 400);
+            }
+            normalizedOptions.add(new AssessmentOptionPayload(key, label));
+        }
+        return normalizedOptions;
+    }
+
+    private List<String> normalizeChoiceCorrectAnswers(List<String> correctAnswers, Map<String, String> canonicalOptionKeys) {
+        LinkedHashSet<String> normalizedAnswers = new LinkedHashSet<>();
+        for (String answer : correctAnswers) {
+            String normalized = normalizeRequiredText(answer, "correctAnswers").toUpperCase(Locale.ROOT);
+            String canonicalKey = canonicalOptionKeys.get(normalized);
+            if (canonicalKey == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Correct answers must reference existing option keys", 400);
+            }
+            normalizedAnswers.add(canonicalKey);
+        }
+        return List.copyOf(normalizedAnswers);
+    }
+
+    private List<String> normalizeFillBlankAnswers(List<String> correctAnswers) {
+        LinkedHashSet<String> normalizedAnswers = new LinkedHashSet<>();
+        for (String answer : correctAnswers) {
+            normalizedAnswers.add(normalizeRequiredText(answer, "correctAnswers"));
+        }
+        return List.copyOf(normalizedAnswers);
+    }
+
+    private void applyResponse(AssessmentAttemptAnswerEntity answer, List<String> rawResponses) {
+        AssessmentQuestionType questionType = parseQuestionType(answer.getQuestionType());
+        List<String> normalizedResponses = normalizeAttemptResponses(questionType, rawResponses, answer.getOptionsJsonSnapshot());
+        List<String> correctAnswers = assessmentJsonCodec.readStringList(answer.getCorrectAnswerJson());
+        boolean answered = !normalizedResponses.isEmpty();
+        Boolean correct = answered ? isResponseCorrect(questionType, normalizedResponses, correctAnswers) : null;
+
+        answer.setResponseJson(answered ? assessmentJsonCodec.write(normalizedResponses) : null);
+        answer.setAnswered(answered);
+        answer.setCorrect(correct);
+        answer.setScoreAwarded(Boolean.TRUE.equals(correct) ? answer.getQuestionScore() : answered ? 0 : null);
+    }
+
+    private List<String> normalizeAttemptResponses(
+            AssessmentQuestionType questionType,
+            List<String> rawResponses,
+            String optionsJson
+    ) {
+        if (rawResponses == null || rawResponses.isEmpty()) {
+            return List.of();
+        }
+        if (questionType == AssessmentQuestionType.FILL_BLANK) {
+            LinkedHashSet<String> values = rawResponses.stream()
+                    .map(this::normalizeOptionalText)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            return List.copyOf(values);
+        }
+
+        Map<String, String> validOptionKeys = assessmentJsonCodec.readOptions(optionsJson).stream()
+                .collect(Collectors.toMap(
+                        option -> option.key().toUpperCase(Locale.ROOT),
+                        AssessmentOptionPayload::key,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        for (String rawResponse : rawResponses) {
+            String normalized = normalizeRequiredText(rawResponse, "responses").toUpperCase(Locale.ROOT);
+            String canonicalKey = validOptionKeys.get(normalized);
+            if (canonicalKey == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Response references an unknown option", 400);
+            }
+            values.add(canonicalKey);
+        }
+        if (questionType == AssessmentQuestionType.SINGLE_CHOICE && values.size() > 1) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question accepts only one response", 400);
+        }
+        return List.copyOf(values);
+    }
+
+    private boolean isResponseCorrect(
+            AssessmentQuestionType questionType,
+            List<String> normalizedResponses,
+            List<String> correctAnswers
+    ) {
+        if (questionType == AssessmentQuestionType.FILL_BLANK) {
+            Set<String> responseSet = normalizedResponses.stream()
+                    .map(value -> value.trim().toLowerCase(Locale.ROOT))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<String> correctSet = correctAnswers.stream()
+                    .map(value -> value.trim().toLowerCase(Locale.ROOT))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            return responseSet.equals(correctSet);
+        }
+        return new LinkedHashSet<>(normalizedResponses).equals(new LinkedHashSet<>(correctAnswers));
+    }
+
+    private void recomputeAttemptProgress(AssessmentAttemptEntity attempt, List<AssessmentAttemptAnswerEntity> answers, LocalDateTime now) {
+        int answeredCount = 0;
+        int objectiveScore = 0;
+        for (AssessmentAttemptAnswerEntity answer : answers) {
+            if (Boolean.TRUE.equals(answer.getAnswered())) {
+                answeredCount++;
+            }
+            if (answer.getScoreAwarded() != null) {
+                objectiveScore += answer.getScoreAwarded();
+            }
+        }
+        attempt.setAnsweredCount(answeredCount);
+        attempt.setObjectiveScore(objectiveScore);
+        attempt.setTotalScore(objectiveScore);
+        attempt.setLastSavedAt(now);
+    }
+
+    private AssessmentAttemptEntity submitAttemptInternal(AssessmentAttemptEntity attempt, LocalDateTime now) {
+        List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
+        for (AssessmentAttemptAnswerEntity answer : answers) {
+            List<String> responses = assessmentJsonCodec.readStringList(answer.getResponseJson());
+            applyResponse(answer, responses);
+            assessmentAttemptAnswerMapper.updateById(answer);
+        }
+        recomputeAttemptProgress(attempt, answers, now);
+        attempt.setStatus(AssessmentAttemptStatus.SUBMITTED.name());
+        attempt.setSubmittedAt(now);
+        assessmentAttemptMapper.updateById(attempt);
+        return attempt;
+    }
+
+    private AssessmentAttemptEntity finalizeExpiredAttemptIfNecessary(
+            AssessmentAttemptEntity attempt,
+            AssessmentPublishEntity publish,
+            LocalDateTime now
+    ) {
+        if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
+            return attempt;
+        }
+        if (!isAttemptExpired(attempt, publish, now)) {
+            return attempt;
+        }
+        return submitAttemptInternal(attempt, now);
+    }
+
+    private boolean isAttemptExpired(AssessmentAttemptEntity attempt, AssessmentPublishEntity publish, LocalDateTime now) {
+        if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
+            return false;
+        }
+        if (attempt.getExpiresAt() != null && !now.isBefore(attempt.getExpiresAt())) {
+            return true;
+        }
+        return publish.getDueAt() != null && !now.isBefore(publish.getDueAt());
+    }
+
+    private AssessmentAttemptEntity loadAttemptByPublishAndStudent(Long publishId, Long studentUserId) {
+        return assessmentAttemptMapper.selectOne(Wrappers.<AssessmentAttemptEntity>lambdaQuery()
+                .eq(AssessmentAttemptEntity::getPublishId, publishId)
+                .eq(AssessmentAttemptEntity::getStudentUserId, studentUserId)
+                .orderByDesc(AssessmentAttemptEntity::getId)
+                .last("LIMIT 1"));
+    }
+
+    private AttemptBundle requireAccessibleAttempt(Long attemptId) {
+        AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectById(attemptId);
+        if (attempt == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment attempt was not found", 404);
+        }
+        Long currentUserId = currentUserId();
+        if (!isAdmin() && !Objects.equals(attempt.getStudentUserId(), currentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "You do not have access to this assessment attempt", 403);
+        }
+        AssessmentPublishEntity publish = assessmentPublishMapper.selectById(attempt.getPublishId());
+        if (publish == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment publish was not found", 404);
+        }
+        TeachingClassEntity teachingClass = teachingClassMapper.selectById(publish.getTeachingClassId());
+        if (teachingClass == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Teaching class was not found", 404);
+        }
+        return new AttemptBundle(attempt, publish, teachingClass);
+    }
+
+    private AssessmentPublishEntity requireAccessiblePublishForStudent(Long publishId, Long studentUserId) {
+        AssessmentPublishEntity publish = assessmentPublishMapper.selectById(publishId);
+        if (publish == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment publish was not found", 404);
+        }
+        if (!AssessmentPublishStatus.PUBLISHED.name().equalsIgnoreCase(publish.getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment publish is not available", 409);
+        }
+        teachingClassService.requireStudentInClass(publish.getTeachingClassId(), studentUserId);
+        return publish;
+    }
+
+    private AssessmentPaperEntity requireAccessiblePaper(Long paperId) {
+        AssessmentPaperEntity paper = assessmentPaperMapper.selectById(paperId);
+        if (paper == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment paper was not found", 404);
+        }
+        if (!isAdmin() && !Objects.equals(paper.getOwnerUserId(), currentUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "You do not have access to this assessment paper", 403);
+        }
+        return paper;
+    }
+
+    private AssessmentPaperEntity requireEditablePaper(Long paperId) {
+        AssessmentPaperEntity paper = requireAccessiblePaper(paperId);
+        Long publishCount = assessmentPublishMapper.selectCount(Wrappers.<AssessmentPublishEntity>lambdaQuery()
+                .eq(AssessmentPublishEntity::getPaperId, paperId));
+        if (publishCount != null && publishCount > 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "Published assessment papers are locked from editing", 409);
+        }
+        return paper;
+    }
+
+    private List<AssessmentQuestionEntity> loadQuestionsByPaper(Long paperId) {
+        return assessmentQuestionMapper.selectList(Wrappers.<AssessmentQuestionEntity>lambdaQuery()
+                .eq(AssessmentQuestionEntity::getPaperId, paperId)
+                .orderByAsc(AssessmentQuestionEntity::getSortOrder)
+                .orderByAsc(AssessmentQuestionEntity::getId));
+    }
+
+    private List<AssessmentAttemptAnswerEntity> loadAttemptAnswers(Long attemptId) {
+        return assessmentAttemptAnswerMapper.selectList(Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
+                .eq(AssessmentAttemptAnswerEntity::getAttemptId, attemptId)
+                .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder)
+                .orderByAsc(AssessmentAttemptAnswerEntity::getId));
+    }
+
+    private Map<Long, TeachingClassEntity> loadTeachingClassMap(Collection<Long> classIds) {
+        if (classIds.isEmpty()) {
+            return Map.of();
+        }
+        return teachingClassMapper.selectBatchIds(classIds).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(TeachingClassEntity::getId, Function.identity(), (left, right) -> left, LinkedHashMap::new));
+    }
+
+    private void requirePublishAvailableForStart(AssessmentPublishEntity publish, LocalDateTime now) {
+        if (publish.getStartsAt() != null && now.isBefore(publish.getStartsAt())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment has not started yet", 409);
+        }
+        if (publish.getDueAt() != null && !now.isBefore(publish.getDueAt())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment is already closed", 409);
+        }
+    }
+
+    private LocalDateTime resolveAttemptExpiresAt(AssessmentPublishEntity publish, LocalDateTime startedAt) {
+        LocalDateTime durationExpiry = startedAt.plusMinutes(publish.getDurationMinutes());
+        if (publish.getDueAt() == null || publish.getDueAt().isAfter(durationExpiry)) {
+            return durationExpiry;
+        }
+        if (!publish.getDueAt().isAfter(startedAt)) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment is already closed", 409);
+        }
+        return publish.getDueAt();
+    }
+
+    private void validatePublishWindow(LocalDateTime startsAt, LocalDateTime dueAt) {
+        if (dueAt != null && !dueAt.isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Assessment due time must be in the future", 400);
+        }
+        if (startsAt != null && dueAt != null && !dueAt.isAfter(startsAt)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Assessment due time must be after start time", 400);
+        }
+    }
+
+    private AssessmentQuestionType parseQuestionType(String value) {
+        try {
+            return AssessmentQuestionType.fromCode(value);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Unsupported assessment question type", 400);
+        }
+    }
+
+    private String normalizeRequiredText(String value, String fieldName) {
+        String normalized = normalizeOptionalText(value);
+        if (normalized == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, fieldName + " must not be blank", 400);
+        }
+        return normalized;
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String generatePaperCode() {
+        return "ASM-" + LocalDateTime.now().format(PAPER_CODE_TIME) + "-"
+                + ThreadLocalRandom.current().nextInt(1000, 10000);
+    }
+
+    private Long currentUserId() {
+        return SecurityUtils.getCurrentUserId()
+                .orElseThrow(() -> new BusinessException(ResultCode.UNAUTHORIZED, "Authentication required", 401));
+    }
+
+    private boolean isAdmin() {
+        return SecurityUtils.getCurrentPrincipal()
+                .map(principal -> principal.roles().contains("ADMIN"))
+                .orElse(false);
+    }
+
+    private record AttemptBundle(
+            AssessmentAttemptEntity attempt,
+            AssessmentPublishEntity publish,
+            TeachingClassEntity teachingClass
+    ) {
+    }
+
+    private record NormalizedQuestion(
+            AssessmentQuestionType questionType,
+            String stemText,
+            String promptText,
+            List<AssessmentOptionPayload> options,
+            List<String> correctAnswers,
+            String explanationText,
+            Integer score
+    ) {
+    }
+}

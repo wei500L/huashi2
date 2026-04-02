@@ -43,6 +43,13 @@ public class TrainingJsonCodec {
         return read(json, TrainingSessionSummarySnapshot.class);
     }
 
+    public TrainingSessionLaunchContext readLaunchContext(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        return read(json, TrainingSessionLaunchContext.class);
+    }
+
     public List<TrainingRiskWordSnapshot> readRiskWords(String json) {
         return Arrays.asList(read(json, TrainingRiskWordSnapshot[].class));
     }

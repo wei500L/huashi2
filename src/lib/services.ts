@@ -69,6 +69,16 @@ import type {
   AdminUserProvisionResultVO,
   AccountActionLinkVO,
   AccountActionPreviewVO,
+  AssessmentAttemptDetailVO,
+  AssessmentAttemptProgressVO,
+  AssessmentAttemptResultVO,
+  AssessmentAttemptStartVO,
+  AssessmentAttemptSubmitVO,
+  AssessmentPaperDetailVO,
+  AssessmentPaperSaveRequest,
+  AssessmentPaperSummaryVO,
+  AssessmentPublishRequest,
+  AssessmentPublishSummaryVO,
   CompleteAccountActionRequest,
   AdminOutboxRecordVO,
   AiGatewayHealthResponse,
@@ -76,6 +86,8 @@ import type {
   RagReindexJobResponse,
   RagReindexRequest,
   RagReindexResponse,
+  SaveAssessmentResponsesRequest,
+  StudentAssessmentSummaryVO,
 } from './contracts';
 
 type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout'>;
@@ -160,13 +172,22 @@ export const diagnosisSessionService = {
 };
 
 export const trainingService = {
-  getRecommendedPlan: (options?: RequestOptions) => apiGet<RecommendedTrainingPlanVO>('/training/plans/recommended', options),
+  getRecommendedPlan: (params?: { diagnosisSummaryId?: number | null }, options?: RequestOptions) =>
+    apiGet<RecommendedTrainingPlanVO>('/training/plans/recommended', { ...options, params }),
   getWrongBook: (options?: RequestOptions) => apiGet<WrongBookItemVO[]>('/training/wrong-book', options),
   getReviewSchedule: (pendingOnly = true, options?: RequestOptions) =>
     apiGet<ReviewScheduleItemVO[]>('/training/review-schedule', { ...options, params: { pendingOnly } }),
   listHistory: (params: { pageNo?: number; pageSize?: number; status?: string; planId?: number }, options?: RequestOptions) =>
     apiGet<PageResult<TrainingHistorySummaryVO>>('/training/sessions', { ...options, params }),
-  startSession: (payload: { planId: number; mode: string }) =>
+  startSession: (payload: {
+    planId: number;
+    mode: string;
+    launchSource?: string;
+    diagnosisSummaryId?: number | null;
+    lexicalPairId?: number | null;
+    wrongBookId?: number | null;
+    reviewScheduleId?: number | null;
+  }) =>
     apiPost<TrainingSessionCreatedVO>('/training/sessions', payload),
   getNextItem: (sessionId: number, options?: RequestOptions) => apiGet<TrainingNextItemVO>(`/training/sessions/${sessionId}/next-item`, options),
   saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
@@ -179,6 +200,30 @@ export const trainingService = {
   ) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/answers`, payload),
   complete: (sessionId: number) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/complete`),
   getSummary: (sessionId: number, options?: RequestOptions) => apiGet<TrainingSessionSummaryVO>(`/training/sessions/${sessionId}/summary`, options),
+};
+
+export const assessmentService = {
+  listTeacherPapers: (options?: RequestOptions) => apiGet<AssessmentPaperSummaryVO[]>('/teacher/assessments/papers', options),
+  getTeacherPaper: (paperId: number, options?: RequestOptions) =>
+    apiGet<AssessmentPaperDetailVO>(`/teacher/assessments/papers/${paperId}`, options),
+  createTeacherPaper: (payload: AssessmentPaperSaveRequest) =>
+    apiPost<AssessmentPaperDetailVO>('/teacher/assessments/papers', payload),
+  updateTeacherPaper: (paperId: number, payload: AssessmentPaperSaveRequest) =>
+    apiPut<AssessmentPaperDetailVO>(`/teacher/assessments/papers/${paperId}`, payload),
+  publishTeacherPaper: (paperId: number, payload: AssessmentPublishRequest) =>
+    apiPost<AssessmentPublishSummaryVO>(`/teacher/assessments/papers/${paperId}/publish`, payload),
+  listStudentAssessments: (options?: RequestOptions) =>
+    apiGet<StudentAssessmentSummaryVO[]>('/student/assessments', options),
+  startStudentAttempt: (publishId: number) =>
+    apiPost<AssessmentAttemptStartVO>(`/student/assessments/publishes/${publishId}/start`),
+  getStudentAttempt: (attemptId: number, options?: RequestOptions) =>
+    apiGet<AssessmentAttemptDetailVO>(`/student/assessments/attempts/${attemptId}`, options),
+  saveStudentResponses: (attemptId: number, payload: SaveAssessmentResponsesRequest) =>
+    apiPost<AssessmentAttemptProgressVO>(`/student/assessments/attempts/${attemptId}/responses`, payload),
+  submitStudentAttempt: (attemptId: number) =>
+    apiPost<AssessmentAttemptSubmitVO>(`/student/assessments/attempts/${attemptId}/submit`),
+  getStudentAttemptResult: (attemptId: number, options?: RequestOptions) =>
+    apiGet<AssessmentAttemptResultVO>(`/student/assessments/attempts/${attemptId}/result`, options),
 };
 
 export const aiService = {

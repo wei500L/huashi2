@@ -349,6 +349,7 @@ public class DiagnosisSessionService {
                 .toList();
 
         return new DiagnosisResultDetailVO(
+                summary.getId(),
                 session.getId(),
                 session.getStatus(),
                 template.getId(),
@@ -418,6 +419,7 @@ public class DiagnosisSessionService {
                     DiagnosisSummaryEntity summary = summaryMap.get(session.getId());
                     return new DiagnosisHistorySummaryVO(
                             session.getId(),
+                            summary == null ? null : summary.getId(),
                             session.getTemplateId(),
                             template == null ? null : template.getTemplateName(),
                             session.getOwnerUserId(),

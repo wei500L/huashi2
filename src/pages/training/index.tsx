@@ -7,11 +7,78 @@ import { PageHeader, PanelSkeleton } from '@/components/common';
 import { aiService, trainingService } from '@/lib/services';
 import { formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
-import type { TrainingOptionViewVO } from '@/lib/contracts';
+import { buildTrainingHref, clearTrainingLaunchParams, parseTrainingLaunchNumber, type TrainingLaunchParams } from '@/lib/training-launch';
+import type { TrainingItemResultDetailVO, TrainingOptionViewVO } from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
 import { initialTrainingFlowState, trainingFlowReducer } from './flow';
+
+type SessionLaunchContext = Omit<TrainingLaunchParams, 'mode'>;
+
+function findTrainingOptionLabel(options: TrainingOptionViewVO[], answerKey?: string | null) {
+  if (!answerKey) {
+    return null;
+  }
+  return options.find((option) => option.key === answerKey)?.label || answerKey;
+}
+
+function TrainingItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) {
+  const selectedLabel = findTrainingOptionLabel(item.options, item.selectedAnswerKey);
+  const correctLabel = findTrainingOptionLabel(item.options, item.correctAnswerKey);
+
+  return (
+    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-black text-slate-900 dark:text-white">
+            {item.englishWord} / {item.frenchWord}
+          </div>
+          <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">
+            {item.mode} · {item.cognitiveTag} · {item.detectedErrorType || '已完成'}
+          </div>
+          <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+            <div className="font-semibold">{item.content.question}</div>
+            {item.content.sentence && <div className="mt-2 italic">{item.content.sentence}</div>}
+            {item.stimulus.explanation && <div className="mt-2">{item.stimulus.explanation}</div>}
+          </div>
+        </div>
+        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+          <div>{item.correct ? '答对' : '答错'}</div>
+          <div>{formatMs(item.reactionTimeMs)}</div>
+        </div>
+      </div>
+
+      {!!item.options.length && (
+        <div className="mt-4 grid gap-2">
+          {item.options.map((option) => {
+            const isSelected = option.key === item.selectedAnswerKey;
+            const isCorrect = option.key === item.correctAnswerKey;
+            return (
+              <div
+                key={option.key}
+                className={`rounded-[1rem] border px-3 py-2 text-sm ${
+                  isCorrect
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : isSelected
+                      ? 'border-rose-500/20 bg-rose-500/5 text-rose-600 dark:text-rose-300'
+                      : 'border-slate-200/70 bg-white/70 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60'
+                }`}
+              >
+                {option.label}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-2 text-sm text-slate-500 dark:text-white/45">
+        <div>你的答案：{selectedLabel || '未作答'}</div>
+        <div>正确答案：{correctLabel || '未返回'}</div>
+      </div>
+    </div>
+  );
+}
 
 const TrainingPage: React.FC = () => {
   const { t } = useTranslation();
@@ -21,6 +88,32 @@ const TrainingPage: React.FC = () => {
   const [state, dispatch] = React.useReducer(trainingFlowReducer, initialTrainingFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
   const autoStartKeyRef = React.useRef<string | null>(null);
+  const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
+  const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
+  const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
+
+  const requestedMode = searchParams.get('mode');
+  const requestedSource = searchParams.get('source');
+  const requestedDiagnosisSummaryId = parseTrainingLaunchNumber(searchParams.get('diagnosisSummaryId'));
+  const requestedLexicalPairId = parseTrainingLaunchNumber(searchParams.get('lexicalPairId'));
+  const requestedWrongBookId = parseTrainingLaunchNumber(searchParams.get('wrongBookId'));
+  const requestedReviewScheduleId = parseTrainingLaunchNumber(searchParams.get('reviewScheduleId'));
+  const baseLaunchParams = React.useMemo<SessionLaunchContext>(
+    () => ({
+      source: requestedSource,
+      diagnosisSummaryId: requestedDiagnosisSummaryId,
+      lexicalPairId: requestedLexicalPairId,
+      wrongBookId: requestedWrongBookId,
+      reviewScheduleId: requestedReviewScheduleId,
+    }),
+    [
+      requestedDiagnosisSummaryId,
+      requestedLexicalPairId,
+      requestedReviewScheduleId,
+      requestedSource,
+      requestedWrongBookId,
+    ]
+  );
 
   const historyQuery = useQuery({
     queryKey: ['training-history', 'in-progress'],
@@ -48,8 +141,9 @@ const TrainingPage: React.FC = () => {
   }, [historyQuery.error]);
 
   const recommendedPlanQuery = useQuery({
-    queryKey: ['recommended-training-plan'],
-    queryFn: ({ signal }) => trainingService.getRecommendedPlan({ signal }),
+    queryKey: ['recommended-training-plan', requestedDiagnosisSummaryId],
+    queryFn: ({ signal }) =>
+      trainingService.getRecommendedPlan({ diagnosisSummaryId: requestedDiagnosisSummaryId }, { signal }),
     enabled: state.phase === 'home',
     retry: false,
   });
@@ -73,10 +167,15 @@ const TrainingPage: React.FC = () => {
   });
 
   const startMutation = useMutation({
-    mutationFn: (mode: string) =>
+    mutationFn: (payload: { mode: string } & SessionLaunchContext) =>
       trainingService.startSession({
         planId: recommendedPlanQuery.data!.planId,
-        mode,
+        mode: payload.mode,
+        launchSource: payload.source || undefined,
+        diagnosisSummaryId: payload.diagnosisSummaryId,
+        lexicalPairId: payload.lexicalPairId,
+        wrongBookId: payload.wrongBookId,
+        reviewScheduleId: payload.reviewScheduleId,
       }),
     onSuccess: (created) => {
       shownAtRef.current = Date.now();
@@ -107,13 +206,41 @@ const TrainingPage: React.FC = () => {
       reactionTimeMs: number;
       hesitationTimeMs: number;
     }) => trainingService.submitAnswer(state.sessionId as number, payload),
-    onSuccess: async (progress) => {
+    onSuccess: async (progress, payload) => {
+      setSubmitErrorMessage(null);
       if (progress.completed) {
+        setPendingNextItemId(null);
+        setSubmitInfoMessage(null);
         markCompleted(progress.sessionId);
         return;
       }
       shownAtRef.current = Date.now();
-      await nextItemQuery.refetch();
+      setPendingNextItemId(payload.itemResultId);
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.error) {
+        setSubmitInfoMessage('答案已提交，但下一题加载失败。请重试加载当前题，系统不会重复计入本题。');
+        return;
+      }
+      setPendingNextItemId(null);
+      setSubmitInfoMessage(null);
+    },
+    onError: async (error, payload) => {
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.data?.sessionStatus === 'COMPLETED') {
+        setSubmitErrorMessage(null);
+        setSubmitInfoMessage('答案已提交，系统已同步到最新总结。');
+        markCompleted(refreshed.data.sessionId);
+        return;
+      }
+      if (refreshed.data?.item && refreshed.data.item.itemResultId !== payload.itemResultId) {
+        setPendingNextItemId(null);
+        setSubmitErrorMessage(null);
+        setSubmitInfoMessage('答案已提交，系统已同步到下一题。');
+        shownAtRef.current = Date.now();
+        return;
+      }
+      setSubmitInfoMessage(null);
+      setSubmitErrorMessage(getApiErrorMessage(error));
     },
   });
 
@@ -124,22 +251,30 @@ const TrainingPage: React.FC = () => {
   });
 
   const clearTrainingIntent = React.useCallback(() => {
-    if (!searchParams.get('mode') && !searchParams.get('source')) {
+    if (
+      !searchParams.get('mode') &&
+      !searchParams.get('source') &&
+      !searchParams.get('diagnosisSummaryId') &&
+      !searchParams.get('lexicalPairId') &&
+      !searchParams.get('wrongBookId') &&
+      !searchParams.get('reviewScheduleId')
+    ) {
       return;
     }
-    const next = new URLSearchParams(searchParams);
-    next.delete('mode');
-    next.delete('source');
-    setSearchParams(next, { replace: true });
+    setSearchParams(clearTrainingLaunchParams(searchParams), { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const startSessionForMode = React.useCallback(async (mode: string) => {
+  const startSessionForMode = React.useCallback(async (mode: string, overrides?: Partial<SessionLaunchContext>) => {
     try {
-      await startMutation.mutateAsync(mode);
+      await startMutation.mutateAsync({
+        mode,
+        ...baseLaunchParams,
+        ...overrides,
+      });
     } finally {
       clearTrainingIntent();
     }
-  }, [clearTrainingIntent, startMutation]);
+  }, [baseLaunchParams, clearTrainingIntent, startMutation]);
 
   React.useEffect(() => {
     if (state.phase !== 'running' || !nextItemQuery.data || nextItemQuery.data.hasNextItem) {
@@ -162,35 +297,58 @@ const TrainingPage: React.FC = () => {
     onCompleted: (nextItem) => markCompleted(nextItem.sessionId),
   });
 
-  const requestedMode = searchParams.get('mode');
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
 
   React.useEffect(() => {
     if (state.phase !== 'home' || !requestedMode || !recommendedPlanQuery.data) {
       return;
     }
-    const autoStartKey = `${recommendedPlanQuery.data.planId}:${requestedMode}`;
+    const autoStartKey = [
+      recommendedPlanQuery.data.planId,
+      requestedMode,
+      requestedDiagnosisSummaryId ?? 'none',
+      requestedLexicalPairId ?? 'none',
+      requestedWrongBookId ?? 'none',
+      requestedReviewScheduleId ?? 'none',
+    ].join(':');
     if (autoStartKeyRef.current === autoStartKey || startMutation.isPending) {
       return;
     }
     autoStartKeyRef.current = autoStartKey;
     void startSessionForMode(requestedMode);
-  }, [recommendedPlanQuery.data, requestedMode, startMutation.isPending, startSessionForMode, state.phase]);
+  }, [
+    recommendedPlanQuery.data,
+    requestedDiagnosisSummaryId,
+    requestedLexicalPairId,
+    requestedMode,
+    requestedReviewScheduleId,
+    requestedWrongBookId,
+    startMutation.isPending,
+    startSessionForMode,
+    state.phase,
+  ]);
 
   React.useEffect(() => {
     if (planError?.status === 409 && requestedMode) {
       clearTrainingIntent();
     }
   }, [clearTrainingIntent, planError?.status, requestedMode]);
+
   const currentItem = nextItemQuery.data?.item;
-  const isAnswerLocked = answerMutation.isPending || nextItemQuery.isFetching;
+  const staleSubmittedItemVisible = !!currentItem && pendingNextItemId === currentItem.itemResultId;
+  const isAnswerLocked = answerMutation.isPending || nextItemQuery.isFetching || staleSubmittedItemVisible;
 
   React.useEffect(() => {
     if (!currentItem) {
       return;
     }
     runtime.resetFeedback();
-  }, [currentItem?.itemResultId]);
+    if (pendingNextItemId !== currentItem.itemResultId) {
+      setPendingNextItemId(null);
+      setSubmitInfoMessage(null);
+    }
+    setSubmitErrorMessage(null);
+  }, [currentItem?.itemResultId, pendingNextItemId, runtime.resetFeedback]);
 
   const submitAnswer = async (option: TrainingOptionViewVO) => {
     if (!currentItem) {
@@ -240,15 +398,17 @@ const TrainingPage: React.FC = () => {
         <SessionFeedbackBanners
           saveMessage={runtime.saveMessage}
           saveErrorMessage={runtime.saveErrorMessage}
+          submitErrorMessage={submitErrorMessage}
+          submitInfoMessage={submitInfoMessage}
           loadError={nextItemQuery.error}
           onRetryLoad={() => void nextItemQuery.refetch()}
         />
 
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
-        ) : !currentItem ? (
+        ) : !currentItem || staleSubmittedItemVisible ? (
           <div className="rounded-[2rem] border border-slate-200 bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-            正在生成训练总结，请稍候...
+            {staleSubmittedItemVisible ? '答案已提交，正在同步下一题或总结页，请稍候...' : '正在生成训练总结，请稍候...'}
           </div>
         ) : (
           <>
@@ -365,30 +525,35 @@ const TrainingPage: React.FC = () => {
                     {summary.improvementHint}
                   </p>
                 </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (summary.nextRecommendedMode) {
-                          navigate(`/training?mode=${encodeURIComponent(summary.nextRecommendedMode)}&source=training-summary`);
-                          return;
-                        }
-                        dispatch({ type: 'resetHome' });
-                      }}
-                      className="btn-liquid px-6 py-3 text-white"
-                    >
-                      继续下一推荐训练
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/errors')}
-                      className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold dark:border-white/10"
-                    >
-                      查看错题与复习
-                    </button>
-                  </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (summary.nextRecommendedMode) {
+                        navigate(
+                          buildTrainingHref({
+                            mode: summary.nextRecommendedMode,
+                            source: 'training-summary',
+                          })
+                        );
+                        return;
+                      }
+                      dispatch({ type: 'resetHome' });
+                    }}
+                    className="btn-liquid px-6 py-3 text-white"
+                  >
+                    继续下一推荐训练
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/errors')}
+                    className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold dark:border-white/10"
+                  >
+                    查看错题与复习
+                  </button>
                 </div>
-              </section>
+              </div>
+            </section>
 
             <div className="grid gap-6 md:grid-cols-3">
               <div className="rounded-[2rem] liquid-glass p-6">
@@ -432,6 +597,17 @@ const TrainingPage: React.FC = () => {
                     </div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.reason}</div>
                   </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+              <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+                题目回看
+              </div>
+              <div className="space-y-4">
+                {summary.items.map((item) => (
+                  <TrainingItemReviewCard key={item.itemResultId} item={item} />
                 ))}
               </div>
             </section>
@@ -604,7 +780,17 @@ const TrainingPage: React.FC = () => {
             {!!reviewScheduleQuery.data?.length && (
               <button
                 type="button"
-                onClick={() => navigate(`/training?mode=${encodeURIComponent(reviewScheduleQuery.data[0].reviewMode)}&source=review-schedule`)}
+                onClick={() =>
+                  navigate(
+                    buildTrainingHref({
+                      mode: reviewScheduleQuery.data[0].reviewMode,
+                      source: 'review-schedule',
+                      lexicalPairId: reviewScheduleQuery.data[0].lexicalPairId,
+                      wrongBookId: reviewScheduleQuery.data[0].wrongBookId,
+                      reviewScheduleId: reviewScheduleQuery.data[0].reviewScheduleId,
+                    })
+                  )
+                }
                 className="text-sm font-bold text-primary"
               >
                 立即复习
@@ -613,6 +799,10 @@ const TrainingPage: React.FC = () => {
           </div>
           {reviewScheduleQuery.isLoading ? (
             <PanelSkeleton className="p-0" />
+          ) : reviewScheduleQuery.error ? (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+              {getApiErrorMessage(reviewScheduleQuery.error)}
+            </div>
           ) : (
             <div className="space-y-4">
               {(reviewScheduleQuery.data || []).slice(0, 5).map((item) => (
@@ -626,8 +816,28 @@ const TrainingPage: React.FC = () => {
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                     {item.reviewMode} · {formatDateTime(item.dueAt)}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        buildTrainingHref({
+                          mode: item.reviewMode,
+                          source: 'review-schedule-item',
+                          lexicalPairId: item.lexicalPairId,
+                          wrongBookId: item.wrongBookId,
+                          reviewScheduleId: item.reviewScheduleId,
+                        })
+                      )
+                    }
+                    className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
+                  >
+                    开始
+                  </button>
                 </div>
               ))}
+              {!reviewScheduleQuery.data?.length && (
+                <div className="text-sm text-slate-500 dark:text-white/45">暂无待复习计划。</div>
+              )}
             </div>
           )}
         </section>
@@ -650,6 +860,10 @@ const TrainingPage: React.FC = () => {
           </div>
           {wrongBookQuery.isLoading ? (
             <PanelSkeleton className="p-0" />
+          ) : wrongBookQuery.error ? (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+              {getApiErrorMessage(wrongBookQuery.error)}
+            </div>
           ) : (
             <div className="space-y-4">
               {(wrongBookQuery.data || []).slice(0, 5).map((item) => (
@@ -661,11 +875,30 @@ const TrainingPage: React.FC = () => {
                     {item.englishWord} / {item.frenchWord}
                   </div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    {lexicalPairTypeLabel(item.lexicalPairType)} · {item.lastErrorType} ·{' '}
+                    {lexicalPairTypeLabel(item.lexicalPairType)} · {item.recommendedMode} · {item.lastErrorType} ·{' '}
                     {t('training.wrongCount', { count: item.wrongCount })}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        buildTrainingHref({
+                          mode: item.recommendedMode,
+                          source: 'wrong-book',
+                          lexicalPairId: item.lexicalPairId,
+                          wrongBookId: item.wrongBookId,
+                        })
+                      )
+                    }
+                    className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
+                  >
+                    开始纠错
+                  </button>
                 </div>
               ))}
+              {!wrongBookQuery.data?.length && (
+                <div className="text-sm text-slate-500 dark:text-white/45">暂无错题记录。</div>
+              )}
             </div>
           )}
         </section>

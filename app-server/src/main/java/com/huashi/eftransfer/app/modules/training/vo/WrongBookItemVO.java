@@ -9,6 +9,7 @@ public record WrongBookItemVO(
         String frenchWord,
         String chineseGloss,
         String lexicalPairType,
+        String recommendedMode,
         Integer wrongCount,
         String lastErrorType,
         String masteryStatus,

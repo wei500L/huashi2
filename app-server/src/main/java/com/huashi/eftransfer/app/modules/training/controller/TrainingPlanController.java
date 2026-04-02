@@ -26,8 +26,10 @@ public class TrainingPlanController {
     }
 
     @GetMapping("/plans/recommended")
-    public ApiResponse<RecommendedTrainingPlanVO> getRecommendedPlan() {
-        return ApiResponse.success(trainingPlanService.getRecommendedPlan(), MDC.get("traceId"));
+    public ApiResponse<RecommendedTrainingPlanVO> getRecommendedPlan(
+            @RequestParam(name = "diagnosisSummaryId", required = false) Long diagnosisSummaryId
+    ) {
+        return ApiResponse.success(trainingPlanService.getRecommendedPlan(diagnosisSummaryId), MDC.get("traceId"));
     }
 
     @GetMapping("/wrong-book")

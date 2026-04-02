@@ -42,6 +42,9 @@ public class TrainingSessionEntity extends BaseAuditEntity {
     @TableField("summary_snapshot_json")
     private String summarySnapshotJson;
 
+    @TableField("launch_context_json")
+    private String launchContextJson;
+
     @TableField("started_at")
     private LocalDateTime startedAt;
 
@@ -145,6 +148,14 @@ public class TrainingSessionEntity extends BaseAuditEntity {
 
     public void setSummarySnapshotJson(String summarySnapshotJson) {
         this.summarySnapshotJson = summarySnapshotJson;
+    }
+
+    public String getLaunchContextJson() {
+        return launchContextJson;
+    }
+
+    public void setLaunchContextJson(String launchContextJson) {
+        this.launchContextJson = launchContextJson;
     }
 
     public LocalDateTime getStartedAt() {

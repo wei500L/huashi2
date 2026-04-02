@@ -10,6 +10,9 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   if (pathname.startsWith('/teacher/classes')) {
     return t('shell.titles.teacherClasses');
   }
+  if (pathname.startsWith('/teacher/assessments')) {
+    return t('shell.titles.teacherAssessments');
+  }
   if (pathname.startsWith('/teacher/diagnosis-templates')) {
     return t('shell.titles.teacherTemplates');
   }
@@ -39,6 +42,9 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   }
   if (pathname.startsWith('/analytics')) {
     return t('shell.titles.analytics');
+  }
+  if (pathname.startsWith('/assessments')) {
+    return t('shell.titles.assessments');
   }
   if (pathname.startsWith('/errors')) {
     return t('shell.titles.errors');

@@ -5,6 +5,7 @@ import {
   BookCopy,
   BookOpen,
   Brain,
+  FilePenLine,
   ChevronLeft,
   Database,
   GraduationCap,
@@ -61,6 +62,7 @@ function buildSections(t: (key: string) => string, capabilities?: Capability[] |
       items: [
         { name: t('shell.nav.teacherWorkspace'), path: '/teacher/workspace', icon: LayoutDashboard },
         { name: t('shell.nav.teacherClasses'), path: '/teacher/classes', icon: Users },
+        { name: t('shell.nav.teacherAssessments'), path: '/teacher/assessments', icon: FilePenLine },
         { name: t('shell.nav.teacherTemplates'), path: '/teacher/diagnosis-templates', icon: Brain },
         { name: t('shell.nav.teacherLexicalPairs'), path: '/teacher/lexical-pairs', icon: BookOpen },
         { name: t('shell.nav.teacherLexicalLists'), path: '/teacher/lexical-lists', icon: BookCopy },
@@ -76,6 +78,7 @@ function buildSections(t: (key: string) => string, capabilities?: Capability[] |
         { name: t('shell.nav.dashboard'), path: '/dashboard', icon: LayoutDashboard },
         { name: t('shell.nav.diagnosis'), path: '/diagnosis', icon: Activity },
         { name: t('shell.nav.training'), path: '/training', icon: GraduationCap },
+        { name: t('shell.nav.assessments'), path: '/assessments', icon: BookCopy },
         { name: t('shell.nav.analytics'), path: '/analytics', icon: LineChart },
         { name: t('shell.nav.errors'), path: '/errors', icon: Database },
         { name: t('shell.nav.history'), path: '/history', icon: History },

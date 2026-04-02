@@ -4,10 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowRight, Brain, Clock3, RefreshCw, Target } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
-import { studentService, trainingService } from '@/lib/services';
 import { buildRadarOption, buildTrendOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
-import { normalizeApiError } from '@/lib/api';
+import { studentService, trainingService } from '@/lib/services';
+import { buildTrainingHref } from '@/lib/training-launch';
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ const DashboardPage: React.FC = () => {
   });
   const recommendedPlanQuery = useQuery({
     queryKey: ['recommended-training-plan'],
-    queryFn: ({ signal }) => trainingService.getRecommendedPlan({ signal }),
+    queryFn: ({ signal }) => trainingService.getRecommendedPlan(undefined, { signal }),
     retry: false,
   });
   const wrongBookQuery = useQuery({
@@ -71,30 +72,30 @@ const DashboardPage: React.FC = () => {
 
       {overviewQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {overviewQuery.error.message}
+          {getApiErrorMessage(overviewQuery.error)}
         </div>
       )}
 
       <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
-        <div className="flex flex-col lg:flex-row gap-8 items-start justify-between">
+        <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
           <div className="max-w-3xl">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">学生画像</div>
-            <h1 className="mt-3 text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+            <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900 dark:text-white md:text-5xl">
               {overview?.studentName || '加载中'}，当前主风险为 {overview?.primaryRiskLevel || '--'}
             </h1>
-            <p className="mt-4 text-slate-500 dark:text-white/50 leading-7">
+            <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">
               推荐训练模式：{overview?.recommendedTrainingMode || '--'}。最近活跃时间 {formatDateTime(overview?.latestSnapshot.lastActiveAt)}，待复习词对{' '}
               {overview?.latestSnapshot.pendingReviewCount ?? 0} 组。
             </p>
           </div>
-          <div className="grid sm:grid-cols-2 gap-4 min-w-[280px]">
-            <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 p-5 bg-white/60 dark:bg-white/5">
+          <div className="grid min-w-[280px] gap-4 sm:grid-cols-2">
+            <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">英语 / 法语</div>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
                 {overview?.englishLevel || '--'} / {overview?.frenchLevel || '--'}
               </div>
             </div>
-            <div className="rounded-[2rem] border border-slate-200/80 dark:border-white/10 p-5 bg-white/60 dark:bg-white/5">
+            <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">平均反应时</div>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
                 {formatMs(overview?.latestSnapshot.recentAvgReactionTimeMs)}
@@ -104,7 +105,7 @@ const DashboardPage: React.FC = () => {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
         {topCards.map((card) => (
           <StatCard
             key={card.key}
@@ -115,7 +116,7 @@ const DashboardPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.7fr] gap-8">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.3fr_0.7fr]">
         <ChartCard
           title="近 7 天趋势"
           option={buildTrendOption(trendsQuery.data)}
@@ -130,7 +131,7 @@ const DashboardPage: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr_0.9fr] gap-8">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1fr_1fr_0.9fr]">
         <ChartCard
           title="错误分布"
           option={errorDistributionOption}
@@ -139,14 +140,14 @@ const DashboardPage: React.FC = () => {
         />
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">高风险词对</div>
+          <div className="mb-6 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">高风险词对</div>
           <div className="space-y-4">
             {(highRiskPairsQuery.data || []).map((item) => (
-              <div key={item.lexicalPairId} className="rounded-[1.5rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+              <div key={item.lexicalPairId} className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
-                    <div className="text-sm text-slate-500 dark:text-white/45 mt-1">{lexicalPairTypeLabel(item.lexicalPairType)}</div>
+                    <div className="mt-1 text-sm text-slate-500 dark:text-white/45">{lexicalPairTypeLabel(item.lexicalPairType)}</div>
                   </div>
                   <div className="text-right">
                     <div className="font-black text-rose-500">{formatMaybePercent(item.riskScore, 0)}</div>
@@ -162,7 +163,7 @@ const DashboardPage: React.FC = () => {
         </section>
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">推荐训练计划</div>
+          <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">推荐训练计划</div>
           {recommendedPlanQuery.data ? (
             <div className="space-y-4">
               <div className="text-2xl font-black text-slate-900 dark:text-white">{recommendedPlanQuery.data.priorityMode}</div>
@@ -172,11 +173,19 @@ const DashboardPage: React.FC = () => {
                   <button
                     key={session.mode}
                     type="button"
-                    onClick={() => navigate(`/training?mode=${encodeURIComponent(session.mode)}&source=dashboard`)}
-                    className="w-full text-left rounded-[1.4rem] border border-slate-200/70 dark:border-white/10 p-4 hover:border-primary/40 transition-all"
+                    onClick={() =>
+                      navigate(
+                        buildTrainingHref({
+                          mode: session.mode,
+                          source: 'dashboard',
+                          diagnosisSummaryId: recommendedPlanQuery.data?.sourceDiagnosisSummaryId,
+                        })
+                      )
+                    }
+                    className="w-full rounded-[1.4rem] border border-slate-200/70 p-4 text-left transition-all hover:border-primary/40 dark:border-white/10"
                   >
                     <div className="font-bold text-slate-900 dark:text-white">{session.label}</div>
-                    <div className="text-sm text-slate-500 dark:text-white/45 mt-1">建议题量 {session.count}</div>
+                    <div className="mt-1 text-sm text-slate-500 dark:text-white/45">建议题量 {session.count}</div>
                   </button>
                 ))}
               </div>
@@ -197,31 +206,78 @@ const DashboardPage: React.FC = () => {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">错题本</div>
-            <button type="button" onClick={() => navigate('/errors')} className="text-sm text-primary flex items-center gap-2">
-              查看全部 <ArrowRight size={14} />
-            </button>
+            <div className="flex items-center gap-4">
+              {!!wrongBookQuery.data?.length && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      buildTrainingHref({
+                        mode: wrongBookQuery.data[0].recommendedMode,
+                        source: 'dashboard-wrong-book',
+                        lexicalPairId: wrongBookQuery.data[0].lexicalPairId,
+                        wrongBookId: wrongBookQuery.data[0].wrongBookId,
+                      })
+                    )
+                  }
+                  className="text-sm font-bold text-primary"
+                >
+                  立即纠错
+                </button>
+              )}
+              <button type="button" onClick={() => navigate('/errors')} className="flex items-center gap-2 text-sm text-primary">
+                查看全部 <ArrowRight size={14} />
+              </button>
+            </div>
           </div>
-          <div className="space-y-4">
-            {(wrongBookQuery.data || []).slice(0, 4).map((item) => (
-              <div key={item.wrongBookId} className="rounded-[1.4rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-                <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
-                <div className="text-sm text-slate-500 dark:text-white/45 mt-2">
-                  最近错误：{item.lastErrorType}，累计 {item.wrongCount} 次
+          {wrongBookQuery.isLoading ? (
+            <div className="text-sm text-slate-500 dark:text-white/45">正在加载错题...</div>
+          ) : wrongBookQuery.error ? (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+              {getApiErrorMessage(wrongBookQuery.error)}
+            </div>
+          ) : !wrongBookQuery.data?.length ? (
+            <div className="text-sm text-slate-500 dark:text-white/45">当前没有错题记录。</div>
+          ) : (
+            <div className="space-y-4">
+              {wrongBookQuery.data.slice(0, 4).map((item) => (
+                <div key={item.wrongBookId} className="rounded-[1.4rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                      <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        {item.recommendedMode} · 最近错误：{item.lastErrorType}，累计 {item.wrongCount} 次
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(
+                          buildTrainingHref({
+                            mode: item.recommendedMode,
+                            source: 'dashboard-wrong-book-item',
+                            lexicalPairId: item.lexicalPairId,
+                            wrongBookId: item.wrongBookId,
+                          })
+                        )
+                      }
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
+                    >
+                      开始
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {!wrongBookQuery.isLoading && !wrongBookQuery.data?.length && (
-              <div className="text-sm text-slate-500 dark:text-white/45">当前没有错题记录。</div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="flex items-center justify-between gap-3 mb-6">
+          <div className="mb-6 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Brain size={16} className="text-primary" />
               <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">待复习计划</div>
@@ -229,31 +285,67 @@ const DashboardPage: React.FC = () => {
             {!!reviewScheduleQuery.data?.length && (
               <button
                 type="button"
-                onClick={() => navigate(`/training?mode=${encodeURIComponent(reviewScheduleQuery.data[0].reviewMode)}&source=dashboard-review`)}
+                onClick={() =>
+                  navigate(
+                    buildTrainingHref({
+                      mode: reviewScheduleQuery.data[0].reviewMode,
+                      source: 'dashboard-review',
+                      lexicalPairId: reviewScheduleQuery.data[0].lexicalPairId,
+                      wrongBookId: reviewScheduleQuery.data[0].wrongBookId,
+                      reviewScheduleId: reviewScheduleQuery.data[0].reviewScheduleId,
+                    })
+                  )
+                }
                 className="text-sm text-primary"
               >
                 立即开始
               </button>
             )}
           </div>
-          <div className="space-y-4">
-            {(reviewScheduleQuery.data || []).slice(0, 4).map((item) => (
-              <div key={item.reviewScheduleId} className="rounded-[1.4rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
-                    <div className="text-sm text-slate-500 dark:text-white/45 mt-2">
-                      {item.reviewMode} · 第 {item.scheduleStage} 阶段
+          {reviewScheduleQuery.isLoading ? (
+            <div className="text-sm text-slate-500 dark:text-white/45">正在加载复习计划...</div>
+          ) : reviewScheduleQuery.error ? (
+            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+              {getApiErrorMessage(reviewScheduleQuery.error)}
+            </div>
+          ) : !reviewScheduleQuery.data?.length ? (
+            <div className="text-sm text-slate-500 dark:text-white/45">当前没有待复习项目。</div>
+          ) : (
+            <div className="space-y-4">
+              {reviewScheduleQuery.data.slice(0, 4).map((item) => (
+                <div key={item.reviewScheduleId} className="rounded-[1.4rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                      <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        {item.reviewMode} · 第 {item.scheduleStage} 阶段
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-3">
+                      <div className="text-sm text-slate-500 dark:text-white/45">{formatDateTime(item.dueAt)}</div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            buildTrainingHref({
+                              mode: item.reviewMode,
+                              source: 'dashboard-review-item',
+                              lexicalPairId: item.lexicalPairId,
+                              wrongBookId: item.wrongBookId,
+                              reviewScheduleId: item.reviewScheduleId,
+                            })
+                          )
+                        }
+                        className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
+                      >
+                        开始
+                      </button>
                     </div>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-white/45">{formatDateTime(item.dueAt)}</div>
                 </div>
-              </div>
-            ))}
-            {!reviewScheduleQuery.isLoading && !reviewScheduleQuery.data?.length && (
-              <div className="text-sm text-slate-500 dark:text-white/45">当前没有待复习项目。</div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>

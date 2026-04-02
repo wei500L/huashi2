@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public record DiagnosisHistorySummaryVO(
         Long sessionId,
+        Long summaryId,
         Long templateId,
         String templateName,
         Long ownerUserId,

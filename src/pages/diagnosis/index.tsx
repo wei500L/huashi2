@@ -8,7 +8,8 @@ import { EChart } from '@/components/common/EChart';
 import { getApiErrorMessage } from '@/lib/api';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
-import type { AnalyticsRadarMetricVO, DiagnosisOptionViewVO, DiagnosisRadarMetric } from '@/lib/contracts';
+import { buildTrainingHref } from '@/lib/training-launch';
+import type { AnalyticsRadarMetricVO, DiagnosisItemResultDetailVO, DiagnosisOptionPayload, DiagnosisOptionViewVO, DiagnosisRadarMetric } from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
@@ -27,12 +28,81 @@ export function toDiagnosisRadarChartMetrics(
   }));
 }
 
+function findOptionLabel(options: DiagnosisOptionPayload[], answerKey?: string | null) {
+  if (!answerKey) {
+    return null;
+  }
+  return options.find((option) => option.key === answerKey)?.label || answerKey;
+}
+
+function DiagnosisItemReviewCard({ item }: { item: DiagnosisItemResultDetailVO }) {
+  const selectedLabel = findOptionLabel(item.options, item.selectedAnswerKey);
+  const correctLabel = findOptionLabel(item.options, item.correctAnswerKey);
+
+  return (
+    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-black text-slate-900 dark:text-white">
+            {item.englishWord} / {item.frenchWord}
+          </div>
+          <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">
+            {item.taskType} · {item.detectedErrorType} · {formatMaybePercent(item.transferRiskScore)}
+          </div>
+          {(item.stimulus.promptText || item.stimulus.instruction || item.stimulus.contextSentence) && (
+            <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+              {item.stimulus.instruction && <div className="font-semibold">{item.stimulus.instruction}</div>}
+              {item.stimulus.promptText && <div className="mt-1">{item.stimulus.promptText}</div>}
+              {item.stimulus.contextSentence && <div className="mt-2 italic">{item.stimulus.contextSentence}</div>}
+            </div>
+          )}
+        </div>
+        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+          <div>{item.correct ? '答对' : '答错'}</div>
+          <div>{formatMs(item.reactionTimeMs)}</div>
+        </div>
+      </div>
+
+      {!!item.options.length && (
+        <div className="mt-4 grid gap-2">
+          {item.options.map((option) => {
+            const isSelected = option.key === item.selectedAnswerKey;
+            const isCorrect = option.key === item.correctAnswerKey;
+            return (
+              <div
+                key={option.key}
+                className={`rounded-[1rem] border px-3 py-2 text-sm ${
+                  isCorrect
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : isSelected
+                      ? 'border-rose-500/20 bg-rose-500/5 text-rose-600 dark:text-rose-300'
+                      : 'border-slate-200/70 bg-white/70 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60'
+                }`}
+              >
+                {option.label}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-2 text-sm text-slate-500 dark:text-white/45">
+        <div>你的答案：{selectedLabel || '未作答'}</div>
+        <div>正确答案：{correctLabel || '未返回'}</div>
+      </div>
+    </div>
+  );
+}
+
 const DiagnosisPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(diagnosisFlowReducer, initialDiagnosisFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
+  const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
+  const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
+  const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
 
   const historyQuery = useQuery({
     queryKey: ['diagnosis-history', 'in-progress'],
@@ -95,13 +165,40 @@ const DiagnosisPage: React.FC = () => {
       reactionTimeMs: number;
       hesitationTimeMs: number;
     }) => diagnosisSessionService.submitAnswer(state.sessionId as number, payload),
-    onSuccess: async (progress) => {
+    onSuccess: async (progress, payload) => {
+      setSubmitErrorMessage(null);
       if (progress.completed) {
+        setPendingNextItemId(null);
+        setSubmitInfoMessage(null);
         markCompleted();
         return;
       }
       shownAtRef.current = Date.now();
-      await nextItemQuery.refetch();
+      setPendingNextItemId(payload.itemResultId);
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.error) {
+        setSubmitInfoMessage('答案已提交，但下一题加载失败。请重试加载当前题，系统不会重复计入本题。');
+        return;
+      }
+      setPendingNextItemId(null);
+      setSubmitInfoMessage(null);
+    },
+    onError: async (error, payload) => {
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.data?.sessionStatus === 'COMPLETED') {
+        setSubmitErrorMessage(null);
+        setSubmitInfoMessage('答案已提交，系统已同步到最新结果。');
+        markCompleted();
+        return;
+      }
+      if (refreshed.data?.item && refreshed.data.item.itemResultId !== payload.itemResultId) {
+        setSubmitErrorMessage(null);
+        setSubmitInfoMessage('答案已提交，系统已同步到下一题。');
+        shownAtRef.current = Date.now();
+        return;
+      }
+      setSubmitInfoMessage(null);
+      setSubmitErrorMessage(getApiErrorMessage(error));
     },
   });
 
@@ -111,17 +208,18 @@ const DiagnosisPage: React.FC = () => {
     enabled: state.phase === 'result' && !!state.sessionId,
   });
 
+  const resultSummaryId = resultQuery.data?.summaryId;
   const explanationQuery = useQuery({
-    queryKey: ['diagnosis-explanation', state.sessionId],
-    queryFn: ({ signal }) => aiService.explainDiagnosis(undefined, { signal }),
-    enabled: state.phase === 'result' && !!state.sessionId,
+    queryKey: ['diagnosis-explanation', resultSummaryId],
+    queryFn: ({ signal }) => aiService.explainDiagnosis(resultSummaryId, { signal }),
+    enabled: state.phase === 'result' && !!resultSummaryId,
     retry: false,
   });
 
   const recommendedPlanQuery = useQuery({
-    queryKey: ['recommended-training-plan'],
-    queryFn: ({ signal }) => trainingService.getRecommendedPlan({ signal }),
-    enabled: state.phase === 'result' && !!state.sessionId,
+    queryKey: ['recommended-training-plan', resultSummaryId],
+    queryFn: ({ signal }) => trainingService.getRecommendedPlan({ diagnosisSummaryId: resultSummaryId }, { signal }),
+    enabled: state.phase === 'result' && !!resultSummaryId,
     retry: false,
   });
 
@@ -147,6 +245,7 @@ const DiagnosisPage: React.FC = () => {
   });
 
   const currentItem = nextItemQuery.data?.item;
+  const staleSubmittedItemVisible = !!currentItem && pendingNextItemId === currentItem.itemResultId;
   const isAnswerLocked = submitAnswerMutation.isPending || nextItemQuery.isFetching;
 
   React.useEffect(() => {
@@ -154,7 +253,12 @@ const DiagnosisPage: React.FC = () => {
       return;
     }
     runtime.resetFeedback();
-  }, [currentItem?.itemResultId]);
+    if (pendingNextItemId !== currentItem.itemResultId) {
+      setPendingNextItemId(null);
+      setSubmitInfoMessage(null);
+    }
+    setSubmitErrorMessage(null);
+  }, [currentItem?.itemResultId, pendingNextItemId, runtime.resetFeedback]);
 
   const submitAnswer = async (option: DiagnosisOptionViewVO) => {
     if (!currentItem) {
@@ -292,15 +396,17 @@ const DiagnosisPage: React.FC = () => {
         <SessionFeedbackBanners
           saveMessage={runtime.saveMessage}
           saveErrorMessage={runtime.saveErrorMessage}
+          submitErrorMessage={submitErrorMessage}
+          submitInfoMessage={submitInfoMessage}
           loadError={nextItemQuery.error}
           onRetryLoad={() => void nextItemQuery.refetch()}
         />
 
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
-        ) : !currentItem ? (
+        ) : !currentItem || staleSubmittedItemVisible ? (
           <div className="rounded-[2rem] border border-slate-200 bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-            正在收尾诊断结果，请稍候...
+            {staleSubmittedItemVisible ? '答案已提交，正在同步下一题或结果页，请稍候...' : '正在收尾诊断结果，请稍候...'}
           </div>
         ) : (
           <>
@@ -435,10 +541,16 @@ const DiagnosisPage: React.FC = () => {
                         const recommendedMode =
                           recommendedPlanQuery.data?.suggestedSessions[0]?.mode || recommendedPlanQuery.data?.priorityMode;
                         if (recommendedMode) {
-                          navigate(`/training?mode=${encodeURIComponent(recommendedMode)}&source=diagnosis-result`);
+                          navigate(
+                            buildTrainingHref({
+                              mode: recommendedMode,
+                              source: 'diagnosis-result',
+                              diagnosisSummaryId: result.summaryId,
+                            })
+                          );
                           return;
                         }
-                        navigate('/training');
+                        navigate(buildTrainingHref({ source: 'diagnosis-result', diagnosisSummaryId: result.summaryId }));
                       }}
                       className="btn-liquid px-6 py-3 text-white"
                     >
@@ -565,25 +677,7 @@ const DiagnosisPage: React.FC = () => {
               </div>
               <div className="space-y-4">
                 {result.items.map((item) => (
-                  <div
-                    key={item.itemResultId}
-                    className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="font-black text-slate-900 dark:text-white">
-                          {item.englishWord} / {item.frenchWord}
-                        </div>
-                        <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">
-                          {item.taskType} · {item.detectedErrorType} · {formatMaybePercent(item.transferRiskScore)}
-                        </div>
-                      </div>
-                      <div className="text-right text-sm text-slate-500 dark:text-white/45">
-                        <div>{item.correct ? t('diagnosis.correct') : t('diagnosis.incorrect')}</div>
-                        <div>{formatMs(item.reactionTimeMs)}</div>
-                      </div>
-                    </div>
-                  </div>
+                  <DiagnosisItemReviewCard key={item.itemResultId} item={item} />
                 ))}
               </div>
             </section>

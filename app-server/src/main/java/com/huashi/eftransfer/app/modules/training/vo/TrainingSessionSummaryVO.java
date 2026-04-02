@@ -9,6 +9,7 @@ public record TrainingSessionSummaryVO(
         long averageReactionTime,
         String improvementHint,
         String nextRecommendedMode,
-        List<TrainingRiskWordVO> riskWordsToReview
+        List<TrainingRiskWordVO> riskWordsToReview,
+        List<TrainingItemResultDetailVO> items
 ) {
 }

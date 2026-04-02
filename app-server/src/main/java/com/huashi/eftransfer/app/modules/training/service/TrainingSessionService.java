@@ -28,6 +28,7 @@ import com.huashi.eftransfer.app.modules.training.mapper.TrainingPlanMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.TrainingSessionMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.WrongBookMapper;
 import com.huashi.eftransfer.app.modules.training.support.TrainingLearningProfileSnapshot;
+import com.huashi.eftransfer.app.modules.training.support.TrainingSessionLaunchContext;
 import com.huashi.eftransfer.app.modules.training.support.TrainingOptionPayload;
 import com.huashi.eftransfer.app.modules.training.support.TrainingRiskWordSnapshot;
 import com.huashi.eftransfer.app.modules.training.support.TrainingSessionSummarySnapshot;
@@ -35,6 +36,7 @@ import com.huashi.eftransfer.app.modules.training.support.TrainingStimulusPayloa
 import com.huashi.eftransfer.app.modules.training.vo.TrainingNextItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingExerciseContentVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingHistorySummaryVO;
+import com.huashi.eftransfer.app.modules.training.vo.TrainingItemResultDetailVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingOptionViewVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingQuestionItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingRiskWordVO;
@@ -65,6 +67,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -138,13 +141,14 @@ public class TrainingSessionService {
         TrainingMode mode = parseTrainingMode(request.mode());
         TrainingPlanEntity plan = requireAccessiblePlan(request.planId());
         requireNoActiveSession(plan.getOwnerUserId());
-        List<TrainingPlanItemEntity> planItems = loadPlanItems(plan.getId(), mode);
+        TrainingSessionLaunchContext launchContext = resolveLaunchContext(plan, request, mode);
+        List<TrainingPlanItemEntity> planItems = resolveSessionPlanItems(plan, mode, launchContext);
         if (planItems.isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT, "Training plan does not contain items for the requested mode", 409);
         }
 
         long sessionSeed = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
-        int targetVolume = targetVolume(plan.getRiskLevel());
+        int targetVolume = resolveTargetVolume(planItems, plan.getRiskLevel(), launchContext);
         List<SessionPlanItem> sessionPlanItems = expandPlanItems(planItems, targetVolume);
 
         TrainingSessionEntity session = new TrainingSessionEntity();
@@ -158,6 +162,7 @@ public class TrainingSessionService {
         session.setCurrentItemOrder(sessionPlanItems.isEmpty() ? null : 1);
         session.setPlannedDifficulty(plan.getRecommendedDifficulty());
         session.setRiskLevel(plan.getRiskLevel());
+        session.setLaunchContextJson(trainingJsonCodec.write(launchContext));
         session.setStartedAt(LocalDateTime.now());
         trainingSessionMapper.insert(session);
 
@@ -300,10 +305,6 @@ public class TrainingSessionService {
 
         TrainingPlanItemEntity planItem = trainingPlanItemMapper.selectById(itemResult.getPlanItemId());
         LexicalPairEntity pair = lexicalPairMapper.selectById(itemResult.getLexicalPairId());
-        TrainingStimulusPayload stimulus = trainingJsonCodec.readStimulus(itemResult.getStimulusJson());
-        List<TrainingOptionViewVO> options = trainingJsonCodec.readOptions(itemResult.getOptionsJson()).stream()
-                .map(option -> new TrainingOptionViewVO(option.key(), option.label()))
-                .toList();
 
         return new TrainingNextItemVO(
                 session.getId(),
@@ -313,35 +314,7 @@ public class TrainingSessionService {
                 session.getAnsweredItems(),
                 itemResult.getPresentationOrder(),
                 true,
-                new TrainingQuestionItemVO(
-                        itemResult.getId(),
-                        itemResult.getPlanItemId(),
-                        itemResult.getMode(),
-                        itemResult.getItemType(),
-                        itemResult.getPresentationOrder(),
-                        itemResult.getLexicalPairId(),
-                        pair == null ? null : pair.getEnglishWord(),
-                        pair == null ? null : pair.getFrenchWord(),
-                        pair == null ? null : pair.getChineseGloss(),
-                        pair == null ? null : pair.getLexicalPairType(),
-                        pair == null ? null : new TrainingWordPairVO(
-                                pair.getEnglishWord(),
-                                pair.getFrenchWord(),
-                                pair.getChineseGloss(),
-                                frontendPairType(pair.getLexicalPairType())
-                        ),
-                        planItem == null ? null : planItem.getRecommendedDifficulty(),
-                        itemResult.getCognitiveTag(),
-                        new TrainingExerciseContentVO(
-                                stimulus.questionText(),
-                                options.stream().map(TrainingOptionViewVO::label).toList(),
-                                stimulus.explanation(),
-                                stimulus.contextSupportLevel(),
-                                stimulus.contextSentence()
-                        ),
-                        stimulus,
-                        options
-                )
+                toQuestionItemVO(itemResult, planItem, pair)
         );
     }
 
@@ -434,6 +407,12 @@ public class TrainingSessionService {
             throw new BusinessException(ResultCode.CONFLICT, "Training session is not completed", 409);
         }
         TrainingSessionSummarySnapshot summarySnapshot = trainingJsonCodec.readSummarySnapshot(session.getSummarySnapshotJson());
+        List<TrainingItemResultEntity> itemResults = listSessionItems(session.getId());
+        Map<Long, TrainingPlanItemEntity> planItemMap = loadPlanItemMap(itemResults.stream()
+                .map(TrainingItemResultEntity::getPlanItemId)
+                .filter(Objects::nonNull)
+                .toList());
+        Map<Long, LexicalPairEntity> pairMap = loadLexicalPairMap(itemResults.stream().map(TrainingItemResultEntity::getLexicalPairId).toList());
         return new TrainingSessionSummaryVO(
                 session.getId(),
                 session.getMode(),
@@ -443,6 +422,13 @@ public class TrainingSessionService {
                 summarySnapshot.nextRecommendedMode(),
                 summarySnapshot.riskWordsToReview().stream()
                         .map(this::toRiskWordVO)
+                        .toList(),
+                itemResults.stream()
+                        .map(itemResult -> toItemResultDetailVO(
+                                itemResult,
+                                planItemMap.get(itemResult.getPlanItemId()),
+                                pairMap.get(itemResult.getLexicalPairId())
+                        ))
                         .toList()
         );
     }
@@ -459,6 +445,7 @@ public class TrainingSessionService {
         Map<Long, LexicalPairEntity> pairMap = loadLexicalPairMap(itemResults.stream().map(TrainingItemResultEntity::getLexicalPairId).toList());
         Map<Long, List<TrainingItemResultEntity>> pairResultMap = itemResults.stream()
                 .collect(Collectors.groupingBy(TrainingItemResultEntity::getLexicalPairId, LinkedHashMap::new, Collectors.toList()));
+        TrainingSessionLaunchContext launchContext = trainingJsonCodec.readLaunchContext(session.getLaunchContextJson());
 
         for (Map.Entry<Long, List<TrainingItemResultEntity>> entry : pairResultMap.entrySet()) {
             LexicalPairEntity pair = pairMap.get(entry.getKey());
@@ -474,7 +461,7 @@ public class TrainingSessionService {
                         .orElseThrow();
                 upsertWrongBookAndReviewSchedule(session, pair, latestIncorrect);
             } else {
-                advanceReviewIfApplicable(session, pair);
+                advanceReviewIfApplicable(session, pair, launchContext);
             }
         }
 
@@ -660,20 +647,38 @@ public class TrainingSessionService {
         wrongBookMapper.updateById(wrongBook);
     }
 
-    private void advanceReviewIfApplicable(TrainingSessionEntity session, LexicalPairEntity pair) {
+    private void advanceReviewIfApplicable(
+            TrainingSessionEntity session,
+            LexicalPairEntity pair,
+            TrainingSessionLaunchContext launchContext
+    ) {
         WrongBookEntity wrongBook = wrongBookMapper.selectOne(Wrappers.<WrongBookEntity>lambdaQuery()
                 .eq(WrongBookEntity::getOwnerUserId, session.getOwnerUserId())
                 .eq(WrongBookEntity::getLexicalPairId, pair.getId()));
         if (wrongBook == null) {
             return;
         }
-        ReviewScheduleEntity pending = reviewScheduleMapper.selectOne(Wrappers.<ReviewScheduleEntity>lambdaQuery()
-                .eq(ReviewScheduleEntity::getOwnerUserId, session.getOwnerUserId())
-                .eq(ReviewScheduleEntity::getLexicalPairId, pair.getId())
-                .eq(ReviewScheduleEntity::getStatus, ReviewScheduleStatus.PENDING.name())
-                .orderByAsc(ReviewScheduleEntity::getDueAt)
-                .orderByAsc(ReviewScheduleEntity::getId)
-                .last("LIMIT 1"));
+        ReviewScheduleEntity pending = null;
+        if (launchContext != null
+                && launchContext.targeted()
+                && Objects.equals(launchContext.lexicalPairId(), pair.getId())
+                && launchContext.reviewScheduleId() != null) {
+            ReviewScheduleEntity targetedSchedule = reviewScheduleMapper.selectById(launchContext.reviewScheduleId());
+            if (targetedSchedule != null
+                    && Objects.equals(targetedSchedule.getOwnerUserId(), session.getOwnerUserId())
+                    && ReviewScheduleStatus.PENDING.name().equals(targetedSchedule.getStatus())) {
+                pending = targetedSchedule;
+            }
+        }
+        if (pending == null) {
+            pending = reviewScheduleMapper.selectOne(Wrappers.<ReviewScheduleEntity>lambdaQuery()
+                    .eq(ReviewScheduleEntity::getOwnerUserId, session.getOwnerUserId())
+                    .eq(ReviewScheduleEntity::getLexicalPairId, pair.getId())
+                    .eq(ReviewScheduleEntity::getStatus, ReviewScheduleStatus.PENDING.name())
+                    .orderByAsc(ReviewScheduleEntity::getDueAt)
+                    .orderByAsc(ReviewScheduleEntity::getId)
+                    .last("LIMIT 1"));
+        }
         if (pending == null) {
             wrongBook.setMasteryStatus(WrongBookMasteryStatus.MASTERED.name());
             wrongBook.setNextReviewAt(null);
@@ -852,6 +857,81 @@ public class TrainingSessionService {
         );
     }
 
+    private TrainingQuestionItemVO toQuestionItemVO(
+            TrainingItemResultEntity itemResult,
+            TrainingPlanItemEntity planItem,
+            LexicalPairEntity pair
+    ) {
+        TrainingStimulusPayload stimulus = trainingJsonCodec.readStimulus(itemResult.getStimulusJson());
+        List<TrainingOptionViewVO> options = trainingJsonCodec.readOptions(itemResult.getOptionsJson()).stream()
+                .map(option -> new TrainingOptionViewVO(option.key(), option.label()))
+                .toList();
+        return new TrainingQuestionItemVO(
+                itemResult.getId(),
+                itemResult.getPlanItemId(),
+                itemResult.getMode(),
+                itemResult.getItemType(),
+                itemResult.getPresentationOrder(),
+                itemResult.getLexicalPairId(),
+                pair == null ? null : pair.getEnglishWord(),
+                pair == null ? null : pair.getFrenchWord(),
+                pair == null ? null : pair.getChineseGloss(),
+                pair == null ? null : pair.getLexicalPairType(),
+                pair == null ? null : new TrainingWordPairVO(
+                        pair.getEnglishWord(),
+                        pair.getFrenchWord(),
+                        pair.getChineseGloss(),
+                        frontendPairType(pair.getLexicalPairType())
+                ),
+                planItem == null ? null : planItem.getRecommendedDifficulty(),
+                itemResult.getCognitiveTag(),
+                new TrainingExerciseContentVO(
+                        stimulus.questionText(),
+                        options.stream().map(TrainingOptionViewVO::label).toList(),
+                        stimulus.explanation(),
+                        stimulus.contextSupportLevel(),
+                        stimulus.contextSentence()
+                ),
+                stimulus,
+                options
+        );
+    }
+
+    private TrainingItemResultDetailVO toItemResultDetailVO(
+            TrainingItemResultEntity itemResult,
+            TrainingPlanItemEntity planItem,
+            LexicalPairEntity pair
+    ) {
+        TrainingQuestionItemVO questionItem = toQuestionItemVO(itemResult, planItem, pair);
+        return new TrainingItemResultDetailVO(
+                questionItem.itemResultId(),
+                questionItem.planItemId(),
+                questionItem.presentationOrder(),
+                questionItem.mode(),
+                questionItem.itemType(),
+                questionItem.lexicalPairId(),
+                questionItem.englishWord(),
+                questionItem.frenchWord(),
+                questionItem.chineseGloss(),
+                questionItem.lexicalPairType(),
+                questionItem.wordPair(),
+                questionItem.difficultyLevel(),
+                questionItem.cognitiveTag(),
+                questionItem.content(),
+                questionItem.stimulus(),
+                questionItem.options(),
+                itemResult.getCorrectAnswerKey(),
+                itemResult.getSelectedAnswerKey(),
+                itemResult.getSubmittedAt(),
+                itemResult.getReactionTimeMs(),
+                itemResult.getHesitationTimeMs(),
+                itemResult.getIsCorrect(),
+                itemResult.getDetectedErrorType(),
+                itemResult.getReviewRequired(),
+                itemResult.getAdaptationAction()
+        );
+    }
+
     private TrainingPlanEntity requireAccessiblePlan(Long planId) {
         TrainingPlanEntity plan = trainingPlanMapper.selectById(planId);
         if (plan == null) {
@@ -911,6 +991,140 @@ public class TrainingSessionService {
         return itemResult;
     }
 
+    private TrainingSessionLaunchContext resolveLaunchContext(
+            TrainingPlanEntity plan,
+            StartTrainingSessionRequest request,
+            TrainingMode mode
+    ) {
+        if (request.diagnosisSummaryId() != null
+                && !Objects.equals(plan.getSourceDiagnosisSummaryId(), request.diagnosisSummaryId())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Training plan does not match the requested diagnosis summary", 409);
+        }
+
+        Long lexicalPairId = request.lexicalPairId();
+        if (request.wrongBookId() != null) {
+            WrongBookEntity wrongBook = requireAccessibleWrongBook(request.wrongBookId(), plan.getOwnerUserId());
+            lexicalPairId = mergeTargetLexicalPair(lexicalPairId, wrongBook.getLexicalPairId(), "wrongBook");
+        }
+        if (request.reviewScheduleId() != null) {
+            ReviewScheduleEntity reviewSchedule = requireAccessibleReviewSchedule(request.reviewScheduleId(), plan.getOwnerUserId());
+            if (!ReviewScheduleStatus.PENDING.name().equals(reviewSchedule.getStatus())) {
+                throw new BusinessException(ResultCode.CONFLICT, "Review schedule is no longer pending", 409);
+            }
+            if (!mode.name().equalsIgnoreCase(reviewSchedule.getReviewMode())) {
+                throw new BusinessException(ResultCode.CONFLICT, "Review schedule must be launched with its configured mode", 409);
+            }
+            lexicalPairId = mergeTargetLexicalPair(lexicalPairId, reviewSchedule.getLexicalPairId(), "reviewSchedule");
+            if (request.wrongBookId() != null && !Objects.equals(reviewSchedule.getWrongBookId(), request.wrongBookId())) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "reviewScheduleId does not belong to the provided wrongBookId", 400);
+            }
+        }
+
+        return new TrainingSessionLaunchContext(
+                blankToNull(request.launchSource()),
+                request.diagnosisSummaryId() == null ? plan.getSourceDiagnosisSummaryId() : request.diagnosisSummaryId(),
+                lexicalPairId,
+                request.wrongBookId(),
+                request.reviewScheduleId()
+        );
+    }
+
+    private Long mergeTargetLexicalPair(Long requestedLexicalPairId, Long sourceLexicalPairId, String sourceName) {
+        if (requestedLexicalPairId == null) {
+            return sourceLexicalPairId;
+        }
+        if (!Objects.equals(requestedLexicalPairId, sourceLexicalPairId)) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, sourceName + " does not match the provided lexicalPairId", 400);
+        }
+        return requestedLexicalPairId;
+    }
+
+    private WrongBookEntity requireAccessibleWrongBook(Long wrongBookId, Long ownerUserId) {
+        WrongBookEntity wrongBook = wrongBookMapper.selectById(wrongBookId);
+        if (wrongBook == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Wrong book item was not found", 404);
+        }
+        if (!Objects.equals(wrongBook.getOwnerUserId(), ownerUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "You do not have permission to access this wrong book item", 403);
+        }
+        return wrongBook;
+    }
+
+    private ReviewScheduleEntity requireAccessibleReviewSchedule(Long reviewScheduleId, Long ownerUserId) {
+        ReviewScheduleEntity reviewSchedule = reviewScheduleMapper.selectById(reviewScheduleId);
+        if (reviewSchedule == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Review schedule was not found", 404);
+        }
+        if (!Objects.equals(reviewSchedule.getOwnerUserId(), ownerUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "You do not have permission to access this review schedule", 403);
+        }
+        return reviewSchedule;
+    }
+
+    private List<TrainingPlanItemEntity> resolveSessionPlanItems(
+            TrainingPlanEntity plan,
+            TrainingMode mode,
+            TrainingSessionLaunchContext launchContext
+    ) {
+        List<TrainingPlanItemEntity> planItems = loadPlanItems(plan.getId(), mode);
+        if (launchContext == null || !launchContext.targeted()) {
+            return planItems;
+        }
+        List<TrainingPlanItemEntity> targetedItems = planItems.stream()
+                .filter(item -> Objects.equals(item.getLexicalPairId(), launchContext.lexicalPairId()))
+                .toList();
+        if (!targetedItems.isEmpty()) {
+            return targetedItems;
+        }
+        return List.of(ensureTargetPlanItem(plan, mode, launchContext));
+    }
+
+    private TrainingPlanItemEntity ensureTargetPlanItem(
+            TrainingPlanEntity plan,
+            TrainingMode mode,
+            TrainingSessionLaunchContext launchContext
+    ) {
+        TrainingPlanItemEntity existingModeItem = trainingPlanItemMapper.selectOne(Wrappers.<TrainingPlanItemEntity>lambdaQuery()
+                .eq(TrainingPlanItemEntity::getPlanId, plan.getId())
+                .eq(TrainingPlanItemEntity::getLexicalPairId, launchContext.lexicalPairId())
+                .eq(TrainingPlanItemEntity::getRecommendedMode, mode.name())
+                .orderByDesc(TrainingPlanItemEntity::getPriorityScore)
+                .orderByAsc(TrainingPlanItemEntity::getSortOrder)
+                .orderByAsc(TrainingPlanItemEntity::getId)
+                .last("LIMIT 1"));
+        if (existingModeItem != null) {
+            return existingModeItem;
+        }
+
+        TrainingPlanItemEntity referenceItem = trainingPlanItemMapper.selectOne(Wrappers.<TrainingPlanItemEntity>lambdaQuery()
+                .eq(TrainingPlanItemEntity::getPlanId, plan.getId())
+                .eq(TrainingPlanItemEntity::getLexicalPairId, launchContext.lexicalPairId())
+                .orderByDesc(TrainingPlanItemEntity::getPriorityScore)
+                .orderByAsc(TrainingPlanItemEntity::getSortOrder)
+                .orderByAsc(TrainingPlanItemEntity::getId)
+                .last("LIMIT 1"));
+        LexicalPairEntity pair = requireLexicalPair(launchContext.lexicalPairId());
+
+        TrainingPlanItemEntity syntheticItem = new TrainingPlanItemEntity();
+        syntheticItem.setPlanId(plan.getId());
+        syntheticItem.setLexicalPairId(launchContext.lexicalPairId());
+        syntheticItem.setRecommendedMode(mode.name());
+        syntheticItem.setRecommendedDifficulty(referenceItem == null ? plan.getRecommendedDifficulty() : referenceItem.getRecommendedDifficulty());
+        syntheticItem.setRiskLevel(referenceItem == null ? plan.getRiskLevel() : referenceItem.getRiskLevel());
+        syntheticItem.setPriorityScore(referenceItem == null ? BigDecimal.ONE : referenceItem.getPriorityScore());
+        syntheticItem.setRecommendedReason(referenceItem == null
+                ? "定向训练入口补充：" + pair.getEnglishWord() + " / " + pair.getFrenchWord()
+                : referenceItem.getRecommendedReason());
+        syntheticItem.setDominantErrorType(referenceItem == null ? null : referenceItem.getDominantErrorType());
+        syntheticItem.setTargetContextSupport(referenceItem == null ? pair.getDefaultContextSupport() : referenceItem.getTargetContextSupport());
+        syntheticItem.setExpectedExposures(referenceItem == null || referenceItem.getExpectedExposures() == null
+                ? 3
+                : Math.max(3, referenceItem.getExpectedExposures()));
+        syntheticItem.setSortOrder(nextSortOrder(plan.getId()));
+        trainingPlanItemMapper.insert(syntheticItem);
+        return syntheticItem;
+    }
+
     private List<TrainingPlanItemEntity> loadPlanItems(Long planId, TrainingMode mode) {
         List<TrainingPlanItemEntity> filtered = trainingPlanItemMapper.selectList(Wrappers.<TrainingPlanItemEntity>lambdaQuery()
                 .eq(TrainingPlanItemEntity::getPlanId, planId)
@@ -926,6 +1140,31 @@ public class TrainingSessionService {
                 .orderByDesc(TrainingPlanItemEntity::getPriorityScore)
                 .orderByAsc(TrainingPlanItemEntity::getSortOrder)
                 .orderByAsc(TrainingPlanItemEntity::getId));
+    }
+
+    private int nextSortOrder(Long planId) {
+        return trainingPlanItemMapper.selectList(Wrappers.<TrainingPlanItemEntity>lambdaQuery()
+                        .eq(TrainingPlanItemEntity::getPlanId, planId))
+                .stream()
+                .map(TrainingPlanItemEntity::getSortOrder)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0) + 1;
+    }
+
+    private int resolveTargetVolume(
+            List<TrainingPlanItemEntity> planItems,
+            String riskLevel,
+            TrainingSessionLaunchContext launchContext
+    ) {
+        if (launchContext != null && launchContext.targeted()) {
+            return Math.max(3, Math.min(5, planItems.stream()
+                    .map(TrainingPlanItemEntity::getExpectedExposures)
+                    .filter(Objects::nonNull)
+                    .max(Integer::compareTo)
+                    .orElse(3)));
+        }
+        return targetVolume(riskLevel);
     }
 
     private List<SessionPlanItem> expandPlanItems(List<TrainingPlanItemEntity> planItems, int targetVolume) {
@@ -985,6 +1224,15 @@ public class TrainingSessionService {
                         .orderByAsc(LexicalPairExampleEntity::getId))
                 .stream()
                 .collect(Collectors.groupingBy(LexicalPairExampleEntity::getLexicalPairSenseId, LinkedHashMap::new, Collectors.toList()));
+    }
+
+    private Map<Long, TrainingPlanItemEntity> loadPlanItemMap(Collection<Long> planItemIds) {
+        if (planItemIds.isEmpty()) {
+            return Map.of();
+        }
+        return trainingPlanItemMapper.selectBatchIds(new LinkedHashSet<>(planItemIds))
+                .stream()
+                .collect(Collectors.toMap(TrainingPlanItemEntity::getId, Function.identity()));
     }
 
     private List<TrainingItemResultEntity> listSessionItems(Long sessionId) {
@@ -1109,6 +1357,13 @@ public class TrainingSessionService {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported trainingMode: " + value, 400);
         }
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value;
     }
 
     private TrainingSessionProgressVO progressVO(TrainingSessionEntity session) {

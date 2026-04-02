@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record DiagnosisResultDetailVO(
+        Long summaryId,
         Long sessionId,
         String status,
         Long templateId,

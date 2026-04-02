@@ -117,9 +117,9 @@ public class TrainingPlanService {
     }
 
     @Transactional
-    public RecommendedTrainingPlanVO getRecommendedPlan() {
+    public RecommendedTrainingPlanVO getRecommendedPlan(Long diagnosisSummaryId) {
         Long userId = currentUserId();
-        LatestDiagnosisContext diagnosisContext = loadLatestDiagnosisContext(userId);
+        LatestDiagnosisContext diagnosisContext = loadDiagnosisContext(userId, diagnosisSummaryId);
         TrainingPlanEntity plan = trainingPlanMapper.selectOne(Wrappers.<TrainingPlanEntity>lambdaQuery()
                 .eq(TrainingPlanEntity::getOwnerUserId, userId)
                 .eq(TrainingPlanEntity::getSourceDiagnosisSummaryId, diagnosisContext.summary().getId()));
@@ -302,12 +302,23 @@ public class TrainingPlanService {
         );
     }
 
-    private LatestDiagnosisContext loadLatestDiagnosisContext(Long userId) {
-        DiagnosisSummaryEntity summary = diagnosisSummaryMapper.selectOne(Wrappers.<DiagnosisSummaryEntity>lambdaQuery()
-                .eq(DiagnosisSummaryEntity::getOwnerUserId, userId)
-                .orderByDesc(DiagnosisSummaryEntity::getGeneratedAt)
-                .orderByDesc(DiagnosisSummaryEntity::getId)
-                .last("LIMIT 1"));
+    private LatestDiagnosisContext loadDiagnosisContext(Long userId, Long diagnosisSummaryId) {
+        DiagnosisSummaryEntity summary;
+        if (diagnosisSummaryId != null) {
+            summary = diagnosisSummaryMapper.selectById(diagnosisSummaryId);
+            if (summary == null) {
+                throw new BusinessException(ResultCode.NOT_FOUND, "Diagnosis summary was not found", 404);
+            }
+            if (!Objects.equals(summary.getOwnerUserId(), userId)) {
+                throw new BusinessException(ResultCode.FORBIDDEN, "You do not have permission to access this diagnosis summary", 403);
+            }
+        } else {
+            summary = diagnosisSummaryMapper.selectOne(Wrappers.<DiagnosisSummaryEntity>lambdaQuery()
+                    .eq(DiagnosisSummaryEntity::getOwnerUserId, userId)
+                    .orderByDesc(DiagnosisSummaryEntity::getGeneratedAt)
+                    .orderByDesc(DiagnosisSummaryEntity::getId)
+                    .last("LIMIT 1"));
+        }
         if (summary == null) {
             throw new BusinessException(ResultCode.CONFLICT, "Please complete a diagnosis before requesting training recommendations", 409);
         }
@@ -432,6 +443,7 @@ public class TrainingPlanService {
                 pair == null ? null : pair.getFrenchWord(),
                 pair == null ? null : pair.getChineseGloss(),
                 pair == null ? null : pair.getLexicalPairType(),
+                resolveWrongBookMode(pair, wrongBook.getLastErrorType()),
                 wrongBook.getWrongCount(),
                 wrongBook.getLastErrorType(),
                 wrongBook.getMasteryStatus(),
@@ -500,6 +512,25 @@ public class TrainingPlanService {
             case SPEED_CHALLENGE -> "提速：快速识别";
             case COGNATE_BOOST -> "强化：正迁移促进";
         };
+    }
+
+    private String resolveWrongBookMode(LexicalPairEntity pair, String lastErrorType) {
+        if ("CONTEXT_IGNORED".equalsIgnoreCase(lastErrorType)) {
+            return TrainingMode.CONTEXT_FIX.name();
+        }
+        if ("UNDER_TRANSFER".equalsIgnoreCase(lastErrorType)) {
+            return TrainingMode.COGNATE_BOOST.name();
+        }
+        if (pair != null) {
+            LexicalPairType pairType = LexicalPairType.fromCode(pair.getLexicalPairType());
+            if (pairType == LexicalPairType.FALSE_FRIEND || pairType == LexicalPairType.ORTHOGRAPHIC_SIMILAR) {
+                return TrainingMode.FALSE_FRIEND_DISCRIM.name();
+            }
+            if (pairType == LexicalPairType.COGNATE || pairType == LexicalPairType.PARTIAL_COGNATE) {
+                return TrainingMode.COGNATE_BOOST.name();
+            }
+        }
+        return TrainingMode.CONTEXT_FIX.name();
     }
 
     private Long currentUserId() {

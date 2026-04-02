@@ -2,8 +2,21 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, PanelSkeleton } from '@/components/common';
+import { getApiErrorMessage } from '@/lib/api';
+import {
+  formatDateTime,
+  formatMaybePercent,
+  formatMs,
+  lexicalPairTypeLabel,
+} from '@/lib/format';
 import { diagnosisSessionService, trainingService } from '@/lib/services';
-import { formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
+import { buildTrainingHref } from '@/lib/training-launch';
+import type {
+  DiagnosisItemResultDetailVO,
+  DiagnosisOptionPayload,
+  TrainingItemResultDetailVO,
+  TrainingOptionViewVO,
+} from '@/lib/contracts';
 
 type HistoryTab = 'diagnosis' | 'training';
 
@@ -11,6 +24,90 @@ const pageSize = 10;
 
 function totalPages(total = 0): number {
   return Math.max(1, Math.ceil(total / pageSize));
+}
+
+function findDiagnosisOptionLabel(options: DiagnosisOptionPayload[], answerKey?: string | null) {
+  if (!answerKey) {
+    return null;
+  }
+  return options.find((option) => option.key === answerKey)?.label || answerKey;
+}
+
+function DiagnosisHistoryItemReviewCard({ item }: { item: DiagnosisItemResultDetailVO }) {
+  const selectedLabel = findDiagnosisOptionLabel(item.options, item.selectedAnswerKey);
+  const correctLabel = findDiagnosisOptionLabel(item.options, item.correctAnswerKey);
+
+  return (
+    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-black text-slate-900 dark:text-white">
+            {item.englishWord} / {item.frenchWord}
+          </div>
+          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+            {item.taskType} · {item.detectedErrorType} · {formatMs(item.reactionTimeMs)}
+          </div>
+          {(item.stimulus.promptText || item.stimulus.instruction || item.stimulus.contextSentence) && (
+            <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+              {item.stimulus.instruction && <div className="font-semibold">{item.stimulus.instruction}</div>}
+              {item.stimulus.promptText && <div className="mt-1">{item.stimulus.promptText}</div>}
+              {item.stimulus.contextSentence && <div className="mt-2 italic">{item.stimulus.contextSentence}</div>}
+            </div>
+          )}
+        </div>
+        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+          <div>{item.correct ? '答对' : '答错'}</div>
+          <div>{formatMaybePercent(item.itemScore)}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm text-slate-500 dark:text-white/45">
+        <div>你的答案：{selectedLabel || '未作答'}</div>
+        <div>正确答案：{correctLabel || '未返回'}</div>
+      </div>
+    </div>
+  );
+}
+
+function findTrainingOptionLabel(options: TrainingOptionViewVO[], answerKey?: string | null) {
+  if (!answerKey) {
+    return null;
+  }
+  return options.find((option) => option.key === answerKey)?.label || answerKey;
+}
+
+function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) {
+  const selectedLabel = findTrainingOptionLabel(item.options, item.selectedAnswerKey);
+  const correctLabel = findTrainingOptionLabel(item.options, item.correctAnswerKey);
+
+  return (
+    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-black text-slate-900 dark:text-white">
+            {item.englishWord} / {item.frenchWord}
+          </div>
+          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+            {item.mode} · {item.cognitiveTag} · {item.detectedErrorType || '已完成'}
+          </div>
+          <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+            <div className="font-semibold">{item.content.question}</div>
+            {item.content.sentence && <div className="mt-2 italic">{item.content.sentence}</div>}
+            {item.stimulus.explanation && <div className="mt-2">{item.stimulus.explanation}</div>}
+          </div>
+        </div>
+        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+          <div>{item.correct ? '答对' : '答错'}</div>
+          <div>{formatMs(item.reactionTimeMs)}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm text-slate-500 dark:text-white/45">
+        <div>你的答案：{selectedLabel || '未作答'}</div>
+        <div>正确答案：{correctLabel || '未返回'}</div>
+      </div>
+    </div>
+  );
 }
 
 const HistoryPage: React.FC = () => {
@@ -112,7 +209,7 @@ const HistoryPage: React.FC = () => {
 
       {activeTab === 'diagnosis' ? (
         <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-          <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-6">
+          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
               <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">filters</div>
               <select
@@ -130,7 +227,7 @@ const HistoryPage: React.FC = () => {
               <PanelSkeleton />
             ) : diagnosisHistoryQuery.error ? (
               <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {diagnosisHistoryQuery.error.message}
+                {getApiErrorMessage(diagnosisHistoryQuery.error)}
               </div>
             ) : !diagnosisData?.records.length ? (
               <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
@@ -210,7 +307,7 @@ const HistoryPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-6">
+          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">diagnosis detail</div>
             {selectedDiagnosisSessionId === null ? (
               <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
@@ -220,7 +317,7 @@ const HistoryPage: React.FC = () => {
               <PanelSkeleton />
             ) : diagnosisDetailQuery.error ? (
               <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {diagnosisDetailQuery.error.message}
+                {getApiErrorMessage(diagnosisDetailQuery.error)}
               </div>
             ) : diagnosisDetailQuery.data ? (
               <>
@@ -234,7 +331,14 @@ const HistoryPage: React.FC = () => {
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
-                      onClick={() => navigate('/training')}
+                      onClick={() =>
+                        navigate(
+                          buildTrainingHref({
+                            source: 'history-diagnosis',
+                            diagnosisSummaryId: diagnosisDetailQuery.data.summaryId,
+                          })
+                        )
+                      }
                       className="btn-liquid px-5 py-3 text-white"
                     >
                       基于结果开始训练
@@ -294,13 +398,23 @@ const HistoryPage: React.FC = () => {
                     <div className="text-sm text-slate-500 dark:text-white/45">本次没有高风险词对。</div>
                   )}
                 </div>
+                <div className="space-y-3">
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">题目回看</div>
+                  {diagnosisDetailQuery.data.items.length ? (
+                    diagnosisDetailQuery.data.items.map((item) => (
+                      <DiagnosisHistoryItemReviewCard key={item.itemResultId} item={item} />
+                    ))
+                  ) : (
+                    <div className="text-sm text-slate-500 dark:text-white/45">本次没有返回题目级结果。</div>
+                  )}
+                </div>
               </>
             ) : null}
           </section>
         </div>
       ) : (
         <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-          <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-6">
+          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
               <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">filters</div>
               <select
@@ -318,7 +432,7 @@ const HistoryPage: React.FC = () => {
               <PanelSkeleton />
             ) : trainingHistoryQuery.error ? (
               <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {trainingHistoryQuery.error.message}
+                {getApiErrorMessage(trainingHistoryQuery.error)}
               </div>
             ) : !trainingData?.records.length ? (
               <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
@@ -397,7 +511,7 @@ const HistoryPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-6">
+          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">training detail</div>
             {selectedTrainingSessionId === null ? (
               <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
@@ -407,7 +521,7 @@ const HistoryPage: React.FC = () => {
               <PanelSkeleton />
             ) : trainingDetailQuery.error ? (
               <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {trainingDetailQuery.error.message}
+                {getApiErrorMessage(trainingDetailQuery.error)}
               </div>
             ) : trainingDetailQuery.data ? (
               <>
@@ -420,7 +534,14 @@ const HistoryPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() =>
-                        navigate(`/training?mode=${encodeURIComponent(trainingDetailQuery.data.nextRecommendedMode)}&source=history`)
+                        navigate(
+                          trainingDetailQuery.data.nextRecommendedMode
+                            ? buildTrainingHref({
+                                mode: trainingDetailQuery.data.nextRecommendedMode,
+                                source: 'history-training',
+                              })
+                            : '/training'
+                        )
                       }
                       className="btn-liquid px-5 py-3 text-white"
                     >
@@ -473,6 +594,16 @@ const HistoryPage: React.FC = () => {
                     ))
                   ) : (
                     <div className="text-sm text-slate-500 dark:text-white/45">本次没有额外复习词对。</div>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">题目回看</div>
+                  {trainingDetailQuery.data.items.length ? (
+                    trainingDetailQuery.data.items.map((item) => (
+                      <TrainingHistoryItemReviewCard key={item.itemResultId} item={item} />
+                    ))
+                  ) : (
+                    <div className="text-sm text-slate-500 dark:text-white/45">本次没有返回题目级结果。</div>
                   )}
                 </div>
               </>
