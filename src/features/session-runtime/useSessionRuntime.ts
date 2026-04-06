@@ -90,7 +90,7 @@ export function useSessionRuntime<TNextItem>({
   const saveProgressManually = React.useCallback(
     async (options?: { onSuccess?: () => void; exitAfterSave?: boolean }) => {
       if (!active || !sessionId) {
-        return false;
+        return { status: 'failed' as const };
       }
 
       setIsSaving(true);
@@ -104,17 +104,20 @@ export function useSessionRuntime<TNextItem>({
           allowNavigationRef.current = true;
         }
         options?.onSuccess?.();
-        return true;
+        return { status: 'saved' as const };
       } catch (error) {
         const normalizedError = normalizeApiError(error);
         if (normalizedError.status === 409) {
           const completed = await resolveConflict();
           if (completed) {
-            return false;
+            if (options?.exitAfterSave) {
+              allowNavigationRef.current = true;
+            }
+            return { status: 'completed' as const };
           }
         }
         setSaveErrorMessage(getApiErrorMessage(error));
-        return false;
+        return { status: 'failed' as const };
       } finally {
         if (options?.exitAfterSave) {
           window.setTimeout(() => {
@@ -135,17 +138,18 @@ export function useSessionRuntime<TNextItem>({
     }
     const shouldLeave = window.confirm(resolvedMessages.leaveConfirm);
     if (shouldLeave) {
-      allowNavigationRef.current = true;
-      void saveSnapshotKeepalive().finally(() => {
-        blocker.proceed();
-        window.setTimeout(() => {
-          allowNavigationRef.current = false;
-        }, 0);
-      });
+      void (async () => {
+        const result = await saveProgressManually({ exitAfterSave: true });
+        if (result.status === 'saved' || result.status === 'completed') {
+          blocker.proceed();
+          return;
+        }
+        blocker.reset();
+      })();
       return;
     }
     blocker.reset();
-  }, [blocker, resolvedMessages.leaveConfirm, saveSnapshotKeepalive]);
+  }, [blocker, resolvedMessages.leaveConfirm, saveProgressManually]);
 
   useBeforeUnload(
     React.useCallback(

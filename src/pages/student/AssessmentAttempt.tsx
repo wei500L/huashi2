@@ -4,10 +4,11 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Save, Send } from 'luc
 import { useBeforeUnload, useBlocker } from 'react-router';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
-import { getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 import type { AssessmentAttemptDetailVO, AssessmentAttemptQuestionVO } from '@/lib/contracts';
+import { enqueueSerializedTask } from '@/features/assessment/saveQueue';
 
 function formatRemaining(remainingMs: number) {
   if (remainingMs <= 0) {
@@ -79,6 +80,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const autoSaveTimerRef = React.useRef<number | null>(null);
   const skipAutosaveRef = React.useRef(true);
   const latestSaveRequestRef = React.useRef(0);
+  const saveQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
   const detailQuery = useQuery({
     queryKey: ['student-assessment-attempt', attemptId],
@@ -138,6 +140,19 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const canEdit = detail?.status === 'IN_PROGRESS' && !submitLocked;
   const shouldWarnBeforeLeave = detail?.status === 'IN_PROGRESS' && !submitLocked;
 
+  const navigateToResult = React.useCallback(
+    (nextAttemptId: number) => {
+      allowNavigationRef.current = true;
+      navigate(`/assessments/attempts/${nextAttemptId}/result`, { replace: true });
+    },
+    [navigate]
+  );
+
+  const resolveSubmittedAttempt = React.useCallback(async () => {
+    const refreshed = await detailQuery.refetch();
+    return refreshed.data?.status === 'SUBMITTED' ? refreshed.data : null;
+  }, [detailQuery]);
+
   const persistResponses = React.useCallback(
     async (
       mode: PersistMode,
@@ -152,50 +167,61 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       }
 
       const requestId = ++latestSaveRequestRef.current;
-      if (!options?.keepalive) {
-        setIsSaving(true);
-        setSaveErrorMessage(null);
-        if (!options?.silentSuccess) {
-          setSaveNotice(mode === 'manual' ? '正在保存答案...' : '正在自动保存答案...');
-        }
-      }
-
-      try {
-        const payload = buildSavePayload(detail, snapshot);
-        const progress = options?.keepalive
-          ? await assessmentService.saveStudentResponsesKeepalive(attemptId, payload)
-          : await assessmentService.saveStudentResponses(attemptId, payload);
-
-        if (options?.keepalive || requestId === latestSaveRequestRef.current) {
-          setAnsweredCount(progress.answeredCount);
-          setLastSavedAt(progress.lastSavedAt || null);
+      return enqueueSerializedTask(saveQueueRef, async () => {
+        if (!options?.keepalive) {
+          setIsSaving(true);
+          setSaveErrorMessage(null);
           if (!options?.silentSuccess) {
             setSaveNotice(
               mode === 'manual'
-                ? '答案已保存。'
-                : progress.lastSavedAt
-                  ? `已自动保存于 ${formatDateTime(progress.lastSavedAt)}`
-                  : '答案已自动保存。'
+                ? '正在保存答案...'
+                : '正在自动保存答案...'
             );
           }
         }
 
-        if (mode === 'manual') {
-          await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
-          await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
+        try {
+          const payload = buildSavePayload(detail, snapshot);
+          const progress = options?.keepalive
+            ? await assessmentService.saveStudentResponsesKeepalive(attemptId, payload)
+            : await assessmentService.saveStudentResponses(attemptId, payload);
+
+          if (options?.keepalive || requestId === latestSaveRequestRef.current) {
+            setAnsweredCount(progress.answeredCount);
+            setLastSavedAt(progress.lastSavedAt || null);
+            if (!options?.silentSuccess) {
+              setSaveNotice(
+                mode === 'manual'
+                  ? '答案已保存。'
+                  : progress.lastSavedAt
+                    ? `已自动保存于 ${formatDateTime(progress.lastSavedAt)}`
+                    : '答案已自动保存。'
+              );
+            }
+          }
+
+          if (mode === 'manual') {
+            await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
+            await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
+          }
+          return progress;
+        } catch (error) {
+          if (!options?.keepalive && requestId === latestSaveRequestRef.current) {
+            setSaveNotice(null);
+            setSaveErrorMessage(
+              getApiErrorMessage(
+                error,
+                mode === 'manual' ? '保存答案失败' : mode === 'background' ? '离开前保存失败，请先手动保存后再离开。' : '自动保存失败'
+              )
+            );
+          }
+          throw error;
+        } finally {
+          if (!options?.keepalive && requestId === latestSaveRequestRef.current) {
+            setIsSaving(false);
+          }
         }
-        return progress;
-      } catch (error) {
-        if (!options?.keepalive && requestId === latestSaveRequestRef.current) {
-          setSaveNotice(null);
-          setSaveErrorMessage(getApiErrorMessage(error, mode === 'manual' ? '保存答案失败' : '自动保存失败'));
-        }
-        throw error;
-      } finally {
-        if (!options?.keepalive && requestId === latestSaveRequestRef.current) {
-          setIsSaving(false);
-        }
-      }
+      });
     },
     [attemptId, detail, queryClient, submitLocked]
   );
@@ -222,9 +248,16 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
         await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
         await queryClient.invalidateQueries({ queryKey: ['student-assessment-attempt', attemptId] });
-        allowNavigationRef.current = true;
-        navigate(`/assessments/attempts/${result.attemptId}/result`, { replace: true });
+        navigateToResult(result.attemptId);
       } catch (error) {
+        const submittedAttempt = normalizeApiError(error).status === 409 ? await resolveSubmittedAttempt() : null;
+        if (submittedAttempt) {
+          await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
+          await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
+          navigateToResult(submittedAttempt.attemptId);
+          return;
+        }
+        setSubmitLocked(false);
         setIsSubmitting(false);
         setSaveNotice(null);
         setSubmitErrorMessage(
@@ -235,16 +268,15 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         );
       }
     },
-    [attemptId, detail, navigate, persistResponses, queryClient, responsesByOrder]
+    [attemptId, detail, navigateToResult, persistResponses, queryClient, resolveSubmittedAttempt, responsesByOrder]
   );
 
   React.useEffect(() => {
     if (detail?.status !== 'SUBMITTED') {
       return;
     }
-    allowNavigationRef.current = true;
-    navigate(`/assessments/attempts/${detail.attemptId}/result`, { replace: true });
-  }, [detail?.attemptId, detail?.status, navigate]);
+    navigateToResult(detail.attemptId);
+  }, [detail?.attemptId, detail?.status, navigateToResult]);
 
   React.useEffect(() => {
     if (!detail || detail.status !== 'IN_PROGRESS' || submitLocked) {
@@ -283,19 +315,31 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     }
     const shouldLeave = window.confirm('当前测评仍在进行中。离开页面前会尝试自动保存，确认离开吗？');
     if (shouldLeave) {
-      allowNavigationRef.current = true;
-      void persistResponses('background', responsesByOrder, { keepalive: true, silentSuccess: true })
-        .catch(() => undefined)
-        .finally(() => {
+      void (async () => {
+        try {
+          await persistResponses('background', responsesByOrder, { silentSuccess: true });
+          allowNavigationRef.current = true;
           blocker.proceed();
           window.setTimeout(() => {
             allowNavigationRef.current = false;
           }, 0);
-        });
+        } catch (error) {
+          const submittedAttempt = normalizeApiError(error).status === 409 ? await resolveSubmittedAttempt() : null;
+          if (submittedAttempt) {
+            allowNavigationRef.current = true;
+            blocker.proceed();
+            window.setTimeout(() => {
+              allowNavigationRef.current = false;
+            }, 0);
+            return;
+          }
+          blocker.reset();
+        }
+      })();
       return;
     }
     blocker.reset();
-  }, [blocker, persistResponses, responsesByOrder]);
+  }, [blocker, persistResponses, resolveSubmittedAttempt, responsesByOrder]);
 
   useBeforeUnload(
     React.useCallback(

@@ -229,7 +229,7 @@ public class TeacherWorkspaceService {
                         .orderByDesc(AssessmentPublishEntity::getPublishedAt)
                         .orderByDesc(AssessmentPublishEntity::getId));
         List<AssessmentPublishEntity> activeAssessmentPublishes = assessmentPublishes.stream()
-                .filter(publish -> publish.getDueAt() == null || publish.getDueAt().isAfter(now))
+                .filter(publish -> isPublishActive(publish, now))
                 .toList();
         Map<Long, Integer> assignedCountByPublishId = loadAssessmentAssignedCountMap(assessmentPublishes.stream()
                 .map(AssessmentPublishEntity::getId)
@@ -354,6 +354,12 @@ public class TeacherWorkspaceService {
                 submittedCount,
                 Math.max(0, assignedCount - submittedCount)
         );
+    }
+
+    private boolean isPublishActive(AssessmentPublishEntity publish, LocalDateTime now) {
+        boolean started = publish.getStartsAt() == null || !publish.getStartsAt().isAfter(now);
+        boolean notClosed = publish.getDueAt() == null || publish.getDueAt().isAfter(now);
+        return started && notClosed;
     }
 
     private TeacherWorkspaceClassActivityVO toClassActivity(

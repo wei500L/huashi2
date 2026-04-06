@@ -53,6 +53,7 @@ import com.huashi.eftransfer.shared.enums.AssessmentQuestionType;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.page.PageQuery;
 import com.huashi.eftransfer.shared.page.PageResult;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -331,15 +332,9 @@ public class AssessmentService {
         Long studentUserId = currentUserId();
         AssessmentPublishEntity publish = requireAccessiblePublishForStudent(publishId, studentUserId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity existingAttempt = loadAttemptByPublishAndStudent(publishId, studentUserId);
-        if (existingAttempt != null) {
-            existingAttempt = finalizeExpiredAttemptIfNecessary(existingAttempt, publish, now);
-            return new AssessmentAttemptStartVO(
-                    existingAttempt.getId(),
-                    publishId,
-                    existingAttempt.getStatus(),
-                    true
-            );
+        AssessmentAttemptStartVO resumedAttempt = resumeExistingAttempt(publish, studentUserId, now);
+        if (resumedAttempt != null) {
+            return resumedAttempt;
         }
 
         requirePublishAvailableForStart(publish, now);
@@ -359,7 +354,15 @@ public class AssessmentService {
         attempt.setObjectiveScore(0);
         attempt.setTotalScore(0);
         attempt.setLastSavedAt(now);
-        assessmentAttemptMapper.insert(attempt);
+        try {
+            assessmentAttemptMapper.insert(attempt);
+        } catch (DataIntegrityViolationException exception) {
+            AssessmentAttemptStartVO concurrentAttempt = resumeExistingAttempt(publish, studentUserId, now);
+            if (concurrentAttempt != null) {
+                return concurrentAttempt;
+            }
+            throw exception;
+        }
 
         int questionOrder = 1;
         for (AssessmentQuestionEntity question : questions) {
@@ -870,6 +873,9 @@ public class AssessmentService {
                     .map(this::normalizeOptionalText)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (values.size() > 1) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Fill blank question accepts only one response", 400);
+            }
             return List.copyOf(values);
         }
 
@@ -901,13 +907,14 @@ public class AssessmentService {
             List<String> correctAnswers
     ) {
         if (questionType == AssessmentQuestionType.FILL_BLANK) {
-            Set<String> responseSet = normalizedResponses.stream()
-                    .map(value -> value.trim().toLowerCase(Locale.ROOT))
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
             Set<String> correctSet = correctAnswers.stream()
-                    .map(value -> value.trim().toLowerCase(Locale.ROOT))
+                    .map(this::normalizeFillBlankValue)
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
-            return responseSet.equals(correctSet);
+            return normalizedResponses.stream()
+                    .map(this::normalizeFillBlankValue)
+                    .filter(Objects::nonNull)
+                    .anyMatch(correctSet::contains);
         }
         return new LinkedHashSet<>(normalizedResponses).equals(new LinkedHashSet<>(correctAnswers));
     }
@@ -1129,6 +1136,24 @@ public class AssessmentService {
                 .last("LIMIT 1"));
     }
 
+    private AssessmentAttemptStartVO resumeExistingAttempt(
+            AssessmentPublishEntity publish,
+            Long studentUserId,
+            LocalDateTime now
+    ) {
+        AssessmentAttemptEntity existingAttempt = loadAttemptByPublishAndStudent(publish.getId(), studentUserId);
+        if (existingAttempt == null) {
+            return null;
+        }
+        AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(existingAttempt, publish, now);
+        return new AssessmentAttemptStartVO(
+                effectiveAttempt.getId(),
+                publish.getId(),
+                effectiveAttempt.getStatus(),
+                true
+        );
+    }
+
     private AttemptBundle requireAccessibleAttempt(Long attemptId) {
         AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectById(attemptId);
         if (attempt == null) {
@@ -1286,6 +1311,11 @@ public class AssessmentService {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeFillBlankValue(String value) {
+        String normalized = normalizeOptionalText(value);
+        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
     }
 
     private String generatePaperCode() {
