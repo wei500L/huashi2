@@ -81,7 +81,7 @@ const TeacherTemplatesPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader
         title="诊断模板"
-        subtitle="模板工作流现在面向教师执行：先建草稿，再按 4 步编辑、预览和发布；JSON 仅保留为高级模式兜底。"
+        subtitle="在这里沉淀可复用的诊断模板，快速整理草稿、完善题项内容，并发布给后续教学场景直接使用。"
         actions={
           <div className="flex flex-wrap gap-3">
             <Link
@@ -108,20 +108,19 @@ const TeacherTemplatesPage: React.FC = () => {
 
       {source && (
         <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
-          当前从教师工作台进入，页面会保留上下文参数。你可以直接创建草稿，或打开已有草稿继续推进发布流程。
+          已从教师工作台带入相关信息。你可以直接创建新草稿，或继续完善已有模板，减少重复操作。
         </div>
       )}
 
       {wantsCreateDraft && (
         <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
-          教师工作台建议你先创建一份模板草稿。系统不会自动生成资源，但会把“新建草稿”作为当前主动作保留下来。
+          建议先新建一份模板草稿，先搭好诊断结构，再逐步补充词对、题项和说明内容。
         </div>
       )}
 
       {pairId && (
         <div className="rounded-[1.8rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
-          当前带入了词对上下文：创建或打开草稿后会自动定位到“词对选择”步骤，并直接插入对应词对，不再要求先记住 Pair 编号。当前 Pair #
-          {pairId}。
+          已带入词对信息。创建或打开草稿后，你可以直接围绕这组词对继续完善模板内容。当前 Pair #{pairId}。
         </div>
       )}
 
@@ -141,7 +140,7 @@ const TeacherTemplatesPage: React.FC = () => {
           <div>
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">drafts</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">草稿列表</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">草稿会保存结构化 schema，支持继续编辑、校验和发布。</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">在这里继续完善未完成的模板，随时补充内容并准备发布。</div>
           </div>
 
           <div className="space-y-4">
@@ -199,7 +198,7 @@ const TeacherTemplatesPage: React.FC = () => {
 
             {!draftsQuery.isLoading && !(draftsQuery.data?.records || []).length && (
               <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
-                当前还没有草稿。建议先创建一个空白草稿，再按 4 步补齐信息。
+                当前还没有草稿。先创建一个空白草稿，把模板名称、词对和题项内容逐步补齐即可。
               </div>
             )}
           </div>
@@ -209,7 +208,7 @@ const TeacherTemplatesPage: React.FC = () => {
           <div>
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">published</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">已发布模板</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">发布模板不再直接原地编辑，先生成草稿副本再修改。</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看已经可用的模板，并基于现有内容快速生成新版草稿继续优化。</div>
           </div>
 
           <div className="space-y-4">

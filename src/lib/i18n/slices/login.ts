@@ -5,9 +5,9 @@ export const loginSlice: TranslationSlice = {
     login: {
       badge: 'EF.Transfer',
       title: '英法词汇迁移教学工作台',
-      subtitle: '面向教师个人工作流的入口。你可以在同一套系统里完成风险诊断、词汇内容组织和教学干预闭环，管理员入口仍按权限保留。',
+      subtitle: '登录后即可继续完成学生风险诊断、词汇内容整理和教学跟进，让备课与干预安排保持在同一条工作线上。',
       accountLogin: '账号登录',
-      accountLoginTitle: '使用真实 JWT 会话登录',
+      accountLoginTitle: '登录后继续你的教学工作',
       usernameLabel: '用户名或邮箱',
       usernamePlaceholder: '输入用户名或邮箱',
       passwordLabel: '密码',
@@ -39,9 +39,9 @@ export const loginSlice: TranslationSlice = {
     login: {
       badge: 'EF.Transfer',
       title: 'English-French lexical transfer teaching workspace',
-      subtitle: 'A teacher-first entry point for diagnosis, lexical-content operations, and intervention follow-through. Admin access still remains available by capability.',
+      subtitle: 'Sign in to continue student risk diagnosis, lexical content planning, and teaching follow-through in one connected workflow.',
       accountLogin: 'Account Login',
-      accountLoginTitle: 'Sign in with a real JWT session',
+      accountLoginTitle: 'Continue your teaching workflow',
       usernameLabel: 'Username or email',
       usernamePlaceholder: 'Enter username or email',
       passwordLabel: 'Password',

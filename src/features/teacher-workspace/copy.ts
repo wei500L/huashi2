@@ -38,13 +38,63 @@ function getSummary(overview?: TeacherWorkspaceOverviewVO | null): TeacherWorksp
   return overview?.summary || null;
 }
 
-export function buildTeacherWorkspaceFocusItems(
+function buildTeacherWorkspaceSteadyStateItem(
+  t: TFunction,
+  overview?: TeacherWorkspaceOverviewVO | null
+): WorkspaceFocusItem {
+  const firstClass = overview?.recentClasses[0];
+  const firstDraft = overview?.draftTemplates[0];
+  const steadyStatePath = firstDraft
+    ? `/teacher/diagnosis-template-drafts/${firstDraft.draftId}`
+    : firstClass
+      ? `/teacher/classes/${firstClass.classId}`
+      : '/teacher/classes';
+
+  return {
+    id: 'steady-state',
+    title: t(
+      firstDraft
+        ? 'teacherWorkspace.generated.onboarding.steadyState.draftTitle'
+        : 'teacherWorkspace.generated.onboarding.steadyState.classTitle'
+    ),
+    description: t(
+      firstDraft
+        ? 'teacherWorkspace.generated.onboarding.steadyState.draftDescription'
+        : 'teacherWorkspace.generated.onboarding.steadyState.classDescription'
+    ),
+    actionLabel: t(
+      firstDraft
+        ? 'teacherWorkspace.generated.onboarding.steadyState.draftActionLabel'
+        : 'teacherWorkspace.generated.onboarding.steadyState.classActionLabel'
+    ),
+    to: buildWorkspaceLink(steadyStatePath, {
+      step: firstDraft ? 4 : undefined,
+      source: 'workspace',
+    }),
+    tone: 'stable',
+  };
+}
+
+export function buildTeacherWorkspaceTodoItems(
   t: TFunction,
   overview?: TeacherWorkspaceOverviewVO | null
 ): WorkspaceFocusItem[] {
   const summary = getSummary(overview);
   if (!summary) {
     return [];
+  }
+
+  if (summary.classCount <= 0) {
+    return [
+      {
+        id: 'classes-empty',
+        title: t('teacherWorkspace.generated.focus.classesEmpty.title'),
+        description: t('teacherWorkspace.generated.focus.classesEmpty.description'),
+        to: buildWorkspaceLink('/teacher/classes', { source: 'workspace-onboarding' }),
+        actionLabel: t('teacherWorkspace.generated.focus.classesEmpty.actionLabel'),
+        tone: 'attention',
+      },
+    ];
   }
 
   const items: WorkspaceFocusItem[] = [];
@@ -121,17 +171,6 @@ export function buildTeacherWorkspaceFocusItems(
     });
   }
 
-  if (summary.assessmentPaperCount <= 0) {
-    items.push({
-      id: 'assessments-empty',
-      title: t('teacherWorkspace.generated.focus.assessmentsEmpty.title'),
-      description: t('teacherWorkspace.generated.focus.assessmentsEmpty.description'),
-      to: buildWorkspaceLink('/teacher/assessments/new', { source: 'workspace-onboarding' }),
-      actionLabel: t('teacherWorkspace.generated.focus.assessmentsEmpty.actionLabel'),
-      tone: 'action',
-    });
-  }
-
   if (summary.pendingImportBatchCount > 0) {
     items.push({
       id: 'imports',
@@ -148,78 +187,76 @@ export function buildTeacherWorkspaceFocusItems(
     });
   }
 
-  if (summary.lexicalListCount <= 0) {
+  if (summary.draftTemplateCount > 0) {
+    if (summary.lexicalListCount <= 0) {
+      items.push({
+        id: 'lists-empty',
+        title: t('teacherWorkspace.generated.focus.listsEmpty.title'),
+        description: t('teacherWorkspace.generated.focus.listsEmpty.description'),
+        to: buildWorkspaceLink('/teacher/lexical-lists', {
+          intent: 'create-list',
+          source: 'workspace-onboarding',
+        }),
+        actionLabel: t('teacherWorkspace.generated.focus.listsEmpty.actionLabel'),
+        tone: 'action',
+      });
+    } else if (items.length < 3) {
+      items.push({
+        id: 'lists-existing',
+        title: t('teacherWorkspace.generated.focus.listsExisting.title'),
+        description: t('teacherWorkspace.generated.focus.listsExisting.description', {
+          count: summary.lexicalListCount,
+        }),
+        to: buildWorkspaceLink('/teacher/lexical-lists', {
+          listId: firstLexicalList?.id,
+          source: 'workspace',
+        }),
+        actionLabel: t('teacherWorkspace.generated.focus.listsExisting.actionLabel'),
+        tone: 'stable',
+      });
+    }
+  }
+
+  if (summary.assessmentPaperCount <= 0) {
     items.push({
-      id: 'lists-empty',
-      title: t('teacherWorkspace.generated.focus.listsEmpty.title'),
-      description: t('teacherWorkspace.generated.focus.listsEmpty.description'),
-      to: buildWorkspaceLink('/teacher/lexical-lists', {
-        intent: 'create-list',
-        source: 'workspace-onboarding',
-      }),
-      actionLabel: t('teacherWorkspace.generated.focus.listsEmpty.actionLabel'),
+      id: 'assessments-empty',
+      title: t('teacherWorkspace.generated.focus.assessmentsEmpty.title'),
+      description: t('teacherWorkspace.generated.focus.assessmentsEmpty.description'),
+      to: buildWorkspaceLink('/teacher/assessments/new', { source: 'workspace-onboarding' }),
+      actionLabel: t('teacherWorkspace.generated.focus.assessmentsEmpty.actionLabel'),
       tone: 'action',
     });
-  } else {
-    items.push({
-      id: 'lists-existing',
-      title: t('teacherWorkspace.generated.focus.listsExisting.title'),
-      description: t('teacherWorkspace.generated.focus.listsExisting.description', {
-        count: summary.lexicalListCount,
-      }),
-      to: buildWorkspaceLink('/teacher/lexical-lists', {
-        listId: firstLexicalList?.id,
-        source: 'workspace',
-      }),
-      actionLabel: t('teacherWorkspace.generated.focus.listsExisting.actionLabel'),
-      tone: 'stable',
-    });
   }
 
-  if (summary.classCount <= 0) {
-    items.push({
-      id: 'classes-empty',
-      title: t('teacherWorkspace.generated.focus.classesEmpty.title'),
-      description: t('teacherWorkspace.generated.focus.classesEmpty.description'),
-      to: buildWorkspaceLink('/teacher/classes', { source: 'workspace-onboarding' }),
-      actionLabel: t('teacherWorkspace.generated.focus.classesEmpty.actionLabel'),
-      tone: 'attention',
-    });
+  if (!items.length) {
+    items.push(buildTeacherWorkspaceSteadyStateItem(t, overview));
   }
 
-  return items.slice(0, 4);
+  return items.slice(0, 6);
 }
 
-export function buildTeacherWorkspaceOnboardingItems(
+export function buildTeacherWorkspaceOnboardingCard(
   t: TFunction,
   overview?: TeacherWorkspaceOverviewVO | null
-): WorkspaceFocusItem[] {
+): WorkspaceFocusItem | null {
   const summary = getSummary(overview);
   if (!summary) {
-    return [];
+    return null;
   }
 
   if (summary.classCount <= 0) {
-    return [
-      {
-        id: 'setup-classes',
-        title: t('teacherWorkspace.generated.onboarding.setupClasses.title'),
-        description: t('teacherWorkspace.generated.onboarding.setupClasses.description'),
-        actionLabel: t('teacherWorkspace.generated.onboarding.setupClasses.actionLabel'),
-        to: buildWorkspaceLink('/teacher/classes', { source: 'workspace-onboarding' }),
-        tone: 'attention',
-      },
-    ];
+    return {
+      id: 'setup-classes',
+      title: t('teacherWorkspace.generated.onboarding.setupClasses.title'),
+      description: t('teacherWorkspace.generated.onboarding.setupClasses.description'),
+      actionLabel: t('teacherWorkspace.generated.onboarding.setupClasses.actionLabel'),
+      to: buildWorkspaceLink('/teacher/classes', { source: 'workspace-onboarding' }),
+      tone: 'attention',
+    };
   }
 
-  const items: WorkspaceFocusItem[] = [];
-  const firstClass = overview?.recentClasses[0];
-  const firstDraft = overview?.draftTemplates[0];
-  const firstIntervention = overview?.pendingInterventions[0];
-  const firstAssessmentPublish = overview?.recentAssessmentPublishes[0];
-
   if (summary.draftTemplateCount <= 0) {
-    items.push({
+    return {
       id: 'setup-draft',
       title: t('teacherWorkspace.generated.onboarding.setupDraft.title'),
       description: t('teacherWorkspace.generated.onboarding.setupDraft.description'),
@@ -229,9 +266,11 @@ export function buildTeacherWorkspaceOnboardingItems(
         source: 'workspace-onboarding',
       }),
       tone: 'action',
-    });
-  } else if (summary.lexicalListCount <= 0) {
-    items.push({
+    };
+  }
+
+  if (summary.lexicalListCount <= 0) {
+    return {
       id: 'setup-list',
       title: t('teacherWorkspace.generated.onboarding.setupList.title'),
       description: t('teacherWorkspace.generated.onboarding.setupList.description'),
@@ -241,105 +280,36 @@ export function buildTeacherWorkspaceOnboardingItems(
         source: 'workspace-onboarding',
       }),
       tone: 'action',
-    });
+    };
   }
 
-  if (summary.pendingImportBatchCount > 0) {
-    items.push({
-      id: 'triage-imports',
-      title: t('teacherWorkspace.generated.onboarding.triageImports.title'),
-      description: t('teacherWorkspace.generated.onboarding.triageImports.description', {
-        count: summary.pendingImportBatchCount,
-      }),
-      actionLabel: t('teacherWorkspace.generated.onboarding.triageImports.actionLabel'),
-      to: buildWorkspaceLink('/teacher/lexical-pairs/imports', {
-        view: 'pending',
-        source: 'workspace-onboarding',
-      }),
-      tone: 'attention',
-    });
-  }
-
-  if (summary.pendingInterventionCount > 0) {
-    items.push({
-      id: 'triage-interventions',
-      title: t('teacherWorkspace.generated.onboarding.triageInterventions.title'),
-      description: t('teacherWorkspace.generated.onboarding.triageInterventions.description', {
-        count: summary.pendingInterventionCount,
-      }),
-      actionLabel: t('teacherWorkspace.generated.onboarding.triageInterventions.actionLabel'),
-      to: buildWorkspaceLink('/teacher/interventions', {
-        view: 'pending',
-        focusId: firstIntervention?.id,
-        classId: firstIntervention?.classId,
-        studentUserId: firstIntervention?.studentUserId,
-        source: 'workspace-onboarding',
-      }),
-      tone: 'attention',
-    });
-  }
-
-  if (summary.pendingAssessmentSubmissionCount > 0) {
-    items.push({
-      id: 'triage-assessments',
-      title: t('teacherWorkspace.generated.onboarding.triageAssessments.title'),
-      description: t('teacherWorkspace.generated.onboarding.triageAssessments.description', {
-        count: summary.pendingAssessmentSubmissionCount,
-      }),
-      actionLabel: t('teacherWorkspace.generated.onboarding.triageAssessments.actionLabel'),
-      to: buildWorkspaceLink(
-        firstAssessmentPublish
-          ? `/teacher/assessments/publishes/${firstAssessmentPublish.publishId}`
-          : '/teacher/assessments',
-        { source: 'workspace-onboarding' }
-      ),
-      tone: 'attention',
-    });
-  }
-
-  if (!items.length && summary.assessmentPaperCount <= 0) {
-    items.push({
+  if (summary.assessmentPaperCount <= 0) {
+    return {
       id: 'setup-assessment',
       title: t('teacherWorkspace.generated.onboarding.setupAssessment.title'),
       description: t('teacherWorkspace.generated.onboarding.setupAssessment.description'),
       actionLabel: t('teacherWorkspace.generated.onboarding.setupAssessment.actionLabel'),
       to: buildWorkspaceLink('/teacher/assessments/new', { source: 'workspace-onboarding' }),
       tone: 'action',
-    });
+    };
   }
 
-  if (!items.length) {
-    const steadyStatePath = firstDraft
-      ? `/teacher/diagnosis-template-drafts/${firstDraft.draftId}`
-      : firstClass
-        ? `/teacher/classes/${firstClass.classId}`
-        : '/teacher/classes';
-    items.push({
-      id: 'steady-state',
-      title: t(
-        firstDraft
-          ? 'teacherWorkspace.generated.onboarding.steadyState.draftTitle'
-          : 'teacherWorkspace.generated.onboarding.steadyState.classTitle'
-      ),
-      description: t(
-        firstDraft
-          ? 'teacherWorkspace.generated.onboarding.steadyState.draftDescription'
-          : 'teacherWorkspace.generated.onboarding.steadyState.classDescription'
-      ),
-      actionLabel: t(
-        firstDraft
-          ? 'teacherWorkspace.generated.onboarding.steadyState.draftActionLabel'
-          : 'teacherWorkspace.generated.onboarding.steadyState.classActionLabel'
-      ),
-      to: buildWorkspaceLink(steadyStatePath, {
-        step: firstDraft ? 4 : undefined,
-        source: 'workspace',
-      }),
-      tone: 'stable',
-    });
-  }
+  return null;
+}
 
-  return items.slice(0, 3);
+export function buildTeacherWorkspaceFocusItems(
+  t: TFunction,
+  overview?: TeacherWorkspaceOverviewVO | null
+): WorkspaceFocusItem[] {
+  return buildTeacherWorkspaceTodoItems(t, overview);
+}
+
+export function buildTeacherWorkspaceOnboardingItems(
+  t: TFunction,
+  overview?: TeacherWorkspaceOverviewVO | null
+): WorkspaceFocusItem[] {
+  const card = buildTeacherWorkspaceOnboardingCard(t, overview);
+  return card ? [card] : [];
 }
 
 export function buildTeacherWorkspaceEmptyState(

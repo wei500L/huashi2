@@ -6,7 +6,18 @@ import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, StatCard } from '@/components/common';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
-import { buildRadarOption, buildTrendOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
+import {
+  assessmentAttemptStatusLabel,
+  buildRadarOption,
+  buildTrendOption,
+  errorTypeLabel,
+  formatDateTime,
+  formatMaybePercent,
+  formatMs,
+  lexicalPairTypeLabel,
+  riskLevelLabel,
+  trainingModeLabel,
+} from '@/lib/format';
 import { assessmentService, studentService, trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
 import type { StudentAssessmentSummaryVO } from '@/lib/contracts';
@@ -137,10 +148,10 @@ const DashboardPage: React.FC = () => {
           <div className="max-w-3xl">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">学生画像</div>
             <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900 dark:text-white md:text-5xl">
-              {overview?.studentName || '加载中'}，当前主风险为 {overview?.primaryRiskLevel || '--'}
+              {overview?.studentName || '加载中'}，当前主风险为 {riskLevelLabel(overview?.primaryRiskLevel)}
             </h1>
             <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">
-              推荐训练模式：{overview?.recommendedTrainingMode || '--'}。最近活跃时间 {formatDateTime(overview?.latestSnapshot.lastActiveAt)}，待复习词对{' '}
+              推荐训练模式：{trainingModeLabel(overview?.recommendedTrainingMode)}。最近活跃时间 {formatDateTime(overview?.latestSnapshot.lastActiveAt)}，待复习词对{' '}
               {overview?.latestSnapshot.pendingReviewCount ?? 0} 组。
             </p>
           </div>
@@ -222,7 +233,7 @@ const DashboardPage: React.FC = () => {
           <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">推荐训练计划</div>
           {recommendedPlanQuery.data ? (
             <div className="space-y-4">
-              <div className="text-2xl font-black text-slate-900 dark:text-white">{recommendedPlanQuery.data.priorityMode}</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingModeLabel(recommendedPlanQuery.data.priorityMode)}</div>
               <p className="text-sm leading-6 text-slate-500 dark:text-white/45">{recommendedPlanQuery.data.recommendationReason}</p>
               <div className="space-y-3">
                 {recommendedPlanQuery.data.suggestedSessions.map((session) => (
@@ -299,7 +310,7 @@ const DashboardPage: React.FC = () => {
                       <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{item.title}</div>
                     </div>
                     <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                      {item.attemptStatus || '待开始'}
+                      {item.attemptStatus ? assessmentAttemptStatusLabel(item.attemptStatus) : '待开始'}
                     </div>
                   </div>
                   <div className="mt-3 grid gap-2 text-sm text-slate-500 dark:text-white/45">
@@ -375,7 +386,7 @@ const DashboardPage: React.FC = () => {
                     <div>
                       <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
                       <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                        {item.recommendedMode} · 最近错误：{item.lastErrorType}，累计 {item.wrongCount} 次
+                        {trainingModeLabel(item.recommendedMode)} · 最近错误：{errorTypeLabel(item.lastErrorType)}，累计 {item.wrongCount} 次
                       </div>
                     </div>
                     <button
@@ -443,7 +454,7 @@ const DashboardPage: React.FC = () => {
                     <div>
                       <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
                       <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                        {item.reviewMode} · 第 {item.scheduleStage} 阶段
+                        {trainingModeLabel(item.reviewMode)} · 第 {item.scheduleStage} 阶段
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-3">

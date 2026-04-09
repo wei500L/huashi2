@@ -1,6 +1,111 @@
 import type { AnalyticsHeatmapVO, AnalyticsRadarMetricVO, AnalyticsScatterVO, AnalyticsTrendVO, Capability, CurrentUserVO } from './contracts';
 import type { AppChartOption } from './echarts';
 
+const EMPTY_LABEL = '--';
+
+const LEXICAL_PAIR_TYPE_LABELS: Record<string, string> = {
+  COGNATE: '同源词',
+  FALSE_FRIEND: '同形异义词',
+  PARTIAL_COGNATE: '部分同源词',
+  ORTHOGRAPHIC_SIMILAR: '形近词',
+};
+
+const CONTEXT_LEVEL_LABELS: Record<string, string> = {
+  LOW: '低语境',
+  MEDIUM: '中语境',
+  HIGH: '高语境',
+};
+
+const RISK_LEVEL_LABELS: Record<string, string> = {
+  LOW: '低风险',
+  MEDIUM: '中风险',
+  HIGH: '高风险',
+  CRITICAL: '极高风险',
+};
+
+const TRAINING_MODE_LABELS: Record<string, string> = {
+  COGNATE_BOOST: '强化：同源词迁移',
+  FALSE_FRIEND_DISCRIM: '纠偏：同形异义词辨析',
+  CONTEXT_FIX: '修复：语境纠偏',
+  SPEED_CHALLENGE: '提速：快速识别',
+};
+
+const ERROR_TYPE_LABELS: Record<string, string> = {
+  FALSE_FRIEND_CONFUSION: '假朋友混淆',
+  CONTEXT_IGNORED: '忽略语境',
+  OVER_TRANSFER: '过度迁移',
+  UNDER_TRANSFER: '迁移不足',
+  ORTHOGRAPHIC_INTERFERENCE: '形近干扰',
+  SEMANTIC_MISFIRE: '语义误判',
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: '管理员',
+  TEACHER: '教师',
+  STUDENT: '学生',
+};
+
+const WORKSPACE_LABELS: Record<Capability, string> = {
+  ADMIN_CONSOLE: '管理后台',
+  TEACHING_WORKSPACE: '教师工作台',
+  STUDENT_WORKSPACE: '学生工作台',
+};
+
+const DIAGNOSIS_TEMPLATE_SYNC_STATE_LABELS: Record<string, string> = {
+  DIRTY: '待同步',
+  SYNCED: '已同步',
+};
+
+const INTERVENTION_PRIORITY_LABELS: Record<string, string> = {
+  LOW: '低优先级',
+  NORMAL: '常规',
+  URGENT: '紧急',
+};
+
+const INTERVENTION_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待处理',
+  IN_PROGRESS: '处理中',
+  COMPLETED: '已完成',
+  OVERDUE: '已逾期',
+};
+
+const ASSESSMENT_ATTEMPT_STATUS_LABELS: Record<string, string> = {
+  NOT_STARTED: '待开始',
+  IN_PROGRESS: '进行中',
+  SUBMITTED: '已提交',
+};
+
+const INVITATION_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待激活',
+  CONSUMED: '已使用',
+  EXPIRED: '已过期',
+  NONE: '无邀请链接',
+};
+
+const PROFILE_LINK_STATUS_LABELS: Record<string, string> = {
+  UNLINKED: '未关联档案',
+  LINKED: '已关联档案',
+  STUDENT_ONLY: '仅关联学生档案',
+  TEACHER_ONLY: '仅关联教师档案',
+  BOTH: '已关联学生/教师档案',
+};
+
+function normalizeDisplayKey(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.trim().toUpperCase();
+  return normalized || null;
+}
+
+function mapDisplayValue(value: string | null | undefined, labels: Record<string, string>, unknownLabel: string): string {
+  const normalized = normalizeDisplayKey(value);
+  if (!normalized) {
+    return EMPTY_LABEL;
+  }
+  return labels[normalized] ?? unknownLabel;
+}
+
 export function formatPercent(value: number, digits = 0): string {
   return `${(value * 100).toFixed(digits)}%`;
 }
@@ -61,35 +166,31 @@ export function homePathForCapabilities(capabilities?: Capability[] | null): str
 }
 
 export function lexicalPairTypeLabel(type?: string | null): string {
-  switch (type) {
-    case 'COGNATE':
-      return '同源词';
-    case 'FALSE_FRIEND':
-      return '同形异义';
-    case 'PARTIAL_COGNATE':
-      return '部分同源';
-    case 'ORTHOGRAPHIC_SIMILAR':
-      return '近形词';
-    default:
-      return type || '--';
-  }
+  return mapDisplayValue(type, LEXICAL_PAIR_TYPE_LABELS, '未定义词对类型');
 }
 
 export function contextLevelLabel(level?: string | null): string {
-  switch (level) {
-    case 'LOW':
-      return '低语境';
-    case 'MEDIUM':
-      return '中语境';
-    case 'HIGH':
-      return '高语境';
-    default:
-      return level || '--';
+  return mapDisplayValue(level, CONTEXT_LEVEL_LABELS, '未定义语境等级');
+}
+
+export function riskLevelLabel(level?: string | null): string {
+  return mapDisplayValue(level, RISK_LEVEL_LABELS, '未知风险等级');
+}
+
+export function trainingModeLabel(mode?: string | null): string {
+  return mapDisplayValue(mode, TRAINING_MODE_LABELS, '未定义训练模式');
+}
+
+export function errorTypeLabel(errorType?: string | null): string {
+  if (!errorType) {
+    return '未标注错误';
   }
+  return mapDisplayValue(errorType, ERROR_TYPE_LABELS, '未知错误类型');
 }
 
 export function riskTone(level?: string | null): string {
   switch (level) {
+    case 'CRITICAL':
     case 'HIGH':
     case 'URGENT':
       return 'text-rose-500';
@@ -102,27 +203,56 @@ export function riskTone(level?: string | null): string {
 }
 
 export function roleLabel(role?: string | null): string {
-  if (role === 'TEACHER') {
-    return 'Teacher';
-  }
-  if (role === 'ADMIN') {
-    return 'Administrator';
-  }
-  return 'Student';
+  return mapDisplayValue(role, ROLE_LABELS, '未知角色');
+}
+
+export function workspaceCapabilityLabel(capability?: Capability | null): string {
+  return mapDisplayValue(capability, WORKSPACE_LABELS, '未知工作台');
 }
 
 export function workspaceLabels(capabilities?: Capability[] | null): string[] {
   const labels: string[] = [];
   if (hasCapability(capabilities, 'ADMIN_CONSOLE')) {
-    labels.push('Admin');
+    labels.push(workspaceCapabilityLabel('ADMIN_CONSOLE'));
   }
   if (hasCapability(capabilities, 'TEACHING_WORKSPACE')) {
-    labels.push('Teaching');
+    labels.push(workspaceCapabilityLabel('TEACHING_WORKSPACE'));
   }
   if (hasCapability(capabilities, 'STUDENT_WORKSPACE')) {
-    labels.push('Student');
+    labels.push(workspaceCapabilityLabel('STUDENT_WORKSPACE'));
   }
   return labels;
+}
+
+export function diagnosisTemplateSyncStateLabel(syncState?: string | null): string {
+  return mapDisplayValue(syncState, DIAGNOSIS_TEMPLATE_SYNC_STATE_LABELS, '未知同步状态');
+}
+
+export function interventionPriorityLabel(priority?: string | null): string {
+  return mapDisplayValue(priority, INTERVENTION_PRIORITY_LABELS, '未知优先级');
+}
+
+export function interventionStatusLabel(status?: string | null): string {
+  return mapDisplayValue(status, INTERVENTION_STATUS_LABELS, '未知干预状态');
+}
+
+export function assessmentAttemptStatusLabel(status?: string | null): string {
+  return mapDisplayValue(status, ASSESSMENT_ATTEMPT_STATUS_LABELS, '未知作答状态');
+}
+
+export function invitationStatusLabel(status?: string | null): string {
+  return mapDisplayValue(status, INVITATION_STATUS_LABELS, '未知邀请状态');
+}
+
+export function profileLinkStatusLabel(status?: string | null): string {
+  return mapDisplayValue(status, PROFILE_LINK_STATUS_LABELS, '未知关联状态');
+}
+
+export function sessionActivityLabel(hasActiveSession?: boolean | null): string {
+  if (hasActiveSession === undefined || hasActiveSession === null) {
+    return EMPTY_LABEL;
+  }
+  return hasActiveSession ? '活跃中' : '无活动会话';
 }
 
 export function buildTrendOption(trend?: AnalyticsTrendVO | null): AppChartOption {

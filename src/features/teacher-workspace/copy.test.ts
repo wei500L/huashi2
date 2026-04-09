@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildTeacherWorkspaceEmptyState,
-  buildTeacherWorkspaceFocusItems,
-  buildTeacherWorkspaceOnboardingItems,
+  buildTeacherWorkspaceOnboardingCard,
+  buildTeacherWorkspaceTodoItems,
 } from './copy';
 
 const t = ((key: string, options?: Record<string, unknown>) =>
@@ -10,7 +10,7 @@ const t = ((key: string, options?: Record<string, unknown>) =>
 
 describe('teacher workspace copy helpers', () => {
   it('prioritizes intervention, draft, import, and lexical-list actions', () => {
-    const items = buildTeacherWorkspaceFocusItems(t, {
+    const items = buildTeacherWorkspaceTodoItems(t, {
       teacherName: 'Teacher',
       organizationLabel: 'Org',
       summary: {
@@ -35,8 +35,8 @@ describe('teacher workspace copy helpers', () => {
     expect(items.map((item) => item.id)).toEqual([
       'interventions',
       'drafts-empty',
-      'assessments-empty',
       'imports',
+      'assessments-empty',
     ]);
     expect(items[0]?.to).toContain('focusId=11');
     expect(items[0]?.to).toContain('classId=21');
@@ -44,7 +44,7 @@ describe('teacher workspace copy helpers', () => {
   });
 
   it('returns a stable maintenance cue when assets already exist', () => {
-    const items = buildTeacherWorkspaceFocusItems(t, {
+    const items = buildTeacherWorkspaceTodoItems(t, {
       teacherName: 'Teacher',
       organizationLabel: 'Org',
       summary: {
@@ -70,8 +70,8 @@ describe('teacher workspace copy helpers', () => {
     expect(items.some((item) => item.id === 'classes-empty')).toBe(false);
   });
 
-  it('returns a blocking onboarding step when class context is missing', () => {
-    const items = buildTeacherWorkspaceOnboardingItems(t, {
+  it('returns a single onboarding card when class context is missing', () => {
+    const card = buildTeacherWorkspaceOnboardingCard(t, {
       teacherName: 'Teacher',
       organizationLabel: 'Org',
       summary: {
@@ -93,8 +93,7 @@ describe('teacher workspace copy helpers', () => {
       recentAssessmentPublishes: [],
     });
 
-    expect(items).toHaveLength(1);
-    expect(items[0]?.id).toBe('setup-classes');
+    expect(card?.id).toBe('setup-classes');
   });
 
   it('maps lexical-list empty state to template creation when drafts are missing', () => {

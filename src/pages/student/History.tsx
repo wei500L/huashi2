@@ -1,8 +1,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader, PanelSkeleton } from '@/components/common';
-import { getApiErrorMessage } from '@/lib/api';
+import { PageHeader } from '@/components/common';
+import { FeedbackState } from '@/components/common/FeedbackState';
+import { getProductizedErrorState } from '@/lib/async-state';
 import {
   formatDateTime,
   formatMaybePercent,
@@ -23,6 +24,65 @@ import type {
 type HistoryTab = 'diagnosis' | 'training' | 'assessment';
 
 const pageSize = 10;
+
+function HistoryStatePanel({
+  kind,
+  title,
+  description,
+  impact,
+  nextStep,
+  actionLabel,
+  onAction,
+}: {
+  kind: React.ComponentProps<typeof FeedbackState>['kind'];
+  title: string;
+  description: string;
+  impact: string;
+  nextStep: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <FeedbackState
+      kind={kind}
+      title={title}
+      description={description}
+      impact={impact}
+      nextStep={nextStep}
+      primaryAction={actionLabel && onAction ? { label: actionLabel, onClick: onAction } : undefined}
+    />
+  );
+}
+
+function HistoryErrorPanel({
+  error,
+  resourceLabel,
+  taskLabel,
+  onRetry,
+}: {
+  error: unknown;
+  resourceLabel: string;
+  taskLabel: string;
+  onRetry: () => void;
+}) {
+  const state = getProductizedErrorState(error, {
+    resourceLabel,
+    taskLabel,
+    retryActionLabel: '重新获取',
+  });
+
+  return (
+    <HistoryStatePanel
+      kind={state.kind}
+      title={state.title}
+      description={state.description}
+      impact={state.impact}
+      nextStep={state.nextStep}
+      actionLabel="重新获取"
+      onAction={onRetry}
+    />
+  );
+}
 
 function totalPages(total = 0): number {
   return Math.max(1, Math.ceil(total / pageSize));
@@ -339,15 +399,28 @@ const HistoryPage: React.FC = () => {
             </div>
 
             {diagnosisHistoryQuery.isLoading ? (
-              <PanelSkeleton />
+              <HistoryStatePanel
+                kind="loading"
+                title="正在同步诊断记录"
+                description="系统正在拉取最近的诊断历史，当前筛选条件已经保留。"
+                impact="你暂时不能查看最新的诊断记录，但不会影响其他页面使用。"
+                nextStep="请稍等片刻；如果长时间没有结果，可手动重新获取。"
+              />
             ) : diagnosisHistoryQuery.error ? (
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {getApiErrorMessage(diagnosisHistoryQuery.error)}
-              </div>
+              <HistoryErrorPanel
+                error={diagnosisHistoryQuery.error}
+                resourceLabel="诊断记录"
+                taskLabel="查看诊断历史"
+                onRetry={() => void diagnosisHistoryQuery.refetch()}
+              />
             ) : !diagnosisData?.records.length ? (
-              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-                当前没有匹配的诊断记录。
-              </div>
+              <HistoryStatePanel
+                kind="empty"
+                title="当前筛选下还没有诊断记录"
+                description="系统已经完成查询，但这组条件下没有可展示的诊断历史。"
+                impact="这不会影响你继续开始新的诊断，或查看其他类型的学习记录。"
+                nextStep="你可以切换筛选条件，或直接返回诊断页开始新的任务。"
+              />
             ) : (
               <div className="space-y-4">
                 {diagnosisData.records.map((record) => (
@@ -425,15 +498,28 @@ const HistoryPage: React.FC = () => {
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">diagnosis detail</div>
             {selectedDiagnosisSessionId === null ? (
-              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-                选择一条已完成诊断记录后，在这里查看详细结果。
-              </div>
+              <HistoryStatePanel
+                kind="empty"
+                title="先选择一条诊断记录"
+                description="详细结果区会在你选中一条已完成诊断后显示。"
+                impact="当前不会影响左侧记录浏览，但你还不能查看题目级回看和风险词对。"
+                nextStep="从左侧选择一条已完成记录，即可在这里继续查看。"
+              />
             ) : diagnosisDetailQuery.isLoading ? (
-              <PanelSkeleton />
+              <HistoryStatePanel
+                kind="loading"
+                title="正在整理诊断结果"
+                description="系统正在加载这次诊断的指标、风险词对和题目回看。"
+                impact="你暂时不能查看这条记录的详细结果，但左侧历史列表仍可继续切换。"
+                nextStep="请稍等片刻；如果长时间没有结果，可手动重新获取。"
+              />
             ) : diagnosisDetailQuery.error ? (
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {getApiErrorMessage(diagnosisDetailQuery.error)}
-              </div>
+              <HistoryErrorPanel
+                error={diagnosisDetailQuery.error}
+                resourceLabel="诊断结果"
+                taskLabel="查看诊断详情"
+                onRetry={() => void diagnosisDetailQuery.refetch()}
+              />
             ) : diagnosisDetailQuery.data ? (
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -544,15 +630,28 @@ const HistoryPage: React.FC = () => {
             </div>
 
             {trainingHistoryQuery.isLoading ? (
-              <PanelSkeleton />
+              <HistoryStatePanel
+                kind="loading"
+                title="正在同步训练记录"
+                description="系统正在拉取最近的训练历史，当前筛选条件已经保留。"
+                impact="你暂时不能查看最新的训练记录，但不会影响继续训练。"
+                nextStep="请稍等片刻；如果长时间没有结果，可手动重新获取。"
+              />
             ) : trainingHistoryQuery.error ? (
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {getApiErrorMessage(trainingHistoryQuery.error)}
-              </div>
+              <HistoryErrorPanel
+                error={trainingHistoryQuery.error}
+                resourceLabel="训练记录"
+                taskLabel="查看训练历史"
+                onRetry={() => void trainingHistoryQuery.refetch()}
+              />
             ) : !trainingData?.records.length ? (
-              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-                当前没有匹配的训练记录。
-              </div>
+              <HistoryStatePanel
+                kind="empty"
+                title="当前筛选下还没有训练记录"
+                description="系统已经完成查询，但这组条件下没有可展示的训练历史。"
+                impact="这不会影响你开始新的训练，或查看其他学习记录。"
+                nextStep="你可以切换筛选条件，或直接返回训练页继续学习。"
+              />
             ) : (
               <div className="space-y-4">
                 {trainingData.records.map((record) => (
@@ -629,15 +728,28 @@ const HistoryPage: React.FC = () => {
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">training detail</div>
             {selectedTrainingSessionId === null ? (
-              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-                选择一条已完成训练记录后，在这里查看训练总结。
-              </div>
+              <HistoryStatePanel
+                kind="empty"
+                title="先选择一条训练记录"
+                description="训练总结会在你选中一条已完成训练后显示。"
+                impact="当前不会影响左侧记录浏览，但你还不能查看复习建议和题目回看。"
+                nextStep="从左侧选择一条已完成记录，即可在这里继续查看。"
+              />
             ) : trainingDetailQuery.isLoading ? (
-              <PanelSkeleton />
+              <HistoryStatePanel
+                kind="loading"
+                title="正在整理训练总结"
+                description="系统正在加载这次训练的表现指标、复习建议和题目回看。"
+                impact="你暂时不能查看这条训练记录的详细总结，但左侧列表仍可继续切换。"
+                nextStep="请稍等片刻；如果长时间没有结果，可手动重新获取。"
+              />
             ) : trainingDetailQuery.error ? (
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {getApiErrorMessage(trainingDetailQuery.error)}
-              </div>
+              <HistoryErrorPanel
+                error={trainingDetailQuery.error}
+                resourceLabel="训练总结"
+                taskLabel="查看训练详情"
+                onRetry={() => void trainingDetailQuery.refetch()}
+              />
             ) : trainingDetailQuery.data ? (
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -742,15 +854,28 @@ const HistoryPage: React.FC = () => {
             </div>
 
             {assessmentHistoryQuery.isLoading ? (
-              <PanelSkeleton />
+              <HistoryStatePanel
+                kind="loading"
+                title="正在同步测评记录"
+                description="系统正在拉取最近的通用测评历史，当前筛选条件已经保留。"
+                impact="你暂时不能查看最新的测评记录，但不会影响继续作答。"
+                nextStep="请稍等片刻；如果长时间没有结果，可手动重新获取。"
+              />
             ) : assessmentHistoryQuery.error ? (
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {getApiErrorMessage(assessmentHistoryQuery.error)}
-              </div>
+              <HistoryErrorPanel
+                error={assessmentHistoryQuery.error}
+                resourceLabel="测评记录"
+                taskLabel="查看测评历史"
+                onRetry={() => void assessmentHistoryQuery.refetch()}
+              />
             ) : !assessmentData?.records.length ? (
-              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-                当前没有匹配的测评记录。
-              </div>
+              <HistoryStatePanel
+                kind="empty"
+                title="当前筛选下还没有测评记录"
+                description="系统已经完成查询，但这组条件下没有可展示的测评历史。"
+                impact="这不会影响你继续开始新的测评，或查看诊断与训练记录。"
+                nextStep="你可以切换筛选条件，或直接回到测评页继续作答。"
+              />
             ) : (
               <div className="space-y-4">
                 {assessmentData.records.map((record) => (
@@ -828,9 +953,13 @@ const HistoryPage: React.FC = () => {
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">assessment detail</div>
             {selectedAssessmentAttemptId === null ? (
-              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-                选择一条测评记录后，在这里查看结果。
-              </div>
+              <HistoryStatePanel
+                kind="empty"
+                title="先选择一条测评记录"
+                description="结果区会在你选中一条测评记录后显示。"
+                impact="当前不会影响左侧列表浏览，但你还不能查看成绩和题目回看。"
+                nextStep="从左侧选择一条记录，即可在这里继续查看。"
+              />
             ) : selectedAssessmentRecord?.status === 'IN_PROGRESS' ? (
               <div className="space-y-4">
                 <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
@@ -851,11 +980,20 @@ const HistoryPage: React.FC = () => {
                 </button>
               </div>
             ) : assessmentDetailQuery.isLoading ? (
-              <PanelSkeleton />
+              <HistoryStatePanel
+                kind="loading"
+                title="正在整理测评结果"
+                description="系统正在加载这次测评的得分、作答表现和题目回看。"
+                impact="你暂时不能查看这条测评记录的详细结果，但左侧列表仍可继续切换。"
+                nextStep="请稍等片刻；如果长时间没有结果，可手动重新获取。"
+              />
             ) : assessmentDetailQuery.error ? (
-              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {getApiErrorMessage(assessmentDetailQuery.error)}
-              </div>
+              <HistoryErrorPanel
+                error={assessmentDetailQuery.error}
+                resourceLabel="测评结果"
+                taskLabel="查看测评详情"
+                onRetry={() => void assessmentDetailQuery.refetch()}
+              />
             ) : assessmentDetailQuery.data ? (
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

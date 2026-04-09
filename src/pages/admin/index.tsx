@@ -3,7 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, Database, KeyRound, MailPlus, Plus, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
-import { formatDateTime } from '@/lib/format';
+import {
+  formatDateTime,
+  invitationStatusLabel,
+  profileLinkStatusLabel,
+  roleLabel,
+  sessionActivityLabel,
+} from '@/lib/format';
 import { adminService, lexicalPairService } from '@/lib/services';
 import type {
   AccountActionLinkVO,
@@ -235,7 +241,7 @@ const AdminUsersPage: React.FC = () => {
           <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
             {(usersQuery.data?.records || []).filter((user) => user.hasActiveSession).length}
           </div>
-          <div className="mt-3 text-sm text-slate-500 dark:text-white/45">当前页中存在活动 refresh 会话的账号</div>
+          <div className="mt-3 text-sm text-slate-500 dark:text-white/45">当前页中存在活动登录会话的账号</div>
         </div>
         <Link
           to="/admin/lexical-pairs"
@@ -257,7 +263,7 @@ const AdminUsersPage: React.FC = () => {
       {showCreateForm && (
         <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">create user</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">创建用户</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">创建基础账号</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">默认使用邀请链接交付账号；若选择手动密码模式，再录入初始密码。</div>
           </div>
@@ -335,20 +341,20 @@ const AdminUsersPage: React.FC = () => {
           </select>
           <select value={filters.invitationStatus} onChange={(event) => setFilters((state) => ({ ...state, invitationStatus: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
             <option value="">全部邀请状态</option>
-            <option value="PENDING">PENDING</option>
-            <option value="CONSUMED">CONSUMED</option>
-            <option value="EXPIRED">EXPIRED</option>
-            <option value="NONE">NONE</option>
+            <option value="PENDING">{invitationStatusLabel('PENDING')}</option>
+            <option value="CONSUMED">{invitationStatusLabel('CONSUMED')}</option>
+            <option value="EXPIRED">{invitationStatusLabel('EXPIRED')}</option>
+            <option value="NONE">{invitationStatusLabel('NONE')}</option>
           </select>
         </div>
 
         <div className="grid gap-4 md:grid-cols-[1fr_auto_auto]">
           <select value={filters.profileLinkStatus} onChange={(event) => setFilters((state) => ({ ...state, profileLinkStatus: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
             <option value="">全部资料关联状态</option>
-            <option value="UNLINKED">UNLINKED</option>
-            <option value="STUDENT_ONLY">STUDENT_ONLY</option>
-            <option value="TEACHER_ONLY">TEACHER_ONLY</option>
-            <option value="BOTH">BOTH</option>
+            <option value="UNLINKED">{profileLinkStatusLabel('UNLINKED')}</option>
+            <option value="STUDENT_ONLY">{profileLinkStatusLabel('STUDENT_ONLY')}</option>
+            <option value="TEACHER_ONLY">{profileLinkStatusLabel('TEACHER_ONLY')}</option>
+            <option value="BOTH">{profileLinkStatusLabel('BOTH')}</option>
           </select>
           <button type="button" onClick={() => setFilters((state) => ({ ...state, pageNo: Math.max(1, state.pageNo - 1) }))} disabled={filters.pageNo <= 1} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40 dark:border-white/10">
             上一页
@@ -376,10 +382,10 @@ const AdminUsersPage: React.FC = () => {
                   </div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{user.username} · {user.email}</div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{user.roles.join(' / ')}</span>
-                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">资料：{user.profileLinkStatus || '--'}</span>
-                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">邀请：{user.invitationStatus || '--'}</span>
-                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">会话：{user.hasActiveSession ? 'ACTIVE' : 'NONE'}</span>
+                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{user.roles.map((role) => roleLabel(role)).join(' / ')}</span>
+                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">资料：{profileLinkStatusLabel(user.profileLinkStatus)}</span>
+                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">邀请：{invitationStatusLabel(user.invitationStatus)}</span>
+                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">会话：{sessionActivityLabel(user.hasActiveSession)}</span>
                   </div>
                   <div className="mt-3 text-xs text-slate-400 dark:text-white/30">最近登录 {formatDateTime(user.lastLoginAt)}</div>
                 </div>
@@ -412,7 +418,7 @@ const AdminUsersPage: React.FC = () => {
       {editingUser && (
         <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">access control</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">访问权限</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{editingUser.displayName}</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{editingUser.username} · {editingUser.email}</div>
           </div>

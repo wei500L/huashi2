@@ -3,13 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PanelSkeleton } from '@/components/common';
-import { formatDateTime } from '@/lib/format';
+import {
+  diagnosisTemplateSyncStateLabel,
+  formatDateTime,
+  interventionPriorityLabel,
+  interventionStatusLabel,
+} from '@/lib/format';
 import { teacherWorkspaceService } from '@/lib/services';
 import { teacherWorkspaceQueryKeys } from './queryKeys';
 import {
   buildTeacherWorkspaceEmptyState,
-  buildTeacherWorkspaceFocusItems,
-  buildTeacherWorkspaceOnboardingItems,
+  buildTeacherWorkspaceOnboardingCard,
+  buildTeacherWorkspaceTodoItems,
   buildWorkspaceLink,
 } from './copy';
 import {
@@ -22,20 +27,61 @@ import {
 
 const TeacherWorkspacePage: React.FC = () => {
   const { t } = useTranslation();
+  const [showAllTodos, setShowAllTodos] = React.useState(false);
+  const [showOnboardingCard, setShowOnboardingCard] = React.useState(false);
   const overviewQuery = useQuery({
     queryKey: teacherWorkspaceQueryKeys.overview(),
     queryFn: ({ signal }) => teacherWorkspaceService.getOverview({ signal }),
   });
 
-  const focusItems = React.useMemo(
-    () => buildTeacherWorkspaceFocusItems(t, overviewQuery.data),
+  const todoItems = React.useMemo(
+    () => buildTeacherWorkspaceTodoItems(t, overviewQuery.data),
     [overviewQuery.data, t]
   );
 
-  const onboardingItems = React.useMemo(
-    () => buildTeacherWorkspaceOnboardingItems(t, overviewQuery.data),
+  const onboardingCard = React.useMemo(
+    () => buildTeacherWorkspaceOnboardingCard(t, overviewQuery.data),
     [overviewQuery.data, t]
   );
+
+  React.useEffect(() => {
+    if (!onboardingCard) {
+      setShowOnboardingCard(false);
+      return;
+    }
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storageKey = `teacher-workspace-onboarding-seen:${overviewQuery.data?.teacherName || 'default'}`;
+    const seen = window.localStorage.getItem(storageKey) === '1';
+    setShowOnboardingCard(!seen);
+    if (!seen) {
+      window.localStorage.setItem(storageKey, '1');
+    }
+  }, [onboardingCard, overviewQuery.data?.teacherName]);
+
+  const dedupedTodoItems = React.useMemo(() => {
+    if (!showOnboardingCard || !onboardingCard) {
+      return todoItems;
+    }
+
+    const onboardingTodoIdMap: Record<string, string> = {
+      'setup-classes': 'classes-empty',
+      'setup-draft': 'drafts-empty',
+      'setup-list': 'lists-empty',
+      'setup-assessment': 'assessments-empty',
+    };
+    const duplicateTodoId = onboardingTodoIdMap[onboardingCard.id];
+    return duplicateTodoId ? todoItems.filter((item) => item.id !== duplicateTodoId) : todoItems;
+  }, [onboardingCard, showOnboardingCard, todoItems]);
+
+  const visibleTodoItems = React.useMemo(
+    () => (showAllTodos ? dedupedTodoItems : dedupedTodoItems.slice(0, 4)),
+    [dedupedTodoItems, showAllTodos]
+  );
+
+  const overflowTodoCount = Math.max(dedupedTodoItems.length - 4, 0);
 
   const quickActions = React.useMemo(
     () => [
@@ -169,35 +215,37 @@ const TeacherWorkspacePage: React.FC = () => {
             meta={overviewQuery.data?.organizationLabel || t('teacherWorkspace.organizationFallback')}
           />
 
-          {!!onboardingItems.length && (
+          {showOnboardingCard && onboardingCard && (
             <section className="space-y-4">
               <div className="space-y-2">
                 <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                  {t('teacherWorkspace.onboardingTitle')}
+                  {t('teacherWorkspace.onboardingCardTitle')}
                 </div>
                 <div className="text-sm text-slate-500 dark:text-white/45">
-                  {t('teacherWorkspace.onboardingSubtitle')}
+                  {t('teacherWorkspace.onboardingCardSubtitle')}
                 </div>
               </div>
-              {onboardingItems.map((item) => (
-                <StatusBanner
-                  key={item.id}
-                  title={item.title}
-                  description={item.description}
-                  actionLabel={item.actionLabel}
-                  to={item.to}
-                  tone={item.tone}
-                />
-              ))}
+              <StatusBanner
+                title={onboardingCard.title}
+                description={onboardingCard.description}
+                actionLabel={onboardingCard.actionLabel}
+                to={onboardingCard.to}
+                tone={onboardingCard.tone}
+              />
             </section>
           )}
 
-          {!!focusItems.length && (
+          {!!dedupedTodoItems.length && (
             <section className="space-y-4">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                {t('teacherWorkspace.todayFocus')}
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+                  {t('teacherWorkspace.todayTodoTitle')}
+                </div>
+                <div className="text-sm text-slate-500 dark:text-white/45">
+                  {t('teacherWorkspace.todayTodoSubtitle')}
+                </div>
               </div>
-              {focusItems.map((item) => (
+              {visibleTodoItems.map((item) => (
                 <StatusBanner
                   key={item.id}
                   title={item.title}
@@ -207,6 +255,17 @@ const TeacherWorkspacePage: React.FC = () => {
                   tone={item.tone}
                 />
               ))}
+              {overflowTodoCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllTodos((current) => !current)}
+                  className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/70 px-4 py-2 text-sm font-bold text-slate-600 transition-all hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/5 dark:text-white/60"
+                >
+                  {showAllTodos
+                    ? t('teacherWorkspace.todayTodoCollapse')
+                    : t('teacherWorkspace.todayTodoExpand', { count: overflowTodoCount })}
+                </button>
+              )}
             </section>
           )}
 
@@ -328,7 +387,7 @@ const TeacherWorkspacePage: React.FC = () => {
                             <div className="font-black text-slate-900 dark:text-white">{draft.templateName}</div>
                             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                               {t('teacherWorkspace.draftMeta', {
-                                syncState: draft.syncState,
+                                syncState: diagnosisTemplateSyncStateLabel(draft.syncState),
                                 updatedAt: formatDateTime(draft.updatedAt),
                               })}
                             </div>
@@ -368,8 +427,8 @@ const TeacherWorkspacePage: React.FC = () => {
                         <div className="font-black text-slate-900 dark:text-white">{item.studentName || '--'}</div>
                         <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                           {t('teacherWorkspace.interventionMeta', {
-                            priority: item.priority,
-                            status: item.status,
+                            priority: interventionPriorityLabel(item.priority),
+                            status: interventionStatusLabel(item.status),
                             plannedAt: formatDateTime(item.plannedAt),
                           })}
                         </div>
