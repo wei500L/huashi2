@@ -129,6 +129,10 @@ export function embeddingStatusLabel(value?: string | null): string {
   return embeddingStatusOptions.find((item) => item.value === value)?.label || value || '--';
 }
 
+function lexicalPairTypeWorkspaceLabel(value?: string | null): string {
+  return lexicalPairTypeOptions.find((item) => item.value === value)?.label || lexicalPairTypeLabel(value);
+}
+
 export function collectActiveFilterLabels(mode: LexicalPairsWorkspaceMode, filters: FilterState): string[] {
   const labels: string[] = [];
   const keyword = filters.keyword.trim();
@@ -136,7 +140,7 @@ export function collectActiveFilterLabels(mode: LexicalPairsWorkspaceMode, filte
     labels.push(`关键词：${keyword}`);
   }
   if (filters.lexicalPairType !== 'ALL') {
-    labels.push(`词对类型：${lexicalPairTypeLabel(filters.lexicalPairType)}`);
+    labels.push(`词对类型：${lexicalPairTypeWorkspaceLabel(filters.lexicalPairType)}`);
   }
   if (filters.active !== 'ALL') {
     labels.push(`启用状态：${filters.active === 'ACTIVE' ? '仅启用' : '仅停用'}`);
@@ -1283,7 +1287,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                         Pair #{item.id}
                       </span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
-                        {lexicalPairTypeLabel(item.lexicalPairType)}
+                        {lexicalPairTypeWorkspaceLabel(item.lexicalPairType)}
                       </span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
                         {contextLevelLabel(item.defaultContextSupport)}
