@@ -1,23 +1,41 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   assessmentAttemptStatusLabel,
+  assessmentPaperStatusLabel,
+  diagnosisSessionStatusLabel,
+  diagnosisTaskTypeLabel,
   diagnosisTemplateSyncStateLabel,
+  embeddingStatusLabel,
   errorTypeLabel,
   invitationStatusLabel,
   lexicalPairTypeLabel,
+  lexicalImportBatchStatusLabel,
+  lexicalImportRowStatusLabel,
   profileLinkStatusLabel,
   riskLevelLabel,
   roleLabel,
   sessionActivityLabel,
+  trainingSessionStatusLabel,
   trainingModeLabel,
   workspaceLabels,
 } from './format';
+import i18n from './i18n';
+
+beforeEach(async () => {
+  await i18n.changeLanguage('zh-CN');
+});
 
 describe('format display mappings', () => {
   it('maps student-facing enum values to Chinese labels', () => {
     expect(riskLevelLabel('HIGH')).toBe('高风险');
     expect(trainingModeLabel('FALSE_FRIEND_DISCRIM')).toBe('纠偏：同形异义词辨析');
+    expect(diagnosisTaskTypeLabel('REACTION_TIME')).toBe('反应时判断');
+    expect(diagnosisSessionStatusLabel('COMPLETED')).toBe('已完成');
+    expect(trainingSessionStatusLabel('IN_PROGRESS')).toBe('进行中');
     expect(assessmentAttemptStatusLabel('IN_PROGRESS')).toBe('进行中');
+    expect(lexicalImportBatchStatusLabel('IMPORTING')).toBe('导入中');
+    expect(lexicalImportRowStatusLabel('INVALID')).toBe('需修正');
+    expect(embeddingStatusLabel('PENDING')).toBe('待嵌入');
     expect(errorTypeLabel('FALSE_FRIEND_CONFUSION')).toBe('假朋友混淆');
     expect(lexicalPairTypeLabel('FALSE_FRIEND')).toBe('同形异义词');
   });
@@ -37,5 +55,24 @@ describe('format display mappings', () => {
     expect(invitationStatusLabel('UNKNOWN')).toBe('未知邀请状态');
     expect(profileLinkStatusLabel('MYSTERY')).toBe('未知关联状态');
     expect(lexicalPairTypeLabel('ALIEN')).toBe('未定义词对类型');
+  });
+
+  it('switches labels with the active locale', async () => {
+    await i18n.changeLanguage('en-US');
+
+    expect(riskLevelLabel('HIGH')).toBe('High risk');
+    expect(trainingModeLabel('FALSE_FRIEND_DISCRIM')).toBe('Correct: false-friend discrimination');
+    expect(diagnosisTaskTypeLabel('REACTION_TIME')).toBe('Reaction-time check');
+    expect(diagnosisSessionStatusLabel('COMPLETED')).toBe('Completed');
+    expect(trainingSessionStatusLabel('IN_PROGRESS')).toBe('In progress');
+    expect(assessmentAttemptStatusLabel('IN_PROGRESS')).toBe('In progress');
+    expect(assessmentPaperStatusLabel('DRAFT')).toBe('Draft');
+    expect(lexicalImportBatchStatusLabel('IMPORTING')).toBe('Importing');
+    expect(lexicalImportRowStatusLabel('INVALID')).toBe('Needs correction');
+    expect(embeddingStatusLabel('FAILED')).toBe('Embedding failed');
+    expect(roleLabel('ADMIN')).toBe('Administrator');
+    expect(workspaceLabels(['ADMIN_CONSOLE', 'STUDENT_WORKSPACE'])).toEqual(['Admin console', 'Student workspace']);
+    expect(sessionActivityLabel(true)).toBe('Active');
+    expect(sessionActivityLabel(false)).toBe('No active session');
   });
 });

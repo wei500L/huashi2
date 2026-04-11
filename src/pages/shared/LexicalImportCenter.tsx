@@ -11,7 +11,7 @@ import type {
 } from '@/lib/contracts';
 import { saveBlob } from '@/lib/api';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
-import { fieldLabel, formatFileSize, translateImportMessage } from '@/lib/lexical-import';
+import { formatFileSize, translateImportMessage } from '@/lib/lexical-import';
 import { adminService, lexicalPairService } from '@/lib/services';
 
 type LexicalImportCenterMode = 'teacher' | 'admin';
@@ -56,23 +56,23 @@ const contextSupportOptions = [
 ];
 
 const knowledgeStatusOptions = [
-  { value: '', label: '默认 DRAFT' },
-  { value: 'DRAFT', label: 'DRAFT' },
-  { value: 'READY', label: 'READY' },
-  { value: 'DISABLED', label: 'DISABLED' },
+  { value: '', label: '默认草稿（DRAFT）' },
+  { value: 'DRAFT', label: '草稿（DRAFT）' },
+  { value: 'READY', label: '就绪（READY）' },
+  { value: 'DISABLED', label: '停用（DISABLED）' },
 ];
 
 const embeddingStatusOptions = [
-  { value: '', label: '默认 PENDING' },
-  { value: 'PENDING', label: 'PENDING' },
-  { value: 'EMBEDDED', label: 'EMBEDDED' },
-  { value: 'FAILED', label: 'FAILED' },
+  { value: '', label: '默认待嵌入（PENDING）' },
+  { value: 'PENDING', label: '待嵌入（PENDING）' },
+  { value: 'EMBEDDED', label: '已嵌入（EMBEDDED）' },
+  { value: 'FAILED', label: '嵌入失败（FAILED）' },
 ];
 
 const activeOptions = [
-  { value: '', label: '默认 true' },
-  { value: 'true', label: 'true' },
-  { value: 'false', label: 'false' },
+  { value: '', label: '默认启用（true）' },
+  { value: 'true', label: '启用（true）' },
+  { value: 'false', label: '停用（false）' },
 ];
 
 const rowFieldGroups: Array<{

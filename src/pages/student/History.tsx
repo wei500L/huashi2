@@ -1,14 +1,25 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import { getProductizedErrorState } from '@/lib/async-state';
 import {
+  assessmentAttemptStatusLabel,
+  assessmentAttemptStatusTone,
+  assessmentQuestionTypeLabel,
+  diagnosisSessionStatusLabel,
+  diagnosisSessionStatusTone,
+  diagnosisTaskTypeLabel,
+  errorTypeLabel,
   formatDateTime,
   formatMaybePercent,
   formatMs,
   lexicalPairTypeLabel,
+  riskLevelLabel,
+  trainingModeLabel,
+  trainingSessionStatusLabel,
+  trainingSessionStatusTone,
 } from '@/lib/format';
 import { assessmentService, diagnosisSessionService, trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
@@ -107,7 +118,7 @@ function DiagnosisHistoryItemReviewCard({ item }: { item: DiagnosisItemResultDet
             {item.englishWord} / {item.frenchWord}
           </div>
           <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-            {item.taskType} · {item.detectedErrorType} · {formatMs(item.reactionTimeMs)}
+            {diagnosisTaskTypeLabel(item.taskType)} · {errorTypeLabel(item.detectedErrorType)} · {formatMs(item.reactionTimeMs)}
           </div>
           {(item.stimulus.promptText || item.stimulus.instruction || item.stimulus.contextSentence) && (
             <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
@@ -118,7 +129,7 @@ function DiagnosisHistoryItemReviewCard({ item }: { item: DiagnosisItemResultDet
           )}
         </div>
         <div className="text-right text-sm text-slate-500 dark:text-white/45">
-          <div>{item.correct ? '答对' : '答错'}</div>
+          <StatusBadge label={item.correct ? '答对' : '答错'} tone={item.correct ? 'success' : 'danger'} />
           <div>{formatMaybePercent(item.itemScore)}</div>
         </div>
       </div>
@@ -150,7 +161,7 @@ function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetai
             {item.englishWord} / {item.frenchWord}
           </div>
           <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-            {item.mode} · {item.cognitiveTag} · {item.detectedErrorType || '已完成'}
+            {trainingModeLabel(item.mode)} · {item.cognitiveTag} · {item.detectedErrorType ? errorTypeLabel(item.detectedErrorType) : '已完成'}
           </div>
           <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
             <div className="font-semibold">{item.content.question}</div>
@@ -159,7 +170,7 @@ function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetai
           </div>
         </div>
         <div className="text-right text-sm text-slate-500 dark:text-white/45">
-          <div>{item.correct ? '答对' : '答错'}</div>
+          <StatusBadge label={item.correct ? '答对' : '答错'} tone={item.correct ? 'success' : 'danger'} />
           <div>{formatMs(item.reactionTimeMs)}</div>
         </div>
       </div>
@@ -192,13 +203,13 @@ function AssessmentHistoryItemReviewCard({ item }: { item: AssessmentAttemptResu
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="font-black text-slate-900 dark:text-white">
-            第 {item.questionOrder} 题 · {item.questionType}
+            第 {item.questionOrder} 题 · {assessmentQuestionTypeLabel(item.questionType)}
           </div>
           <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.stemText}</div>
           {item.promptText && <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.promptText}</div>}
         </div>
         <div className="text-right text-sm text-slate-500 dark:text-white/45">
-          <div>{item.correct ? '答对' : '答错'}</div>
+          <StatusBadge label={item.correct ? '答对' : '答错'} tone={item.correct ? 'success' : 'danger'} />
           <div>
             {item.scoreAwarded ?? 0} / {item.score}
           </div>
@@ -334,8 +345,9 @@ const HistoryPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
+        eyebrow="学习记录"
         title="学习历史"
-        subtitle="统一查看诊断、训练与通用测评记录；进行中的 session 会跳回对应页面继续，已完成记录可在当前页查看详情。"
+        subtitle="统一查看诊断、训练与通用测评记录；进行中的任务会跳回对应页面继续，已完成记录可在当前页查看详情。"
       />
 
       <section className="rounded-[2.5rem] liquid-glass-panel p-4">
@@ -349,7 +361,7 @@ const HistoryPage: React.FC = () => {
                 : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
             }`}
           >
-            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">诊断记录</div>
+            <SectionEyebrow>诊断记录</SectionEyebrow>
             <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">诊断历史</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看模板、结果得分和完成时间。</div>
           </button>
@@ -362,7 +374,7 @@ const HistoryPage: React.FC = () => {
                 : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
             }`}
           >
-            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">训练记录</div>
+            <SectionEyebrow>训练记录</SectionEyebrow>
             <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">训练历史</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看模式、正确率和风险词复习建议。</div>
           </button>
@@ -375,7 +387,7 @@ const HistoryPage: React.FC = () => {
                 : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
             }`}
           >
-            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">通用测评</div>
+            <SectionEyebrow>通用测评</SectionEyebrow>
             <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">测评历史</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看整卷测评、继续作答与题目级回看。</div>
           </button>
@@ -386,7 +398,7 @@ const HistoryPage: React.FC = () => {
         <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">filters</div>
+              <SectionEyebrow>筛选</SectionEyebrow>
               <select
                 value={diagnosisStatus}
                 onChange={(event) => setDiagnosisStatus(event.target.value)}
@@ -434,7 +446,7 @@ const HistoryPage: React.FC = () => {
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{record.status}</div>
+                        <StatusBadge label={diagnosisSessionStatusLabel(record.status)} tone={diagnosisSessionStatusTone(record.status)} />
                         <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{record.templateName || `模板 #${record.templateId}`}</div>
                         <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                           开始于 {formatDateTime(record.startedAt)} · 完成于 {formatDateTime(record.completedAt)}
@@ -496,7 +508,7 @@ const HistoryPage: React.FC = () => {
           </section>
 
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">diagnosis detail</div>
+            <SectionEyebrow>诊断详情</SectionEyebrow>
             {selectedDiagnosisSessionId === null ? (
               <HistoryStatePanel
                 kind="empty"
@@ -591,7 +603,7 @@ const HistoryPage: React.FC = () => {
                           {pair.englishWord} / {pair.frenchWord}
                         </div>
                         <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                          {lexicalPairTypeLabel(pair.lexicalPairType)} · 风险 {formatMaybePercent(pair.riskScore, 1)} · 主导错误 {pair.dominantErrorType}
+                          {lexicalPairTypeLabel(pair.lexicalPairType)} · 风险 {formatMaybePercent(pair.riskScore, 1)} · 主导错误 {errorTypeLabel(pair.dominantErrorType)}
                         </div>
                       </div>
                     ))
@@ -617,7 +629,7 @@ const HistoryPage: React.FC = () => {
         <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">filters</div>
+              <SectionEyebrow>筛选</SectionEyebrow>
               <select
                 value={trainingStatus}
                 onChange={(event) => setTrainingStatus(event.target.value)}
@@ -665,8 +677,8 @@ const HistoryPage: React.FC = () => {
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{record.status}</div>
-                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{record.mode}</div>
+                        <StatusBadge label={trainingSessionStatusLabel(record.status)} tone={trainingSessionStatusTone(record.status)} />
+                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{trainingModeLabel(record.mode)}</div>
                         <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                           开始于 {formatDateTime(record.startedAt)} · 完成于 {formatDateTime(record.completedAt)}
                         </div>
@@ -726,7 +738,7 @@ const HistoryPage: React.FC = () => {
           </section>
 
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">training detail</div>
+            <SectionEyebrow>训练详情</SectionEyebrow>
             {selectedTrainingSessionId === null ? (
               <HistoryStatePanel
                 kind="empty"
@@ -754,7 +766,7 @@ const HistoryPage: React.FC = () => {
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingDetailQuery.data.mode}</div>
+                    <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingModeLabel(trainingDetailQuery.data.mode)}</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{trainingDetailQuery.data.improvementHint}</div>
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -799,7 +811,7 @@ const HistoryPage: React.FC = () => {
                   <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">下一推荐模式</div>
                     <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
-                      {trainingDetailQuery.data.nextRecommendedMode}
+                      {trainingModeLabel(trainingDetailQuery.data.nextRecommendedMode)}
                     </div>
                   </div>
                 </div>
@@ -815,7 +827,7 @@ const HistoryPage: React.FC = () => {
                           {item.englishWord} / {item.frenchWord}
                         </div>
                         <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                          {lexicalPairTypeLabel(item.lexicalPairType)} · {item.riskLevel} · {item.reason}
+                          {lexicalPairTypeLabel(item.lexicalPairType)} · {riskLevelLabel(item.riskLevel)} · {item.reason}
                         </div>
                       </div>
                     ))
@@ -841,7 +853,7 @@ const HistoryPage: React.FC = () => {
         <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">filters</div>
+              <SectionEyebrow>筛选</SectionEyebrow>
               <select
                 value={assessmentStatus}
                 onChange={(event) => setAssessmentStatus(event.target.value)}
@@ -889,7 +901,7 @@ const HistoryPage: React.FC = () => {
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{record.status}</div>
+                        <StatusBadge label={assessmentAttemptStatusLabel(record.status)} tone={assessmentAttemptStatusTone(record.status)} />
                         <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{record.title}</div>
                         <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                           {record.className} · 开始于 {formatDateTime(record.startedAt)} · 提交于 {formatDateTime(record.submittedAt)}
@@ -951,7 +963,7 @@ const HistoryPage: React.FC = () => {
           </section>
 
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">assessment detail</div>
+            <SectionEyebrow>测评详情</SectionEyebrow>
             {selectedAssessmentAttemptId === null ? (
               <HistoryStatePanel
                 kind="empty"

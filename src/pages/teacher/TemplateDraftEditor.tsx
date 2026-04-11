@@ -2,7 +2,7 @@ import React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Code2, Plus, Search, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
 import {
   buildDraftTemplateItemFromPair,
@@ -11,7 +11,7 @@ import {
   parseTemplateDraftItemsJson,
   serializeTemplateDraftItems,
 } from '@/lib/diagnosisTemplateEditor';
-import { formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
+import { contextLevelLabel, diagnosisTaskTypeLabel, formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
 import type {
   DiagnosisTemplateDraftItemRequest,
   DiagnosisTemplateDraftSchemaRequest,
@@ -260,7 +260,7 @@ const TemplateDraftEditorPage: React.FC = () => {
     updateSchema(nextSchema);
     setSelectedItemId(nextSchema.items[nextSchema.items.length - 1]?.draftItemId || null);
     setCurrentStep(2);
-    setFeedback(`已把 Pair #${pairId} 插入草稿，请保存并继续配置题项。`);
+    setFeedback(`已把词对 #${pairId} 插入草稿，请保存并继续配置题项。`);
   }, [pairByIdQuery.data, pairId, schema, updateSchema]);
 
   const selectedItem = React.useMemo(
@@ -382,7 +382,7 @@ const TemplateDraftEditorPage: React.FC = () => {
     }
     const nextSchema = applyPairToDraftSchema(schema, pair);
     if (nextSchema === schema) {
-      setFeedback(`Pair #${pair.id} 已存在于当前草稿。`);
+      setFeedback(`词对 #${pair.id} 已存在于当前草稿。`);
       return;
     }
     updateSchema(nextSchema);
@@ -451,7 +451,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   if (detailQuery.isLoading || !schema) {
     return (
       <div className="space-y-8">
-        <PageHeader title="模板草稿" subtitle="正在加载草稿与四步编辑上下文..." />
+        <PageHeader eyebrow="模板草稿" title="模板草稿" subtitle="正在加载草稿与四步编辑上下文..." />
       </div>
     );
   }
@@ -459,8 +459,9 @@ const TemplateDraftEditorPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
+        eyebrow="模板草稿"
         title={schema.basic.templateName || `模板草稿 #${resolvedDraftId}`}
-        subtitle={`Draft #${resolvedDraftId} · v${draftVersion || '--'} · 最近更新 ${formatDateTime(detailQuery.data?.updatedAt)} · 当前页负责把草稿推进到可发布状态`}
+        subtitle={`草稿 #${resolvedDraftId} · v${draftVersion || '--'} · 最近更新 ${formatDateTime(detailQuery.data?.updatedAt)} · 当前页负责把草稿推进到可发布状态`}
         actions={
           <div className="flex flex-wrap gap-3">
             <Link
@@ -606,7 +607,7 @@ const TemplateDraftEditorPage: React.FC = () => {
         <div className="grid gap-8 xl:grid-cols-[0.82fr_1.18fr]">
           <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-4">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">items</div>
+              <SectionEyebrow>题项</SectionEyebrow>
               <div className="mt-3 text-xl font-black text-slate-900 dark:text-white">题项清单</div>
             </div>
             {schema.items.map((item, index) => (
@@ -622,7 +623,7 @@ const TemplateDraftEditorPage: React.FC = () => {
               >
                 <div className="font-black text-slate-900 dark:text-white">第 {index + 1} 题</div>
                 <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                  Pair #{item.lexicalPairId || '--'} · {item.taskType || '--'} · {item.blockCode || '--'}
+                  词对 #{item.lexicalPairId || '--'} · {diagnosisTaskTypeLabel(item.taskType)} · {item.blockCode || '--'}
                 </div>
                 {validationMessageForItem(validation, item.draftItemId) && (
                   <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
@@ -670,7 +671,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                     </select>
                   </label>
                   <label className="block">
-                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">Block Code</div>
+                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">区块编码</div>
                     <input
                       value={selectedItem.blockCode || ''}
                       onChange={(event) => updateItem(selectedItem.draftItemId, { blockCode: event.target.value })}
@@ -715,7 +716,7 @@ const TemplateDraftEditorPage: React.FC = () => {
 
                 <div className="grid gap-4">
                   <label className="block">
-                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">Instruction</div>
+                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">作答指令</div>
                     <input
                       value={selectedItem.stimulus.instruction}
                       onChange={(event) => updateItem(selectedItem.draftItemId, { stimulus: { ...selectedItem.stimulus, instruction: event.target.value } })}
@@ -723,7 +724,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                     />
                   </label>
                   <label className="block">
-                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">Prompt Text</div>
+                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">提示文案</div>
                     <input
                       value={selectedItem.stimulus.promptText || ''}
                       onChange={(event) => updateItem(selectedItem.draftItemId, { stimulus: { ...selectedItem.stimulus, promptText: event.target.value } })}
@@ -731,7 +732,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                     />
                   </label>
                   <label className="block">
-                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">Context Sentence</div>
+                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">语境句</div>
                     <textarea
                       value={selectedItem.stimulus.contextSentence || ''}
                       onChange={(event) => updateItem(selectedItem.draftItemId, { stimulus: { ...selectedItem.stimulus, contextSentence: event.target.value } })}
@@ -760,7 +761,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                           value={option.key}
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { key: event.target.value })}
                           className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
-                          placeholder="option_key"
+                          placeholder="选项键"
                         />
                         <input
                           value={option.label}
@@ -775,8 +776,8 @@ const TemplateDraftEditorPage: React.FC = () => {
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { semanticMatch: event.target.value === 'true' })}
                           className="native-select rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                         >
-                          <option value="true">semanticMatch = true</option>
-                          <option value="false">semanticMatch = false</option>
+                          <option value="true">语义匹配</option>
+                          <option value="false">语义不匹配</option>
                         </select>
                         <select
                           value={String(option.ignoreContextTrap ?? false)}
@@ -808,7 +809,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                     />
                   </label>
                   <label className="block">
-                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">Formula Key</div>
+                    <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">计分公式 key</div>
                     <input
                       value={selectedItem.scoringProfile?.formulaKey || ''}
                       onChange={(event) =>
@@ -900,7 +901,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                   >
                     <div className="font-black text-slate-900 dark:text-white">第 {index + 1} 题</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                      Pair #{item.lexicalPairId || '--'} · {item.taskType || '--'}
+                      词对 #{item.lexicalPairId || '--'} · {diagnosisTaskTypeLabel(item.taskType)}
                     </div>
                   </button>
                 ))}
@@ -949,8 +950,8 @@ const TemplateDraftEditorPage: React.FC = () => {
               <div className="text-sm font-black text-slate-900 dark:text-white">覆盖摘要</div>
               <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/60">
                 <div>题项总数：{schema.items.length}</div>
-                <div>题型：{Array.from(new Set(schema.items.map((item) => item.taskType).filter(Boolean))).join(' / ') || '--'}</div>
-                <div>语境：{Array.from(new Set(schema.items.map((item) => item.contextSupportLevel).filter(Boolean))).join(' / ') || '--'}</div>
+                <div>题型：{Array.from(new Set(schema.items.map((item) => diagnosisTaskTypeLabel(item.taskType)).filter(Boolean))).join(' / ') || '--'}</div>
+                <div>语境：{Array.from(new Set(schema.items.map((item) => contextLevelLabel(item.contextSupportLevel)).filter(Boolean))).join(' / ') || '--'}</div>
                 <div>词对数：{Array.from(new Set(schema.items.map((item) => item.lexicalPairId).filter(Boolean))).length}</div>
               </div>
             </div>
@@ -963,7 +964,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                   <div>
                     <div className="text-lg font-black text-slate-900 dark:text-white">第 {index + 1} 题</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                      Pair #{item.lexicalPairId || '--'} · {item.taskType || '--'} · {item.contextSupportLevel || '--'}
+                      词对 #{item.lexicalPairId || '--'} · {diagnosisTaskTypeLabel(item.taskType)} · {contextLevelLabel(item.contextSupportLevel)}
                     </div>
                   </div>
                   {validationMessageForItem(validation, item.draftItemId) ? (

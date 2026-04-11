@@ -3,19 +3,60 @@ import { resources } from './resources';
 
 describe('i18n resources', () => {
   it('merges all feature slices into the single translation namespace', () => {
-    expect(resources['zh-CN'].translation.common).toBeDefined();
-    expect(resources['zh-CN'].translation.shell).toBeDefined();
-    expect(resources['zh-CN'].translation.teacherWorkspace).toBeDefined();
-    expect(resources['zh-CN'].translation.diagnosis).toBeDefined();
-    expect(resources['zh-CN'].translation.training).toBeDefined();
-    expect(resources['zh-CN'].translation.dashboard).toBeDefined();
-    expect(resources['zh-CN'].translation.analytics).toBeDefined();
+    const zh = resources['zh-CN'].translation as {
+      common: unknown;
+      shell: unknown;
+      teacherWorkspace: unknown;
+      diagnosis: unknown;
+      training: unknown;
+      dashboard: unknown;
+      analytics: unknown;
+      ui: unknown;
+    };
+
+    expect(zh.common).toBeDefined();
+    expect(zh.shell).toBeDefined();
+    expect(zh.teacherWorkspace).toBeDefined();
+    expect(zh.diagnosis).toBeDefined();
+    expect(zh.training).toBeDefined();
+    expect(zh.dashboard).toBeDefined();
+    expect(zh.analytics).toBeDefined();
+    expect(zh.ui).toBeDefined();
   });
 
   it('keeps existing translation key paths stable across locales', () => {
-    expect(resources['zh-CN'].translation.teacherWorkspace.pageTitle).toBe('教师工作台');
-    expect(resources['en-US'].translation.shell.nav.teacherWorkspace).toBe('Teacher Workspace');
-    expect(resources['en-US'].translation.training.summaryTitle).toBe('Training Summary');
-    expect(resources['zh-CN'].translation.teacherWorkspace.generated.focus.interventions.title).toBe('处理待跟进干预');
+    const zh = resources['zh-CN'].translation as {
+      teacherWorkspace: {
+        pageTitle: string;
+        generated: {
+          focus: {
+            interventions: {
+              title: string;
+            };
+          };
+        };
+      };
+    };
+    const en = resources['en-US'].translation as {
+      shell: {
+        nav: {
+          teacherWorkspace: string;
+        };
+      };
+      training: {
+        summaryTitle: string;
+      };
+      ui: {
+        actions: {
+          createPaper: string;
+        };
+      };
+    };
+
+    expect(zh.teacherWorkspace.pageTitle).toBe('教师工作台');
+    expect(en.shell.nav.teacherWorkspace).toBe('Teacher Workspace');
+    expect(en.training.summaryTitle).toBe('Training Summary');
+    expect(zh.teacherWorkspace.generated.focus.interventions.title).toBe('处理待跟进干预');
+    expect(en.ui.actions.createPaper).toBe('New paper');
   });
 });

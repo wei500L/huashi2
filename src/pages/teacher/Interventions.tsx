@@ -1,10 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader, PanelSkeleton } from '@/components/common';
+import { PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
 import { teacherAnalyticsService, teacherInterventionService } from '@/lib/services';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, interventionPriorityLabel, interventionStatusLabel, interventionStatusTone } from '@/lib/format';
 import { getApiErrorMessage } from '@/lib/api';
 
 type InterventionFormState = {
@@ -123,6 +124,17 @@ function totalPages(total = 0): number {
   return Math.max(1, Math.ceil(total / pageSize));
 }
 
+function priorityTone(priority?: string | null): React.ComponentProps<typeof StatusBadge>['tone'] {
+  switch (priority) {
+    case 'URGENT':
+      return 'danger';
+    case 'NORMAL':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
+}
+
 const TeacherInterventionsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -170,7 +182,7 @@ const TeacherInterventionsPage: React.FC = () => {
   const saveMutation = useMutation({
     mutationFn: () => {
       if (!selectedInterventionId) {
-        throw new Error('No intervention selected');
+        throw new Error('请先选择一条干预记录。');
       }
       return teacherInterventionService.update(selectedInterventionId, {
         priority: form.priority,
@@ -188,7 +200,7 @@ const TeacherInterventionsPage: React.FC = () => {
   const completeMutation = useMutation({
     mutationFn: () => {
       if (!selectedInterventionId) {
-        throw new Error('No intervention selected');
+        throw new Error('请先选择一条干预记录。');
       }
       return teacherInterventionService.update(selectedInterventionId, {
         priority: form.priority,
@@ -203,10 +215,15 @@ const TeacherInterventionsPage: React.FC = () => {
     },
   });
 
-  const records = interventionsQuery.data?.records || [];
-  const selectedIntervention =
-    records.find((item) => item.id === selectedInterventionId) || records[0] || null;
-  const overdueCount = records.filter((item) => item.status !== 'COMPLETED' && !!item.plannedAt && new Date(item.plannedAt).getTime() < Date.now()).length;
+  const records = React.useMemo(() => interventionsQuery.data?.records || [], [interventionsQuery.data?.records]);
+  const selectedIntervention = React.useMemo(
+    () => records.find((item) => item.id === selectedInterventionId) || records[0] || null,
+    [records, selectedInterventionId]
+  );
+  const overdueCount = React.useMemo(
+    () => records.filter((item) => item.status !== 'COMPLETED' && !!item.plannedAt && new Date(item.plannedAt).getTime() < Date.now()).length,
+    [records]
+  );
 
   React.useEffect(() => {
     setPageNo(1);
@@ -243,11 +260,15 @@ const TeacherInterventionsPage: React.FC = () => {
       return;
     }
     setForm(buildInterventionForm(selectedIntervention));
-  }, [selectedIntervention?.id]);
+  }, [selectedIntervention]);
 
   return (
     <div className="space-y-8 pb-20">
-      <PageHeader title="干预工作台" subtitle="从待办、排期到完成备注推进教师干预闭环；这里不只是看建议，而是把建议变成已执行动作。" />
+      <PageHeader
+        eyebrow="教师干预"
+        title="干预工作台"
+        subtitle="从待办、排期到完成备注推进教师干预闭环；这里不只是看建议，而是把建议变成已执行动作。"
+      />
 
       {source && (
         <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
@@ -289,7 +310,7 @@ const TeacherInterventionsPage: React.FC = () => {
           >
             {PRIORITY_OPTIONS.map((item) => (
               <option key={item} value={item}>
-                {item === 'ALL' ? '全部优先级' : item}
+                {item === 'ALL' ? '全部优先级' : interventionPriorityLabel(item)}
               </option>
             ))}
           </select>
@@ -341,8 +362,10 @@ const TeacherInterventionsPage: React.FC = () => {
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start justify-between">
                     <div className="space-y-2">
-                      <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
-                        {item.className} · {item.priority} · {item.status}
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-white/45">
+                        <span>{item.className}</span>
+                        <StatusBadge label={interventionPriorityLabel(item.priority)} tone={priorityTone(item.priority)} />
+                        <StatusBadge label={interventionStatusLabel(item.status)} tone={interventionStatusTone(item.status)} />
                       </div>
                       <div className="text-xl font-black text-slate-900 dark:text-white">{item.studentName}</div>
                       <div className="text-sm font-bold text-slate-800 dark:text-white/85">{item.patternDetected}</div>
@@ -387,7 +410,7 @@ const TeacherInterventionsPage: React.FC = () => {
 
         <section className="rounded-[2.5rem] liquid-glass-panel p-8">
           <div className="flex items-center justify-between gap-4 mb-6">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">干预编辑</div>
+            <SectionEyebrow>干预编辑</SectionEyebrow>
             {selectedIntervention && (
               <div className="text-sm text-slate-500 dark:text-white/45">最近更新 {formatDateTime(selectedIntervention.updatedAt)}</div>
             )}
@@ -422,7 +445,7 @@ const TeacherInterventionsPage: React.FC = () => {
                   >
                     {PRIORITY_OPTIONS.slice(1).map((item) => (
                       <option key={item} value={item}>
-                        {item}
+                        {interventionPriorityLabel(item)}
                       </option>
                     ))}
                   </select>
@@ -437,7 +460,7 @@ const TeacherInterventionsPage: React.FC = () => {
                   >
                     {STATUS_OPTIONS.slice(1).map((item) => (
                       <option key={item} value={item}>
-                        {item}
+                        {interventionStatusLabel(item)}
                       </option>
                     ))}
                   </select>

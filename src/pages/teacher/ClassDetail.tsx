@@ -2,14 +2,16 @@ import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, StatCard } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatCard } from '@/components/common';
 import { saveBlob } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
 import { teacherAnalyticsService } from '@/lib/services';
-import { buildHeatmapOption, buildRadarOption, buildTrendOption, formatMaybePercent, formatMs } from '@/lib/format';
+import { buildHeatmapOption, buildRadarOption, buildTrendOption, formatMaybePercent, formatMs, trainingModeLabel } from '@/lib/format';
 
 const TeacherClassDetailPage: React.FC = () => {
+  const { t } = useTranslation();
   const params = useParams();
   const classId = Number(params.classId);
 
@@ -79,11 +81,14 @@ const TeacherClassDetailPage: React.FC = () => {
   return (
     <div className="space-y-10 pb-20">
       <PageHeader
-        title={overviewQuery.data?.className || '班级详情'}
-        subtitle={`班级编码 ${overviewQuery.data?.classCode || '--'} · 主风险 ${overviewQuery.data?.primaryRiskLevel || '--'} · 下一步建议优先查看高风险学生并发起干预`}
+        eyebrow={t('ui.sections.students')}
+        title={overviewQuery.data?.className || t('ui.pages.classDetail.fallbackTitle')}
+        subtitle={`${t('ui.meta.classCode', { code: overviewQuery.data?.classCode || '--' })} · ${t('ui.meta.primaryRisk', {
+          risk: overviewQuery.data?.primaryRiskLevel || '--',
+        })} · ${t('ui.meta.nextClassStep')}`}
         actions={
           <button type="button" onClick={() => void handleExport()} className="btn-liquid px-5 py-3 text-white flex items-center gap-2">
-            <Download size={14} /> 导出 CSV
+            <Download size={14} /> {t('common.actions.exportCsv')}
           </button>
         }
       />
@@ -100,13 +105,13 @@ const TeacherClassDetailPage: React.FC = () => {
 
       <div className="grid xl:grid-cols-[0.95fr_1.05fr] gap-8">
         <ChartCard
-          title="班级雷达"
+          title={t('ui.charts.classRadar')}
           option={buildRadarOption(overviewQuery.data?.radar)}
           loading={overviewQuery.isLoading}
           isEmpty={!overviewQuery.data?.radar.length}
         />
         <ChartCard
-          title="班级热力图"
+          title={t('ui.charts.classHeatmap')}
           option={buildHeatmapOption(heatmapQuery.data)}
           loading={heatmapQuery.isLoading}
           isEmpty={!heatmapQuery.data?.cells.length}
@@ -115,19 +120,19 @@ const TeacherClassDetailPage: React.FC = () => {
 
       <div className="grid xl:grid-cols-3 gap-8">
         <ChartCard
-          title="风险分桶"
+          title={t('ui.charts.riskBuckets')}
           option={riskDistributionOption}
           loading={riskDistributionQuery.isLoading}
           isEmpty={!riskDistributionQuery.data?.length}
         />
         <ChartCard
-          title="错误分布"
+          title={t('ui.sections.errorDistribution')}
           option={errorDistributionOption}
           loading={errorDistributionQuery.isLoading}
           isEmpty={!errorDistributionQuery.data?.length}
         />
         <ChartCard
-          title="完成率趋势"
+          title={t('ui.charts.completionTrend')}
           option={buildTrendOption(completionRateQuery.data?.trend)}
           loading={completionRateQuery.isLoading}
           isEmpty={!completionRateQuery.data?.trend.series.length}
@@ -135,7 +140,7 @@ const TeacherClassDetailPage: React.FC = () => {
       </div>
 
       <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">students</div>
+        <SectionEyebrow className="mb-6">{t('ui.sections.students')}</SectionEyebrow>
         <div className="space-y-4">
           {(studentsQuery.data || []).map((item) => (
             <Link
@@ -147,19 +152,19 @@ const TeacherClassDetailPage: React.FC = () => {
                 <div>
                   <div className="font-black text-slate-900 dark:text-white">{item.studentName}</div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    {item.gradeName} · 推荐 {item.recommendedTrainingMode}
+                    {item.gradeName} · {trainingModeLabel(item.recommendedTrainingMode)}
                   </div>
                 </div>
                 <div className="text-right text-sm text-slate-500 dark:text-white/45">
-                  <div>准确率 {formatMaybePercent(item.recentAccuracy)}</div>
-                  <div>风险 {formatMaybePercent(item.recentNegativeTransferRisk)}</div>
+                  <div>{t('ui.meta.correctRate')} {formatMaybePercent(item.recentAccuracy)}</div>
+                  <div>{t('ui.meta.risk')} {formatMaybePercent(item.recentNegativeTransferRisk)}</div>
                   <div>{formatMs(item.recentAvgReactionTimeMs)}</div>
                 </div>
               </div>
             </Link>
           ))}
           {!studentsQuery.isLoading && !studentsQuery.data?.length && (
-            <div className="text-sm text-slate-500 dark:text-white/45">班级下暂无学生。</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noStudents')}</div>
           )}
         </div>
       </section>

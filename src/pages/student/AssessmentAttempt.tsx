@@ -3,9 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Save, Send } from 'lucide-react';
 import { useBeforeUnload, useBlocker } from 'react-router';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 import type { AssessmentAttemptDetailVO, AssessmentAttemptQuestionVO } from '@/lib/contracts';
 import { enqueueSerializedTask } from '@/features/assessment/saveQueue';
@@ -36,19 +36,6 @@ function buildSavePayload(detail: AssessmentAttemptDetailVO, responsesByOrder: R
       responses: responsesByOrder[question.questionOrder] || [],
     })),
   };
-}
-
-function questionTypeLabel(questionType: string) {
-  switch (questionType) {
-    case 'SINGLE_CHOICE':
-      return '单选题';
-    case 'MULTIPLE_CHOICE':
-      return '多选题';
-    case 'FILL_BLANK':
-      return '填空题';
-    default:
-      return questionType;
-  }
 }
 
 function hasResponses(responses?: string[]) {
@@ -446,6 +433,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
+        eyebrow="通用测评"
         title={detail?.paperTitle || '测评作答'}
         subtitle={detail ? `${detail.className} · 整卷时长 ${detail.durationMinutes} 分钟 · 截止 ${formatDateTime(detail.expiresAt)}` : '正在加载测评内容'}
         actions={
@@ -505,7 +493,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         <div className="grid gap-8 xl:grid-cols-[280px_1fr]">
           <aside className="space-y-5 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/75 px-4 py-4 dark:border-white/10 dark:bg-white/5">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">timer</div>
+              <SectionEyebrow>剩余时间</SectionEyebrow>
               <div className={`mt-3 text-3xl font-black ${remainingMs !== null && remainingMs <= 5 * 60 * 1000 ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
                 {remainingMs === null ? '--:--' : formatRemaining(remainingMs)}
               </div>
@@ -554,14 +542,12 @@ const StudentAssessmentAttemptPage: React.FC = () => {
           <section className="space-y-6 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">
-                  Question {currentQuestion.questionOrder} / {detail.questionCount}
-                </div>
-                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{questionTypeLabel(currentQuestion.questionType)}</div>
+                <SectionEyebrow>
+                  第 {currentQuestion.questionOrder} 题 / 共 {detail.questionCount} 题
+                </SectionEyebrow>
+                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{assessmentQuestionTypeLabel(currentQuestion.questionType)}</div>
               </div>
-              <div className="rounded-full border border-slate-200/70 px-4 py-2 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                {currentQuestion.score} 分
-              </div>
+              <StatusBadge label={`${currentQuestion.score} 分`} tone="neutral" className="px-4 py-2 text-sm" />
             </div>
 
             <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/75 p-5 dark:border-white/10 dark:bg-white/5">

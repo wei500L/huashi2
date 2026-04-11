@@ -1,9 +1,10 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Check, Link as LinkIcon, Plus, Search, Trash2 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
-import { formatDateTime } from '@/lib/format';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, riskLevelLabel } from '@/lib/format';
 import type {
   AddLexicalListItemsResultVO,
   LexicalListDetailVO,
@@ -360,6 +361,7 @@ const TeacherLexicalListsPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
+        eyebrow="词表"
         title="词表管理"
         subtitle="词表已经拆成列表、详情和可执行动作。优先通过搜索加入词对，来自词对工作台的条目可以直接带入当前词表。"
         actions={
@@ -401,7 +403,7 @@ const TeacherLexicalListsPage: React.FC = () => {
         <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">lists</div>
+              <SectionEyebrow>列表</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">词表列表</div>
             </div>
             <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
@@ -502,15 +504,13 @@ const TeacherLexicalListsPage: React.FC = () => {
             <div className="space-y-8">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">detail</div>
+                  <SectionEyebrow>详情</SectionEyebrow>
                   <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{detailQuery.data.listName}</div>
                   <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
                     创建于 {formatDateTime(detailQuery.data.createdAt)} · 最近更新 {formatDateTime(detailQuery.data.updatedAt || detailQuery.data.createdAt)}
                   </div>
                 </div>
-                <div className="rounded-full border border-slate-200/70 px-4 py-2 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                  {detailQuery.data.itemCount} 个词对
-                </div>
+                <StatusBadge label={`${detailQuery.data.itemCount} 个词对`} className="px-4 py-2 text-sm" />
               </div>
 
               <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
@@ -721,8 +721,10 @@ const TeacherLexicalListsPage: React.FC = () => {
                           <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                             {item.chineseGloss} · 排序 {item.sortOrder}
                           </div>
-                          <div className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
-                            {item.lexicalPairType} · {item.riskLevel} · {item.defaultContextSupport}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <StatusBadge label={lexicalPairTypeLabel(item.lexicalPairType)} />
+                            <StatusBadge label={riskLevelLabel(item.riskLevel)} tone={item.riskLevel === 'HIGH' || item.riskLevel === 'CRITICAL' ? 'danger' : item.riskLevel === 'MEDIUM' ? 'warning' : 'success'} />
+                            <StatusBadge label={contextLevelLabel(item.defaultContextSupport)} tone="info" />
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2">

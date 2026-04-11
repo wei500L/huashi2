@@ -1,22 +1,14 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { assessmentAttemptStatusLabel, assessmentAttemptStatusTone, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 
-function rosterStatusStyle(status: string) {
-  if (status === 'SUBMITTED') {
-    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-  }
-  if (status === 'IN_PROGRESS') {
-    return 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300';
-  }
-  return 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45';
-}
-
 const TeacherAssessmentPublishDetailPage: React.FC = () => {
+  const { t } = useTranslation();
   const params = useParams<{ publishId: string }>();
   const publishId = Number(params.publishId);
   const publishQuery = useQuery({
@@ -30,23 +22,24 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        title={publish?.paperTitle || '发布详情'}
+        eyebrow={t('ui.sections.assessments')}
+        title={publish?.paperTitle || t('ui.pages.publishDetail.fallbackTitle')}
         subtitle={
           publish
-            ? `${publish.className} · 发布时间 ${formatDateTime(publish.publishedAt)} · 截止 ${formatDateTime(publish.dueAt)}`
-            : '正在加载本次发布的学生名册与完成情况'
+            ? `${publish.className} · ${t('ui.meta.publishedAt', { time: formatDateTime(publish.publishedAt) })} · ${t('ui.meta.dueAt', { time: formatDateTime(publish.dueAt) })}`
+            : t('ui.pages.publishDetail.loadingSubtitle')
         }
         actions={
           <div className="flex flex-wrap gap-3">
             <Link to="/teacher/assessments" className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
-              返回测评列表
+              {t('ui.actions.backToAssessments')}
             </Link>
             {publish && (
               <Link
                 to={`/teacher/assessments/${publish.paperId}`}
                 className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
               >
-                返回试卷
+                {t('ui.actions.backToPaper')}
               </Link>
             )}
           </div>
@@ -61,7 +54,7 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
 
       {publishQuery.isLoading && (
         <div className="rounded-[2.2rem] liquid-glass-panel p-8 text-sm text-slate-500 dark:text-white/45">
-          正在加载发布详情...
+          {t('ui.labels.loadingPublishDetail')}
         </div>
       )}
 
@@ -69,50 +62,50 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
         <>
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-[2rem] liquid-glass-panel p-6">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">assigned</div>
+              <SectionEyebrow>{t('ui.meta.assignedStudents')}</SectionEyebrow>
               <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.assignedCount}</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">已分配学生</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.assignedStudents')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">not started</div>
+              <SectionEyebrow>{t('ui.meta.notStarted')}</SectionEyebrow>
               <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.notStartedCount}</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">尚未开始</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.notStarted')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">in progress</div>
+              <SectionEyebrow>{t('ui.meta.inProgress')}</SectionEyebrow>
               <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.inProgressCount}</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">正在作答</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.inProgress')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">submitted</div>
+              <SectionEyebrow>{t('ui.meta.submitted')}</SectionEyebrow>
               <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.submittedCount}</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">已交卷</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.submitted')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">average</div>
+              <SectionEyebrow>{t('ui.meta.averageScore')}</SectionEyebrow>
               <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">
                 {publish.averageScore === null || publish.averageScore === undefined ? '--' : publish.averageScore.toFixed(1)}
               </div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">平均分</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.averageScore')}</div>
             </div>
           </div>
 
           <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">publish window</div>
+                <SectionEyebrow>{t('ui.sections.publishWindow')}</SectionEyebrow>
                 <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{publish.className}</div>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{publish.questionCount} 题</span>
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{publish.totalScore} 分</span>
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{publish.durationMinutes} 分钟</span>
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{publish.status}</span>
+                  <StatusBadge label={t('ui.meta.questionCount', { count: publish.questionCount })} />
+                  <StatusBadge label={t('ui.meta.totalScore', { count: publish.totalScore })} />
+                  <StatusBadge label={t('ui.meta.durationMinutes', { count: publish.durationMinutes })} />
+                  <StatusBadge label={String(publish.status)} />
                 </div>
               </div>
               <div className="grid gap-2 text-right text-sm text-slate-500 dark:text-white/45">
-                <div>开始时间：{formatDateTime(publish.startsAt)}</div>
-                <div>截止时间：{formatDateTime(publish.dueAt)}</div>
-                <div>发布时间：{formatDateTime(publish.publishedAt)}</div>
+                <div>{t('ui.meta.startsAt', { time: formatDateTime(publish.startsAt) })}</div>
+                <div>{t('ui.meta.dueAt', { time: formatDateTime(publish.dueAt) })}</div>
+                <div>{t('ui.meta.publishAt', { time: formatDateTime(publish.publishedAt) })}</div>
               </div>
             </div>
 
@@ -131,13 +124,13 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
 
           <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">roster</div>
-              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">学生完成名册</div>
+              <SectionEyebrow>{t('ui.sections.roster')}</SectionEyebrow>
+              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('ui.sections.roster')}</div>
             </div>
 
             {!publish.roster.length ? (
               <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/55 px-4 py-5 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
-                本次发布还没有学生名册快照。
+                {t('ui.labels.noRoster')}
               </div>
             ) : (
               <div className="space-y-4">
@@ -147,19 +140,20 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
                       <div>
                         <div className="text-xl font-black text-slate-900 dark:text-white">{item.studentName}</div>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                          <span className={`rounded-full border px-3 py-1 ${rosterStatusStyle(item.attemptStatus)}`}>{item.attemptStatus}</span>
-                          <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
-                            进度 {item.answeredCount || 0} / {item.questionCount || publish.questionCount}
-                          </span>
+                          <StatusBadge
+                            label={assessmentAttemptStatusLabel(item.attemptStatus)}
+                            tone={assessmentAttemptStatusTone(item.attemptStatus)}
+                          />
+                          <StatusBadge label={t('ui.meta.progress', { current: item.answeredCount || 0, total: item.questionCount || publish.questionCount })} />
                           {item.totalScore !== null && item.totalScore !== undefined && (
-                            <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">得分 {item.totalScore}</span>
+                            <StatusBadge label={`${t('ui.meta.averageScore')} ${item.totalScore}`} />
                           )}
                         </div>
                         <div className="mt-3 grid gap-2 text-sm text-slate-500 dark:text-white/45 md:grid-cols-2">
-                          <div>开始时间：{formatDateTime(item.startedAt)}</div>
-                          <div>最后保存：{formatDateTime(item.lastSavedAt)}</div>
-                          <div>作答时限：{formatDateTime(item.expiresAt)}</div>
-                          <div>交卷时间：{formatDateTime(item.submittedAt)}</div>
+                          <div>{t('ui.meta.startsAt', { time: formatDateTime(item.startedAt) })}</div>
+                          <div>{t('ui.meta.lastSavedAt', { time: formatDateTime(item.lastSavedAt) })}</div>
+                          <div>{t('ui.meta.expiresAt', { time: formatDateTime(item.expiresAt) })}</div>
+                          <div>{t('ui.meta.submittedAt', { time: formatDateTime(item.submittedAt) })}</div>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-3">
@@ -168,15 +162,15 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
                             to={`/teacher/assessments/attempts/${item.attemptId}/result`}
                             className="btn-liquid px-5 py-3 text-sm text-white"
                           >
-                            查看答卷
+                            {t('ui.actions.viewResult')}
                           </Link>
                         ) : item.attemptId ? (
                           <div className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-                            学生仍在作答
+                            {t('ui.labels.stillAnswering')}
                           </div>
                         ) : (
                           <div className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                            尚未进入测评
+                            {t('ui.labels.notEnteredAssessment')}
                           </div>
                         )}
                       </div>

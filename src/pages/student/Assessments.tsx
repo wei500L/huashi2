@@ -1,32 +1,35 @@
 import React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Clock3, FileText, PlayCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { assessmentAttemptStatusLabel, assessmentAttemptStatusTone, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 import type { StudentAssessmentSummaryVO } from '@/lib/contracts';
+import type { TFunction } from 'i18next';
 
-function resolveAction(item: StudentAssessmentSummaryVO, now: number) {
+function resolveAction(item: StudentAssessmentSummaryVO, now: number, t: TFunction) {
   const startsAt = item.startsAt ? new Date(item.startsAt).getTime() : null;
   const dueAt = item.dueAt ? new Date(item.dueAt).getTime() : null;
   if (item.attemptStatus === 'SUBMITTED' && item.attemptId) {
-    return { label: '查看结果', disabled: false, icon: CheckCircle2 };
+    return { label: t('ui.actions.viewResult'), disabled: false, icon: CheckCircle2 };
   }
   if (startsAt && startsAt > now) {
-    return { label: '未开始', disabled: true, icon: Clock3 };
+    return { label: t('ui.meta.notStarted'), disabled: true, icon: Clock3 };
   }
   if (!item.attemptId && dueAt && dueAt <= now) {
-    return { label: '已截止', disabled: true, icon: Clock3 };
+    return { label: t('ui.meta.dueAt', { time: formatDateTime(item.dueAt) }), disabled: true, icon: Clock3 };
   }
   if (item.attemptId) {
-    return { label: '继续作答', disabled: false, icon: PlayCircle };
+    return { label: t('ui.actions.continueAnswering'), disabled: false, icon: PlayCircle };
   }
-  return { label: '开始测评', disabled: false, icon: PlayCircle };
+  return { label: t('ui.actions.start'), disabled: false, icon: PlayCircle };
 }
 
 const StudentAssessmentsPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const now = Date.now();
@@ -46,14 +49,15 @@ const StudentAssessmentsPage: React.FC = () => {
       navigate(`/assessments/attempts/${attempt.attemptId}`);
     },
     onError: (error) => {
-      setErrorMessage(getApiErrorMessage(error, '进入测评失败'));
+      setErrorMessage(getApiErrorMessage(error, t('ui.actions.enterAssessmentCenter')));
     },
   });
 
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        title="通用测评"
+        eyebrow={t('shell.nav.assessments')}
+        title={t('shell.titles.assessments')}
         subtitle="这里承接老师发布到班级的整卷测评。支持统一开始、整卷倒计时、题号导航和交卷后题目级回看。"
       />
 
@@ -71,19 +75,19 @@ const StudentAssessmentsPage: React.FC = () => {
 
       {assessmentsQuery.isLoading && (
         <div className="rounded-[2.2rem] liquid-glass-panel p-8 text-sm text-slate-500 dark:text-white/45">
-          正在加载测评任务...
+          {t('ui.labels.loadingAssessments')}
         </div>
       )}
 
       {!assessmentsQuery.isLoading && !assessmentsQuery.data?.length && (
         <div className="rounded-[2.2rem] border border-dashed border-slate-300 bg-white/55 p-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
-          当前没有可作答的通用测评。
+          {t('ui.labels.noAssessments')}
         </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-2">
         {(assessmentsQuery.data || []).map((item) => {
-          const action = resolveAction(item, now);
+          const action = resolveAction(item, now, t);
           const ActionIcon = action.icon;
           return (
             <div key={item.publishId} className="rounded-[2.4rem] liquid-glass-panel p-7 space-y-5">
@@ -93,26 +97,27 @@ const StudentAssessmentsPage: React.FC = () => {
 
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{item.className}</div>
+                  <SectionEyebrow>{item.className}</SectionEyebrow>
                   <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{item.title}</div>
-                  <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{item.description || '无描述'}</div>
+                  <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{item.description || t('ui.labels.noDescription')}</div>
                 </div>
-                <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                  {item.attemptStatus || '待开始'}
-                </div>
+                <StatusBadge
+                  label={item.attemptStatus ? assessmentAttemptStatusLabel(item.attemptStatus) : t('ui.meta.notStarted')}
+                  tone={assessmentAttemptStatusTone(item.attemptStatus)}
+                />
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{item.questionCount} 题</span>
-                <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{item.totalScore} 分</span>
-                <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{item.durationMinutes} 分钟</span>
+                <StatusBadge label={t('ui.meta.questionCount', { count: item.questionCount })} />
+                <StatusBadge label={t('ui.meta.totalScore', { count: item.totalScore })} />
+                <StatusBadge label={t('ui.meta.durationMinutes', { count: item.durationMinutes })} />
               </div>
 
               <div className="grid gap-2 text-sm text-slate-500 dark:text-white/45">
-                <div>开始时间：{formatDateTime(item.startsAt)}</div>
-                <div>截止时间：{formatDateTime(item.dueAt)}</div>
-                <div>发布时间：{formatDateTime(item.publishedAt)}</div>
-                {item.attemptId && <div>当前进度：{item.answeredCount || 0} / {item.questionCount}</div>}
+                <div>{t('ui.meta.startsAt', { time: formatDateTime(item.startsAt) })}</div>
+                <div>{t('ui.meta.dueAt', { time: formatDateTime(item.dueAt) })}</div>
+                <div>{t('ui.meta.publishAt', { time: formatDateTime(item.publishedAt) })}</div>
+                {item.attemptId && <div>{t('ui.meta.progress', { current: item.answeredCount || 0, total: item.questionCount })}</div>}
               </div>
 
               {item.instructionsText && (

@@ -1,8 +1,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Filter } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, StatCard } from '@/components/common';
+import { PageHeader, SectionEyebrow } from '@/components/common';
 import { saveBlob } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
 import { studentService } from '@/lib/services';
@@ -17,6 +18,7 @@ import {
 } from '@/lib/format';
 
 const AnalyticsPage: React.FC = () => {
+  const { t } = useTranslation();
   const [range, setRange] = React.useState<'7d' | '30d'>('30d');
 
   const overviewQuery = useQuery({
@@ -92,8 +94,9 @@ const AnalyticsPage: React.FC = () => {
   return (
     <div className="space-y-10 pb-20">
       <PageHeader
-        title="学情分析"
-        subtitle="真实聚合后的趋势、热力图、散点图和高风险词对。"
+        eyebrow={t('shell.nav.analytics')}
+        title={t('analytics.title')}
+        subtitle={t('analytics.subtitle')}
         actions={
           <div className="flex gap-3">
             <div className="flex gap-2 rounded-full border border-slate-200 dark:border-white/10 p-1">
@@ -111,7 +114,7 @@ const AnalyticsPage: React.FC = () => {
               ))}
             </div>
             <button type="button" onClick={() => void handleExport()} className="btn-liquid px-5 py-3 text-white flex items-center gap-2">
-              <Download size={14} /> 导出 CSV
+              <Download size={14} /> {t('common.actions.exportCsv')}
             </button>
           </div>
         }
@@ -123,19 +126,27 @@ const AnalyticsPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {(overviewQuery.data?.cards || []).slice(0, 4).map((card) => (
-          <StatCard key={card.key} title={card.label} value={`${card.value}${card.unit || ''}`} icon={Filter} />
+          <div key={card.key} className="rounded-[2rem] liquid-glass p-6">
+            <SectionEyebrow>{card.label}</SectionEyebrow>
+            <div className="mt-3 flex items-center justify-between gap-4">
+              <div className="text-3xl font-black text-slate-900 dark:text-white">{`${card.value}${card.unit || ''}`}</div>
+              <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                <Filter size={18} />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
 
       <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-8">
         <ChartCard
-          title="综合能力雷达"
+          title={t('ui.charts.comprehensiveRadar')}
           option={buildRadarOption(overviewQuery.data?.radar)}
           loading={overviewQuery.isLoading}
           isEmpty={!overviewQuery.data?.radar.length}
         />
         <ChartCard
-          title="趋势分析"
+          title={t('ui.charts.trendAnalysis')}
           option={buildTrendOption(trendsQuery.data)}
           loading={trendsQuery.isLoading}
           isEmpty={!trendsQuery.data?.series.length}
@@ -144,13 +155,13 @@ const AnalyticsPage: React.FC = () => {
 
       <div className="grid xl:grid-cols-2 gap-8">
         <ChartCard
-          title="迁移热力图"
+          title={t('ui.charts.transferHeatmap')}
           option={buildHeatmapOption(heatmapQuery.data)}
           loading={heatmapQuery.isLoading}
           isEmpty={!heatmapQuery.data?.cells.length}
         />
         <ChartCard
-          title="语境表现"
+          title={t('ui.charts.contextPerformance')}
           option={contextOption}
           loading={overviewQuery.isLoading}
           isEmpty={!overviewQuery.data?.contextPerformance.length}
@@ -159,13 +170,13 @@ const AnalyticsPage: React.FC = () => {
 
       <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-8">
         <ChartCard
-          title="延迟-准确率散点"
+          title={t('ui.charts.latencyAccuracyScatter')}
           option={buildScatterOption(scatterQuery.data)}
           loading={scatterQuery.isLoading}
           isEmpty={!scatterQuery.data?.points.length}
         />
         <ChartCard
-          title="错误分布"
+          title={t('ui.sections.errorDistribution')}
           option={errorDistributionOption}
           loading={errorDistributionQuery.isLoading}
           isEmpty={!errorDistributionQuery.data?.length}
@@ -173,7 +184,7 @@ const AnalyticsPage: React.FC = () => {
       </div>
 
       <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">high risk pairs</div>
+        <SectionEyebrow className="mb-6">{t('ui.sections.highRiskPairs')}</SectionEyebrow>
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
           {(highRiskPairsQuery.data || []).map((item) => (
             <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
@@ -181,34 +192,34 @@ const AnalyticsPage: React.FC = () => {
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{lexicalPairTypeLabel(item.lexicalPairType)}</div>
               <div className="mt-4 flex items-center justify-between gap-4 text-sm">
                 <span className="text-rose-500 font-bold">{formatMaybePercent(item.riskScore)}</span>
-                <span className="text-slate-500 dark:text-white/45">错 {item.incorrectCount} / {item.attemptCount}</span>
+                <span className="text-slate-500 dark:text-white/45">{item.incorrectCount} / {item.attemptCount}</span>
               </div>
             </div>
           ))}
           {!highRiskPairsQuery.isLoading && !highRiskPairsQuery.data?.length && (
-            <div className="text-sm text-slate-500 dark:text-white/45">暂无高风险词对。</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noHighRiskPairs')}</div>
           )}
         </div>
       </section>
 
       {overviewQuery.data?.latestSnapshot && (
         <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">latest snapshot</div>
+          <SectionEyebrow className="mb-6">{t('ui.sections.latestSnapshot')}</SectionEyebrow>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-              <div className="text-sm text-slate-500 dark:text-white/45">最近准确率</div>
+              <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.meta.correctRate')}</div>
               <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
                 {formatMaybePercent(overviewQuery.data.latestSnapshot.recentAccuracy)}
               </div>
             </div>
             <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-              <div className="text-sm text-slate-500 dark:text-white/45">最近负迁移风险</div>
+              <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.meta.risk')}</div>
               <div className="mt-2 text-2xl font-black text-rose-500">
                 {formatMaybePercent(overviewQuery.data.latestSnapshot.recentNegativeTransferRisk)}
               </div>
             </div>
             <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-              <div className="text-sm text-slate-500 dark:text-white/45">最近平均反应时</div>
+              <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.fields.averageReactionTime')}</div>
               <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
                 {formatMs(overviewQuery.data.latestSnapshot.recentAvgReactionTimeMs)}
               </div>

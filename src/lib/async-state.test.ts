@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ApiError } from './api';
 import { getProductizedErrorState } from './async-state';
+import i18n from './i18n';
+
+beforeEach(async () => {
+  await i18n.changeLanguage('zh-CN');
+});
 
 describe('getProductizedErrorState', () => {
   it('maps expired sessions to a permission-style login recovery state', () => {
@@ -50,5 +55,20 @@ describe('getProductizedErrorState', () => {
     expect(state.title).toBe('测评结果暂时没有加载成功');
     expect(state.nextStep).toContain('稍后再试');
     expect(JSON.stringify(state)).not.toContain('bad request from api');
+  });
+
+  it('switches productized error copy with the active locale', async () => {
+    await i18n.changeLanguage('en-US');
+
+    const state = getProductizedErrorState(new ApiError('upstream timeout', 503), {
+      resourceLabel: 'Training summary',
+      taskLabel: 'reviewing training details',
+      retryActionLabel: 'Reload',
+    });
+
+    expect(state.kind).toBe('retry');
+    expect(state.title).toBe('The service is temporarily unavailable');
+    expect(state.nextStep).toContain('Reload');
+    expect(state.description).toContain('Training summary');
   });
 });

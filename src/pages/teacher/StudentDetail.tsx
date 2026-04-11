@@ -1,9 +1,10 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Brain, Wand2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, PanelSkeleton } from '@/components/common';
+import { PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
 import { aiService, teacherAnalyticsService, teacherInterventionService } from '@/lib/services';
 import {
@@ -14,6 +15,9 @@ import {
   formatDateTime,
   formatMaybePercent,
   formatMs,
+  interventionPriorityLabel,
+  interventionStatusLabel,
+  interventionStatusTone,
   lexicalPairTypeLabel,
 } from '@/lib/format';
 import { getApiErrorMessage } from '@/lib/api';
@@ -45,6 +49,7 @@ function buildInterventionForm(item?: TeacherInterventionSummaryVO | null): Inte
 }
 
 const TeacherStudentDetailPage: React.FC = () => {
+  const { t } = useTranslation();
   const params = useParams();
   const classId = Number(params.classId);
   const studentUserId = Number(params.studentUserId);
@@ -118,7 +123,7 @@ const TeacherStudentDetailPage: React.FC = () => {
 
   const detail = detailQuery.data;
   const analysis = detail?.analysis;
-  const studentInterventions = interventionsQuery.data?.records || [];
+  const studentInterventions = React.useMemo(() => interventionsQuery.data?.records || [], [interventionsQuery.data?.records]);
   const selectedIntervention =
     studentInterventions.find((item) => item.id === selectedInterventionId) || studentInterventions[0] || null;
 
@@ -138,16 +143,20 @@ const TeacherStudentDetailPage: React.FC = () => {
       return;
     }
     setForm(buildInterventionForm(selectedIntervention));
-  }, [selectedIntervention?.id]);
+  }, [selectedIntervention]);
 
   return (
     <div className="space-y-10 pb-20">
       <PageHeader
-        title={detail?.studentName || '学生详情'}
+        eyebrow={t('ui.sections.studentMetrics')}
+        title={detail?.studentName || t('ui.pages.studentDetail.fallbackTitle')}
         subtitle={
           detail
-            ? `班级排名 ${detail.classRank} · Percentile ${(detail.classPercentile * 100).toFixed(0)}% · 可直接在当前页生成并落地教师干预`
-            : '正在加载学生分析与干预上下文'
+            ? t('ui.meta.classRankPercentile', {
+                rank: detail.classRank,
+                percent: (detail.classPercentile * 100).toFixed(0),
+              })
+            : t('ui.labels.loadingStudentContext')
         }
         actions={
           <button
@@ -156,7 +165,7 @@ const TeacherStudentDetailPage: React.FC = () => {
             disabled={suggestMutation.isPending}
             className="btn-liquid px-5 py-3 text-white flex items-center gap-2 disabled:opacity-60"
           >
-            <Wand2 size={14} /> 生成干预建议
+            <Wand2 size={14} /> {t('ui.actions.generateIntervention')}
           </button>
         }
       />
@@ -171,19 +180,19 @@ const TeacherStudentDetailPage: React.FC = () => {
         <>
           <div className="grid md:grid-cols-3 gap-6">
             <div className="rounded-[2rem] liquid-glass p-6">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">最近准确率</div>
+              <SectionEyebrow className="text-xs">{t('ui.meta.correctRate')}</SectionEyebrow>
               <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
                 {formatMaybePercent(analysis.overview.latestSnapshot.recentAccuracy)}
               </div>
             </div>
             <div className="rounded-[2rem] liquid-glass p-6">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">最近负迁移风险</div>
+              <SectionEyebrow className="text-xs">{t('ui.meta.risk')}</SectionEyebrow>
               <div className="mt-3 text-3xl font-black text-rose-500">
                 {formatMaybePercent(analysis.overview.latestSnapshot.recentNegativeTransferRisk)}
               </div>
             </div>
             <div className="rounded-[2rem] liquid-glass p-6">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">最近平均反应时</div>
+              <SectionEyebrow className="text-xs">{t('ui.fields.averageReactionTime')}</SectionEyebrow>
               <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
                 {formatMs(analysis.overview.latestSnapshot.recentAvgReactionTimeMs)}
               </div>
@@ -191,24 +200,24 @@ const TeacherStudentDetailPage: React.FC = () => {
           </div>
 
           <div className="grid xl:grid-cols-[0.95fr_1.05fr] gap-8">
-            <ChartCard title="学生雷达" option={buildRadarOption(analysis.overview.radar)} loading={detailQuery.isLoading} isEmpty={!analysis.overview.radar.length} />
-            <ChartCard title="近 7 天趋势" option={buildTrendOption(analysis.trend7d)} loading={detailQuery.isLoading} isEmpty={!analysis.trend7d.series.length} />
+            <ChartCard title={t('ui.charts.studentRadar')} option={buildRadarOption(analysis.overview.radar)} loading={detailQuery.isLoading} isEmpty={!analysis.overview.radar.length} />
+            <ChartCard title={t('ui.charts.trend7d')} option={buildTrendOption(analysis.trend7d)} loading={detailQuery.isLoading} isEmpty={!analysis.trend7d.series.length} />
           </div>
 
           <div className="grid xl:grid-cols-2 gap-8">
-            <ChartCard title="迁移热力图" option={buildHeatmapOption(analysis.transferHeatmap)} loading={detailQuery.isLoading} isEmpty={!analysis.transferHeatmap.cells.length} />
-            <ChartCard title="散点图" option={buildScatterOption(analysis.scatter)} loading={detailQuery.isLoading} isEmpty={!analysis.scatter.points.length} />
+            <ChartCard title={t('ui.charts.transferHeatmap')} option={buildHeatmapOption(analysis.transferHeatmap)} loading={detailQuery.isLoading} isEmpty={!analysis.transferHeatmap.cells.length} />
+            <ChartCard title={t('ui.charts.latencyAccuracyScatter')} option={buildScatterOption(analysis.scatter)} loading={detailQuery.isLoading} isEmpty={!analysis.scatter.points.length} />
           </div>
 
           <div className="grid xl:grid-cols-[1fr_1fr_0.9fr] gap-8">
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">高风险词对</div>
+              <SectionEyebrow className="mb-6">{t('ui.sections.highRiskPairs')}</SectionEyebrow>
               <div className="space-y-4">
                 {analysis.highRiskPairs.map((item) => (
                   <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
                     <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                      {lexicalPairTypeLabel(item.lexicalPairType)} · 风险 {formatMaybePercent(item.riskScore)}
+                      {lexicalPairTypeLabel(item.lexicalPairType)} · {t('ui.meta.risk')} {formatMaybePercent(item.riskScore)}
                     </div>
                   </div>
                 ))}
@@ -216,7 +225,7 @@ const TeacherStudentDetailPage: React.FC = () => {
             </section>
 
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-6">错误分布</div>
+              <SectionEyebrow className="mb-6">{t('ui.sections.errorDistribution')}</SectionEyebrow>
               <div className="space-y-4">
                 {analysis.errorDistribution.map((item) => (
                   <div key={item.key} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
@@ -234,7 +243,7 @@ const TeacherStudentDetailPage: React.FC = () => {
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
               <div className="flex items-center gap-3 mb-6">
                 <Brain size={16} className="text-primary" />
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">最新 AI 建议</div>
+                <SectionEyebrow>AI</SectionEyebrow>
               </div>
               {suggestMutation.isPending ? (
                 <PanelSkeleton className="min-h-[220px] p-0" />
@@ -257,7 +266,7 @@ const TeacherStudentDetailPage: React.FC = () => {
           <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
               <div className="flex items-center justify-between gap-4 mb-6">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">干预记录</div>
+                <SectionEyebrow>{t('ui.sections.interventionRecords')}</SectionEyebrow>
                 <div className="text-sm text-slate-500 dark:text-white/45">{studentInterventions.length} 条</div>
               </div>
 
@@ -286,8 +295,9 @@ const TeacherStudentDetailPage: React.FC = () => {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
-                            {item.priority} · {item.status}
+                          <div className="flex flex-wrap gap-2">
+                            <StatusBadge label={interventionPriorityLabel(item.priority)} tone="warning" />
+                            <StatusBadge label={interventionStatusLabel(item.status)} tone={interventionStatusTone(item.status)} />
                           </div>
                           <div className="mt-2 font-black text-slate-900 dark:text-white">{item.patternDetected}</div>
                           <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.suggestedAction}</div>
@@ -305,9 +315,9 @@ const TeacherStudentDetailPage: React.FC = () => {
 
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
               <div className="flex items-center justify-between gap-4 mb-6">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">干预计划编辑</div>
+                <SectionEyebrow>{t('ui.sections.interventionRecords')}</SectionEyebrow>
                 {selectedIntervention && (
-                  <div className="text-sm text-slate-500 dark:text-white/45">最近更新 {formatDateTime(selectedIntervention.updatedAt)}</div>
+                  <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.meta.lastUpdated', { time: formatDateTime(selectedIntervention.updatedAt) })}</div>
                 )}
               </div>
 

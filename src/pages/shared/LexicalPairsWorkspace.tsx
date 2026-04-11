@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -111,10 +112,10 @@ const workspaceMeta: Record<
   },
   admin: {
     title: '语料库管理',
-    subtitle: '管理员可按列表、编辑区和导入中心拆分运营，并对单个词对发起定向 reindex。',
+    subtitle: '管理员可按列表、编辑区和导入中心拆分运营，并对单个词对发起定向重建索引。',
     guideTitle: '管理员操作指南',
-    guideDescription: '先下载模板核对字段，再执行批量导入；导入完成后继续把词对接入模板、词表或定向 reindex。',
-    successHint: '导入成功后还需要继续把词对接到产品链路里，单次 reindex 只作为检索同步兜底。',
+    guideDescription: '先下载模板核对字段，再执行批量导入；导入完成后继续把词对接入模板、词表或定向重建索引。',
+    successHint: '导入成功后还需要继续把词对接到产品链路里，单次重建索引只作为检索同步兜底。',
   },
 };
 
@@ -651,10 +652,10 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
       }),
     onSuccess: (response, lexicalPairId) => {
       setError(null);
-      setResetFeedback(`已提交 Pair #${lexicalPairId} 的 reindex 任务，Job #${response.jobId}。`);
+      setResetFeedback(`已提交词对 #${lexicalPairId} 的重建索引任务，任务 #${response.jobId}。`);
     },
     onError: (mutationError) => {
-      setError(mutationError instanceof Error ? mutationError.message : 'reindex 提交失败。');
+      setError(mutationError instanceof Error ? mutationError.message : '重建索引提交失败。');
     },
   });
 
@@ -823,8 +824,8 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
     if (canAccessAdminConsole) {
       links.push({
         to: '/admin/config-center',
-        label: '去检查 RAG / Reindex',
-        description: '如果本地消息链路或检索结果没有及时更新，可在这里做手动 reindex。',
+        label: '去检查 RAG / 重建索引',
+        description: '如果本地消息链路或检索结果没有及时更新，可在这里手动触发重建索引。',
       });
     }
     return links;
@@ -971,8 +972,8 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             {[
               '1. 下载模板并核对必填列。',
               '2. 优先填写基础字段，义项和例句按需补充。',
-              '3. 导入后先处理失败行，确认可导入行都已转为 READY。',
-              '4. 导入完成后继续使用“加入模板”“加入词表”或定向 reindex，别停留在词库层。',
+              '3. 导入后先处理失败行，确认可导入行都已转为“可导入”状态。',
+              '4. 导入完成后继续使用“加入模板”“加入词表”或定向重建索引，别停留在词库层。',
             ].map((step) => (
               <div
                 key={step}
@@ -1086,10 +1087,10 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
         <div className="min-w-0 space-y-8">
           <SectionCard
             title="词对列表"
-            description="支持关键词、词对类型、启用状态和向量状态过滤，并直接把词对送到模板、词表或 reindex。"
+            description="支持关键词、词对类型、启用状态和向量状态过滤，并直接把词对送到模板、词表或重建索引。"
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或 searchable text 模糊查询。">
+              <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或可检索文本模糊查询。">
                 <div className="relative">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" />
                   <input
@@ -1284,7 +1285,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
-                        Pair #{item.id}
+                        词对 #{item.id}
                       </span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
                         {lexicalPairTypeWorkspaceLabel(item.lexicalPairType)}
@@ -1415,7 +1416,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               <SelectInput
                 value={String(editor.difficultyLevel)}
                 onChange={(value) => updateEditor('difficultyLevel', Number(value))}
-                options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `Level ${value}` }))}
+                options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `等级 ${value}` }))}
               />
             </FieldCard>
           </div>
@@ -1462,7 +1463,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                   onChange={(event) => updateEditor('notes', event.target.value)}
                   rows={4}
                   className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/45"
-                  placeholder="High confusion for beginners"
+                  placeholder="初学者高混淆风险，建议优先复核。"
                 />
               </FieldCard>
             </div>
@@ -1540,7 +1541,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <FieldCard label="Sort Order">
+                  <FieldCard label="排序">
                     <TextInput
                       type="number"
                       value={sense.sortOrder}
@@ -1597,7 +1598,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                       </div>
 
                       <div className="grid gap-4 md:grid-cols-2">
-                        <FieldCard label="Sort Order">
+                        <FieldCard label="排序">
                           <TextInput
                             type="number"
                             value={example.sortOrder}
@@ -1705,7 +1706,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                 to="/admin/config-center"
                 className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 dark:border-white/10 dark:text-white/60"
               >
-                导入后去做 RAG reindex
+                导入后去做 RAG 重建索引
                 <ArrowRight size={16} />
               </Link>
             )}
@@ -1732,7 +1733,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               tabIndex={-1}
               className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-white/90 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.28)] backdrop-blur-xl dark:bg-slate-950/90"
             >
-              <div className="text-[11px] uppercase tracking-[0.28em] text-rose-500">Danger Zone</div>
+              <div className="text-[11px] uppercase tracking-[0.28em] text-rose-500">删除操作</div>
               <div id={deleteDialogTitleId} className="mt-3 text-2xl font-black text-slate-900 dark:text-white">确认删除当前词对？</div>
               <div id={deleteDialogDescriptionId} className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">
                 词对 <span className="font-bold text-slate-900 dark:text-white">{editor.englishWord || '--'} / {editor.frenchWord || '--'}</span> 将被删除。

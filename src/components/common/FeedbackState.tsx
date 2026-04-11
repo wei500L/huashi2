@@ -1,6 +1,8 @@
 import React from 'react';
 import { AlertTriangle, Inbox, LoaderCircle, RefreshCcw, ShieldAlert } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { AsyncStateKind } from '@/lib/async-state';
+import { StatusBadge } from '@/components/common';
 import { cn } from '@/lib/utils';
 
 export type FeedbackStateAction = {
@@ -25,38 +27,38 @@ export type FeedbackStateProps = {
 const KIND_META: Record<
   AsyncStateKind,
   {
-    eyebrow: string;
+    eyebrowKey: string;
     icon: React.ComponentType<{ className?: string; size?: number }>;
     shellClassName: string;
     badgeClassName: string;
   }
 > = {
   loading: {
-    eyebrow: '正在同步',
+    eyebrowKey: 'ui.feedback.kind.loading',
     icon: LoaderCircle,
     shellClassName: 'border-sky-500/15 bg-sky-500/[0.05] text-slate-700 dark:text-white/80',
     badgeClassName: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
   },
   empty: {
-    eyebrow: '暂无内容',
+    eyebrowKey: 'ui.feedback.kind.empty',
     icon: Inbox,
     shellClassName: 'border-slate-200/80 bg-white/70 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/80',
     badgeClassName: 'border-slate-200/80 bg-white/85 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45',
   },
   permission: {
-    eyebrow: '访问受限',
+    eyebrowKey: 'ui.feedback.kind.permission',
     icon: ShieldAlert,
     shellClassName: 'border-amber-500/20 bg-amber-500/[0.08] text-amber-900 dark:text-amber-100',
     badgeClassName: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   },
   error: {
-    eyebrow: '请求失败',
+    eyebrowKey: 'ui.feedback.kind.error',
     icon: AlertTriangle,
     shellClassName: 'border-rose-500/20 bg-rose-500/[0.07] text-rose-900 dark:text-rose-100',
     badgeClassName: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300',
   },
   retry: {
-    eyebrow: '可重试失败',
+    eyebrowKey: 'ui.feedback.kind.retry',
     icon: RefreshCcw,
     shellClassName: 'border-sky-500/20 bg-sky-500/[0.07] text-sky-900 dark:text-sky-100',
     badgeClassName: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
@@ -92,9 +94,11 @@ export const FeedbackState: React.FC<FeedbackStateProps> = ({
   primaryAction,
   secondaryAction,
 }) => {
+  const { t } = useTranslation();
   const meta = KIND_META[kind];
   const Icon = meta.icon;
   const iconClassName = kind === 'loading' ? 'animate-spin' : undefined;
+  const resolvedEyebrow = eyebrow ?? t(meta.eyebrowKey);
 
   return (
     <section
@@ -106,16 +110,11 @@ export const FeedbackState: React.FC<FeedbackStateProps> = ({
       )}
     >
       <div className={cn('flex h-full flex-col', compact ? 'justify-center gap-4 text-center' : 'gap-5')}>
-        <div
-          className={cn(
-            'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em]',
-            meta.badgeClassName,
-            compact && 'mx-auto'
-          )}
-        >
-          <Icon size={14} className={iconClassName} />
-          {eyebrow ?? meta.eyebrow}
-        </div>
+        <StatusBadge
+          label={resolvedEyebrow}
+          icon={<Icon size={14} className={iconClassName} />}
+          className={cn('gap-2 px-4 py-2 text-[10px] uppercase tracking-[0.24em]', meta.badgeClassName, compact && 'mx-auto')}
+        />
 
         <div className={cn('space-y-3', compact && 'mx-auto max-w-md')}>
           <h3 className={cn('font-black tracking-tight', compact ? 'text-xl' : 'text-2xl text-slate-900 dark:text-white')}>
@@ -128,13 +127,13 @@ export const FeedbackState: React.FC<FeedbackStateProps> = ({
           <div className={cn('grid gap-3', compact ? 'mx-auto w-full max-w-md text-left' : 'md:grid-cols-2')}>
             {impact && (
               <div className="rounded-[1.4rem] border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
-                <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">当前影响</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">{t('ui.feedback.impactHeading')}</div>
                 <p className="mt-2 text-sm leading-6 opacity-90">{impact}</p>
               </div>
             )}
             {nextStep && (
               <div className="rounded-[1.4rem] border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
-                <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">建议操作</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">{t('ui.feedback.nextStepHeading')}</div>
                 <p className="mt-2 text-sm leading-6 opacity-90">{nextStep}</p>
               </div>
             )}

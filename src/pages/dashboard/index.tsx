@@ -2,12 +2,14 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowRight, Brain, Clock3, FileText, RefreshCw, Target } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, StatCard } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
 import {
   assessmentAttemptStatusLabel,
+  assessmentAttemptStatusTone,
   buildRadarOption,
   buildTrendOption,
   errorTypeLabel,
@@ -21,46 +23,48 @@ import {
 import { assessmentService, studentService, trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
 import type { StudentAssessmentSummaryVO } from '@/lib/contracts';
+import type { TFunction } from 'i18next';
 
-function resolveAssessmentDashboardAction(item: StudentAssessmentSummaryVO, now: number) {
+function resolveAssessmentDashboardAction(item: StudentAssessmentSummaryVO, now: number, t: TFunction) {
   const startsAt = item.startsAt ? new Date(item.startsAt).getTime() : null;
   const dueAt = item.dueAt ? new Date(item.dueAt).getTime() : null;
   if (item.attemptStatus === 'SUBMITTED' && item.attemptId) {
     return {
-      label: '查看结果',
+      label: t('ui.actions.viewResult'),
       disabled: false,
       to: `/assessments/attempts/${item.attemptId}/result`,
     };
   }
   if (item.attemptId) {
     return {
-      label: '继续作答',
+      label: t('ui.actions.continueAnswering'),
       disabled: false,
       to: `/assessments/attempts/${item.attemptId}`,
     };
   }
   if (startsAt && startsAt > now) {
     return {
-      label: '未开始',
+      label: t('ui.meta.notStarted'),
       disabled: true,
       to: '/assessments',
     };
   }
   if (dueAt && dueAt <= now) {
     return {
-      label: '已截止',
+      label: t('ui.meta.dueAt', { time: formatDateTime(item.dueAt) }),
       disabled: true,
       to: '/assessments',
     };
   }
   return {
-    label: '进入测评中心',
+    label: t('ui.actions.enterAssessmentCenter'),
     disabled: false,
     to: '/assessments',
   };
 }
 
 const DashboardPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const overviewQuery = useQuery({
@@ -128,11 +132,12 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-10 pb-20">
       <PageHeader
-        title="学习总览"
-        subtitle="实时聚合学生画像、近期诊断信号和训练建议。"
+        eyebrow={t('shell.nav.dashboard')}
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
         actions={
           <button onClick={() => navigate('/diagnosis')} className="btn-liquid px-6 py-3 text-white">
-            开始新诊断
+            {t('common.actions.startDiagnosis')}
           </button>
         }
       />
@@ -146,24 +151,27 @@ const DashboardPage: React.FC = () => {
       <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
         <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
           <div className="max-w-3xl">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">学生画像</div>
+            <SectionEyebrow>{t('ui.sections.studentProfile')}</SectionEyebrow>
             <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900 dark:text-white md:text-5xl">
-              {overview?.studentName || '加载中'}，当前主风险为 {riskLevelLabel(overview?.primaryRiskLevel)}
+              {overview?.studentName || t('common.loading.initializingSession')}，{t('ui.meta.primaryRisk', { risk: riskLevelLabel(overview?.primaryRiskLevel) })}
             </h1>
             <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">
-              推荐训练模式：{trainingModeLabel(overview?.recommendedTrainingMode)}。最近活跃时间 {formatDateTime(overview?.latestSnapshot.lastActiveAt)}，待复习词对{' '}
-              {overview?.latestSnapshot.pendingReviewCount ?? 0} 组。
+              {t('ui.meta.recommendedMode', { mode: trainingModeLabel(overview?.recommendedTrainingMode) })}。{t('ui.meta.recentActiveAt', {
+                time: formatDateTime(overview?.latestSnapshot.lastActiveAt),
+              })}，{t('ui.meta.pendingReviewPairs', {
+                count: overview?.latestSnapshot.pendingReviewCount ?? 0,
+              })}。
             </p>
           </div>
           <div className="grid min-w-[280px] gap-4 sm:grid-cols-2">
             <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">英语 / 法语</div>
+              <SectionEyebrow className="text-xs">{t('ui.fields.englishLevel')} / {t('ui.fields.frenchLevel')}</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
                 {overview?.englishLevel || '--'} / {overview?.frenchLevel || '--'}
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">平均反应时</div>
+              <SectionEyebrow className="text-xs">{t('ui.fields.averageReactionTime')}</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
                 {formatMs(overview?.latestSnapshot.recentAvgReactionTimeMs)}
               </div>
@@ -185,13 +193,13 @@ const DashboardPage: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.3fr_0.7fr]">
         <ChartCard
-          title="近 7 天趋势"
+          title={t('ui.charts.trend7d')}
           option={buildTrendOption(trendsQuery.data)}
           loading={trendsQuery.isLoading}
           isEmpty={!trendsQuery.data?.series.length}
         />
         <ChartCard
-          title="总体能力雷达"
+          title={t('ui.charts.overallAbilityRadar')}
           option={buildRadarOption(overview?.radar)}
           loading={overviewQuery.isLoading}
           isEmpty={!overview?.radar.length}
@@ -200,14 +208,14 @@ const DashboardPage: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1fr_1fr_0.9fr]">
         <ChartCard
-          title="错误分布"
+          title={t('ui.sections.errorDistribution')}
           option={errorDistributionOption}
           loading={errorDistributionQuery.isLoading}
           isEmpty={!errorDistributionQuery.data?.length}
         />
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="mb-6 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">高风险词对</div>
+          <SectionEyebrow className="mb-6">{t('ui.sections.highRiskPairs')}</SectionEyebrow>
           <div className="space-y-4">
             {(highRiskPairsQuery.data || []).map((item) => (
               <div key={item.lexicalPairId} className="rounded-[1.5rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
@@ -218,19 +226,19 @@ const DashboardPage: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <div className="font-black text-rose-500">{formatMaybePercent(item.riskScore, 0)}</div>
-                    <div className="text-xs text-slate-400 dark:text-white/30">风险</div>
+                    <div className="text-xs text-slate-400 dark:text-white/30">{t('ui.meta.risk')}</div>
                   </div>
                 </div>
               </div>
             ))}
             {!highRiskPairsQuery.isLoading && !highRiskPairsQuery.data?.length && (
-              <div className="text-sm text-slate-500 dark:text-white/45">暂无高风险词对。</div>
+              <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noHighRiskPairs')}</div>
             )}
           </div>
         </section>
 
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
-          <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">推荐训练计划</div>
+          <SectionEyebrow className="mb-4">{t('ui.sections.recommendedPlan')}</SectionEyebrow>
           {recommendedPlanQuery.data ? (
             <div className="space-y-4">
               <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingModeLabel(recommendedPlanQuery.data.priorityMode)}</div>
@@ -252,23 +260,23 @@ const DashboardPage: React.FC = () => {
                     className="w-full rounded-[1.4rem] border border-slate-200/70 p-4 text-left transition-all hover:border-primary/40 dark:border-white/10"
                   >
                     <div className="font-bold text-slate-900 dark:text-white">{session.label}</div>
-                    <div className="mt-1 text-sm text-slate-500 dark:text-white/45">建议题量 {session.count}</div>
+                    <div className="mt-1 text-sm text-slate-500 dark:text-white/45">{t('training.suggestedQuestionCount', { count: session.count })}</div>
                   </button>
                 ))}
               </div>
             </div>
           ) : planError?.status === 409 ? (
             <div className="space-y-3">
-              <div className="text-lg font-black text-slate-900 dark:text-white">尚未生成训练计划</div>
-              <p className="text-sm leading-6 text-slate-500 dark:text-white/45">先完成一轮诊断，系统才能基于最新 summary 生成训练计划。</p>
+              <div className="text-lg font-black text-slate-900 dark:text-white">{t('ui.labels.noPlanTitle')}</div>
+              <p className="text-sm leading-6 text-slate-500 dark:text-white/45">{t('ui.labels.noPlanDescription')}</p>
               <button type="button" onClick={() => navigate('/diagnosis')} className="btn-liquid px-5 py-3 text-white">
-                立即去诊断
+                {t('ui.actions.goDiagnosisNow')}
               </button>
             </div>
           ) : recommendedPlanQuery.isLoading ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">正在拉取推荐计划...</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingPlan')}</div>
           ) : (
-            <div className="text-sm text-rose-500">{planError?.message || '推荐计划加载失败'}</div>
+            <div className="text-sm text-rose-500">{planError?.message || t('ui.labels.recommendedPlanFailed')}</div>
           )}
         </section>
       </div>
@@ -276,29 +284,29 @@ const DashboardPage: React.FC = () => {
       <section className="liquid-glass-panel rounded-[2.5rem] p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">通用测评</div>
+            <SectionEyebrow>{t('ui.sections.assessments')}</SectionEyebrow>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">老师发布的整卷任务</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">这里展示最近需要处理的通用测评，包括继续作答、查看结果和即将开始的整卷任务。</div>
           </div>
           <button type="button" onClick={() => navigate('/assessments')} className="flex items-center gap-2 text-sm font-bold text-primary">
-            打开测评中心 <ArrowRight size={14} />
+            {t('ui.actions.openAssessmentCenter')} <ArrowRight size={14} />
           </button>
         </div>
 
         {assessmentsQuery.isLoading ? (
-          <div className="text-sm text-slate-500 dark:text-white/45">正在加载测评任务...</div>
+          <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingAssessments')}</div>
         ) : assessmentsQuery.error ? (
           <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
             {getApiErrorMessage(assessmentsQuery.error)}
           </div>
         ) : !assessmentItems.length ? (
           <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/55 px-4 py-5 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
-            当前没有待处理的通用测评任务。
+            {t('ui.labels.noAssessments')}
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-3">
             {assessmentItems.map((item) => {
-              const action = resolveAssessmentDashboardAction(item, now);
+              const action = resolveAssessmentDashboardAction(item, now, t);
               return (
                 <div key={item.publishId} className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
                   <div className="inline-flex rounded-2xl bg-primary/10 p-3 text-primary">
@@ -306,17 +314,18 @@ const DashboardPage: React.FC = () => {
                   </div>
                   <div className="mt-4 flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{item.className}</div>
+                      <SectionEyebrow>{item.className}</SectionEyebrow>
                       <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{item.title}</div>
                     </div>
-                    <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                      {item.attemptStatus ? assessmentAttemptStatusLabel(item.attemptStatus) : '待开始'}
-                    </div>
+                    <StatusBadge
+                      label={item.attemptStatus ? assessmentAttemptStatusLabel(item.attemptStatus) : t('ui.meta.notStarted')}
+                      tone={assessmentAttemptStatusTone(item.attemptStatus)}
+                    />
                   </div>
                   <div className="mt-3 grid gap-2 text-sm text-slate-500 dark:text-white/45">
-                    <div>开始时间：{formatDateTime(item.startsAt)}</div>
-                    <div>截止时间：{formatDateTime(item.dueAt)}</div>
-                    <div>进度：{item.answeredCount || 0} / {item.questionCount}</div>
+                    <div>{t('ui.meta.startsAt', { time: formatDateTime(item.startsAt) })}</div>
+                    <div>{t('ui.meta.dueAt', { time: formatDateTime(item.dueAt) })}</div>
+                    <div>{t('ui.meta.progress', { current: item.answeredCount || 0, total: item.questionCount })}</div>
                   </div>
                   {item.instructionsText && (
                     <div className="mt-4 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
@@ -345,7 +354,7 @@ const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
           <div className="mb-6 flex items-center justify-between">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">错题本</div>
+            <SectionEyebrow>{t('ui.sections.wrongBook')}</SectionEyebrow>
             <div className="flex items-center gap-4">
               {!!wrongBookQuery.data?.length && (
                 <button
@@ -362,22 +371,22 @@ const DashboardPage: React.FC = () => {
                   }
                   className="text-sm font-bold text-primary"
                 >
-                  立即纠错
+                  {t('ui.actions.remediateNow')}
                 </button>
               )}
               <button type="button" onClick={() => navigate('/errors')} className="flex items-center gap-2 text-sm text-primary">
-                查看全部 <ArrowRight size={14} />
+                {t('ui.actions.viewAll')} <ArrowRight size={14} />
               </button>
             </div>
           </div>
           {wrongBookQuery.isLoading ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">正在加载错题...</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingWrongBook')}</div>
           ) : wrongBookQuery.error ? (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
               {getApiErrorMessage(wrongBookQuery.error)}
             </div>
           ) : !wrongBookQuery.data?.length ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">当前没有错题记录。</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noWrongBook')}</div>
           ) : (
             <div className="space-y-4">
               {wrongBookQuery.data.slice(0, 4).map((item) => (
@@ -386,7 +395,10 @@ const DashboardPage: React.FC = () => {
                     <div>
                       <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
                       <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                        {trainingModeLabel(item.recommendedMode)} · 最近错误：{errorTypeLabel(item.lastErrorType)}，累计 {item.wrongCount} 次
+                        {trainingModeLabel(item.recommendedMode)} · {t('ui.meta.recentWrongCount', {
+                          type: errorTypeLabel(item.lastErrorType),
+                          count: item.wrongCount,
+                        })}
                       </div>
                     </div>
                     <button
@@ -403,7 +415,7 @@ const DashboardPage: React.FC = () => {
                       }
                       className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
                     >
-                      开始
+                      {t('ui.actions.start')}
                     </button>
                   </div>
                 </div>
@@ -416,7 +428,7 @@ const DashboardPage: React.FC = () => {
           <div className="mb-6 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Brain size={16} className="text-primary" />
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">待复习计划</div>
+              <SectionEyebrow>{t('ui.sections.reviewSchedule')}</SectionEyebrow>
             </div>
             {!!reviewScheduleQuery.data?.length && (
               <button
@@ -434,18 +446,18 @@ const DashboardPage: React.FC = () => {
                 }
                 className="text-sm text-primary"
               >
-                立即开始
+                {t('ui.actions.startReviewNow')}
               </button>
             )}
           </div>
           {reviewScheduleQuery.isLoading ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">正在加载复习计划...</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingReviewSchedule')}</div>
           ) : reviewScheduleQuery.error ? (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
               {getApiErrorMessage(reviewScheduleQuery.error)}
             </div>
           ) : !reviewScheduleQuery.data?.length ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">当前没有待复习项目。</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noReviewItems')}</div>
           ) : (
             <div className="space-y-4">
               {reviewScheduleQuery.data.slice(0, 4).map((item) => (
@@ -454,7 +466,10 @@ const DashboardPage: React.FC = () => {
                     <div>
                       <div className="font-bold text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
                       <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                        {trainingModeLabel(item.reviewMode)} · 第 {item.scheduleStage} 阶段
+                        {trainingModeLabel(item.reviewMode)} · {t('ui.meta.reviewStage', {
+                          stage: item.scheduleStage,
+                          days: item.intervalDays,
+                        })}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-3">
@@ -474,7 +489,7 @@ const DashboardPage: React.FC = () => {
                         }
                         className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
                       >
-                        开始
+                        {t('ui.actions.start')}
                       </button>
                     </div>
                   </div>

@@ -1,10 +1,15 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, FilePenLine, Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import {
+  diagnosisTemplateSyncStateLabel,
+  diagnosisTemplateSyncStateTone,
+  formatDateTime,
+} from '@/lib/format';
 import { diagnosisTemplateService } from '@/lib/services';
 
 function buildDraftEditorSearch(rawSearch: string): string {
@@ -18,6 +23,7 @@ function buildDraftEditorSearch(rawSearch: string): string {
 }
 
 const TeacherTemplatesPage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,47 +47,48 @@ const TeacherTemplatesPage: React.FC = () => {
   const createDraftMutation = useMutation({
     mutationFn: () => diagnosisTemplateService.createDraft(),
     onSuccess: (draft) => {
-      setFeedback('已创建新草稿。');
+      setFeedback(t('ui.messages.draftCreated'));
       setErrorMessage(null);
       navigate(`/teacher/diagnosis-template-drafts/${draft.draftId}${buildDraftEditorSearch(location.search)}`);
     },
     onError: (error) => {
       setFeedback(null);
-      setErrorMessage(getApiErrorMessage(error, '创建草稿失败'));
+      setErrorMessage(getApiErrorMessage(error, t('ui.errors.createDraftFailed')));
     },
   });
 
   const createFromTemplateMutation = useMutation({
     mutationFn: (templateId: number) => diagnosisTemplateService.createDraftFromTemplate(templateId),
     onSuccess: (draft) => {
-      setFeedback('已生成可编辑草稿。');
+      setFeedback(t('ui.messages.editableDraftGenerated'));
       setErrorMessage(null);
       navigate(`/teacher/diagnosis-template-drafts/${draft.draftId}${buildDraftEditorSearch(location.search)}`);
     },
     onError: (error) => {
       setFeedback(null);
-      setErrorMessage(getApiErrorMessage(error, '生成草稿失败'));
+      setErrorMessage(getApiErrorMessage(error, t('ui.errors.createDraftFromTemplateFailed')));
     },
   });
 
   const deleteDraftMutation = useMutation({
     mutationFn: (draftId: number) => diagnosisTemplateService.deleteDraft(draftId),
     onSuccess: async () => {
-      setFeedback('草稿已删除。');
+      setFeedback(t('ui.messages.draftDeleted'));
       setErrorMessage(null);
       await queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template-drafts'] });
     },
     onError: (error) => {
       setFeedback(null);
-      setErrorMessage(getApiErrorMessage(error, '删除草稿失败'));
+      setErrorMessage(getApiErrorMessage(error, t('ui.errors.deleteDraftFailed')));
     },
   });
 
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        title="诊断模板"
-        subtitle="在这里沉淀可复用的诊断模板，快速整理草稿、完善题项内容，并发布给后续教学场景直接使用。"
+        eyebrow={t('ui.sections.publishedTemplates')}
+        title={t('ui.pages.templates.title')}
+        subtitle={t('ui.pages.templates.subtitle')}
         actions={
           <div className="flex flex-wrap gap-3">
             <Link
@@ -89,7 +96,7 @@ const TeacherTemplatesPage: React.FC = () => {
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
             >
               <BookOpen size={14} />
-              去词对管理
+              {t('ui.actions.goLexicalPairs')}
             </Link>
             <button
               type="button"
@@ -100,7 +107,7 @@ const TeacherTemplatesPage: React.FC = () => {
               }`}
             >
               <Plus size={14} />
-              新建草稿
+              {t('ui.actions.createDraft')}
             </button>
           </div>
         }
@@ -108,19 +115,19 @@ const TeacherTemplatesPage: React.FC = () => {
 
       {source && (
         <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
-          已从教师工作台带入相关信息。你可以直接创建新草稿，或继续完善已有模板，减少重复操作。
+          {t('ui.labels.sourceNotice')}
         </div>
       )}
 
       {wantsCreateDraft && (
         <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
-          建议先新建一份模板草稿，先搭好诊断结构，再逐步补充词对、题项和说明内容。
+          {t('ui.labels.createDraftNotice')}
         </div>
       )}
 
       {pairId && (
         <div className="rounded-[1.8rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
-          已带入词对信息。创建或打开草稿后，你可以直接围绕这组词对继续完善模板内容。当前 Pair #{pairId}。
+          {t('ui.labels.pairNotice', { id: pairId })}
         </div>
       )}
 
@@ -138,7 +145,7 @@ const TeacherTemplatesPage: React.FC = () => {
       <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
         <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">drafts</div>
+            <SectionEyebrow>{t('ui.sections.drafts')}</SectionEyebrow>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">草稿列表</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">在这里继续完善未完成的模板，随时补充内容并准备发布。</div>
           </div>
@@ -146,7 +153,7 @@ const TeacherTemplatesPage: React.FC = () => {
           <div className="space-y-4">
             {draftsQuery.isLoading && (
               <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
-                正在加载草稿...
+                {t('ui.labels.loadingDrafts')}
               </div>
             )}
 
@@ -158,22 +165,20 @@ const TeacherTemplatesPage: React.FC = () => {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-lg font-black text-slate-900 dark:text-white">{draft.templateName}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{draft.description || '无描述'}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{draft.description || t('ui.labels.noDescription')}</div>
                   </div>
-                  <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                    {draft.syncState}
-                  </div>
+                  <StatusBadge label={diagnosisTemplateSyncStateLabel(draft.syncState)} tone={diagnosisTemplateSyncStateTone(draft.syncState)} />
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">Draft #{draft.draftId}</span>
+                  <StatusBadge label={t('ui.meta.draftId', { id: draft.draftId })} />
                   {draft.publishedTemplateId && (
-                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">Template #{draft.publishedTemplateId}</span>
+                    <StatusBadge label={t('ui.meta.templateId', { id: draft.publishedTemplateId })} />
                   )}
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">v{draft.version}</span>
+                  <StatusBadge label={t('ui.meta.version', { value: draft.version })} />
                 </div>
 
-                <div className="mt-3 text-xs text-slate-400 dark:text-white/30">最近更新 {formatDateTime(draft.updatedAt)}</div>
+                <div className="mt-3 text-xs text-slate-400 dark:text-white/30">{t('ui.meta.lastUpdated', { time: formatDateTime(draft.updatedAt) })}</div>
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
@@ -182,7 +187,7 @@ const TeacherTemplatesPage: React.FC = () => {
                     className="btn-liquid inline-flex items-center gap-2 px-4 py-3 text-white"
                   >
                     <FilePenLine size={14} />
-                    继续编辑
+                    {t('ui.actions.continueEditing')}
                   </button>
                   <button
                     type="button"
@@ -190,7 +195,7 @@ const TeacherTemplatesPage: React.FC = () => {
                     className="inline-flex items-center gap-2 rounded-2xl border border-rose-500/20 px-4 py-3 text-sm text-rose-500"
                   >
                     <Trash2 size={14} />
-                    删除草稿
+                    {t('ui.actions.deleteDraft')}
                   </button>
                 </div>
               </div>
@@ -198,7 +203,7 @@ const TeacherTemplatesPage: React.FC = () => {
 
             {!draftsQuery.isLoading && !(draftsQuery.data?.records || []).length && (
               <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
-                当前还没有草稿。先创建一个空白草稿，把模板名称、词对和题项内容逐步补齐即可。
+                {t('ui.labels.noDrafts')}
               </div>
             )}
           </div>
@@ -206,7 +211,7 @@ const TeacherTemplatesPage: React.FC = () => {
 
         <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">published</div>
+            <SectionEyebrow>{t('ui.sections.publishedTemplates')}</SectionEyebrow>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">已发布模板</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看已经可用的模板，并基于现有内容快速生成新版草稿继续优化。</div>
           </div>
@@ -214,7 +219,7 @@ const TeacherTemplatesPage: React.FC = () => {
           <div className="space-y-4">
             {templatesQuery.isLoading && (
               <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
-                正在加载模板...
+                {t('ui.labels.loadingTemplates')}
               </div>
             )}
 
@@ -226,20 +231,18 @@ const TeacherTemplatesPage: React.FC = () => {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-lg font-black text-slate-900 dark:text-white">{template.templateName}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{template.description || '无描述'}</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{template.description || t('ui.labels.noDescription')}</div>
                   </div>
-                  <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                    {template.status}
-                  </div>
+                  <StatusBadge label={String(template.status)} tone="success" />
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{template.itemCount} 个题项</span>
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{template.estimatedDurationMinutes} 分钟</span>
-                  <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{template.scoringVersion}</span>
+                  <StatusBadge label={t('ui.meta.questionCount', { count: template.itemCount })} />
+                  <StatusBadge label={t('ui.meta.durationMinutes', { count: template.estimatedDurationMinutes })} />
+                  <StatusBadge label={template.scoringVersion} />
                 </div>
 
-                <div className="mt-3 text-xs text-slate-400 dark:text-white/30">最近更新 {formatDateTime(template.updatedAt)}</div>
+                <div className="mt-3 text-xs text-slate-400 dark:text-white/30">{t('ui.meta.lastUpdated', { time: formatDateTime(template.updatedAt) })}</div>
 
                 <div className="mt-4">
                   <button
@@ -248,7 +251,7 @@ const TeacherTemplatesPage: React.FC = () => {
                     className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
                   >
                     <FilePenLine size={14} />
-                    基于此模板创建草稿
+                    {t('ui.actions.createDraftFromTemplate')}
                   </button>
                 </div>
               </div>

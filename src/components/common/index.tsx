@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LucideIcon } from 'lucide-react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 export const RouteSkeleton: React.FC = () => (
@@ -49,6 +50,45 @@ export const PanelSkeleton: React.FC<{ className?: string }> = ({ className }) =
       </div>
     </div>
   </div>
+);
+
+type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+
+const STATUS_TONE_CLASSNAME: Record<StatusTone, string> = {
+  neutral: 'border-slate-200/80 bg-white/85 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45',
+  info: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  warning: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  danger: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+};
+
+export const SectionEyebrow: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
+  <div
+    className={cn(
+      'text-[10px] font-black uppercase tracking-[0.28em] text-slate-400 dark:text-white/30',
+      className
+    )}
+  >
+    {children}
+  </div>
+);
+
+export const StatusBadge: React.FC<{ label: string; tone?: StatusTone; className?: string; icon?: React.ReactNode }> = ({
+  label,
+  tone = 'neutral',
+  className,
+  icon,
+}) => (
+  <span
+    className={cn(
+      'inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold',
+      STATUS_TONE_CLASSNAME[tone],
+      className
+    )}
+  >
+    {icon ? <span className="shrink-0">{icon}</span> : null}
+    {label}
+  </span>
 );
 
 // Magnetic Interaction Component - Performance Optimized
@@ -117,11 +157,21 @@ interface StatCardProps {
   value: string | number;
   icon: LucideIcon;
   trend?: { value: number; isUp: boolean };
+  trendLabel?: string;
   className?: string;
   color?: string;
 }
 
-export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend, className, color = "text-primary" }) => {
+export const StatCard: React.FC<StatCardProps> = ({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  trendLabel,
+  className,
+  color = 'text-primary',
+}) => {
+  const { t } = useTranslation();
   const iconGlowClass = (() => {
     switch (color) {
       case 'text-blue-500':
@@ -143,15 +193,16 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
     }
   })();
 
-  const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g,"")) : value;
-  const suffix = typeof value === 'string' ? value.replace(/[0-9.-]+/g,"") : "";
+  const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g, '')) : value;
+  const suffix = typeof value === 'string' ? value.replace(/[0-9.-]+/g, '') : '';
+  const resolvedTrendLabel = trendLabel ?? t('ui.statCard.recentPeriod');
 
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const mouseXSpring = useSpring(x);
   const mouseYSpring = useSpring(y);
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["7deg", "-7deg"]);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-7deg", "7deg"]);
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['7deg', '-7deg']);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-7deg', '7deg']);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -171,18 +222,21 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
   };
 
   return (
-    <motion.div 
-      style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+    <motion.div
+      style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       whileHover={{ scale: 1.02 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      className={cn("liquid-glass p-7 rounded-[2.5rem] flex flex-col justify-between edge-light group fluid-texture transition-shadow duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-default", className)}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      className={cn(
+        'liquid-glass p-7 rounded-[2.5rem] flex flex-col justify-between edge-light group fluid-texture transition-shadow duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-default',
+        className
+      )}
     >
-      <div className="flex items-start justify-between relative z-10" style={{ transform: "translateZ(30px)" }}>
+      <div className="flex items-start justify-between relative z-10" style={{ transform: 'translateZ(30px)' }}>
         <div>
-          <p className="text-[10px] font-black text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-1">{title}</p>
-          <h3 className={cn("stat-card-value text-4xl font-black tracking-tighter tabular-nums", iconGlowClass)}>
+          <SectionEyebrow className="mb-1">{title}</SectionEyebrow>
+          <h3 className={cn('stat-card-value text-4xl font-black tracking-tighter tabular-nums', iconGlowClass)}>
             {!isNaN(numericValue) ? (
               <>
                 <AnimatedNumber value={numericValue} />
@@ -191,22 +245,31 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
             ) : value}
           </h3>
         </div>
-        <div className={cn("p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl relative group-hover:scale-110 transition-transform duration-500 shadow-sm dark:shadow-[inset_0_0_15px_rgba(255,255,255,0.05)]", color)}>
-          <Icon size={28} className={cn("dark:drop-shadow-[0_0_12px_currentColor]")} />
+        <div
+          className={cn(
+            'p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl relative group-hover:scale-110 transition-transform duration-500 shadow-sm dark:shadow-[inset_0_0_15px_rgba(255,255,255,0.05)]',
+            color
+          )}
+        >
+          <Icon size={28} className={cn('dark:drop-shadow-[0_0_12px_currentColor]')} />
         </div>
       </div>
-      
+
       {trend && (
-        <div className="mt-6 relative z-10" style={{ transform: "translateZ(20px)" }}>
-          <div className={cn(
-            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border backdrop-blur-md transition-all duration-500",
-            trend.isUp 
-              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
-              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-          )}>
+        <div className="mt-6 relative z-10" style={{ transform: 'translateZ(20px)' }}>
+          <div
+            className={cn(
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border backdrop-blur-md transition-all duration-500',
+              trend.isUp
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+            )}
+          >
             <span className="text-xs">{trend.isUp ? '↑' : '↓'}</span>
-            <span><AnimatedNumber value={trend.value} />%</span>
-            <span className="text-slate-400 dark:text-white/20 font-medium ml-1">PAST WEEK</span>
+            <span>
+              <AnimatedNumber value={trend.value} />%
+            </span>
+            <span className="text-slate-400 dark:text-white/20 font-medium ml-1">{resolvedTrendLabel}</span>
           </div>
         </div>
       )}
@@ -217,18 +280,15 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, tr
 // 2. PageHeader
 interface PageHeaderProps {
   title: string;
+  eyebrow?: string;
   subtitle?: string;
   breadcrumbs?: string[];
   actions?: React.ReactNode;
 }
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcrumbs, actions }) => (
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle, breadcrumbs, actions }) => (
   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-    <motion.div
-      initial={{ x: -20, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
-    >
+    <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }}>
       {breadcrumbs && (
         <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-3">
           {breadcrumbs.map((b, i) => (
@@ -239,16 +299,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcr
           ))}
         </div>
       )}
+      {eyebrow ? <SectionEyebrow className="mb-3">{eyebrow}</SectionEyebrow> : null}
       <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white drop-shadow-none dark:drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">{title}</h1>
       {subtitle && <p className="text-sm text-slate-500 dark:text-white/40 mt-3 font-medium max-w-xl leading-relaxed">{subtitle}</p>}
     </motion.div>
     {actions && (
-      <motion.div 
-        initial={{ x: 20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="flex items-center gap-4"
-      >
+      <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }} className="flex items-center gap-4">
         {actions}
       </motion.div>
     )}

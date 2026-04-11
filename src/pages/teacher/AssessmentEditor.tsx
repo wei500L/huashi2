@@ -2,9 +2,9 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Plus, Send, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { assessmentPaperStatusLabel, assessmentPaperStatusTone, assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService, teacherAnalyticsService } from '@/lib/services';
 import type {
   AssessmentPaperDetailVO,
@@ -82,18 +82,6 @@ function createEmptyDraft(): PaperDraft {
     durationMinutes: 30,
     questions: [createQuestion()],
   };
-}
-
-function toDateTimeLocalValue(value?: string | null): string {
-  if (!value) {
-    return '';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  const pad = (input: number) => String(input).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function toDraft(detail: AssessmentPaperDetailVO): PaperDraft {
@@ -254,8 +242,8 @@ const TeacherAssessmentEditorPage: React.FC = () => {
       <div key={question.id} className="rounded-[2rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Question {index + 1}</div>
-            <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">{QUESTION_TYPE_OPTIONS.find((item) => item.value === question.questionType)?.label}</div>
+            <SectionEyebrow>第 {index + 1} 题</SectionEyebrow>
+            <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">{assessmentQuestionTypeLabel(question.questionType)}</div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -486,8 +474,13 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
+        eyebrow="通用测评"
         title={isCreateMode ? '新建通用测评' : '编辑通用测评'}
-        subtitle={isCreateMode ? '本页负责整卷编辑。v1 只开放单选、多选、填空三种题型，并使用整卷统一倒计时。' : `Paper #${paperId} · 最近发布 ${formatDateTime(detailQuery.data?.latestPublishAt)}`}
+        subtitle={
+          isCreateMode
+            ? '本页负责整卷编辑。v1 只开放单选、多选、填空三种题型，并使用整卷统一倒计时。'
+            : `试卷 #${paperId} · 最近发布 ${formatDateTime(detailQuery.data?.latestPublishAt)}`
+        }
         actions={
           <div className="flex flex-wrap gap-3">
             <Link to="/teacher/assessments" className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
@@ -591,7 +584,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
         <section className="space-y-8">
           <div className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">summary</div>
+              <SectionEyebrow>概览</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">试卷概览</div>
             </div>
 
@@ -602,8 +595,12 @@ const TeacherAssessmentEditorPage: React.FC = () => {
               </div>
               <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">时长：{draft.durationMinutes} 分钟</div>
               {!isCreateMode && (
-                <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-                  状态：{detailQuery.data?.status || '--'}
+                <div className="flex items-center justify-between rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                  <span>状态</span>
+                  <StatusBadge
+                    label={assessmentPaperStatusLabel(detailQuery.data?.status)}
+                    tone={assessmentPaperStatusTone(detailQuery.data?.status)}
+                  />
                 </div>
               )}
             </div>
@@ -611,7 +608,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
 
           <div className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">publish</div>
+              <SectionEyebrow>发布</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">发布到班级</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">先保存试卷，再选择班级和时间窗。整卷计时会在学生开始作答后立即生效。</div>
             </div>
@@ -686,7 +683,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
           {!isCreateMode && (
             <div className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">history</div>
+                <SectionEyebrow>记录</SectionEyebrow>
                 <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">发布记录</div>
               </div>
 
@@ -710,9 +707,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                           开始 {formatDateTime(publish.startsAt)} · 截止 {formatDateTime(publish.dueAt)}
                         </div>
                       </div>
-                      <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                        {publish.status}
-                      </div>
+                      <StatusBadge label={String(publish.status || '--')} />
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">已分配 {publish.assignedCount}</span>

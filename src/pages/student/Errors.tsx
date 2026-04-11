@@ -1,13 +1,15 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, SectionEyebrow } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
-import { formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
+import { formatDateTime, lexicalPairTypeLabel, trainingModeLabel } from '@/lib/format';
 import { trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
 
 const ErrorsPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const wrongBookQuery = useQuery({
     queryKey: ['wrong-book'],
@@ -21,8 +23,9 @@ const ErrorsPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        title="错题与复习"
-        subtitle="集中处理易错词对和到期复习任务，优先把高风险内容转回训练链路。"
+        eyebrow={t('shell.nav.errors')}
+        title={t('ui.pages.errors.title')}
+        subtitle={t('ui.pages.errors.subtitle')}
         actions={
           <div className="flex flex-wrap gap-3">
             {!!reviewScheduleQuery.data?.length && (
@@ -41,7 +44,7 @@ const ErrorsPage: React.FC = () => {
                 }
                 className="btn-liquid px-5 py-3 text-white"
               >
-                立即开始复习
+                {t('ui.actions.startReviewNow')}
               </button>
             )}
             <button
@@ -49,7 +52,7 @@ const ErrorsPage: React.FC = () => {
               onClick={() => navigate('/training')}
               className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
             >
-              返回训练计划
+              {t('common.actions.backToTrainingHome')}
             </button>
           </div>
         }
@@ -57,15 +60,15 @@ const ErrorsPage: React.FC = () => {
 
       <div className="grid gap-8 xl:grid-cols-2">
         <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="mb-6 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">错题本</div>
+          <SectionEyebrow className="mb-6">{t('ui.sections.wrongBook')}</SectionEyebrow>
           {wrongBookQuery.isLoading ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">正在加载错题...</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingWrongBook')}</div>
           ) : wrongBookQuery.error ? (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
               {getApiErrorMessage(wrongBookQuery.error)}
             </div>
           ) : !wrongBookQuery.data?.length ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">暂无错题记录。</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noWrongBook')}</div>
           ) : (
             <div className="space-y-4">
               {wrongBookQuery.data.map((item) => (
@@ -77,10 +80,13 @@ const ErrorsPage: React.FC = () => {
                     {item.englishWord} / {item.frenchWord}
                   </div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    {lexicalPairTypeLabel(item.lexicalPairType)} · 推荐 {item.recommendedMode} · 最近错误 {item.lastErrorType} · 累计 {item.wrongCount} 次
+                    {lexicalPairTypeLabel(item.lexicalPairType)} · {trainingModeLabel(item.recommendedMode)} · {t('ui.meta.recentWrongCount', {
+                      type: item.lastErrorType,
+                      count: item.wrongCount,
+                    })}
                   </div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    下次复习：{formatDateTime(item.nextReviewAt)}
+                    {t('ui.meta.nextReviewAt', { time: formatDateTime(item.nextReviewAt) })}
                   </div>
                   <button
                     type="button"
@@ -96,7 +102,7 @@ const ErrorsPage: React.FC = () => {
                     }
                     className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
                   >
-                    开始纠错
+                    {t('ui.actions.remediateNow')}
                   </button>
                 </div>
               ))}
@@ -106,7 +112,7 @@ const ErrorsPage: React.FC = () => {
 
         <section className="rounded-[2.5rem] liquid-glass-panel p-8">
           <div className="mb-6 flex items-center justify-between gap-3">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">待复习计划</div>
+            <SectionEyebrow>{t('ui.sections.reviewSchedule')}</SectionEyebrow>
             {!!reviewScheduleQuery.data?.length && (
               <button
                 type="button"
@@ -123,18 +129,18 @@ const ErrorsPage: React.FC = () => {
                 }
                 className="text-sm font-bold text-primary"
               >
-                按计划开始
+                {t('ui.actions.startReviewNow')}
               </button>
             )}
           </div>
           {reviewScheduleQuery.isLoading ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">正在加载复习计划...</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingReviewSchedule')}</div>
           ) : reviewScheduleQuery.error ? (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
               {getApiErrorMessage(reviewScheduleQuery.error)}
             </div>
           ) : !reviewScheduleQuery.data?.length ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">暂无待复习项目。</div>
+            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noReviewItems')}</div>
           ) : (
             <div className="space-y-4">
               {reviewScheduleQuery.data.map((item) => (
@@ -148,10 +154,13 @@ const ErrorsPage: React.FC = () => {
                         {item.englishWord} / {item.frenchWord}
                       </div>
                       <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                        {item.reviewMode} · 第 {item.scheduleStage} 阶段 · 间隔 {item.intervalDays} 天
+                        {trainingModeLabel(item.reviewMode)} · {t('ui.meta.reviewStage', {
+                          stage: item.scheduleStage,
+                          days: item.intervalDays,
+                        })}
                       </div>
                       <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                        到期：{formatDateTime(item.dueAt)} · {item.triggerReason}
+                        {t('ui.meta.dueWithReason', { time: formatDateTime(item.dueAt), reason: item.triggerReason })}
                       </div>
                     </div>
                     <button
@@ -169,7 +178,7 @@ const ErrorsPage: React.FC = () => {
                       }
                       className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
                     >
-                      开始
+                      {t('ui.actions.start')}
                     </button>
                   </div>
                 </div>

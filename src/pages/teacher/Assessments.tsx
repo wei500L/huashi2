@@ -1,12 +1,14 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FilePenLine, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
-import { formatDateTime } from '@/lib/format';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { assessmentPaperStatusLabel, assessmentPaperStatusTone, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 
 const TeacherAssessmentsPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const papersQuery = useQuery({
     queryKey: ['teacher-assessment-papers'],
@@ -16,12 +18,13 @@ const TeacherAssessmentsPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        title="通用测评"
-        subtitle="这里是并行于词汇诊断/训练之外的通用作业测评模块。教师可创建整卷、发布到班级，并查看每次发布的完成情况。"
+        eyebrow={t('ui.sections.assessments')}
+        title={t('ui.pages.teacherAssessments.title')}
+        subtitle={t('ui.pages.teacherAssessments.subtitle')}
         actions={
           <button type="button" onClick={() => navigate('/teacher/assessments/new')} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">
             <Plus size={16} />
-            新建试卷
+            {t('ui.actions.createPaper')}
           </button>
         }
       />
@@ -34,13 +37,13 @@ const TeacherAssessmentsPage: React.FC = () => {
 
       {papersQuery.isLoading && (
         <div className="rounded-[2.2rem] liquid-glass-panel p-8 text-sm text-slate-500 dark:text-white/45">
-          正在加载试卷...
+          {t('ui.labels.loadingPapers')}
         </div>
       )}
 
       {!papersQuery.isLoading && !papersQuery.data?.length && (
         <div className="rounded-[2.2rem] border border-dashed border-slate-300 bg-white/55 p-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
-          当前还没有通用测评试卷。先创建一份整卷，再发布到班级。
+          {t('ui.labels.noPapers')}
         </div>
       )}
 
@@ -57,23 +60,21 @@ const TeacherAssessmentsPage: React.FC = () => {
             </div>
             <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{paper.paperCode}</div>
+                <SectionEyebrow>{paper.paperCode}</SectionEyebrow>
                 <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{paper.title}</div>
-                <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{paper.description || '无描述'}</div>
+                <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{paper.description || t('ui.labels.noDescription')}</div>
               </div>
-              <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
-                {paper.status}
-              </div>
+              <StatusBadge label={assessmentPaperStatusLabel(paper.status)} tone={assessmentPaperStatusTone(paper.status)} />
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-              <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{paper.questionCount} 题</span>
-              <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{paper.totalScore} 分</span>
-              <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{paper.durationMinutes} 分钟</span>
+              <StatusBadge label={t('ui.meta.questionCount', { count: paper.questionCount })} />
+              <StatusBadge label={t('ui.meta.totalScore', { count: paper.totalScore })} />
+              <StatusBadge label={t('ui.meta.durationMinutes', { count: paper.durationMinutes })} />
             </div>
 
             <div className="mt-5 text-xs text-slate-400 dark:text-white/30">
-              最近更新 {formatDateTime(paper.updatedAt)} · 最近发布 {formatDateTime(paper.latestPublishAt)}
+              {t('ui.meta.lastUpdated', { time: formatDateTime(paper.updatedAt) })} · {t('ui.meta.lastPublished', { time: formatDateTime(paper.latestPublishAt) })}
             </div>
           </button>
         ))}

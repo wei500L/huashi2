@@ -5,9 +5,10 @@ import { loginSlice } from './slices/login';
 import { shellSlice } from './slices/shell';
 import { teacherWorkspaceSlice } from './slices/teacher-workspace';
 import { trainingSlice } from './slices/training';
+import { uiSlice } from './slices/ui';
 
 export type SupportedLocale = 'zh-CN' | 'en-US';
-export type TranslationSlice = Record<SupportedLocale, Record<string, any>>;
+export type TranslationSlice = Record<SupportedLocale, Record<string, unknown>>;
 
 const slices: TranslationSlice[] = [
   commonSlice,
@@ -17,10 +18,11 @@ const slices: TranslationSlice[] = [
   diagnosisSlice,
   trainingSlice,
   analyticsSlice,
+  uiSlice,
 ];
 
-function mergeLocaleSlices(locale: SupportedLocale): Record<string, any> {
-  return slices.reduce<Record<string, any>>((merged, slice) => ({ ...merged, ...slice[locale] }), {});
+function mergeLocaleSlices(locale: SupportedLocale): Record<string, unknown> {
+  return slices.reduce<Record<string, unknown>>((merged, slice) => ({ ...merged, ...slice[locale] }), {});
 }
 
 export const resources = {
