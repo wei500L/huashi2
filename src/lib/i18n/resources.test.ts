@@ -6,6 +6,7 @@ describe('i18n resources', () => {
     const zh = resources['zh-CN'].translation as {
       common: unknown;
       shell: unknown;
+      taskPages: unknown;
       teacherWorkspace: unknown;
       diagnosis: unknown;
       training: unknown;
@@ -16,6 +17,7 @@ describe('i18n resources', () => {
 
     expect(zh.common).toBeDefined();
     expect(zh.shell).toBeDefined();
+    expect(zh.taskPages).toBeDefined();
     expect(zh.teacherWorkspace).toBeDefined();
     expect(zh.diagnosis).toBeDefined();
     expect(zh.training).toBeDefined();
@@ -36,11 +38,17 @@ describe('i18n resources', () => {
           };
         };
       };
+      taskPages: {
+        teacherTemplates: {
+          pageTitle: string;
+        };
+      };
     };
     const en = resources['en-US'].translation as {
       shell: {
         nav: {
           teacherWorkspace: string;
+          analytics: string;
         };
       };
       training: {
@@ -54,9 +62,11 @@ describe('i18n resources', () => {
     };
 
     expect(zh.teacherWorkspace.pageTitle).toBe('教师工作台');
+    expect(zh.taskPages.teacherTemplates.pageTitle).toBe('发布诊断任务');
     expect(en.shell.nav.teacherWorkspace).toBe('Teacher Workspace');
+    expect(en.shell.nav.analytics).toBe('Review High-Risk Pairs');
     expect(en.training.summaryTitle).toBe('Training Summary');
     expect(zh.teacherWorkspace.generated.focus.interventions.title).toBe('处理待跟进干预');
-    expect(en.ui.actions.createPaper).toBe('New paper');
+    expect(en.ui.actions.createPaper).toBe('Create Class Assessment');
   });
 });

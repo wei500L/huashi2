@@ -14,6 +14,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
@@ -461,12 +462,24 @@ const RangeField: React.FC<{
 );
 
 export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; view?: LexicalPairsWorkspaceView }> = ({ mode, view = 'all' }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const params = useParams<{ lexicalPairId?: string }>();
   const routePairId = params.lexicalPairId ? Number(params.lexicalPairId) : null;
   const user = useAuthStore((state) => state.user);
-  const meta = workspaceMeta[mode];
+  const meta = React.useMemo(() => {
+    if (mode === 'teacher') {
+      return {
+        title: t('taskPages.lexicalPairsWorkspace.teacherTitle'),
+        subtitle: t('taskPages.lexicalPairsWorkspace.teacherSubtitle'),
+        guideTitle: t('taskPages.lexicalPairsWorkspace.teacherGuideTitle'),
+        guideDescription: t('taskPages.lexicalPairsWorkspace.teacherGuideDescription'),
+        successHint: t('taskPages.lexicalPairsWorkspace.teacherSuccessHint'),
+      };
+    }
+    return workspaceMeta[mode];
+  }, [mode, t]);
   const canAccessAdminConsole = userHasCapability(user, 'ADMIN_CONSOLE');
   const canAccessTeachingWorkspace = userHasCapability(user, 'TEACHING_WORKSPACE');
   const basePath = mode === 'teacher' ? '/teacher/lexical-pairs' : '/admin/lexical-pairs';

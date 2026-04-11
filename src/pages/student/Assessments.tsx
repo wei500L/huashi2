@@ -58,7 +58,7 @@ const StudentAssessmentsPage: React.FC = () => {
       <PageHeader
         eyebrow={t('shell.nav.assessments')}
         title={t('shell.titles.assessments')}
-        subtitle="这里承接老师发布到班级的整卷测评。支持统一开始、整卷倒计时、题号导航和交卷后题目级回看。"
+        subtitle={t('taskPages.studentAssessments.pageSubtitle')}
       />
 
       {errorMessage && (

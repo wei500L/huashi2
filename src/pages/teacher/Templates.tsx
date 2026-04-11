@@ -146,8 +146,8 @@ const TeacherTemplatesPage: React.FC = () => {
         <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
           <div>
             <SectionEyebrow>{t('ui.sections.drafts')}</SectionEyebrow>
-            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">草稿列表</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">在这里继续完善未完成的模板，随时补充内容并准备发布。</div>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('taskPages.teacherTemplates.draftsTitle')}</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('taskPages.teacherTemplates.draftsSubtitle')}</div>
           </div>
 
           <div className="space-y-4">
@@ -212,8 +212,8 @@ const TeacherTemplatesPage: React.FC = () => {
         <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
           <div>
             <SectionEyebrow>{t('ui.sections.publishedTemplates')}</SectionEyebrow>
-            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">已发布模板</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看已经可用的模板，并基于现有内容快速生成新版草稿继续优化。</div>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('taskPages.teacherTemplates.publishedTitle')}</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('taskPages.teacherTemplates.publishedSubtitle')}</div>
           </div>
 
           <div className="space-y-4">

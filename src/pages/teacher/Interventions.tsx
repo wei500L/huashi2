@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
@@ -136,6 +137,7 @@ function priorityTone(priority?: string | null): React.ComponentProps<typeof Sta
 }
 
 const TeacherInterventionsPage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = React.useState<InterventionView>(() => normalizeInterventionView(searchParams.get('view')));
@@ -265,14 +267,14 @@ const TeacherInterventionsPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        eyebrow="教师干预"
-        title="干预工作台"
-        subtitle="从待办、排期到完成备注推进教师干预闭环；这里不只是看建议，而是把建议变成已执行动作。"
+        eyebrow={t('taskPages.teacherInterventions.eyebrow')}
+        title={t('taskPages.teacherInterventions.pageTitle')}
+        subtitle={t('taskPages.teacherInterventions.pageSubtitle')}
       />
 
       {source && (
         <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
-          当前从教师工作台进入，筛选上下文会保留在 URL 里。你可以继续调整视图、班级或学生，刷新后仍会回到当前状态。
+          {t('taskPages.teacherInterventions.sourceHint')}
         </div>
       )}
 
@@ -410,7 +412,7 @@ const TeacherInterventionsPage: React.FC = () => {
 
         <section className="rounded-[2.5rem] liquid-glass-panel p-8">
           <div className="flex items-center justify-between gap-4 mb-6">
-            <SectionEyebrow>干预编辑</SectionEyebrow>
+            <SectionEyebrow>{t('taskPages.teacherInterventions.editorEyebrow')}</SectionEyebrow>
             {selectedIntervention && (
               <div className="text-sm text-slate-500 dark:text-white/45">最近更新 {formatDateTime(selectedIntervention.updatedAt)}</div>
             )}

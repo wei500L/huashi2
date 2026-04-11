@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { FeedbackState } from '@/components/common/FeedbackState';
@@ -255,6 +256,7 @@ function AssessmentHistoryItemReviewCard({ item }: { item: AssessmentAttemptResu
 }
 
 const HistoryPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = React.useState<HistoryTab>('diagnosis');
   const [diagnosisStatus, setDiagnosisStatus] = React.useState('ALL');
@@ -345,9 +347,9 @@ const HistoryPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        eyebrow="学习记录"
-        title="学习历史"
-        subtitle="统一查看诊断、训练与通用测评记录；进行中的任务会跳回对应页面继续，已完成记录可在当前页查看详情。"
+        eyebrow={t('taskPages.history.eyebrow')}
+        title={t('taskPages.history.pageTitle')}
+        subtitle={t('taskPages.history.pageSubtitle')}
       />
 
       <section className="rounded-[2.5rem] liquid-glass-panel p-4">
@@ -561,7 +563,7 @@ const HistoryPage: React.FC = () => {
                       onClick={() => navigate('/analytics')}
                       className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
                     >
-                      查看学情分析
+                      {t('taskPages.history.reviewHighRiskPairs')}
                     </button>
                   </div>
                 </div>

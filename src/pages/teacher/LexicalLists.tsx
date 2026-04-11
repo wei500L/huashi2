@@ -2,6 +2,7 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Check, Link as LinkIcon, Plus, Search, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, riskLevelLabel } from '@/lib/format';
@@ -56,6 +57,7 @@ function moveOrderedItemIds(detail: LexicalListDetailVO, itemId: number, delta: 
 }
 
 const TeacherLexicalListsPage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const pairIdFromQuery = Number(searchParams.get('pairId') || '0');
@@ -362,15 +364,15 @@ const TeacherLexicalListsPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <PageHeader
         eyebrow="词表"
-        title="词表管理"
-        subtitle="词表已经拆成列表、详情和可执行动作。优先通过搜索加入词对，来自词对工作台的条目可以直接带入当前词表。"
+        title={t('taskPages.teacherLexicalLists.pageTitle')}
+        subtitle={t('taskPages.teacherLexicalLists.pageSubtitle')}
         actions={
           <Link
             to="/teacher/lexical-pairs"
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
           >
             <LinkIcon size={14} />
-            去词对管理
+            {t('ui.actions.goLexicalPairs')}
           </Link>
         }
       />
