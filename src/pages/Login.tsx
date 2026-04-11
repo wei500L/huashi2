@@ -5,9 +5,9 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import { Brain, BookOpen, ShieldCheck } from 'lucide-react';
-import { useAuthStore } from '@/store';
-import { homePathForCapabilities } from '@/lib/format';
+import { useAuthStore, useUIStore } from '@/store';
 import { clearPendingAuthExpired, hasPendingAuthExpired } from '@/lib/session';
+import { getPreferredWorkspaceForUser, homePathForWorkspace, resolveActiveWorkspace } from '@/lib/workspaces';
 
 type LoginFormData = {
   usernameOrEmail: string;
@@ -19,6 +19,8 @@ const Login: React.FC = () => {
   const location = useLocation();
   const { t } = useTranslation();
   const { login, user, error, clearError } = useAuthStore();
+  const activeWorkspace = useUIStore((state) => state.activeWorkspace);
+  const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
   const redirectTo = (location.state as { from?: string; expired?: boolean } | null)?.from;
   const expired = Boolean((location.state as { expired?: boolean } | null)?.expired) || hasPendingAuthExpired();
   const loginSchema = React.useMemo(() => z.object({
@@ -60,9 +62,16 @@ const Login: React.FC = () => {
 
   React.useEffect(() => {
     if (user) {
-      navigate(redirectTo || homePathForCapabilities(user.capabilities), { replace: true });
+      const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+      const nextWorkspace = resolveActiveWorkspace({
+        user,
+        pathname: location.pathname,
+        activeWorkspace,
+        preferredWorkspace,
+      });
+      navigate(redirectTo || homePathForWorkspace(nextWorkspace), { replace: true });
     }
-  }, [navigate, redirectTo, user]);
+  }, [navigate, redirectTo, user, location.pathname, activeWorkspace, preferredWorkspaceByUser]);
 
   React.useEffect(() => {
     if (expired) {

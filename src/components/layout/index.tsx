@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
   BookCopy,
@@ -33,8 +33,15 @@ import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { resolveRouteTitle } from '@/lib/page-title';
 import { aiService } from '@/lib/services';
 import { cn } from '@/lib/utils';
-import { hasCapability, homePathForCapabilities, userHasCapability } from '@/lib/format';
-import type { Capability } from '@/lib/contracts';
+import { userHasCapability } from '@/lib/format';
+import {
+  getPreferredWorkspaceForUser,
+  homePathForWorkspace,
+  listAvailableWorkspaces,
+  mapPathBetweenWorkspaces,
+  resolveActiveWorkspace,
+} from '@/lib/workspaces';
+import type { WorkspaceId } from '@/lib/workspaces';
 
 type NavItem = {
   name: string;
@@ -42,48 +49,70 @@ type NavItem = {
   icon: React.ComponentType<{ size?: number; className?: string }>;
 };
 
-function buildSections(t: (key: string) => string, capabilities?: Capability[] | null): Array<{ label: string; items: NavItem[] }> {
+type WorkspaceMeta = {
+  labelKey: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+};
+
+const WORKSPACE_META: Record<WorkspaceId, WorkspaceMeta> = {
+  ADMIN_CONSOLE: {
+    labelKey: 'shell.workspaces.ADMIN_CONSOLE',
+    icon: Shield,
+  },
+  TEACHING_WORKSPACE: {
+    labelKey: 'shell.workspaces.TEACHING_WORKSPACE',
+    icon: GraduationCap,
+  },
+  STUDENT_WORKSPACE: {
+    labelKey: 'shell.workspaces.STUDENT_WORKSPACE',
+    icon: LayoutDashboard,
+  },
+};
+
+function buildSections(t: (key: string) => string, workspace?: WorkspaceId | null): Array<{ label: string; items: NavItem[] }> {
   const sections: Array<{ label: string; items: NavItem[] }> = [];
 
-  if (hasCapability(capabilities, 'ADMIN_CONSOLE')) {
-    sections.push({
-      label: t('shell.sections.admin'),
-      items: [
-        { name: t('shell.nav.adminUsers'), path: '/admin/users', icon: Users },
-        { name: t('shell.nav.adminLexicalPairs'), path: '/admin/lexical-pairs', icon: BookOpen },
-        { name: t('shell.nav.adminConfigCenter'), path: '/admin/config-center', icon: Shield },
-      ],
-    });
-  }
-
-  if (hasCapability(capabilities, 'TEACHING_WORKSPACE')) {
-    sections.push({
-      label: t('shell.sections.teaching'),
-      items: [
-        { name: t('shell.nav.teacherWorkspace'), path: '/teacher/workspace', icon: LayoutDashboard },
-        { name: t('shell.nav.teacherClasses'), path: '/teacher/classes', icon: Users },
-        { name: t('shell.nav.teacherAssessments'), path: '/teacher/assessments', icon: FilePenLine },
-        { name: t('shell.nav.teacherTemplates'), path: '/teacher/diagnosis-templates', icon: Brain },
-        { name: t('shell.nav.teacherLexicalPairs'), path: '/teacher/lexical-pairs', icon: BookOpen },
-        { name: t('shell.nav.teacherLexicalLists'), path: '/teacher/lexical-lists', icon: BookCopy },
-        { name: t('shell.nav.teacherInterventions'), path: '/teacher/interventions', icon: Shield },
-      ],
-    });
-  }
-
-  if (hasCapability(capabilities, 'STUDENT_WORKSPACE')) {
-    sections.push({
-      label: t('shell.sections.core'),
-      items: [
-        { name: t('shell.nav.dashboard'), path: '/dashboard', icon: LayoutDashboard },
-        { name: t('shell.nav.diagnosis'), path: '/diagnosis', icon: Activity },
-        { name: t('shell.nav.training'), path: '/training', icon: GraduationCap },
-        { name: t('shell.nav.assessments'), path: '/assessments', icon: BookCopy },
-        { name: t('shell.nav.analytics'), path: '/analytics', icon: LineChart },
-        { name: t('shell.nav.errors'), path: '/errors', icon: Database },
-        { name: t('shell.nav.history'), path: '/history', icon: History },
-      ],
-    });
+  switch (workspace) {
+    case 'ADMIN_CONSOLE':
+      sections.push({
+        label: t('shell.sections.admin'),
+        items: [
+          { name: t('shell.nav.adminUsers'), path: '/admin/users', icon: Users },
+          { name: t('shell.nav.adminLexicalPairs'), path: '/admin/lexical-pairs', icon: BookOpen },
+          { name: t('shell.nav.adminConfigCenter'), path: '/admin/config-center', icon: Shield },
+        ],
+      });
+      break;
+    case 'TEACHING_WORKSPACE':
+      sections.push({
+        label: t('shell.sections.teaching'),
+        items: [
+          { name: t('shell.nav.teacherWorkspace'), path: '/teacher/workspace', icon: LayoutDashboard },
+          { name: t('shell.nav.teacherClasses'), path: '/teacher/classes', icon: Users },
+          { name: t('shell.nav.teacherAssessments'), path: '/teacher/assessments', icon: FilePenLine },
+          { name: t('shell.nav.teacherTemplates'), path: '/teacher/diagnosis-templates', icon: Brain },
+          { name: t('shell.nav.teacherLexicalPairs'), path: '/teacher/lexical-pairs', icon: BookOpen },
+          { name: t('shell.nav.teacherLexicalLists'), path: '/teacher/lexical-lists', icon: BookCopy },
+          { name: t('shell.nav.teacherInterventions'), path: '/teacher/interventions', icon: Shield },
+        ],
+      });
+      break;
+    case 'STUDENT_WORKSPACE':
+      sections.push({
+        label: t('shell.sections.core'),
+        items: [
+          { name: t('shell.nav.dashboard'), path: '/dashboard', icon: LayoutDashboard },
+          { name: t('shell.nav.diagnosis'), path: '/diagnosis', icon: Activity },
+          { name: t('shell.nav.training'), path: '/training', icon: GraduationCap },
+          { name: t('shell.nav.assessments'), path: '/assessments', icon: BookCopy },
+          { name: t('shell.nav.analytics'), path: '/analytics', icon: LineChart },
+          { name: t('shell.nav.errors'), path: '/errors', icon: Database },
+          { name: t('shell.nav.history'), path: '/history', icon: History },
+        ],
+      });
+      break;
+    default:
+      break;
   }
 
   sections.push({
@@ -101,12 +130,98 @@ type SidebarContentProps = {
   onNavigate?: () => void;
 };
 
+type WorkspaceSwitcherProps = {
+  activeWorkspace: WorkspaceId;
+  isCollapsed: boolean;
+  workspaces: WorkspaceId[];
+  onSelect: (workspace: WorkspaceId) => void;
+};
+
+const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({ activeWorkspace, isCollapsed, workspaces, onSelect }) => {
+  const { t } = useTranslation();
+
+  if (workspaces.length < 2) {
+    return null;
+  }
+
+  return (
+    <div className={cn(isCollapsed ? 'px-3 pt-1 pb-2' : 'px-4 pt-1 pb-2')}>
+      {!isCollapsed && (
+        <div className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-white/20">
+          {t('shell.switchWorkspaceLabel')}
+        </div>
+      )}
+      <div
+        className={cn(
+          'mt-3 rounded-[1.6rem] border border-slate-200/80 bg-white/45 dark:border-white/10 dark:bg-white/5',
+          isCollapsed ? 'p-2 space-y-2' : 'p-2.5 space-y-2'
+        )}
+      >
+        {workspaces.map((workspace) => {
+          const meta = WORKSPACE_META[workspace];
+          const isActive = workspace === activeWorkspace;
+          return (
+            <button
+              key={workspace}
+              type="button"
+              aria-pressed={isActive}
+              aria-label={t(meta.labelKey)}
+              onClick={() => onSelect(workspace)}
+              className={cn(
+                'w-full rounded-2xl border transition-all duration-300',
+                isCollapsed ? 'flex items-center justify-center px-3 py-3' : 'flex items-center gap-3 px-4 py-3 text-left',
+                isActive
+                  ? 'border-primary/20 bg-primary/[0.08] text-primary shadow-[0_0_20px_rgba(59,130,246,0.12)]'
+                  : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900 dark:text-white/55 dark:hover:border-white/10 dark:hover:text-white'
+              )}
+            >
+              <meta.icon size={16} />
+              {!isCollapsed && (
+                <div className="min-w-0">
+                  <div className="text-xs font-black tracking-wide">{t(meta.labelKey)}</div>
+                  <div className="mt-1 text-[10px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                    {isActive ? t('shell.currentWorkspaceLabel') : t('shell.switchWorkspaceLabel')}
+                  </div>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigationLabel, headerAction, onNavigate }) => {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const sections = useMemo(() => buildSections(t, user?.capabilities), [t, user?.capabilities]);
-  const homePath = homePathForCapabilities(user?.capabilities);
+  const { activeWorkspace, preferredWorkspaceByUser, setActiveWorkspace } = useUIStore();
+  const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+  const currentWorkspace = useMemo(
+    () =>
+      resolveActiveWorkspace({
+        user,
+        pathname: location.pathname,
+        activeWorkspace,
+        preferredWorkspace,
+      }),
+    [user, location.pathname, activeWorkspace, preferredWorkspace]
+  );
+  const availableWorkspaces = useMemo(() => listAvailableWorkspaces(user?.capabilities), [user?.capabilities]);
+  const sections = useMemo(() => buildSections(t, currentWorkspace), [t, currentWorkspace]);
+  const homePath = homePathForWorkspace(currentWorkspace);
   const roleLabels = (user?.roles || []).map((role) => t(`shell.roles.${role}`));
+
+  const handleWorkspaceSelect = (workspace: WorkspaceId) => {
+    const targetPath = mapPathBetweenWorkspaces(location.pathname, location.search, workspace);
+    setActiveWorkspace(workspace, user);
+    onNavigate?.();
+    if (targetPath !== `${location.pathname}${location.search}`) {
+      navigate(targetPath);
+    }
+  };
 
   return (
     <>
@@ -149,6 +264,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
           isCollapsed ? 'px-3 py-3 space-y-4' : 'px-4 py-4 space-y-8'
         )}
       >
+        {currentWorkspace && (
+          <WorkspaceSwitcher
+            activeWorkspace={currentWorkspace}
+            isCollapsed={isCollapsed}
+            workspaces={availableWorkspaces}
+            onSelect={handleWorkspaceSelect}
+          />
+        )}
         {sections.map((section) => (
           <div key={section.label} className={cn(isCollapsed ? 'space-y-1.5' : 'space-y-2')}>
             {!isCollapsed && (
@@ -346,12 +469,24 @@ const MobileSidebarDrawer: React.FC = () => {
 
 const AssistantDrawer: React.FC = () => {
   const { t } = useTranslation();
+  const location = useLocation();
   const { user } = useAuthStore();
-  const { isAssistantOpen, assistantDraft, closeAssistant, setAssistantDraft } = useUIStore();
+  const { activeWorkspace, preferredWorkspaceByUser, isAssistantOpen, assistantDraft, closeAssistant, setAssistantDraft } = useUIStore();
   const [query, setQuery] = useState(assistantDraft);
   const drawerRef = React.useRef<HTMLElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const canUseAssistant = userHasCapability(user, 'STUDENT_WORKSPACE');
+  const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+  const currentWorkspace = useMemo(
+    () =>
+      resolveActiveWorkspace({
+        user,
+        pathname: location.pathname,
+        activeWorkspace,
+        preferredWorkspace,
+      }),
+    [user, location.pathname, activeWorkspace, preferredWorkspace]
+  );
+  const canUseAssistant = currentWorkspace === 'STUDENT_WORKSPACE' && userHasCapability(user, 'STUDENT_WORKSPACE');
   const assistantOpen = canUseAssistant && isAssistantOpen;
   const ragMutation = useMutation({
     mutationFn: (value: string) => aiService.queryLexicalRag(value),
@@ -360,6 +495,12 @@ const AssistantDrawer: React.FC = () => {
   useEffect(() => {
     setQuery(assistantDraft);
   }, [assistantDraft]);
+
+  useEffect(() => {
+    if (!canUseAssistant && isAssistantOpen) {
+      closeAssistant();
+    }
+  }, [canUseAssistant, isAssistantOpen, closeAssistant]);
 
   useBodyScrollLock(assistantOpen);
   useDialogAccessibility({
@@ -517,7 +658,18 @@ export const Topbar: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const { user } = useAuthStore();
-  const { isDarkMode, toggleDarkMode, locale, setLocale, openAssistant, assistantDraft, setAssistantDraft, openMobileSidebar } = useUIStore();
+  const {
+    activeWorkspace,
+    preferredWorkspaceByUser,
+    isDarkMode,
+    toggleDarkMode,
+    locale,
+    setLocale,
+    openAssistant,
+    assistantDraft,
+    setAssistantDraft,
+    openMobileSidebar,
+  } = useUIStore();
   const [search, setSearch] = useState(assistantDraft);
 
   useEffect(() => {
@@ -525,8 +677,19 @@ export const Topbar: React.FC = () => {
   }, [assistantDraft]);
 
   const currentTitle = useMemo(() => resolveRouteTitle(location.pathname, t), [location.pathname, t]);
-
-  const workspaceTitles = (user?.capabilities || []).map((capability) => t(`shell.workspaces.${capability}`));
+  const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+  const currentWorkspace = useMemo(
+    () =>
+      resolveActiveWorkspace({
+        user,
+        pathname: location.pathname,
+        activeWorkspace,
+        preferredWorkspace,
+      }),
+    [user, location.pathname, activeWorkspace, preferredWorkspace]
+  );
+  const currentWorkspaceLabel = currentWorkspace ? t(WORKSPACE_META[currentWorkspace].labelKey) : '--';
+  const canUseAssistant = currentWorkspace === 'STUDENT_WORKSPACE' && userHasCapability(user, 'STUDENT_WORKSPACE');
 
   return (
     <header className="h-16 mt-3 mx-4 lg:mx-8 flex items-center justify-between px-6 sticky top-3 z-40 liquid-glass rounded-2xl edge-light fluid-texture">
@@ -541,11 +704,11 @@ export const Topbar: React.FC = () => {
         </button>
         <div>
           <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-1">
-            {workspaceTitles.join(' / ') || (user?.roles || []).map((role) => t(`shell.roles.${role}`)).join(' / ') || '--'}
+            {currentWorkspaceLabel}
           </div>
           <div className="text-lg font-black text-slate-900 dark:text-white">{currentTitle}</div>
         </div>
-        {userHasCapability(user, 'STUDENT_WORKSPACE') && (
+        {canUseAssistant && (
           <div className="relative max-w-lg w-full hidden md:block group">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within:text-primary transition-colors duration-300"
@@ -571,7 +734,7 @@ export const Topbar: React.FC = () => {
         )}
       </div>
       <div className="flex items-center gap-5 relative z-10">
-        {userHasCapability(user, 'STUDENT_WORKSPACE') && (
+        {canUseAssistant && (
           <button
             type="button"
             aria-label={t('common.actions.openAssistant')}

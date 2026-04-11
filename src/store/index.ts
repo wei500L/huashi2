@@ -5,6 +5,8 @@ import type { SupportedLocale } from '@/lib/locale';
 import { readStoredLocale, writeStoredLocale } from '@/lib/locale';
 import { authService } from '@/lib/services';
 import { clearStoredSession, readStoredSession, writeStoredSession } from '@/lib/session';
+import { workspacePreferenceKey } from '@/lib/workspaces';
+import type { WorkspaceId } from '@/lib/workspaces';
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'anonymous';
 
@@ -102,6 +104,8 @@ interface UIStore {
   locale: SupportedLocale;
   isAssistantOpen: boolean;
   assistantDraft: string;
+  activeWorkspace: WorkspaceId | null;
+  preferredWorkspaceByUser: Record<string, WorkspaceId>;
   toggleSidebar: () => void;
   openMobileSidebar: () => void;
   closeMobileSidebar: () => void;
@@ -110,6 +114,7 @@ interface UIStore {
   openAssistant: (seed?: string) => void;
   closeAssistant: () => void;
   setAssistantDraft: (value: string) => void;
+  setActiveWorkspace: (workspace: WorkspaceId | null, user?: Pick<CurrentUserVO, 'id' | 'username'> | null) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -121,6 +126,8 @@ export const useUIStore = create<UIStore>()(
       locale: readStoredLocale(),
       isAssistantOpen: false,
       assistantDraft: '',
+      activeWorkspace: null,
+      preferredWorkspaceByUser: {},
       toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
       openMobileSidebar: () => set({ isMobileSidebarOpen: true }),
       closeMobileSidebar: () => set({ isMobileSidebarOpen: false }),
@@ -135,6 +142,32 @@ export const useUIStore = create<UIStore>()(
       })),
       closeAssistant: () => set({ isAssistantOpen: false }),
       setAssistantDraft: (value) => set({ assistantDraft: value }),
+      setActiveWorkspace: (workspace, user) =>
+        set((state) => {
+          const nextState: Pick<UIStore, 'activeWorkspace' | 'preferredWorkspaceByUser'> = {
+            activeWorkspace: workspace,
+            preferredWorkspaceByUser: state.preferredWorkspaceByUser,
+          };
+
+          const preferenceKey = workspacePreferenceKey(user);
+          if (workspace && preferenceKey) {
+            const currentPreference = state.preferredWorkspaceByUser[preferenceKey];
+            if (currentPreference !== workspace) {
+              nextState.preferredWorkspaceByUser = {
+                ...state.preferredWorkspaceByUser,
+                [preferenceKey]: workspace,
+              };
+            }
+          }
+
+          const activeUnchanged = state.activeWorkspace === nextState.activeWorkspace;
+          const preferencesUnchanged = state.preferredWorkspaceByUser === nextState.preferredWorkspaceByUser;
+          if (activeUnchanged && preferencesUnchanged) {
+            return state;
+          }
+
+          return nextState;
+        }),
     }),
     { name: 'ef-ui-storage-v2' }
   )

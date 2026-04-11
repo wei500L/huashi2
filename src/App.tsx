@@ -6,8 +6,14 @@ import i18n from './lib/i18n';
 import { buildDocumentTitle } from './lib/page-title';
 import { AUTH_EXPIRED_EVENT, SESSION_CHANGE_EVENT, hasPendingAuthExpired } from './lib/session';
 import { useAuthStore, useUIStore } from './store';
-import { homePathForCapabilities, userHasCapability } from './lib/format';
-import type { Capability } from './lib/contracts';
+import { userHasCapability } from './lib/format';
+import type { Capability, CurrentUserVO } from './lib/contracts';
+import {
+  getPreferredWorkspaceForUser,
+  homePathForWorkspace,
+  resolveActiveWorkspace,
+} from './lib/workspaces';
+import type { WorkspaceId } from './lib/workspaces';
 
 const Login = React.lazy(() => import('./pages/Login'));
 const AccountActionPage = React.lazy(() => import('./pages/AccountAction'));
@@ -44,6 +50,22 @@ const AdminLexicalPairImportsPage = React.lazy(() => import('./pages/admin/Lexic
 
 const BootScreen: React.FC = () => <RouteSkeleton />;
 
+function resolveHomePath(
+  user: Pick<CurrentUserVO, 'id' | 'username' | 'primaryRole' | 'capabilities'> | null | undefined,
+  pathname: string,
+  activeWorkspace: WorkspaceId | null,
+  preferredWorkspaceByUser: Record<string, WorkspaceId>
+): string {
+  const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+  const currentWorkspace = resolveActiveWorkspace({
+    user,
+    pathname,
+    activeWorkspace,
+    preferredWorkspace,
+  });
+  return homePathForWorkspace(currentWorkspace);
+}
+
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const authenticated = useAuthStore((state) => state.status === 'authenticated' && !!state.session?.accessToken);
@@ -59,16 +81,29 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const RequireCapability: React.FC<{ capability: Capability; children: React.ReactNode }> = ({ capability, children }) => {
+  const location = useLocation();
   const user = useAuthStore((state) => state.user);
+  const activeWorkspace = useUIStore((state) => state.activeWorkspace);
+  const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return userHasCapability(user, capability) ? <>{children}</> : <Navigate to={homePathForCapabilities(user.capabilities)} replace />;
+  return userHasCapability(user, capability) ? (
+    <>{children}</>
+  ) : (
+    <Navigate
+      to={resolveHomePath(user, location.pathname, activeWorkspace, preferredWorkspaceByUser)}
+      replace
+    />
+  );
 };
 
 const HomeRedirect: React.FC = () => {
+  const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  return <Navigate to={homePathForCapabilities(user?.capabilities)} replace />;
+  const activeWorkspace = useUIStore((state) => state.activeWorkspace);
+  const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
+  return <Navigate to={resolveHomePath(user, location.pathname, activeWorkspace, preferredWorkspaceByUser)} replace />;
 };
 
 const withSuspense = (node: React.ReactNode) => <Suspense fallback={<BootScreen />}>{node}</Suspense>;
@@ -80,7 +115,18 @@ const App: React.FC = () => {
   const syncFromStorage = useAuthStore((state) => state.syncFromStorage);
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
-  const { isDarkMode, locale } = useUIStore();
+  const {
+    activeWorkspace,
+    preferredWorkspaceByUser,
+    setActiveWorkspace,
+    isDarkMode,
+    locale,
+  } = useUIStore();
+
+  const resolvedHomePath = React.useMemo(
+    () => resolveHomePath(user, location.pathname, activeWorkspace, preferredWorkspaceByUser),
+    [user, location.pathname, activeWorkspace, preferredWorkspaceByUser]
+  );
 
   React.useEffect(() => {
     void initialize();
@@ -120,6 +166,25 @@ const App: React.FC = () => {
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
   }, [location.pathname, navigate]);
 
+  React.useEffect(() => {
+    if (!user) {
+      setActiveWorkspace(null);
+      return;
+    }
+
+    const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+    const nextWorkspace = resolveActiveWorkspace({
+      user,
+      pathname: location.pathname,
+      activeWorkspace,
+      preferredWorkspace,
+    });
+
+    if (nextWorkspace && nextWorkspace !== activeWorkspace) {
+      setActiveWorkspace(nextWorkspace, user);
+    }
+  }, [user, location.pathname, activeWorkspace, preferredWorkspaceByUser, setActiveWorkspace]);
+
   if (status === 'idle' || status === 'loading') {
     return <BootScreen />;
   }
@@ -128,7 +193,7 @@ const App: React.FC = () => {
     <Routes>
       <Route
         path="/login"
-        element={status === 'authenticated' && user ? <Navigate to={homePathForCapabilities(user.capabilities)} replace /> : withSuspense(<Login />)}
+        element={status === 'authenticated' && user ? <Navigate to={resolvedHomePath} replace /> : withSuspense(<Login />)}
       />
       <Route path="/account-action/:token" element={withSuspense(<AccountActionPage />)} />
 
