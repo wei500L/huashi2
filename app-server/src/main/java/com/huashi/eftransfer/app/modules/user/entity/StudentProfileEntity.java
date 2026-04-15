@@ -30,6 +30,12 @@ public class StudentProfileEntity extends BaseAuditEntity {
     @TableField("composite_score")
     private Integer compositeScore;
 
+    @TableField("daily_training_target")
+    private Integer dailyTrainingTarget;
+
+    @TableField("weekly_accuracy_target")
+    private Integer weeklyAccuracyTarget;
+
     @TableField("learning_profile_snapshot_json")
     private String learningProfileSnapshotJson;
 
@@ -90,6 +96,22 @@ public class StudentProfileEntity extends BaseAuditEntity {
 
     public void setCompositeScore(Integer compositeScore) {
         this.compositeScore = compositeScore;
+    }
+
+    public Integer getDailyTrainingTarget() {
+        return dailyTrainingTarget;
+    }
+
+    public void setDailyTrainingTarget(Integer dailyTrainingTarget) {
+        this.dailyTrainingTarget = dailyTrainingTarget;
+    }
+
+    public Integer getWeeklyAccuracyTarget() {
+        return weeklyAccuracyTarget;
+    }
+
+    public void setWeeklyAccuracyTarget(Integer weeklyAccuracyTarget) {
+        this.weeklyAccuracyTarget = weeklyAccuracyTarget;
     }
 
     public String getLearningProfileSnapshotJson() {

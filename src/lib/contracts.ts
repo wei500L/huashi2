@@ -24,6 +24,8 @@ export interface StudentProfileVO {
   frenchLevel: string;
   courseStage: string;
   compositeScore: number;
+  dailyTrainingTarget?: number | null;
+  weeklyAccuracyTarget?: number | null;
 }
 
 export interface TeacherProfileVO {
@@ -162,6 +164,36 @@ export interface StudentAnalyticsSnapshotPayload {
   focusTags: string[];
 }
 
+export interface StudentAchievementBadgeVO {
+  code: string;
+  unlocked: boolean;
+  progressValue: number;
+  targetValue: number;
+  awardedAt?: string | null;
+}
+
+export interface StudentAchievementWallVO {
+  unlockedCount: number;
+  totalCount: number;
+  badges: StudentAchievementBadgeVO[];
+}
+
+export interface StudentLearningGoalVO {
+  dailyTrainingTarget?: number | null;
+  dailyTrainingCompletedToday: number;
+  dailyTrainingRemaining: number;
+  weeklyAccuracyTarget?: number | null;
+  weeklyAccuracyCurrent: number;
+  weeklyAccuracyDelta: number;
+  configured: boolean;
+  updatedAt?: string | null;
+}
+
+export interface UpdateStudentLearningGoalRequest {
+  dailyTrainingTarget?: number | null;
+  weeklyAccuracyTarget?: number | null;
+}
+
 export interface StudentAnalyticsOverviewVO {
   studentUserId: number;
   studentName: string;
@@ -174,6 +206,8 @@ export interface StudentAnalyticsOverviewVO {
   radar: AnalyticsRadarMetricVO[];
   contextPerformance: AnalyticsContextPerformanceVO[];
   latestSnapshot: StudentAnalyticsSnapshotPayload;
+  achievementWall: StudentAchievementWallVO;
+  learningGoal: StudentLearningGoalVO;
 }
 
 export interface AnalyticsSeriesVO {

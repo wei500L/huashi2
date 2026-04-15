@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ArrowRight, Brain, Clock3, FileText, RefreshCw, Target } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ArrowRight, BookOpen, Brain, Clock3, FileText, Flame, RefreshCw, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
@@ -22,8 +22,44 @@ import {
 } from '@/lib/format';
 import { assessmentService, studentService, trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
-import type { StudentAssessmentSummaryVO } from '@/lib/contracts';
+import type { StudentAchievementBadgeVO, StudentAnalyticsOverviewVO, StudentAssessmentSummaryVO } from '@/lib/contracts';
+import type { LucideIcon } from 'lucide-react';
 import type { TFunction } from 'i18next';
+
+const ACHIEVEMENT_META: Record<
+  string,
+  {
+    icon: LucideIcon;
+    iconClassName: string;
+    progressClassName: string;
+    progressType: 'days' | 'count' | 'accuracy' | 'mastery';
+  }
+> = {
+  LOGIN_STREAK: {
+    icon: Flame,
+    iconClassName: 'bg-amber-500/15 text-amber-500',
+    progressClassName: 'from-amber-400 via-orange-500 to-rose-500',
+    progressType: 'days',
+  },
+  DIAGNOSIS_FINISHER: {
+    icon: Brain,
+    iconClassName: 'bg-sky-500/15 text-sky-500',
+    progressClassName: 'from-sky-400 via-cyan-500 to-blue-500',
+    progressType: 'count',
+  },
+  TRAINING_EXPERT: {
+    icon: Target,
+    iconClassName: 'bg-emerald-500/15 text-emerald-500',
+    progressClassName: 'from-emerald-400 via-teal-500 to-cyan-500',
+    progressType: 'accuracy',
+  },
+  VOCAB_MASTER: {
+    icon: BookOpen,
+    iconClassName: 'bg-fuchsia-500/15 text-fuchsia-500',
+    progressClassName: 'from-fuchsia-400 via-pink-500 to-rose-500',
+    progressType: 'mastery',
+  },
+};
 
 function resolveAssessmentDashboardAction(item: StudentAssessmentSummaryVO, now: number, t: TFunction) {
   const startsAt = item.startsAt ? new Date(item.startsAt).getTime() : null;
@@ -63,9 +99,43 @@ function resolveAssessmentDashboardAction(item: StudentAssessmentSummaryVO, now:
   };
 }
 
+function resolveAchievementProgressLabel(badge: StudentAchievementBadgeVO, t: TFunction) {
+  const meta = ACHIEVEMENT_META[badge.code];
+  switch (meta?.progressType) {
+    case 'days':
+      return t('ui.achievements.progressDays', { current: badge.progressValue, target: badge.targetValue });
+    case 'accuracy':
+      return t('ui.achievements.progressAccuracy', { current: badge.progressValue, target: badge.targetValue });
+    case 'mastery':
+      return t('ui.achievements.progressMastery', { current: badge.progressValue, target: badge.targetValue });
+    default:
+      return t('ui.achievements.progressCount', { current: badge.progressValue, target: badge.targetValue });
+  }
+}
+
+function resolveGoalProgress(current: number, target?: number | null): number {
+  if (!target || target <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round((current / target) * 100)));
+}
+
+function formatGoalPercent(value?: number | null): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return '--';
+  }
+  return `${value.toFixed(1)}%`;
+}
+
 const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [dailyTrainingTargetInput, setDailyTrainingTargetInput] = React.useState('');
+  const [weeklyAccuracyTargetInput, setWeeklyAccuracyTargetInput] = React.useState('');
+  const [goalErrorMessage, setGoalErrorMessage] = React.useState<string | null>(null);
+  const [goalSuccessMessage, setGoalSuccessMessage] = React.useState<string | null>(null);
+  const [isGoalDirty, setIsGoalDirty] = React.useState(false);
 
   const overviewQuery = useQuery({
     queryKey: ['student-overview'],
@@ -100,10 +170,51 @@ const DashboardPage: React.FC = () => {
     queryKey: ['student-assessments', 'dashboard'],
     queryFn: ({ signal }) => assessmentService.listStudentAssessments({ signal }),
   });
+  const learningGoalMutation = useMutation({
+    mutationFn: (payload: { dailyTrainingTarget?: number | null; weeklyAccuracyTarget?: number | null }) =>
+      studentService.updateLearningGoals(payload),
+    onSuccess: (learningGoal) => {
+      setGoalErrorMessage(null);
+      setGoalSuccessMessage(t('ui.messages.learningGoalsSaved'));
+      setIsGoalDirty(false);
+      setDailyTrainingTargetInput(learningGoal.dailyTrainingTarget ? String(learningGoal.dailyTrainingTarget) : '');
+      setWeeklyAccuracyTargetInput(learningGoal.weeklyAccuracyTarget ? String(learningGoal.weeklyAccuracyTarget) : '');
+      queryClient.setQueryData<StudentAnalyticsOverviewVO | undefined>(['student-overview'], (current) =>
+        current ? { ...current, learningGoal } : current
+      );
+    },
+    onError: (error) => {
+      setGoalSuccessMessage(null);
+      setGoalErrorMessage(getApiErrorMessage(error, t('ui.errors.learningGoalsSaveFailed')));
+    },
+  });
 
   const overview = overviewQuery.data;
+  const achievementWall = overview?.achievementWall;
+  const learningGoal = overview?.learningGoal;
   const topCards = overview?.cards.slice(0, 4) ?? [];
+  const dailyGoalProgress = resolveGoalProgress(learningGoal?.dailyTrainingCompletedToday ?? 0, learningGoal?.dailyTrainingTarget);
+  const weeklyGoalProgress = resolveGoalProgress(learningGoal?.weeklyAccuracyCurrent ?? 0, learningGoal?.weeklyAccuracyTarget);
+  const dailyGoalStatus = !learningGoal?.dailyTrainingTarget
+    ? t('ui.labels.goalUnset')
+    : learningGoal.dailyTrainingRemaining === 0
+      ? t('ui.labels.goalCompleted')
+      : t('ui.meta.wordsRemaining', { count: learningGoal.dailyTrainingRemaining });
+  const weeklyGoalStatus = !learningGoal?.weeklyAccuracyTarget
+    ? t('ui.labels.goalUnset')
+    : learningGoal.weeklyAccuracyDelta >= 0
+      ? t('ui.meta.accuracyAhead', { count: learningGoal.weeklyAccuracyDelta.toFixed(1) })
+      : t('ui.meta.accuracyGap', { count: Math.abs(learningGoal.weeklyAccuracyDelta).toFixed(1) });
   const now = Date.now();
+
+  React.useEffect(() => {
+    if (!learningGoal || isGoalDirty) {
+      return;
+    }
+    setDailyTrainingTargetInput(learningGoal.dailyTrainingTarget ? String(learningGoal.dailyTrainingTarget) : '');
+    setWeeklyAccuracyTargetInput(learningGoal.weeklyAccuracyTarget ? String(learningGoal.weeklyAccuracyTarget) : '');
+  }, [isGoalDirty, learningGoal]);
+
   const assessmentItems = React.useMemo(() => {
     const items = (assessmentsQuery.data || []).slice();
     items.sort((left, right) => {
@@ -128,6 +239,35 @@ const DashboardPage: React.FC = () => {
   };
 
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
+
+  const handleLearningGoalSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const dailyValue = dailyTrainingTargetInput.trim();
+    const weeklyValue = weeklyAccuracyTargetInput.trim();
+    const hasDailyTarget = dailyValue !== '';
+    const hasWeeklyTarget = weeklyValue !== '';
+    const parsedDailyTrainingTarget = Number(dailyValue);
+    const parsedWeeklyAccuracyTarget = Number(weeklyValue);
+    const dailyTrainingTarget = hasDailyTarget ? parsedDailyTrainingTarget : null;
+    const weeklyAccuracyTarget = hasWeeklyTarget ? parsedWeeklyAccuracyTarget : null;
+
+    if (hasDailyTarget && (!Number.isInteger(parsedDailyTrainingTarget) || parsedDailyTrainingTarget < 1 || parsedDailyTrainingTarget > 500)) {
+      setGoalSuccessMessage(null);
+      setGoalErrorMessage(t('ui.validation.dailyTrainingGoalRange'));
+      return;
+    }
+    if (hasWeeklyTarget && (!Number.isInteger(parsedWeeklyAccuracyTarget) || parsedWeeklyAccuracyTarget < 1 || parsedWeeklyAccuracyTarget > 100)) {
+      setGoalSuccessMessage(null);
+      setGoalErrorMessage(t('ui.validation.weeklyAccuracyGoalRange'));
+      return;
+    }
+
+    setGoalErrorMessage(null);
+    await learningGoalMutation.mutateAsync({
+      dailyTrainingTarget,
+      weeklyAccuracyTarget,
+    });
+  };
 
   return (
     <div className="space-y-10 pb-20">
@@ -190,6 +330,225 @@ const DashboardPage: React.FC = () => {
           />
         ))}
       </div>
+
+      <section className="liquid-glass-panel rounded-[2.8rem] p-8">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <SectionEyebrow>{t('ui.sections.achievementWall')}</SectionEyebrow>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+              {t('ui.achievements.summary', {
+                count: achievementWall?.unlockedCount ?? 0,
+                total: achievementWall?.totalCount ?? 0,
+              })}
+            </div>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-white/45">
+              {t('ui.achievements.subtitle')}
+            </p>
+          </div>
+          <StatusBadge
+            label={t('ui.achievements.unlockedMeta', {
+              count: achievementWall?.unlockedCount ?? 0,
+              total: achievementWall?.totalCount ?? 0,
+            })}
+            tone={(achievementWall?.unlockedCount ?? 0) > 0 ? 'success' : 'info'}
+          />
+        </div>
+
+        {overviewQuery.isLoading ? (
+          <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.achievements.loading')}</div>
+        ) : !achievementWall?.badges?.length ? (
+          <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.achievements.empty')}</div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {achievementWall.badges.map((badge) => {
+              const meta = ACHIEVEMENT_META[badge.code] ?? ACHIEVEMENT_META.DIAGNOSIS_FINISHER;
+              const Icon = meta.icon;
+              const progressPercent = badge.targetValue > 0 ? Math.min(100, Math.round((badge.progressValue / badge.targetValue) * 100)) : 0;
+              return (
+                <article
+                  key={badge.code}
+                  className={`rounded-[1.8rem] border p-5 transition-all ${
+                    badge.unlocked
+                      ? 'border-slate-200/80 bg-white/70 shadow-[0_24px_60px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/8'
+                      : 'border-dashed border-slate-300/90 bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.03]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className={`inline-flex rounded-[1.2rem] p-3 ${meta.iconClassName}`}>
+                      <Icon size={18} />
+                    </div>
+                    <StatusBadge label={badge.unlocked ? t('ui.achievements.unlocked') : t('ui.achievements.inProgress')} tone={badge.unlocked ? 'success' : 'warning'} />
+                  </div>
+
+                  <div className="mt-5">
+                    <div className="text-lg font-black text-slate-900 dark:text-white">
+                      {t(`ui.achievements.badges.${badge.code}.title`)}
+                    </div>
+                    <p className="mt-2 min-h-[66px] text-sm leading-6 text-slate-500 dark:text-white/45">
+                      {t(`ui.achievements.badges.${badge.code}.description`)}
+                    </p>
+                  </div>
+
+                  <div className="mt-5">
+                    <div className="mb-2 flex items-center justify-between gap-4 text-xs text-slate-400 dark:text-white/35">
+                      <span>{resolveAchievementProgressLabel(badge, t)}</span>
+                      <span>{progressPercent}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10">
+                      <div className={`h-full rounded-full bg-gradient-to-r ${meta.progressClassName}`} style={{ width: `${progressPercent}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-xs text-slate-400 dark:text-white/35">
+                    {badge.unlocked && badge.awardedAt
+                      ? t('ui.achievements.awardedAt', { time: formatDateTime(badge.awardedAt) })
+                      : t('ui.achievements.nextMilestone')}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="liquid-glass-panel rounded-[2.8rem] p-8">
+        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <SectionEyebrow>{t('ui.sections.learningGoals')}</SectionEyebrow>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('ui.labels.learningGoalsTitle')}</div>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-white/45">{t('ui.labels.learningGoalsDescription')}</p>
+          </div>
+          <div className="text-sm text-slate-400 dark:text-white/35">
+            {learningGoal?.updatedAt ? t('ui.meta.goalUpdatedAt', { time: formatDateTime(learningGoal.updatedAt) }) : t('ui.labels.goalOptionalHint')}
+          </div>
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-4 md:grid-cols-2">
+            <article className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 p-5 dark:border-white/10 dark:bg-white/5">
+              <SectionEyebrow className="text-xs">{t('ui.fields.dailyTrainingGoal')}</SectionEyebrow>
+              <div className="mt-3 flex items-end justify-between gap-4">
+                <div>
+                  <div className="text-3xl font-black text-slate-900 dark:text-white">
+                    {learningGoal?.dailyTrainingCompletedToday ?? 0}
+                    <span className="ml-2 text-base font-bold text-slate-400 dark:text-white/35">
+                      / {learningGoal?.dailyTrainingTarget ?? '--'}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.fields.todayTrainingCount')}</div>
+                </div>
+                <StatusBadge
+                  label={dailyGoalStatus}
+                  tone={!learningGoal?.dailyTrainingTarget ? 'info' : learningGoal.dailyTrainingRemaining === 0 ? 'success' : 'warning'}
+                />
+              </div>
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between text-xs text-slate-400 dark:text-white/35">
+                  <span>{t('ui.labels.goalProgress')}</span>
+                  <span>{dailyGoalProgress}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10">
+                  <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-500" style={{ width: `${dailyGoalProgress}%` }} />
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 p-5 dark:border-white/10 dark:bg-white/5">
+              <SectionEyebrow className="text-xs">{t('ui.fields.weeklyAccuracyGoal')}</SectionEyebrow>
+              <div className="mt-3 flex items-end justify-between gap-4">
+                <div>
+                  <div className="text-3xl font-black text-slate-900 dark:text-white">
+                    {formatGoalPercent(learningGoal?.weeklyAccuracyCurrent)}
+                    <span className="ml-2 text-base font-bold text-slate-400 dark:text-white/35">
+                      / {learningGoal?.weeklyAccuracyTarget ? `${learningGoal.weeklyAccuracyTarget}%` : '--'}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.fields.weeklyAccuracyCurrent')}</div>
+                </div>
+                <StatusBadge
+                  label={weeklyGoalStatus}
+                  tone={!learningGoal?.weeklyAccuracyTarget ? 'info' : (learningGoal.weeklyAccuracyDelta ?? 0) >= 0 ? 'success' : 'warning'}
+                />
+              </div>
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between text-xs text-slate-400 dark:text-white/35">
+                  <span>{t('ui.labels.goalProgress')}</span>
+                  <span>{weeklyGoalProgress}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10">
+                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500" style={{ width: `${weeklyGoalProgress}%` }} />
+                </div>
+              </div>
+            </article>
+
+            {!learningGoal?.configured && !overviewQuery.isLoading && (
+              <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/60 p-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45 md:col-span-2">
+                {t('ui.labels.learningGoalsEmpty')}
+              </div>
+            )}
+          </div>
+
+          <form className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 p-6 dark:border-white/10 dark:bg-white/5" onSubmit={handleLearningGoalSubmit}>
+            <div className="space-y-5">
+              <label className="block">
+                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.dailyTrainingGoal')}</div>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={dailyTrainingTargetInput}
+                  onChange={(event) => {
+                    setIsGoalDirty(true);
+                    setGoalErrorMessage(null);
+                    setGoalSuccessMessage(null);
+                    setDailyTrainingTargetInput(event.target.value);
+                  }}
+                  placeholder={t('ui.placeholders.dailyTrainingGoal')}
+                  className="w-full rounded-2xl border border-slate-200 bg-white/75 px-4 py-3 outline-none focus:border-primary/50 dark:border-white/10 dark:bg-slate-950/40"
+                />
+              </label>
+
+              <label className="block">
+                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.weeklyAccuracyGoal')}</div>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={weeklyAccuracyTargetInput}
+                  onChange={(event) => {
+                    setIsGoalDirty(true);
+                    setGoalErrorMessage(null);
+                    setGoalSuccessMessage(null);
+                    setWeeklyAccuracyTargetInput(event.target.value);
+                  }}
+                  placeholder={t('ui.placeholders.weeklyAccuracyGoal')}
+                  className="w-full rounded-2xl border border-slate-200 bg-white/75 px-4 py-3 outline-none focus:border-primary/50 dark:border-white/10 dark:bg-slate-950/40"
+                />
+              </label>
+
+              <div className="text-sm leading-6 text-slate-500 dark:text-white/45">{t('ui.labels.goalOptionalHint')}</div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button type="submit" disabled={learningGoalMutation.isPending} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
+                  {learningGoalMutation.isPending ? t('ui.actions.savingGoals') : t('ui.actions.saveGoals')}
+                </button>
+                {goalSuccessMessage && (
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
+                    {goalSuccessMessage}
+                  </div>
+                )}
+                {goalErrorMessage && (
+                  <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                    {goalErrorMessage}
+                  </div>
+                )}
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.3fr_0.7fr]">
         <ChartCard

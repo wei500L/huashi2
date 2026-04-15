@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.modules.analytics.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
+import com.huashi.eftransfer.app.modules.achievement.service.AchievementService;
 import com.huashi.eftransfer.app.modules.analytics.entity.AnalyticsDailyAggregateEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.ClassAnalyticsDailyAggregateEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.LearningProfileSnapshotEntity;
@@ -40,6 +41,7 @@ import com.huashi.eftransfer.app.modules.user.entity.StudentProfileEntity;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
+import com.huashi.eftransfer.app.modules.user.vo.StudentLearningGoalVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.ContextSupportLevel;
 import com.huashi.eftransfer.shared.enums.LexicalPairType;
@@ -127,6 +129,7 @@ public class AnalyticsQueryService {
     private final StudentProfileMapper studentProfileMapper;
     private final LexicalPairMapper lexicalPairMapper;
     private final AnalyticsJsonCodec analyticsJsonCodec;
+    private final AchievementService achievementService;
 
     public AnalyticsQueryService(
             AnalyticsDailyAggregateMapper analyticsDailyAggregateMapper,
@@ -136,7 +139,8 @@ public class AnalyticsQueryService {
             UserMapper userMapper,
             StudentProfileMapper studentProfileMapper,
             LexicalPairMapper lexicalPairMapper,
-            AnalyticsJsonCodec analyticsJsonCodec
+            AnalyticsJsonCodec analyticsJsonCodec,
+            AchievementService achievementService
     ) {
         this.analyticsDailyAggregateMapper = analyticsDailyAggregateMapper;
         this.classAnalyticsDailyAggregateMapper = classAnalyticsDailyAggregateMapper;
@@ -146,10 +150,17 @@ public class AnalyticsQueryService {
         this.studentProfileMapper = studentProfileMapper;
         this.lexicalPairMapper = lexicalPairMapper;
         this.analyticsJsonCodec = analyticsJsonCodec;
+        this.achievementService = achievementService;
     }
 
     public StudentAnalyticsOverviewVO getCurrentStudentOverview() {
         return buildStudentOverview(requireCurrentUserId());
+    }
+
+    public StudentLearningGoalVO getCurrentStudentLearningGoal() {
+        Long studentUserId = requireCurrentUserId();
+        List<AggregateSlice> summaryRows = loadStudentSlices(studentUserId, parseWindow("30d"), AnalyticsConstants.AGGREGATION_LEVEL_SUMMARY);
+        return buildStudentLearningGoal(loadStudentProfile(studentUserId), summaryRows);
     }
 
     public AnalyticsTrendVO getCurrentStudentTrends(String range, String bucket) {
@@ -391,6 +402,7 @@ public class AnalyticsQueryService {
 
     private StudentAnalyticsOverviewVO buildStudentOverview(Long studentUserId) {
         AnalyticsWindow window = parseWindow("30d");
+        StudentProfileEntity studentProfile = loadStudentProfile(studentUserId);
         LearningProfileSnapshotEntity snapshotEntity = loadStudentSnapshot(studentUserId);
         StudentAnalyticsSnapshotPayload snapshotPayload = snapshotEntity == null
                 ? emptyStudentPayload(studentUserId)
@@ -408,7 +420,39 @@ public class AnalyticsQueryService {
                 buildStudentCards(snapshotEntity, snapshotPayload),
                 buildStudentRadar(summaryRows, snapshotEntity),
                 buildStudentContextPerformance(pairRows),
-                snapshotPayload
+                snapshotPayload,
+                achievementService.getAchievementWall(studentUserId),
+                buildStudentLearningGoal(studentProfile, summaryRows)
+        );
+    }
+
+    private StudentLearningGoalVO buildStudentLearningGoal(
+            StudentProfileEntity studentProfile,
+            List<AggregateSlice> summaryRows
+    ) {
+        int todayTrainingCompleted = summaryRows.stream()
+                .filter(row -> AnalyticsConstants.SOURCE_TRAINING.equalsIgnoreCase(row.sourceType()))
+                .filter(row -> LocalDate.now().equals(row.statDate()))
+                .mapToInt(AggregateSlice::attemptCount)
+                .sum();
+        LocalDate weeklyStartDate = LocalDate.now().minusDays(6);
+        MetricTotals weeklyTotals = new MetricTotals();
+        summaryRows.stream()
+                .filter(row -> !row.statDate().isBefore(weeklyStartDate))
+                .forEach(weeklyTotals::add);
+
+        Integer dailyTrainingTarget = studentProfile == null ? null : studentProfile.getDailyTrainingTarget();
+        Integer weeklyAccuracyTarget = studentProfile == null ? null : studentProfile.getWeeklyAccuracyTarget();
+        double weeklyAccuracyCurrent = percentage(ratio(weeklyTotals.correctCount, weeklyTotals.attemptCount));
+        return new StudentLearningGoalVO(
+                dailyTrainingTarget,
+                todayTrainingCompleted,
+                dailyTrainingTarget == null ? 0 : Math.max(dailyTrainingTarget - todayTrainingCompleted, 0),
+                weeklyAccuracyTarget,
+                weeklyAccuracyCurrent,
+                weeklyAccuracyTarget == null ? 0d : round(weeklyAccuracyCurrent - weeklyAccuracyTarget.doubleValue()),
+                dailyTrainingTarget != null || weeklyAccuracyTarget != null,
+                studentProfile == null ? null : studentProfile.getUpdatedAt()
         );
     }
 
@@ -723,11 +767,7 @@ public class AnalyticsQueryService {
 
     private StudentAnalyticsSnapshotPayload emptyStudentPayload(Long studentUserId) {
         UserEntity user = studentUserId == null ? null : userMapper.selectById(studentUserId);
-        StudentProfileEntity studentProfile = studentUserId == null
-                ? null
-                : studentProfileMapper.selectOne(Wrappers.<StudentProfileEntity>lambdaQuery()
-                .eq(StudentProfileEntity::getUserId, studentUserId)
-                .last("LIMIT 1"));
+        StudentProfileEntity studentProfile = loadStudentProfile(studentUserId);
         return new StudentAnalyticsSnapshotPayload(
                 user == null ? null : user.getDisplayName(),
                 studentProfile == null ? null : studentProfile.getGradeName(),
@@ -747,6 +787,15 @@ public class AnalyticsQueryService {
                 List.of(),
                 List.of()
         );
+    }
+
+    private StudentProfileEntity loadStudentProfile(Long studentUserId) {
+        if (studentUserId == null) {
+            return null;
+        }
+        return studentProfileMapper.selectOne(Wrappers.<StudentProfileEntity>lambdaQuery()
+                .eq(StudentProfileEntity::getUserId, studentUserId)
+                .last("LIMIT 1"));
     }
 
     private ClassAnalyticsSnapshotPayload emptyClassPayload(TeachingClassEntity teachingClass) {

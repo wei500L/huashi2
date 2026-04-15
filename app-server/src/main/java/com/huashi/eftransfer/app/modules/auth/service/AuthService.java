@@ -15,6 +15,7 @@ import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEn
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
 import com.huashi.eftransfer.app.modules.auth.dto.ChangePasswordRequest;
 import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
+import com.huashi.eftransfer.app.modules.achievement.service.AchievementService;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.ResolveStudentRegistrationContextRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.RegisterStudentRequest;
@@ -71,6 +72,7 @@ public class AuthService {
     private final AuthRegistrationProperties authRegistrationProperties;
     private final AuthTokenStore authTokenStore;
     private final AuthLockoutService authLockoutService;
+    private final AchievementService achievementService;
 
     public AuthService(
             UserQueryService userQueryService,
@@ -84,7 +86,8 @@ public class AuthService {
             JwtProperties jwtProperties,
             AuthRegistrationProperties authRegistrationProperties,
             AuthTokenStore authTokenStore,
-            AuthLockoutService authLockoutService
+            AuthLockoutService authLockoutService,
+            AchievementService achievementService
     ) {
         this.userQueryService = userQueryService;
         this.userMapper = userMapper;
@@ -98,6 +101,7 @@ public class AuthService {
         this.authRegistrationProperties = authRegistrationProperties;
         this.authTokenStore = authTokenStore;
         this.authLockoutService = authLockoutService;
+        this.achievementService = achievementService;
     }
 
     @Transactional
@@ -125,8 +129,11 @@ public class AuthService {
         authLockoutService.clearFailures(user, loginId);
 
         revokeExistingSession(user.getId());
-        user.setLastLoginAt(LocalDateTime.now());
+        LocalDateTime previousLastLoginAt = user.getLastLoginAt();
+        LocalDateTime currentLoginAt = LocalDateTime.now();
+        user.setLastLoginAt(currentLoginAt);
         userMapper.updateById(user);
+        achievementService.recordLogin(user.getId(), previousLastLoginAt, currentLoginAt);
 
         LoginResponse response = issueTokens(user, roles, clientContext);
         log.info("event=auth_login_success userId={} username={} roles={}", user.getId(), user.getUsername(), roles);

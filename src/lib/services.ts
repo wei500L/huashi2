@@ -45,6 +45,7 @@ import type {
   ReviewScheduleItemVO,
   SessionOverviewVO,
   StudentAnalyticsOverviewVO,
+  StudentLearningGoalVO,
   StudentProfileSummaryVO,
   TeacherInterventionSummaryVO,
   TeacherClassDetailVO,
@@ -61,6 +62,7 @@ import type {
   TrainingSessionProgressVO,
   TrainingSessionSummaryVO,
   UpdateLexicalListRequest,
+  UpdateStudentLearningGoalRequest,
   UserSummaryVO,
   WrongBookItemVO,
   AnalyticsTrendVO,
@@ -135,6 +137,9 @@ export const notificationService = {
 
 export const studentService = {
   getOverview: (options?: RequestOptions) => apiGet<StudentAnalyticsOverviewVO>('/student/analytics/overview', options),
+  getLearningGoals: (options?: RequestOptions) => apiGet<StudentLearningGoalVO>('/student/profile/goals', options),
+  updateLearningGoals: (payload: UpdateStudentLearningGoalRequest) =>
+    apiPut<StudentLearningGoalVO>('/student/profile/goals', payload),
   getTrends: (range = '30d', bucket = 'day', options?: RequestOptions) =>
     apiGet<AnalyticsTrendVO>('/student/analytics/trends', { ...options, params: { range, bucket } }),
   getHeatmap: (range = '30d', options?: RequestOptions) =>

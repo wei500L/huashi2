@@ -6,6 +6,8 @@ public record StudentProfileVO(
         String englishLevel,
         String frenchLevel,
         String courseStage,
-        Integer compositeScore
+        Integer compositeScore,
+        Integer dailyTrainingTarget,
+        Integer weeklyAccuracyTarget
 ) {
 }
