@@ -72,6 +72,16 @@ export const shellSlice: TranslationSlice = {
       drawerPromptLabel: '误判原因问题',
       drawerPromptPlaceholder: '输入你想追问的误判问题，例如：coin / coin 为什么总被误判？',
       mobileNavigationTitle: '导航菜单',
+      notifications: {
+        open: '打开通知',
+        title: '站内通知',
+        unreadCount_zero: '暂无未读消息',
+        unreadCount_one: '1 条未读消息',
+        unreadCount_other: '{{count}} 条未读消息',
+        markAllRead: '全部已读',
+        loading: '正在加载通知...',
+        empty: '现在没有通知。',
+      },
     },
   },
   'en-US': {
@@ -145,6 +155,16 @@ export const shellSlice: TranslationSlice = {
       drawerPromptLabel: 'Why-misread question',
       drawerPromptPlaceholder: 'Ask why a pair is misread, for example: why is coin / coin easy to misread?',
       mobileNavigationTitle: 'Navigation menu',
+      notifications: {
+        open: 'Open notifications',
+        title: 'Notifications',
+        unreadCount_zero: 'No unread notifications',
+        unreadCount_one: '1 unread notification',
+        unreadCount_other: '{{count}} unread notifications',
+        markAllRead: 'Mark all read',
+        loading: 'Loading notifications...',
+        empty: 'No notifications yet.',
+      },
     },
   },
 };

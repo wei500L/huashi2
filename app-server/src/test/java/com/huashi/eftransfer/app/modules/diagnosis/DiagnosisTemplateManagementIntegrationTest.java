@@ -1,9 +1,17 @@
 package com.huashi.eftransfer.app.modules.diagnosis;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
+import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
+import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,6 +20,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationTest {
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private TeachingClassStudentMapper teachingClassStudentMapper;
 
     @Test
     void shouldDeleteUnusedTemplateAndArchiveUsedTemplate() throws Exception {
@@ -98,6 +112,110 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                 .andExpect(jsonPath("$.data.status").value("ARCHIVED"));
     }
 
+    @Test
+    void shouldFilterClassTargetedTemplatesForStudentsAndBlockUnauthorizedSessionCreation() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+        String otherStudentToken = loginAndGetAccessToken("student.wang", "Student@123456");
+
+        long classId = loadFirstAccessibleClassId(teacherToken);
+        UserEntity otherStudent = userMapper.selectByUsernameOrEmail("student.wang");
+        TeachingClassStudentEntity otherMembership = teachingClassStudentMapper.selectOne(
+                Wrappers.<TeachingClassStudentEntity>lambdaQuery()
+                        .eq(TeachingClassStudentEntity::getStudentUserId, otherStudent.getId())
+                        .eq(TeachingClassStudentEntity::getTeachingClassId, classId)
+                        .last("LIMIT 1")
+        );
+        otherMembership.setActive(Boolean.FALSE);
+        otherMembership.setLeftAt(LocalDateTime.now().minusDays(1));
+        teachingClassStudentMapper.updateById(otherMembership);
+
+        long tablePairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "table",
+                  "frenchWord": "table",
+                  "chineseGloss": "桌子",
+                  "lexicalPairType": "cognate",
+                  "semanticOverlapScore": 0.95,
+                  "falseFriendRisk": 0.05,
+                  "defaultContextSupport": "low",
+                  "difficultyLevel": 1,
+                  "active": true,
+                  "tags": ["basic"]
+                }
+                """);
+        long coinPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "coin",
+                  "frenchWord": "coin",
+                  "chineseGloss": "硬币；角落",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.10,
+                  "falseFriendRisk": 0.92,
+                  "defaultContextSupport": "medium",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend"]
+                }
+                """);
+        long actuallyPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "actually",
+                  "frenchWord": "actuellement",
+                  "chineseGloss": "实际上；目前",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.20,
+                  "falseFriendRisk": 0.88,
+                  "defaultContextSupport": "high",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend", "context"]
+                }
+                """);
+
+        long targetedTemplateId = createPublishedTemplate(
+                teacherToken,
+                tablePairId,
+                coinPairId,
+                actuallyPairId,
+                "Class targeted template",
+                classId
+        );
+
+        mockMvc.perform(get("/api/student/diagnosis-templates")
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].id").value((int) targetedTemplateId))
+                .andExpect(jsonPath("$.data.records[0].targetClassId").value((int) classId));
+
+        mockMvc.perform(get("/api/student/diagnosis-templates")
+                        .with(bearer(otherStudentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+
+        mockMvc.perform(post("/api/diagnosis/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateId": %d
+                                }
+                                """.formatted(targetedTemplateId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
+
+        mockMvc.perform(post("/api/diagnosis/sessions")
+                        .with(bearer(otherStudentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateId": %d
+                                }
+                                """.formatted(targetedTemplateId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Student is not in the teaching class"));
+    }
+
     private long createLexicalPair(String teacherToken, String body) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/lexical-pairs")
                         .with(bearer(teacherToken))
@@ -159,6 +277,17 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
             long actuallyPairId,
             String templateName
     ) throws Exception {
+        return createPublishedTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId, templateName, null);
+    }
+
+    private long createPublishedTemplate(
+            String teacherToken,
+            long tablePairId,
+            long coinPairId,
+            long actuallyPairId,
+            String templateName,
+            Long targetClassId
+    ) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/teacher/diagnosis-templates")
                         .with(bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -168,6 +297,7 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                                   "description": "Template lifecycle test",
                                   "status": "published",
                                   "estimatedDurationMinutes": 8,
+                                  "targetClassId": %s,
                                   "scoringVersion": "RULE_V1",
                                   "items": [
                                     {
@@ -227,9 +357,17 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                                     }
                                   ]
                                 }
-                                """.formatted(templateName, tablePairId, coinPairId, actuallyPairId)))
+                                """.formatted(templateName, targetClassId == null ? "null" : targetClassId, tablePairId, coinPairId, actuallyPairId)))
                 .andExpect(status().isOk())
                 .andReturn();
         return readJson(result).path("data").asLong();
+    }
+
+    private long loadFirstAccessibleClassId(String teacherToken) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/teacher/analytics/classes")
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(result).path("data").path(0).path("classId").asLong();
     }
 }

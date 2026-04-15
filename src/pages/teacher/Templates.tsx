@@ -240,6 +240,7 @@ const TeacherTemplatesPage: React.FC = () => {
                   <StatusBadge label={t('ui.meta.questionCount', { count: template.itemCount })} />
                   <StatusBadge label={t('ui.meta.durationMinutes', { count: template.estimatedDurationMinutes })} />
                   <StatusBadge label={template.scoringVersion} />
+                  <StatusBadge label={template.targetClassName ? `班级：${template.targetClassName}` : '所有学生可见'} />
                 </div>
 
                 <div className="mt-3 text-xs text-slate-400 dark:text-white/30">{t('ui.meta.lastUpdated', { time: formatDateTime(template.updatedAt) })}</div>

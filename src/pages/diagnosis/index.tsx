@@ -358,6 +358,7 @@ const DiagnosisPage: React.FC = () => {
                 <div className="mt-6 flex gap-4 text-sm text-slate-500 dark:text-white/45">
                   <span>{t('diagnosis.statusTemplateCount', { count: template.itemCount })}</span>
                   <span>{t('diagnosis.statusDurationMinutes', { count: template.estimatedDurationMinutes })}</span>
+                  {template.targetClassName ? <span>班级：{template.targetClassName}</span> : null}
                 </div>
               </button>
             ))}

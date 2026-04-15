@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Magnetic } from '@/components/common';
 import { RouteErrorBoundary } from '@/components/common/AppErrorBoundary';
+import { NotificationBell } from './NotificationBell';
 import { useAuthStore, useUIStore } from '@/store';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { resolveRouteTitle } from '@/lib/page-title';
@@ -745,6 +746,7 @@ export const Topbar: React.FC = () => {
             {t('common.actions.openAssistant')}
           </button>
         )}
+        <NotificationBell />
         <button
           type="button"
           aria-label={t('common.localeLabel')}

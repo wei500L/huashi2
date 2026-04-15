@@ -29,6 +29,9 @@ public class DiagnosisTemplateEntity extends BaseAuditEntity {
     @TableField("metadata_json")
     private String metadataJson;
 
+    @TableField("target_class_id")
+    private Long targetClassId;
+
     public String getTemplateName() {
         return templateName;
     }
@@ -91,5 +94,13 @@ public class DiagnosisTemplateEntity extends BaseAuditEntity {
 
     public void setMetadataJson(String metadataJson) {
         this.metadataJson = metadataJson;
+    }
+
+    public Long getTargetClassId() {
+        return targetClassId;
+    }
+
+    public void setTargetClassId(Long targetClassId) {
+        this.targetClassId = targetClassId;
     }
 }

@@ -5,6 +5,7 @@ public record DiagnosisTemplateDraftBasicVO(
         String description,
         String publishTarget,
         Integer estimatedDurationMinutes,
+        Long targetClassId,
         String scoringVersion
 ) {
 }

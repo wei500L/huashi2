@@ -88,6 +88,10 @@ app:
   analytics:
     compensation:
       enabled: ${APP_ANALYTICS_COMPENSATION_ENABLED:true}
+  notification:
+    health-monitor:
+      enabled: ${APP_NOTIFICATION_HEALTH_MONITOR_ENABLED:true}
+      poll-interval: ${APP_NOTIFICATION_HEALTH_MONITOR_POLL_INTERVAL:PT5M}
   ops:
     config:
       encryption-secret: ${APP_OPS_CONFIG_ENCRYPTION_SECRET:}

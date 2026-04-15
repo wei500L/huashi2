@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
+import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateItemRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateOptionRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplatePageQuery;
@@ -45,6 +48,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -59,6 +63,8 @@ public class DiagnosisTemplateService {
     private final DiagnosisTemplateItemMapper diagnosisTemplateItemMapper;
     private final DiagnosisSessionMapper diagnosisSessionMapper;
     private final LexicalPairMapper lexicalPairMapper;
+    private final TeachingClassMapper teachingClassMapper;
+    private final TeachingClassService teachingClassService;
     private final DiagnosisJsonCodec diagnosisJsonCodec;
     private final AuditLogService auditLogService;
 
@@ -67,6 +73,8 @@ public class DiagnosisTemplateService {
             DiagnosisTemplateItemMapper diagnosisTemplateItemMapper,
             DiagnosisSessionMapper diagnosisSessionMapper,
             LexicalPairMapper lexicalPairMapper,
+            TeachingClassMapper teachingClassMapper,
+            TeachingClassService teachingClassService,
             DiagnosisJsonCodec diagnosisJsonCodec,
             AuditLogService auditLogService
     ) {
@@ -74,6 +82,8 @@ public class DiagnosisTemplateService {
         this.diagnosisTemplateItemMapper = diagnosisTemplateItemMapper;
         this.diagnosisSessionMapper = diagnosisSessionMapper;
         this.lexicalPairMapper = lexicalPairMapper;
+        this.teachingClassMapper = teachingClassMapper;
+        this.teachingClassService = teachingClassService;
         this.diagnosisJsonCodec = diagnosisJsonCodec;
         this.auditLogService = auditLogService;
     }
@@ -91,6 +101,7 @@ public class DiagnosisTemplateService {
         entity.setOwnerUserId(ownerUserId);
         entity.setStatus(status.name());
         entity.setEstimatedDurationMinutes(request.estimatedDurationMinutes());
+        entity.setTargetClassId(resolveTargetClassId(request.targetClassId()));
         entity.setScoringVersion(resolveScoringVersion(request.scoringVersion()));
         entity.setItemCount(request.items().size());
         entity.setMetadataJson(buildMetadataJson(request.items(), lexicalPairMap));
@@ -114,6 +125,7 @@ public class DiagnosisTemplateService {
         entity.setDescription(trimToNull(request.description()));
         entity.setStatus(status.name());
         entity.setEstimatedDurationMinutes(request.estimatedDurationMinutes());
+        entity.setTargetClassId(resolveTargetClassId(request.targetClassId()));
         entity.setScoringVersion(resolveScoringVersion(request.scoringVersion()));
         entity.setItemCount(request.items().size());
         entity.setMetadataJson(buildMetadataJson(request.items(), lexicalPairMap));
@@ -170,19 +182,13 @@ public class DiagnosisTemplateService {
         long total = diagnosisTemplateMapper.selectCount(wrapper);
         List<DiagnosisTemplateEntity> templates = diagnosisTemplateMapper.selectList(wrapper
                 .last("LIMIT " + pageQuery.pageSize() + " OFFSET " + pageQuery.offset()));
+        Map<Long, TeachingClassEntity> classMap = loadTeachingClassMap(templates.stream()
+                .map(DiagnosisTemplateEntity::getTargetClassId)
+                .filter(Objects::nonNull)
+                .toList());
 
         List<DiagnosisTemplateSummaryVO> records = templates.stream()
-                .map(entity -> new DiagnosisTemplateSummaryVO(
-                        entity.getId(),
-                        entity.getTemplateName(),
-                        entity.getDescription(),
-                        entity.getStatus(),
-                        entity.getItemCount(),
-                        entity.getEstimatedDurationMinutes(),
-                        entity.getScoringVersion(),
-                        entity.getOwnerUserId(),
-                        entity.getUpdatedAt()
-                ))
+                .map(entity -> toSummaryVO(entity, classMap.get(entity.getTargetClassId())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
     }
@@ -200,23 +206,24 @@ public class DiagnosisTemplateService {
                     .or()
                     .like(DiagnosisTemplateEntity::getDescription, keyword));
         }
+        List<Long> activeClassIds = teachingClassService.listActiveClassIdsByStudent(currentUserId(), LocalDateTime.now());
+        wrapper.and(condition -> {
+            condition.isNull(DiagnosisTemplateEntity::getTargetClassId);
+            if (!activeClassIds.isEmpty()) {
+                condition.or().in(DiagnosisTemplateEntity::getTargetClassId, activeClassIds);
+            }
+        });
 
         long total = diagnosisTemplateMapper.selectCount(wrapper);
         List<DiagnosisTemplateEntity> templates = diagnosisTemplateMapper.selectList(wrapper
                 .last("LIMIT " + pageQuery.pageSize() + " OFFSET " + pageQuery.offset()));
+        Map<Long, TeachingClassEntity> classMap = loadTeachingClassMap(templates.stream()
+                .map(DiagnosisTemplateEntity::getTargetClassId)
+                .filter(Objects::nonNull)
+                .toList());
 
         List<DiagnosisTemplateSummaryVO> records = templates.stream()
-                .map(entity -> new DiagnosisTemplateSummaryVO(
-                        entity.getId(),
-                        entity.getTemplateName(),
-                        entity.getDescription(),
-                        entity.getStatus(),
-                        entity.getItemCount(),
-                        entity.getEstimatedDurationMinutes(),
-                        entity.getScoringVersion(),
-                        entity.getOwnerUserId(),
-                        entity.getUpdatedAt()
-                ))
+                .map(entity -> toSummaryVO(entity, classMap.get(entity.getTargetClassId())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
     }
@@ -234,12 +241,17 @@ public class DiagnosisTemplateService {
         List<DiagnosisTemplateItemVO> items = itemEntities.stream()
                 .map(item -> toItemVO(item, lexicalPairMap.get(item.getLexicalPairId())))
                 .toList();
+        TeachingClassEntity targetClass = template.getTargetClassId() == null
+                ? null
+                : teachingClassMapper.selectById(template.getTargetClassId());
 
         return new DiagnosisTemplateDetailVO(
                 template.getId(),
                 template.getTemplateName(),
                 template.getDescription(),
                 template.getStatus(),
+                template.getTargetClassId(),
+                targetClass == null ? null : targetClass.getClassName(),
                 template.getEstimatedDurationMinutes(),
                 template.getScoringVersion(),
                 template.getItemCount(),
@@ -258,6 +270,14 @@ public class DiagnosisTemplateService {
         return template;
     }
 
+    public DiagnosisTemplateEntity requireAccessiblePublishedTemplateForStudent(Long templateId, Long studentUserId) {
+        DiagnosisTemplateEntity template = requirePublishedTemplate(templateId);
+        if (template.getTargetClassId() != null) {
+            teachingClassService.requireStudentInClass(template.getTargetClassId(), studentUserId);
+        }
+        return template;
+    }
+
     public DiagnosisTemplateEntity requireExistingTemplate(Long templateId) {
         return requireTemplate(templateId);
     }
@@ -267,6 +287,22 @@ public class DiagnosisTemplateService {
                 .eq(DiagnosisTemplateItemEntity::getTemplateId, templateId)
                 .orderByAsc(DiagnosisTemplateItemEntity::getSortOrder)
                 .orderByAsc(DiagnosisTemplateItemEntity::getId));
+    }
+
+    private DiagnosisTemplateSummaryVO toSummaryVO(DiagnosisTemplateEntity entity, TeachingClassEntity targetClass) {
+        return new DiagnosisTemplateSummaryVO(
+                entity.getId(),
+                entity.getTemplateName(),
+                entity.getDescription(),
+                entity.getStatus(),
+                entity.getTargetClassId(),
+                targetClass == null ? null : targetClass.getClassName(),
+                entity.getItemCount(),
+                entity.getEstimatedDurationMinutes(),
+                entity.getScoringVersion(),
+                entity.getOwnerUserId(),
+                entity.getUpdatedAt()
+        );
     }
 
     private DiagnosisTemplateItemVO toItemVO(DiagnosisTemplateItemEntity item, LexicalPairEntity lexicalPair) {
@@ -498,6 +534,25 @@ public class DiagnosisTemplateService {
             throw new BusinessException(ResultCode.NOT_FOUND, "Lexical pair was not found: " + missingId, 404);
         }
         return pairs.stream().collect(Collectors.toMap(LexicalPairEntity::getId, pair -> pair));
+    }
+
+    private Map<Long, TeachingClassEntity> loadTeachingClassMap(Collection<Long> classIds) {
+        Set<Long> normalizedIds = classIds == null ? Set.of() : classIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (normalizedIds.isEmpty()) {
+            return Map.of();
+        }
+        return teachingClassMapper.selectBatchIds(normalizedIds).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(TeachingClassEntity::getId, teachingClass -> teachingClass));
+    }
+
+    private Long resolveTargetClassId(Long targetClassId) {
+        if (targetClassId == null) {
+            return null;
+        }
+        return teachingClassService.requireAccessibleClass(targetClassId).getId();
     }
 
     private Long currentUserId() {

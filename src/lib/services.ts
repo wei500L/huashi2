@@ -35,6 +35,8 @@ import type {
   LexicalPairUpsertRequest,
   LexicalRagAnswerVO,
   LoginResponse,
+  NotificationItemVO,
+  NotificationUnreadCountVO,
   PageResult,
   RecommendedTrainingPlanVO,
   ReorderLexicalListItemsRequest,
@@ -43,6 +45,10 @@ import type {
   StudentAnalyticsOverviewVO,
   StudentProfileSummaryVO,
   TeacherInterventionSummaryVO,
+  TeacherClassDetailVO,
+  TeacherClassStudentBatchRequest,
+  TeacherClassStudentCandidateVO,
+  TeacherClassUpsertRequest,
   TeacherInterventionUpdateRequest,
   TeacherStudentDetailVO,
   TeachingClassSummaryVO,
@@ -105,6 +111,14 @@ export const authService = {
   previewAccountAction: (token: string, options?: RequestOptions) => apiGet<AccountActionPreviewVO>(`/auth/account-actions/${token}`, options),
   completeAccountAction: (token: string, payload: CompleteAccountActionRequest) =>
     apiPost<void>(`/auth/account-actions/${token}/complete`, payload),
+};
+
+export const notificationService = {
+  list: (params: { pageNo?: number; pageSize?: number; unreadOnly?: boolean }, options?: RequestOptions) =>
+    apiGet<PageResult<NotificationItemVO>>('/notifications', { ...options, params }),
+  getUnreadCount: (options?: RequestOptions) => apiGet<NotificationUnreadCountVO>('/notifications/unread-count', options),
+  markRead: (notificationId: number) => apiPost<NotificationItemVO>(`/notifications/${notificationId}/read`),
+  markAllRead: () => apiPost<NotificationUnreadCountVO>('/notifications/read-all'),
 };
 
 export const studentService = {
@@ -267,6 +281,26 @@ export const teacherAnalyticsService = {
     apiGet<TeacherStudentDetailVO>(`/teacher/analytics/classes/${classId}/students/${studentUserId}`, options),
   exportClassCsv: (classId: number, range = '30d', options?: RequestOptions) =>
     apiDownload(`/teacher/analytics/classes/${classId}/export.csv`, { ...options, params: { range } }),
+};
+
+export const teacherClassService = {
+  listClasses: (options?: RequestOptions) => apiGet<TeachingClassSummaryVO[]>('/teacher/classes', options),
+  createClass: (payload: TeacherClassUpsertRequest) =>
+    apiPost<TeacherClassDetailVO>('/teacher/classes', payload),
+  getDetail: (classId: number, options?: RequestOptions) =>
+    apiGet<TeacherClassDetailVO>(`/teacher/classes/${classId}`, options),
+  updateClass: (classId: number, payload: TeacherClassUpsertRequest) =>
+    apiPut<TeacherClassDetailVO>(`/teacher/classes/${classId}`, payload),
+  archiveClass: (classId: number) => apiDelete<void>(`/teacher/classes/${classId}`),
+  listStudentCandidates: (classId: number, keyword?: string, options?: RequestOptions) =>
+    apiGet<TeacherClassStudentCandidateVO[]>(`/teacher/classes/${classId}/student-candidates`, {
+      ...options,
+      params: keyword?.trim() ? { keyword: keyword.trim() } : undefined,
+    }),
+  addStudents: (classId: number, payload: TeacherClassStudentBatchRequest) =>
+    apiPost<TeacherClassDetailVO>(`/teacher/classes/${classId}/students`, payload),
+  removeStudents: (classId: number, payload: TeacherClassStudentBatchRequest) =>
+    apiPost<TeacherClassDetailVO>(`/teacher/classes/${classId}/students/remove`, payload),
 };
 
 export const teacherInterventionService = {

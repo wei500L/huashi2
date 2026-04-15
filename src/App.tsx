@@ -29,6 +29,7 @@ const StudentAssessmentResultPage = React.lazy(() => import('./pages/student/Ass
 const SettingsPage = React.lazy(() => import('./pages/student/Settings'));
 const TeacherWorkspacePage = React.lazy(() => import('./pages/teacher/Workspace'));
 const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
+const TeacherClassEditorPage = React.lazy(() => import('./pages/teacher/ClassEditor'));
 const TeacherAssessmentsPage = React.lazy(() => import('./pages/teacher/Assessments'));
 const TeacherAssessmentEditorPage = React.lazy(() => import('./pages/teacher/AssessmentEditor'));
 const TeacherAssessmentPublishDetailPage = React.lazy(() => import('./pages/teacher/AssessmentPublishDetail'));
@@ -275,6 +276,12 @@ const App: React.FC = () => {
           }
         />
         <Route
+          path="teacher/classes/new"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherClassEditorPage />)}</RequireCapability>
+          }
+        />
+        <Route
           path="teacher/assessments"
           element={
             <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherAssessmentsPage />)}</RequireCapability>
@@ -308,6 +315,12 @@ const App: React.FC = () => {
           path="teacher/classes/:classId"
           element={
             <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherClassDetailPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/classes/:classId/edit"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherClassEditorPage />)}</RequireCapability>
           }
         />
         <Route

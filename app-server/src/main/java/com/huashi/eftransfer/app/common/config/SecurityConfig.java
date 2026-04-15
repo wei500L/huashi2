@@ -58,6 +58,7 @@ public class SecurityConfig {
                             "/api/auth/login",
                             "/api/auth/refresh",
                             "/api/auth/account-actions/**",
+                            "/ws/**",
                             "/internal/**",
                             "/actuator/health",
                             "/actuator/info"
@@ -92,6 +93,7 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/ws/**", configuration);
         return source;
     }
 

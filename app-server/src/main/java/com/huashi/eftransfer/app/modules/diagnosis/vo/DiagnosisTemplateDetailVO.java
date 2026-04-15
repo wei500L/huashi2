@@ -8,6 +8,8 @@ public record DiagnosisTemplateDetailVO(
         String templateName,
         String description,
         String status,
+        Long targetClassId,
+        String targetClassName,
         Integer estimatedDurationMinutes,
         String scoringVersion,
         Integer itemCount,

@@ -10,6 +10,7 @@ public record DiagnosisTemplateDraftBasicRequest(
         @Size(max = 32, message = "publishTarget must be less than or equal to 32 characters")
         String publishTarget,
         Integer estimatedDurationMinutes,
+        Long targetClassId,
         @Size(max = 32, message = "scoringVersion must be less than or equal to 32 characters")
         String scoringVersion
 ) {

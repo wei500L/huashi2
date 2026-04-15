@@ -1,0 +1,160 @@
+import React from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Save } from 'lucide-react';
+import { PageHeader, SectionEyebrow } from '@/components/common';
+import type { TeacherClassUpsertRequest } from '@/lib/contracts';
+import { teacherClassService } from '@/lib/services';
+
+const emptyForm: TeacherClassUpsertRequest = {
+  classCode: '',
+  className: '',
+  gradeName: '',
+};
+
+const TeacherClassEditorPage: React.FC = () => {
+  const navigate = useNavigate();
+  const params = useParams();
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const source = searchParams.get('source');
+  const classId = Number(params.classId);
+  const isEditing = Number.isFinite(classId) && classId > 0;
+
+  const [form, setForm] = React.useState<TeacherClassUpsertRequest>(emptyForm);
+  const [feedback, setFeedback] = React.useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  const detailQuery = useQuery({
+    queryKey: ['teacher-class-detail', classId],
+    queryFn: ({ signal }) => teacherClassService.getDetail(classId, { signal }),
+    enabled: isEditing,
+  });
+
+  React.useEffect(() => {
+    if (!detailQuery.data) {
+      return;
+    }
+    setForm({
+      classCode: detailQuery.data.classCode,
+      className: detailQuery.data.className,
+      gradeName: detailQuery.data.gradeName,
+    });
+  }, [detailQuery.data]);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      isEditing
+        ? teacherClassService.updateClass(classId, {
+            classCode: form.classCode.trim(),
+            className: form.className.trim(),
+            gradeName: form.gradeName.trim(),
+          })
+        : teacherClassService.createClass({
+            classCode: form.classCode.trim(),
+            className: form.className.trim(),
+            gradeName: form.gradeName.trim(),
+          }),
+    onSuccess: async (detail) => {
+      setFeedback(isEditing ? '班级信息已更新。' : '班级已创建。接下来可以去分配学生。');
+      setErrorMessage(null);
+      await queryClient.invalidateQueries({ queryKey: ['teacher-classes-management'] });
+      await queryClient.invalidateQueries({ queryKey: ['teacher-class-detail', detail.classId] });
+      const nextPath = source
+        ? `/teacher/classes/${detail.classId}?source=${encodeURIComponent(source)}`
+        : `/teacher/classes/${detail.classId}`;
+      navigate(nextPath);
+    },
+    onError: (error) => {
+      setFeedback(null);
+      setErrorMessage(error instanceof Error ? error.message : '班级保存失败');
+    },
+  });
+
+  const backPath = React.useMemo(() => {
+    if (isEditing) {
+      return source ? `/teacher/classes/${classId}?source=${encodeURIComponent(source)}` : `/teacher/classes/${classId}`;
+    }
+    return source ? `/teacher/classes?source=${encodeURIComponent(source)}` : '/teacher/classes';
+  }, [classId, isEditing, source]);
+
+  const canSubmit = form.classCode.trim() && form.className.trim() && form.gradeName.trim();
+
+  return (
+    <div className="space-y-8 pb-20">
+      <PageHeader
+        eyebrow="班级管理"
+        title={isEditing ? '编辑班级' : '新建班级'}
+        subtitle={isEditing ? '先把班级基本信息改准确，再回到详情页继续调整学生名册。' : '班级是教师工作流的入口。先建立班级，再补齐学生名册和后续教学动作。'}
+        actions={
+          <button
+            type="button"
+            onClick={() => mutation.mutate()}
+            disabled={!canSubmit || mutation.isPending}
+            className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Save size={16} />
+            {mutation.isPending ? '保存中…' : '保存班级'}
+          </button>
+        }
+      />
+
+      <Link
+        to={backPath}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900 dark:text-white/45 dark:hover:text-white"
+      >
+        <ArrowLeft size={14} />
+        返回班级
+      </Link>
+
+      {(detailQuery.error || errorMessage) && (
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+          {errorMessage || detailQuery.error?.message}
+        </div>
+      )}
+
+      {feedback && (
+        <div className="rounded-[2rem] border border-emerald-500/20 bg-emerald-500/10 p-6 text-emerald-700 dark:text-emerald-300">
+          {feedback}
+        </div>
+      )}
+
+      <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+        <SectionEyebrow className="mb-6">基础信息</SectionEyebrow>
+        <div className="grid gap-6 md:grid-cols-2">
+          <label className="space-y-3">
+            <div className="text-sm font-semibold text-slate-700 dark:text-white/80">班级编码</div>
+            <input
+              value={form.classCode}
+              onChange={(event) => setForm((current) => ({ ...current, classCode: event.target.value }))}
+              placeholder="例如 FR-2026-A"
+              className="w-full rounded-[1.4rem] border border-slate-200 bg-white/70 px-4 py-3 text-sm outline-none transition focus:border-primary dark:border-white/10 dark:bg-white/5"
+            />
+          </label>
+
+          <label className="space-y-3">
+            <div className="text-sm font-semibold text-slate-700 dark:text-white/80">班级名称</div>
+            <input
+              value={form.className}
+              onChange={(event) => setForm((current) => ({ ...current, className: event.target.value }))}
+              placeholder="例如 法语迁移实验班"
+              className="w-full rounded-[1.4rem] border border-slate-200 bg-white/70 px-4 py-3 text-sm outline-none transition focus:border-primary dark:border-white/10 dark:bg-white/5"
+            />
+          </label>
+
+          <label className="space-y-3 md:col-span-2">
+            <div className="text-sm font-semibold text-slate-700 dark:text-white/80">年级 / 学段</div>
+            <input
+              value={form.gradeName}
+              onChange={(event) => setForm((current) => ({ ...current, gradeName: event.target.value }))}
+              placeholder="例如 2026 春法语二外"
+              className="w-full rounded-[1.4rem] border border-slate-200 bg-white/70 px-4 py-3 text-sm outline-none transition focus:border-primary dark:border-white/10 dark:bg-white/5"
+            />
+          </label>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default TeacherClassEditorPage;

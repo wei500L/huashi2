@@ -13,7 +13,7 @@ import type {
   LexicalPairSummaryVO,
   PageResult,
 } from '@/lib/contracts';
-import { diagnosisTemplateService, lexicalPairService } from '@/lib/services';
+import { diagnosisTemplateService, lexicalPairService, teacherAnalyticsService } from '@/lib/services';
 import TemplateDraftEditor from './TemplateDraftEditor';
 
 vi.mock('@/components/common', () => ({
@@ -37,6 +37,9 @@ vi.mock('@/lib/services', () => ({
     getDetail: vi.fn(),
     pageQuery: vi.fn(),
   },
+  teacherAnalyticsService: {
+    listClasses: vi.fn(),
+  },
 }));
 
 const queryClients: QueryClient[] = [];
@@ -51,6 +54,8 @@ const unpublishedTemplate: DiagnosisTemplateDetailVO = {
   templateName: 'Published Draft',
   description: '',
   status: 'PUBLISHED',
+  targetClassId: null,
+  targetClassName: null,
   estimatedDurationMinutes: 10,
   scoringVersion: 'RULE_V1',
   itemCount: 0,
@@ -94,6 +99,7 @@ function createDraftDetail(
         description: '',
         publishTarget: 'SELF',
         estimatedDurationMinutes: 10,
+        targetClassId: null,
         scoringVersion: 'RULE_V1',
       },
       items: [],
@@ -150,6 +156,15 @@ describe('TemplateDraftEditor', () => {
     vi.mocked(diagnosisTemplateService.publishDraft).mockResolvedValue(unpublishedTemplate);
     vi.mocked(lexicalPairService.getDetail).mockResolvedValue(unusedPairDetail);
     vi.mocked(lexicalPairService.pageQuery).mockResolvedValue(emptyPairPage);
+    vi.mocked(teacherAnalyticsService.listClasses).mockResolvedValue([
+      {
+        classId: 1,
+        classCode: 'CLS-0001',
+        className: '2024级英法迁移试点1班',
+        gradeName: 'Pilot Grade',
+        studentCount: 2,
+      },
+    ]);
   });
 
   afterEach(() => {

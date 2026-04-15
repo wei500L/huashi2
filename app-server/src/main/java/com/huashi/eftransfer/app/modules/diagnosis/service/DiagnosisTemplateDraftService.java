@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.diagnosis.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
+import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateDraftBasicRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateDraftItemRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateDraftPageQuery;
@@ -54,6 +55,7 @@ public class DiagnosisTemplateDraftService {
 
     private static final String DEFAULT_TEMPLATE_NAME = "未命名模板草稿";
     private static final String DEFAULT_PUBLISH_TARGET = "SELF";
+    private static final String CLASS_PUBLISH_TARGET = "CLASS";
     private static final String DEFAULT_SCORING_VERSION = "RULE_V1";
     private static final String STEP_BASIC_INFO = "BASIC_INFO";
     private static final String STEP_ITEM_CONFIGURATION = "ITEM_CONFIGURATION";
@@ -63,6 +65,7 @@ public class DiagnosisTemplateDraftService {
     private final DiagnosisTemplateDraftMapper diagnosisTemplateDraftMapper;
     private final DiagnosisTemplateService diagnosisTemplateService;
     private final LexicalPairMapper lexicalPairMapper;
+    private final TeachingClassService teachingClassService;
     private final DiagnosisJsonCodec diagnosisJsonCodec;
     private final ObjectMapper objectMapper;
 
@@ -70,12 +73,14 @@ public class DiagnosisTemplateDraftService {
             DiagnosisTemplateDraftMapper diagnosisTemplateDraftMapper,
             DiagnosisTemplateService diagnosisTemplateService,
             LexicalPairMapper lexicalPairMapper,
+            TeachingClassService teachingClassService,
             DiagnosisJsonCodec diagnosisJsonCodec,
             ObjectMapper objectMapper
     ) {
         this.diagnosisTemplateDraftMapper = diagnosisTemplateDraftMapper;
         this.diagnosisTemplateService = diagnosisTemplateService;
         this.lexicalPairMapper = lexicalPairMapper;
+        this.teachingClassService = teachingClassService;
         this.diagnosisJsonCodec = diagnosisJsonCodec;
         this.objectMapper = objectMapper;
     }
@@ -136,7 +141,7 @@ public class DiagnosisTemplateDraftService {
         entity.setPublishedTemplateId(templateId);
         entity.setTemplateName(template.templateName());
         entity.setDescription(template.description());
-        entity.setPublishTarget(DEFAULT_PUBLISH_TARGET);
+        entity.setPublishTarget(template.targetClassId() == null ? DEFAULT_PUBLISH_TARGET : CLASS_PUBLISH_TARGET);
         entity.setEstimatedDurationMinutes(template.estimatedDurationMinutes());
         entity.setScoringVersion(template.scoringVersion());
         entity.setSyncState("IN_SYNC");
@@ -258,7 +263,7 @@ public class DiagnosisTemplateDraftService {
 
     private DiagnosisTemplateDraftSchemaVO blankSchema() {
         return new DiagnosisTemplateDraftSchemaVO(
-                new DiagnosisTemplateDraftBasicVO(DEFAULT_TEMPLATE_NAME, null, DEFAULT_PUBLISH_TARGET, 10, DEFAULT_SCORING_VERSION),
+                new DiagnosisTemplateDraftBasicVO(DEFAULT_TEMPLATE_NAME, null, DEFAULT_PUBLISH_TARGET, 10, null, DEFAULT_SCORING_VERSION),
                 List.of()
         );
     }
@@ -271,8 +276,9 @@ public class DiagnosisTemplateDraftService {
                 new DiagnosisTemplateDraftBasicVO(
                         template.templateName(),
                         template.description(),
-                        DEFAULT_PUBLISH_TARGET,
+                        template.targetClassId() == null ? DEFAULT_PUBLISH_TARGET : CLASS_PUBLISH_TARGET,
                         template.estimatedDurationMinutes(),
+                        template.targetClassId(),
                         template.scoringVersion()
                 ),
                 items
@@ -322,6 +328,10 @@ public class DiagnosisTemplateDraftService {
                 trimToNull(basicRequest == null ? null : basicRequest.description()),
                 normalizePublishTarget(basicRequest == null ? null : basicRequest.publishTarget()),
                 normalizeEstimatedDurationMinutes(basicRequest == null ? null : basicRequest.estimatedDurationMinutes()),
+                normalizeTargetClassId(
+                        basicRequest == null ? null : basicRequest.publishTarget(),
+                        basicRequest == null ? null : basicRequest.targetClassId()
+                ),
                 normalizeScoringVersion(basicRequest == null ? null : basicRequest.scoringVersion())
         );
         List<DiagnosisTemplateDraftItemVO> items = (request.schema().items() == null ? List.<DiagnosisTemplateDraftItemRequest>of() : request.schema().items())
@@ -392,6 +402,19 @@ public class DiagnosisTemplateDraftService {
         if (schema.basic() == null || !hasText(schema.basic().scoringVersion())) {
             fieldErrors.put("scoringVersion", "计分版本不能为空。");
             blockingSteps.add(STEP_BASIC_INFO);
+        }
+        if (schema.basic() != null && CLASS_PUBLISH_TARGET.equalsIgnoreCase(schema.basic().publishTarget())) {
+            if (schema.basic().targetClassId() == null) {
+                fieldErrors.put("targetClassId", "定向发布时必须选择班级。");
+                blockingSteps.add(STEP_BASIC_INFO);
+            } else {
+                try {
+                    teachingClassService.requireAccessibleClass(schema.basic().targetClassId());
+                } catch (BusinessException exception) {
+                    fieldErrors.put("targetClassId", "所选班级不存在或不可访问。");
+                    blockingSteps.add(STEP_BASIC_INFO);
+                }
+            }
         }
 
         List<DiagnosisTemplateDraftItemVO> items = schema.items() == null ? List.of() : schema.items();
@@ -586,6 +609,7 @@ public class DiagnosisTemplateDraftService {
                 schema.basic().description(),
                 status,
                 schema.basic().estimatedDurationMinutes(),
+                schema.basic().targetClassId(),
                 schema.basic().scoringVersion(),
                 items
         );
@@ -665,11 +689,18 @@ public class DiagnosisTemplateDraftService {
     }
 
     private String normalizePublishTarget(String value) {
-        return hasText(value) ? value.trim() : DEFAULT_PUBLISH_TARGET;
+        if (!hasText(value)) {
+            return DEFAULT_PUBLISH_TARGET;
+        }
+        return CLASS_PUBLISH_TARGET.equalsIgnoreCase(value.trim()) ? CLASS_PUBLISH_TARGET : DEFAULT_PUBLISH_TARGET;
     }
 
     private Integer normalizeEstimatedDurationMinutes(Integer value) {
         return value == null || value <= 0 ? 10 : value;
+    }
+
+    private Long normalizeTargetClassId(String publishTarget, Long targetClassId) {
+        return CLASS_PUBLISH_TARGET.equalsIgnoreCase(normalizePublishTarget(publishTarget)) ? targetClassId : null;
     }
 
     private String normalizeScoringVersion(String value) {

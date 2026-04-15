@@ -43,6 +43,7 @@ import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPublishSummaryV
 import com.huashi.eftransfer.app.modules.assessment.vo.StudentAssessmentHistorySummaryVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.StudentAssessmentSummaryVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.TeacherAssessmentAttemptResultVO;
+import com.huashi.eftransfer.app.modules.notification.service.NotificationScenarioService;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.shared.api.ResultCode;
@@ -88,6 +89,7 @@ public class AssessmentService {
     private final TeachingClassService teachingClassService;
     private final AssessmentJsonCodec assessmentJsonCodec;
     private final UserMapper userMapper;
+    private final NotificationScenarioService notificationScenarioService;
 
     public AssessmentService(
             AssessmentPaperMapper assessmentPaperMapper,
@@ -99,7 +101,8 @@ public class AssessmentService {
             TeachingClassMapper teachingClassMapper,
             TeachingClassService teachingClassService,
             AssessmentJsonCodec assessmentJsonCodec,
-            UserMapper userMapper
+            UserMapper userMapper,
+            NotificationScenarioService notificationScenarioService
     ) {
         this.assessmentPaperMapper = assessmentPaperMapper;
         this.assessmentQuestionMapper = assessmentQuestionMapper;
@@ -111,6 +114,7 @@ public class AssessmentService {
         this.teachingClassService = teachingClassService;
         this.assessmentJsonCodec = assessmentJsonCodec;
         this.userMapper = userMapper;
+        this.notificationScenarioService = notificationScenarioService;
     }
 
     public List<AssessmentPaperSummaryVO> listTeacherPapers() {
@@ -190,7 +194,10 @@ public class AssessmentService {
         paper.setLatestPublishAt(publish.getPublishedAt());
         assessmentPaperMapper.updateById(paper);
 
-        int assignedCount = loadRecipientsByPublish(publish.getId()).size();
+        List<AssessmentPublishRecipientEntity> recipients = loadRecipientsByPublish(publish.getId());
+        notificationScenarioService.notifyAssessmentPublished(publish, teachingClass, recipients);
+
+        int assignedCount = recipients.size();
         return buildPublishSummary(publish, teachingClass.getClassName(), assignedCount, 0, 0);
     }
 
@@ -457,6 +464,7 @@ public class AssessmentService {
             return new AssessmentAttemptSubmitVO(attempt.getId(), attempt.getStatus(), attempt.getSubmittedAt());
         }
         AssessmentAttemptEntity submitted = submitAttemptInternal(attempt, now);
+        notificationScenarioService.notifyAssessmentSubmitted(submitted, bundle.publish(), bundle.teachingClass());
         return new AssessmentAttemptSubmitVO(submitted.getId(), submitted.getStatus(), submitted.getSubmittedAt());
     }
 

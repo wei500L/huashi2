@@ -111,7 +111,7 @@ public class DiagnosisSessionService {
 
     @Transactional
     public DiagnosisSessionCreatedVO createSession(CreateDiagnosisSessionRequest request) {
-        DiagnosisTemplateEntity template = diagnosisTemplateService.requirePublishedTemplate(request.templateId());
+        DiagnosisTemplateEntity template = diagnosisTemplateService.requireAccessiblePublishedTemplateForStudent(request.templateId(), currentUserId());
         List<DiagnosisTemplateItemEntity> templateItems = diagnosisTemplateService.listTemplateItems(request.templateId());
         if (templateItems.isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT, "Published diagnosis template does not contain items", 409);

@@ -53,6 +53,31 @@ export interface LoginResponse {
   userInfo: CurrentUserVO;
 }
 
+export interface NotificationItemVO {
+  id: number;
+  category: string;
+  level: string;
+  title: string;
+  content: string;
+  actionUrl?: string | null;
+  actionLabel?: string | null;
+  status: 'UNREAD' | 'READ' | string;
+  payloadJson?: string | null;
+  createdAt: string;
+  readAt?: string | null;
+}
+
+export interface NotificationUnreadCountVO {
+  unreadCount: number;
+}
+
+export interface NotificationSocketMessage {
+  type: 'NOTIFICATION_CREATED' | string;
+  notification?: NotificationItemVO | null;
+  unreadCount: number;
+  sentAt: string;
+}
+
 export interface AnalyticsCardVO {
   key: string;
   label: string;
@@ -205,6 +230,8 @@ export interface DiagnosisTemplateSummaryVO {
   templateName: string;
   description?: string | null;
   status: string;
+  targetClassId?: number | null;
+  targetClassName?: string | null;
   itemCount: number;
   estimatedDurationMinutes: number;
   scoringVersion: string;
@@ -288,6 +315,8 @@ export interface DiagnosisTemplateDetailVO {
   templateName: string;
   description?: string | null;
   status: string;
+  targetClassId?: number | null;
+  targetClassName?: string | null;
   estimatedDurationMinutes: number;
   scoringVersion: string;
   itemCount: number;
@@ -302,6 +331,7 @@ export interface DiagnosisTemplateDraftBasicVO {
   description?: string | null;
   publishTarget?: string | null;
   estimatedDurationMinutes: number;
+  targetClassId?: number | null;
   scoringVersion: string;
 }
 
@@ -368,6 +398,7 @@ export interface DiagnosisTemplateDraftBasicRequest {
   description?: string | null;
   publishTarget?: string | null;
   estimatedDurationMinutes: number;
+  targetClassId?: number | null;
   scoringVersion: string;
 }
 
@@ -876,6 +907,48 @@ export interface TeachingClassSummaryVO {
   studentCount: number;
 }
 
+export interface TeacherClassStudentVO {
+  studentUserId: number;
+  studentName: string;
+  username?: string | null;
+  studentNo?: string | null;
+  gradeName?: string | null;
+  joinedAt?: string | null;
+}
+
+export interface TeacherClassDetailVO {
+  classId: number;
+  classCode: string;
+  className: string;
+  gradeName: string;
+  teacherUserId: number;
+  active: boolean;
+  studentCount: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  students: TeacherClassStudentVO[];
+}
+
+export interface TeacherClassStudentCandidateVO {
+  studentUserId: number;
+  studentName: string;
+  username?: string | null;
+  studentNo?: string | null;
+  gradeName?: string | null;
+  assigned: boolean;
+  activeClassCount: number;
+}
+
+export interface TeacherClassUpsertRequest {
+  classCode: string;
+  className: string;
+  gradeName: string;
+}
+
+export interface TeacherClassStudentBatchRequest {
+  studentUserIds: number[];
+}
+
 export interface RiskBucketPayload {
   riskLevel: string;
   studentCount: number;
@@ -1311,6 +1384,7 @@ export interface DiagnosisTemplateUpsertRequest {
   description?: string;
   status: string;
   estimatedDurationMinutes: number;
+  targetClassId?: number | null;
   scoringVersion: string;
   items: DiagnosisTemplateItemRequest[];
 }

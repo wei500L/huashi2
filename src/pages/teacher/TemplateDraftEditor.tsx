@@ -18,7 +18,7 @@ import type {
   DiagnosisTemplateDraftValidationResponseVO,
   LexicalPairDetailVO,
 } from '@/lib/contracts';
-import { diagnosisTemplateService, lexicalPairService } from '@/lib/services';
+import { diagnosisTemplateService, lexicalPairService, teacherAnalyticsService } from '@/lib/services';
 
 const steps = [
   { key: 'basic', label: '1. 基本信息' },
@@ -34,6 +34,7 @@ function toRequestSchema(detail: NonNullable<Awaited<ReturnType<typeof diagnosis
       description: detail.basic.description || '',
       publishTarget: detail.basic.publishTarget || 'SELF',
       estimatedDurationMinutes: detail.basic.estimatedDurationMinutes || 10,
+      targetClassId: detail.basic.targetClassId ?? null,
       scoringVersion: detail.basic.scoringVersion || 'RULE_V1',
     },
     items: detail.items.map((item) => ({
@@ -148,6 +149,11 @@ const TemplateDraftEditorPage: React.FC = () => {
         { signal }
       ),
     enabled: pairSearchKeyword.trim().length > 0,
+  });
+
+  const classOptionsQuery = useQuery({
+    queryKey: ['teacher-analytics-classes', 'diagnosis-draft'],
+    queryFn: ({ signal }) => teacherAnalyticsService.listClasses({ signal }),
   });
 
   const updateSchema = React.useCallback((updater: React.SetStateAction<DiagnosisTemplateDraftSchemaRequest | null>) => {
@@ -581,14 +587,57 @@ const TemplateDraftEditorPage: React.FC = () => {
             </label>
             <label className="block">
               <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">发布目标</div>
-              <input
+              <select
                 value={schema.basic.publishTarget || 'SELF'}
-                onChange={(event) => updateBasicField('publishTarget', event.target.value)}
+                onChange={(event) => {
+                  const nextTarget = event.target.value;
+                  updateSchema((current) =>
+                    current
+                      ? {
+                          ...current,
+                          basic: {
+                            ...current.basic,
+                            publishTarget: nextTarget,
+                            targetClassId: nextTarget === 'CLASS' ? current.basic.targetClassId ?? null : null,
+                          },
+                        }
+                      : current
+                  );
+                }}
                 className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
-                placeholder="SELF"
-              />
+              >
+                <option value="SELF">所有学生可见</option>
+                <option value="CLASS">定向班级发布</option>
+              </select>
             </label>
           </div>
+
+          {schema.basic.publishTarget === 'CLASS' && (
+            <label className="block">
+              <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">目标班级</div>
+              <select
+                value={schema.basic.targetClassId ?? ''}
+                onChange={(event) =>
+                  updateBasicField('targetClassId', event.target.value ? Number(event.target.value) : null)
+                }
+                className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+              >
+                <option value="">请选择班级</option>
+                {(classOptionsQuery.data || []).map((item) => (
+                  <option key={item.classId} value={item.classId}>
+                    {item.className} ({item.classCode})
+                  </option>
+                ))}
+              </select>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                {classOptionsQuery.isLoading
+                  ? '正在加载班级列表...'
+                  : !(classOptionsQuery.data || []).length
+                    ? '当前账号还没有可用班级，无法做定向发布。'
+                    : '学生端只会向所选班级的在班学生展示该模板。'}
+              </div>
+            </label>
+          )}
 
           <label className="block">
             <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">描述</div>
