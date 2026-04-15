@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, PencilLine, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { flushSync } from 'react-dom';
 import { ClassAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
@@ -178,7 +179,9 @@ const TeacherClassDetailPage: React.FC = () => {
     try {
       setIsPdfExporting(true);
       setExportErrorMessage(null);
-      setReportGeneratedAt(new Date().toISOString());
+      flushSync(() => {
+        setReportGeneratedAt(new Date().toISOString());
+      });
       await exportReportPagesToPdf(reportRef.current, `class-${classId}-analytics-report.pdf`);
     } catch (error) {
       setExportErrorMessage(error instanceof Error ? error.message : 'PDF 报告导出失败');
@@ -221,8 +224,11 @@ const TeacherClassDetailPage: React.FC = () => {
     hasValidClassId &&
     Boolean(detailQuery.data) &&
     Boolean(overviewQuery.data) &&
+    Boolean(riskDistributionQuery.data) &&
     Boolean(heatmapQuery.data) &&
-    Boolean(completionRateQuery.data);
+    Boolean(errorDistributionQuery.data) &&
+    Boolean(completionRateQuery.data) &&
+    Boolean(analyticsStudentsQuery.data);
 
   return (
     <div className="space-y-10 pb-20">

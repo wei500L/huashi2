@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, FileText, Filter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { flushSync } from 'react-dom';
 import { StudentAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow } from '@/components/common';
@@ -106,7 +107,9 @@ const AnalyticsPage: React.FC = () => {
     try {
       setIsPdfExporting(true);
       setReportErrorMessage(null);
-      setReportGeneratedAt(new Date().toISOString());
+      flushSync(() => {
+        setReportGeneratedAt(new Date().toISOString());
+      });
       await exportReportPagesToPdf(reportRef.current, `student-analytics-${range}-report.pdf`);
     } catch (error) {
       setReportErrorMessage(error instanceof Error ? error.message : 'PDF 报告导出失败');
@@ -120,7 +123,9 @@ const AnalyticsPage: React.FC = () => {
     Boolean(overviewQuery.data) &&
     Boolean(trendsQuery.data) &&
     Boolean(heatmapQuery.data) &&
-    Boolean(scatterQuery.data);
+    Boolean(scatterQuery.data) &&
+    Boolean(highRiskPairsQuery.data) &&
+    Boolean(errorDistributionQuery.data);
 
   return (
     <div className="space-y-10 pb-20">

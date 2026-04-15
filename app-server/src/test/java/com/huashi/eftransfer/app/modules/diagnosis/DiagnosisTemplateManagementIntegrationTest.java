@@ -193,6 +193,16 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                 null,
                 "PUBLIC"
         );
+        long classId = loadFirstAccessibleClassId(ownerToken);
+        createPublishedTemplate(
+                ownerToken,
+                tablePairId,
+                coinPairId,
+                actuallyPairId,
+                "Class scoped shared template",
+                classId,
+                "PUBLIC"
+        );
 
         mockMvc.perform(get("/api/teacher/diagnosis-templates/market")
                         .with(bearer(marketTeacherToken)))

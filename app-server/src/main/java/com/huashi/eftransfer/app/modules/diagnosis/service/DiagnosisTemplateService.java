@@ -211,6 +211,7 @@ public class DiagnosisTemplateService {
         LambdaQueryWrapper<DiagnosisTemplateEntity> wrapper = Wrappers.<DiagnosisTemplateEntity>lambdaQuery()
                 .eq(DiagnosisTemplateEntity::getStatus, DiagnosisTemplateStatus.PUBLISHED.name())
                 .eq(DiagnosisTemplateEntity::getShareScope, SHARE_SCOPE_PUBLIC)
+                .isNull(DiagnosisTemplateEntity::getTargetClassId)
                 .ne(DiagnosisTemplateEntity::getOwnerUserId, currentUserId())
                 .orderByDesc(DiagnosisTemplateEntity::getUpdatedAt)
                 .orderByDesc(DiagnosisTemplateEntity::getId);
