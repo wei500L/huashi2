@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.ai.modules.health.controller;
 
-import com.huashi.eftransfer.ai.modules.health.dto.AiHealthPayload;
 import com.huashi.eftransfer.ai.modules.health.service.AiHealthService;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,7 +19,7 @@ public class AiHealthController {
     }
 
     @GetMapping
-    public ApiResponse<AiHealthPayload> health() {
+    public ApiResponse<AiGatewayHealthResponse> health() {
         return ApiResponse.success(aiHealthService.getHealthPayload(), MDC.get("traceId"));
     }
 }

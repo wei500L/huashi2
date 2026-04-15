@@ -7,7 +7,7 @@ public record LexicalKnowledgeChangedEvent(
         String eventId,
         Integer eventVersion,
         String sourceType,
-        List<String> sourceIds,
+        List<Long> sourceIds,
         OffsetDateTime occurredAt,
         String traceId
 ) {

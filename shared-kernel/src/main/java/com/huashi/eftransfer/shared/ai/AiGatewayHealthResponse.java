@@ -1,6 +1,7 @@
-package com.huashi.eftransfer.app.integration.ai.dto;
+package com.huashi.eftransfer.shared.ai;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public record AiGatewayHealthResponse(
         String service,
@@ -16,7 +17,7 @@ public record AiGatewayHealthResponse(
         boolean rerankReady,
         boolean appServerReady,
         String vectorExtensionVersion,
-        java.util.List<String> activeProfiles,
+        List<String> activeProfiles,
         OffsetDateTime timestamp,
         String appServerError
 ) {

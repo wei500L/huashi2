@@ -4,7 +4,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.modules.rag.repository.IngestionJobRepository;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
-import com.huashi.eftransfer.ai.modules.health.dto.AiHealthPayload;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,7 +39,7 @@ public class AiHealthService {
         this.ingestionJobRepository = ingestionJobRepository;
     }
 
-    public AiHealthPayload getHealthPayload() {
+    public AiGatewayHealthResponse getHealthPayload() {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         var provider = bundle.config().provider();
         AiOpsProviderDefinition activeProvider = provider.providers().get(provider.activeProvider());
@@ -62,7 +62,7 @@ public class AiHealthService {
         AppServerProbe appServerProbe = probeAppServer(bundle);
         List<String> profiles = Arrays.asList(environment.getActiveProfiles());
 
-        return new AiHealthPayload(
+        return new AiGatewayHealthResponse(
                 "ai-gateway",
                 databaseReady && vectorStoreReady && providerReady && rerankReady && appServerProbe.ready() ? "UP" : "DEGRADED",
                 provider.activeProvider(),

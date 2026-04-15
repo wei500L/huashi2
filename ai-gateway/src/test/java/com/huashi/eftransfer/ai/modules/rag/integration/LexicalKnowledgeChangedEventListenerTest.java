@@ -136,7 +136,7 @@ class LexicalKnowledgeChangedEventListenerTest {
                 eventId,
                 1,
                 "LEXICAL_PAIR",
-                List.of("1001", "1002"),
+                List.of(1001L, 1002L),
                 OffsetDateTime.parse("2026-03-20T00:00:00Z"),
                 "trace-knowledge-sync"
         ));

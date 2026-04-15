@@ -1,8 +1,8 @@
 package com.huashi.eftransfer.ai.modules.health;
 
 import com.huashi.eftransfer.ai.modules.health.controller.AiHealthController;
-import com.huashi.eftransfer.ai.modules.health.dto.AiHealthPayload;
 import com.huashi.eftransfer.ai.modules.health.service.AiHealthService;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,7 +23,7 @@ class AiHealthControllerTest {
 
     @BeforeEach
     void setUp() {
-        AiHealthPayload payload = new AiHealthPayload(
+        AiGatewayHealthResponse payload = new AiGatewayHealthResponse(
                 "ai-gateway",
                 "UP",
                 "qwen",

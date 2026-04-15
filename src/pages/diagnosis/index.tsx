@@ -1,11 +1,14 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Brain, CheckCircle2, ChevronRight, Timer } from 'lucide-react';
+import { Brain, CheckCircle2, ChevronRight, FileText, Timer } from 'lucide-react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { DiagnosisPdfReport } from '@/components/diagnosis/DiagnosisPdfReport';
 import { PageHeader, PanelSkeleton, SectionEyebrow } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
 import { getApiErrorMessage } from '@/lib/api';
+import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import { buildTrainingHref } from '@/lib/training-launch';
@@ -133,6 +136,10 @@ const DiagnosisPage: React.FC = () => {
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
   const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
+  const [reportErrorMessage, setReportErrorMessage] = React.useState<string | null>(null);
+  const [isPdfExporting, setIsPdfExporting] = React.useState(false);
+  const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
+  const reportRef = React.useRef<HTMLDivElement | null>(null);
 
   const historyQuery = useQuery({
     queryKey: ['diagnosis-history', 'in-progress'],
@@ -247,6 +254,26 @@ const DiagnosisPage: React.FC = () => {
     enabled: state.phase === 'result' && !!resultSummaryId,
     retry: false,
   });
+
+  const handlePdfExport = async () => {
+    if (!resultQuery.data) {
+      return;
+    }
+
+    try {
+      setIsPdfExporting(true);
+      setReportErrorMessage(null);
+      flushSync(() => {
+        setReportGeneratedAt(new Date().toISOString());
+      });
+      await exportReportPagesToPdf(reportRef.current, `diagnosis-session-${resultQuery.data.sessionId}-report.pdf`);
+    } catch (error) {
+      setReportErrorMessage(error instanceof Error ? error.message : 'PDF 报告导出失败');
+    } finally {
+      setIsPdfExporting(false);
+      setReportGeneratedAt(null);
+    }
+  };
 
   React.useEffect(() => {
     if (state.phase !== 'running' || !nextItemQuery.data || nextItemQuery.data.hasNextItem) {
@@ -516,6 +543,8 @@ const DiagnosisPage: React.FC = () => {
 
   const result = resultQuery.data;
   const radarOption = buildRadarOption(toDiagnosisRadarChartMetrics(result?.chartPayload.radarMetrics));
+  const canExportPdf = Boolean(result) && !explanationQuery.isLoading;
+  const explanationErrorMessage = explanationQuery.error ? getApiErrorMessage(explanationQuery.error) : null;
 
   return (
     <div className="space-y-8 pb-20">
@@ -529,12 +558,26 @@ const DiagnosisPage: React.FC = () => {
               })
             : t('diagnosis.resultSubtitle')
         }
+        actions={
+          <button
+            type="button"
+            onClick={() => void handlePdfExport()}
+            disabled={!canExportPdf || isPdfExporting}
+            className="btn-liquid flex items-center gap-2 px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FileText size={14} /> {isPdfExporting ? t('common.actions.exportingPdf') : t('common.actions.exportPdf')}
+          </button>
+        }
       />
 
       {resultQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
           {getApiErrorMessage(resultQuery.error)}
         </div>
+      )}
+
+      {reportErrorMessage && (
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{reportErrorMessage}</div>
       )}
 
       {!result && resultQuery.isLoading ? (
@@ -675,7 +718,7 @@ const DiagnosisPage: React.FC = () => {
                   </div>
                 </div>
               ) : explanationQuery.error ? (
-                <div className="text-sm text-rose-500">{getApiErrorMessage(explanationQuery.error)}</div>
+                <div className="text-sm text-rose-500">{explanationErrorMessage}</div>
               ) : (
                 <div className="text-sm text-slate-500 dark:text-white/45">{t('diagnosis.noExplanation')}</div>
               )}
@@ -727,6 +770,16 @@ const DiagnosisPage: React.FC = () => {
           </div>
         </>
       )}
+
+      {result && reportGeneratedAt ? (
+        <DiagnosisPdfReport
+          reportRef={reportRef}
+          generatedAt={reportGeneratedAt}
+          result={result}
+          explanation={explanationQuery.data}
+          explanationErrorMessage={explanationErrorMessage}
+        />
+      ) : null}
     </div>
   );
 };

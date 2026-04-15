@@ -54,7 +54,7 @@ public class LexicalKnowledgeChangedEventListener {
                                 KnowledgeSourceTypes.LEXICAL_SENSE,
                                 KnowledgeSourceTypes.LEXICAL_EXAMPLE
                         ),
-                        event.sourceIds(),
+                        event.sourceIds().stream().map(String::valueOf).toList(),
                         Boolean.FALSE
                 ));
                 integrationConsumeRecordRepository.markSucceeded(CONSUMER_NAME, event.eventId(), event.sourceType());

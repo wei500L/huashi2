@@ -84,7 +84,7 @@ class AppServerKnowledgeClientTest {
                 OffsetDateTime.parse("2026-03-21T00:00:00Z"),
                 "cursor-1",
                 20,
-                List.of("1001", "1002")
+                List.of(1001L, 1002L)
         );
 
         assertThat(lastInternalToken.get()).isEqualTo("test-internal-token");

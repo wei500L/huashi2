@@ -30,7 +30,7 @@ public class AppServerKnowledgeClient {
             OffsetDateTime updatedSince,
             String cursor,
             int limit,
-            List<String> sourceIds
+            List<Long> sourceIds
     ) {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         ApiResponse<LexicalKnowledgeExportPageResponse> response = bundle.appServerRestClient().get()
@@ -49,7 +49,7 @@ public class AppServerKnowledgeClient {
             OffsetDateTime updatedSince,
             String cursor,
             int limit,
-            List<String> sourceIds
+            List<Long> sourceIds
     ) {
         UriBuilder builder = uriBuilder.path("/internal/knowledge/lexical-pairs/export")
                 .queryParam("limit", limit);

@@ -4,7 +4,7 @@ import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayFailureReason;
-import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsConfigStorageService;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;

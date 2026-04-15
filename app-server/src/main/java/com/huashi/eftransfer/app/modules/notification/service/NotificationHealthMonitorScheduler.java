@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.app.modules.notification.service;
 
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
-import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 

@@ -1,10 +1,10 @@
 package com.huashi.eftransfer.app.modules.opsconfig.controller;
 
-import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
 import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsAdminService;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;

@@ -5,7 +5,7 @@ import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxService;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
-import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretFieldsVO;

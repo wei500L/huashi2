@@ -172,7 +172,10 @@ public class KnowledgeIngestionService {
                 ? null
                 : ingestionJobRepository.findLatestSuccessfulWatermark(JOB_TYPE, KnowledgeSourceTypes.LEXICAL_PAIR);
 
-        List<String> lexicalSourceIds = toLexicalSourceIds(requestedSourceIds);
+        List<Long> lexicalSourceIds = toLexicalSourceIds(requestedSourceIds);
+        Set<String> lexicalSourceIdStrings = lexicalSourceIds.stream()
+                .map(String::valueOf)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         Set<String> seenDocumentIds = new LinkedHashSet<>();
         String cursor = null;
         OffsetDateTime watermark = updatedSince;
@@ -213,7 +216,7 @@ public class KnowledgeIngestionService {
             } else {
                 knowledgeStoreRepository.deactivateDocumentsBySourceIds(
                         KnowledgeSourceTypes.LEXICAL_PAIR,
-                        new LinkedHashSet<>(lexicalSourceIds),
+                        lexicalSourceIdStrings,
                         seenDocumentIds
                 );
             }
@@ -536,15 +539,14 @@ public class KnowledgeIngestionService {
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private List<String> toLexicalSourceIds(Set<String> sourceIds) {
+    private List<Long> toLexicalSourceIds(Set<String> sourceIds) {
         if (sourceIds == null || sourceIds.isEmpty()) {
             return List.of();
         }
-        List<String> lexicalIds = new ArrayList<>();
+        List<Long> lexicalIds = new ArrayList<>();
         for (String sourceId : sourceIds) {
             try {
-                Long.parseLong(sourceId);
-                lexicalIds.add(sourceId);
+                lexicalIds.add(Long.parseLong(sourceId));
             } catch (NumberFormatException ignored) {
                 // Non-numeric ids are for seed knowledge sources and should be ignored here.
             }

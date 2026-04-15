@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.app.integration.ai.client;
 
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
-import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
 import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;

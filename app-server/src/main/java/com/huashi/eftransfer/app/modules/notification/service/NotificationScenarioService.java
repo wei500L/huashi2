@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.app.modules.notification.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.huashi.eftransfer.app.integration.ai.dto.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
 import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
