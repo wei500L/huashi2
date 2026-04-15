@@ -452,7 +452,7 @@ public class AnalyticsQueryService {
                 weeklyAccuracyCurrent,
                 weeklyAccuracyTarget == null ? 0d : round(weeklyAccuracyCurrent - weeklyAccuracyTarget.doubleValue()),
                 dailyTrainingTarget != null || weeklyAccuracyTarget != null,
-                studentProfile == null ? null : studentProfile.getUpdatedAt()
+                studentProfile == null ? null : studentProfile.getLearningGoalsUpdatedAt()
         );
     }
 

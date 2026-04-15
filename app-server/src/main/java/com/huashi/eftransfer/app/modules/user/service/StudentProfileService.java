@@ -9,6 +9,9 @@ import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.Objects;
+
 @Service
 public class StudentProfileService {
 
@@ -20,8 +23,14 @@ public class StudentProfileService {
 
     public void updateCurrentStudentLearningGoals(UpdateStudentLearningGoalRequest request) {
         StudentProfileEntity studentProfile = requireCurrentStudentProfile();
+        boolean goalsChanged = !Objects.equals(studentProfile.getDailyTrainingTarget(), request.dailyTrainingTarget())
+                || !Objects.equals(studentProfile.getWeeklyAccuracyTarget(), request.weeklyAccuracyTarget());
+        if (!goalsChanged) {
+            return;
+        }
         studentProfile.setDailyTrainingTarget(request.dailyTrainingTarget());
         studentProfile.setWeeklyAccuracyTarget(request.weeklyAccuracyTarget());
+        studentProfile.setLearningGoalsUpdatedAt(LocalDateTime.now());
         studentProfileMapper.updateById(studentProfile);
     }
 

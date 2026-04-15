@@ -139,7 +139,7 @@ public class AchievementService {
         return switch (definition.code()) {
             case "LOGIN_STREAK" -> evaluateLoginStreak(user, entity, definition, loginUpdate);
             case "DIAGNOSIS_FINISHER" -> evaluateDiagnosisFinisher(user.getId(), definition);
-            case "TRAINING_EXPERT" -> evaluateTrainingExpert(user.getId(), definition);
+            case "TRAINING_EXPERT" -> evaluateTrainingExpert(user.getId(), entity, definition);
             case "VOCAB_MASTER" -> evaluateVocabMaster(user.getId(), definition);
             default -> new AchievementState(false, 0, definition.targetValue(), null);
         };
@@ -191,19 +191,28 @@ public class AchievementService {
         return new AchievementState(completedCount >= definition.targetValue(), completedCount, definition.targetValue(), null);
     }
 
-    private AchievementState evaluateTrainingExpert(Long userId, AchievementDefinition definition) {
-        List<TrainingSessionEntity> sessions = trainingSessionMapper.selectList(Wrappers.<TrainingSessionEntity>lambdaQuery()
-                .eq(TrainingSessionEntity::getOwnerUserId, userId)
-                .isNotNull(TrainingSessionEntity::getCompletedAt)
-                .isNotNull(TrainingSessionEntity::getSummarySnapshotJson));
-        int bestAccuracy = sessions.stream()
-                .map(TrainingSessionEntity::getSummarySnapshotJson)
-                .filter(Objects::nonNull)
-                .map(trainingJsonCodec::readSummarySnapshot)
-                .mapToInt(this::toAccuracyPercent)
-                .max()
-                .orElse(0);
-        return new AchievementState(bestAccuracy >= definition.targetValue(), bestAccuracy, definition.targetValue(), null);
+    private AchievementState evaluateTrainingExpert(
+            Long userId,
+            AchievementEntity entity,
+            AchievementDefinition definition
+    ) {
+        TrainingExpertMetadata metadata = readTrainingExpertMetadata(entity);
+        int bestAccuracy = Math.max(
+                safeInt(entity == null ? null : entity.getProgressValue()),
+                metadata == null ? 0 : metadata.bestAccuracy()
+        );
+        Long lastProcessedSessionId = metadata == null ? bootstrapTrainingExpertCursor(userId, entity) : metadata.lastProcessedSessionId();
+
+        List<TrainingSessionEntity> sessions = loadTrainingSessionsForTrainingExpert(userId, lastProcessedSessionId);
+        for (TrainingSessionEntity session : sessions) {
+            bestAccuracy = Math.max(bestAccuracy, toAccuracyPercent(trainingJsonCodec.readSummarySnapshot(session.getSummarySnapshotJson())));
+            lastProcessedSessionId = session.getId();
+        }
+
+        String metadataJson = lastProcessedSessionId == null && bestAccuracy == 0
+                ? null
+                : writeTrainingExpertMetadata(new TrainingExpertMetadata(bestAccuracy, lastProcessedSessionId));
+        return new AchievementState(bestAccuracy >= definition.targetValue(), bestAccuracy, definition.targetValue(), metadataJson);
     }
 
     private AchievementState evaluateVocabMaster(Long userId, AchievementDefinition definition) {
@@ -312,6 +321,53 @@ public class AchievementService {
         }
     }
 
+    private TrainingExpertMetadata readTrainingExpertMetadata(AchievementEntity entity) {
+        if (entity == null || entity.getMetadataJson() == null || entity.getMetadataJson().isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(entity.getMetadataJson(), TrainingExpertMetadata.class);
+        } catch (JacksonException exception) {
+            return null;
+        }
+    }
+
+    private String writeTrainingExpertMetadata(TrainingExpertMetadata metadata) {
+        try {
+            return objectMapper.writeValueAsString(metadata);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Failed to serialize achievement metadata", exception);
+        }
+    }
+
+    private Long bootstrapTrainingExpertCursor(Long userId, AchievementEntity entity) {
+        if (entity == null || entity.getLastCalculatedAt() == null) {
+            return null;
+        }
+        TrainingSessionEntity latestProcessedSession = trainingSessionMapper.selectOne(Wrappers.<TrainingSessionEntity>lambdaQuery()
+                .select(TrainingSessionEntity::getId)
+                .eq(TrainingSessionEntity::getOwnerUserId, userId)
+                .isNotNull(TrainingSessionEntity::getCompletedAt)
+                .isNotNull(TrainingSessionEntity::getSummarySnapshotJson)
+                .le(TrainingSessionEntity::getCompletedAt, entity.getLastCalculatedAt())
+                .orderByDesc(TrainingSessionEntity::getId)
+                .last("LIMIT 1"));
+        return latestProcessedSession == null ? null : latestProcessedSession.getId();
+    }
+
+    private List<TrainingSessionEntity> loadTrainingSessionsForTrainingExpert(Long userId, Long lastProcessedSessionId) {
+        var query = Wrappers.<TrainingSessionEntity>lambdaQuery()
+                .select(TrainingSessionEntity::getId, TrainingSessionEntity::getSummarySnapshotJson)
+                .eq(TrainingSessionEntity::getOwnerUserId, userId)
+                .isNotNull(TrainingSessionEntity::getCompletedAt)
+                .isNotNull(TrainingSessionEntity::getSummarySnapshotJson)
+                .orderByAsc(TrainingSessionEntity::getId);
+        if (lastProcessedSessionId != null) {
+            query.gt(TrainingSessionEntity::getId, lastProcessedSessionId);
+        }
+        return trainingSessionMapper.selectList(query);
+    }
+
     private int toAccuracyPercent(TrainingSessionSummarySnapshot snapshot) {
         if (snapshot == null) {
             return 0;
@@ -341,5 +397,8 @@ public class AchievementService {
     }
 
     private record LoginStreakMetadata(int streakDays, LocalDate lastLoginDate) {
+    }
+
+    private record TrainingExpertMetadata(int bestAccuracy, Long lastProcessedSessionId) {
     }
 }

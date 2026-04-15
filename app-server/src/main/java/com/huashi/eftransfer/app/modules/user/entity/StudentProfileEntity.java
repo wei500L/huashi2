@@ -36,6 +36,9 @@ public class StudentProfileEntity extends BaseAuditEntity {
     @TableField("weekly_accuracy_target")
     private Integer weeklyAccuracyTarget;
 
+    @TableField("learning_goals_updated_at")
+    private LocalDateTime learningGoalsUpdatedAt;
+
     @TableField("learning_profile_snapshot_json")
     private String learningProfileSnapshotJson;
 
@@ -112,6 +115,14 @@ public class StudentProfileEntity extends BaseAuditEntity {
 
     public void setWeeklyAccuracyTarget(Integer weeklyAccuracyTarget) {
         this.weeklyAccuracyTarget = weeklyAccuracyTarget;
+    }
+
+    public LocalDateTime getLearningGoalsUpdatedAt() {
+        return learningGoalsUpdatedAt;
+    }
+
+    public void setLearningGoalsUpdatedAt(LocalDateTime learningGoalsUpdatedAt) {
+        this.learningGoalsUpdatedAt = learningGoalsUpdatedAt;
     }
 
     public String getLearningProfileSnapshotJson() {
