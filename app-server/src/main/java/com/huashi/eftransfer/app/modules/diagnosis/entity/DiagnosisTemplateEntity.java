@@ -32,6 +32,9 @@ public class DiagnosisTemplateEntity extends BaseAuditEntity {
     @TableField("target_class_id")
     private Long targetClassId;
 
+    @TableField("share_scope")
+    private String shareScope;
+
     public String getTemplateName() {
         return templateName;
     }
@@ -102,5 +105,13 @@ public class DiagnosisTemplateEntity extends BaseAuditEntity {
 
     public void setTargetClassId(Long targetClassId) {
         this.targetClassId = targetClassId;
+    }
+
+    public String getShareScope() {
+        return shareScope;
+    }
+
+    public void setShareScope(String shareScope) {
+        this.shareScope = shareScope;
     }
 }

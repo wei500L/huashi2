@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FilePenLine, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, FilePenLine, Globe2, Plus, Share2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
@@ -20,6 +20,10 @@ function buildDraftEditorSearch(rawSearch: string): string {
   }
   const next = params.toString();
   return next ? `?${next}` : '';
+}
+
+function templateShareScopeTone(scope?: string | null): 'success' | 'neutral' {
+  return scope === 'PUBLIC' ? 'success' : 'neutral';
 }
 
 const TeacherTemplatesPage: React.FC = () => {
@@ -42,6 +46,11 @@ const TeacherTemplatesPage: React.FC = () => {
   const templatesQuery = useQuery({
     queryKey: ['teacher-diagnosis-templates'],
     queryFn: ({ signal }) => diagnosisTemplateService.listTeacherTemplates({ pageNo: 1, pageSize: 50 }, { signal }),
+  });
+
+  const marketTemplatesQuery = useQuery({
+    queryKey: ['teacher-diagnosis-template-market'],
+    queryFn: ({ signal }) => diagnosisTemplateService.listMarketTemplates({ pageNo: 1, pageSize: 50 }, { signal }),
   });
 
   const createDraftMutation = useMutation({
@@ -80,6 +89,23 @@ const TeacherTemplatesPage: React.FC = () => {
     onError: (error) => {
       setFeedback(null);
       setErrorMessage(getApiErrorMessage(error, t('ui.errors.deleteDraftFailed')));
+    },
+  });
+
+  const updateSharingMutation = useMutation({
+    mutationFn: ({ templateId, shareScope }: { templateId: number; shareScope: 'PRIVATE' | 'PUBLIC' }) =>
+      diagnosisTemplateService.updateTeacherTemplateSharing(templateId, { shareScope }),
+    onSuccess: async (template) => {
+      setFeedback(template.shareScope === 'PUBLIC' ? t('ui.messages.templateShared') : t('ui.messages.templateUnshared'));
+      setErrorMessage(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-templates'] }),
+        queryClient.invalidateQueries({ queryKey: ['teacher-diagnosis-template-market'] }),
+      ]);
+    },
+    onError: (error) => {
+      setFeedback(null);
+      setErrorMessage(getApiErrorMessage(error, t('ui.errors.updateTemplateSharingFailed')));
     },
   });
 
@@ -241,11 +267,15 @@ const TeacherTemplatesPage: React.FC = () => {
                   <StatusBadge label={t('ui.meta.durationMinutes', { count: template.estimatedDurationMinutes })} />
                   <StatusBadge label={template.scoringVersion} />
                   <StatusBadge label={template.targetClassName ? `班级：${template.targetClassName}` : '所有学生可见'} />
+                  <StatusBadge
+                    label={template.shareScope === 'PUBLIC' ? t('ui.meta.templateShared') : t('ui.meta.templatePrivate')}
+                    tone={templateShareScopeTone(template.shareScope)}
+                  />
                 </div>
 
                 <div className="mt-3 text-xs text-slate-400 dark:text-white/30">{t('ui.meta.lastUpdated', { time: formatDateTime(template.updatedAt) })}</div>
 
-                <div className="mt-4">
+                <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => createFromTemplateMutation.mutate(template.id)}
@@ -254,12 +284,96 @@ const TeacherTemplatesPage: React.FC = () => {
                     <FilePenLine size={14} />
                     {t('ui.actions.createDraftFromTemplate')}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateSharingMutation.mutate({
+                        templateId: template.id,
+                        shareScope: template.shareScope === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC',
+                      })
+                    }
+                    disabled={updateSharingMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-60 dark:border-white/10"
+                  >
+                    <Share2 size={14} />
+                    {template.shareScope === 'PUBLIC' ? t('ui.actions.stopSharingTemplate') : t('ui.actions.shareTemplate')}
+                  </button>
                 </div>
               </div>
             ))}
+
+            {!templatesQuery.isLoading && !(templatesQuery.data?.records || []).length && (
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+                {t('ui.labels.noTemplates')}
+              </div>
+            )}
           </div>
         </section>
       </div>
+
+      <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <SectionEyebrow>{t('ui.sections.templateMarket')}</SectionEyebrow>
+            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('ui.pages.templates.marketTitle')}</div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.pages.templates.marketSubtitle')}</div>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+            <Globe2 size={14} />
+            {t('ui.labels.marketOnlyPublic')}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {marketTemplatesQuery.isLoading && (
+            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+              {t('ui.labels.loadingTemplateMarket')}
+            </div>
+          )}
+
+          {(marketTemplatesQuery.data?.records || []).map((template) => (
+            <div
+              key={template.id}
+              className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white">{template.templateName}</div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{template.description || t('ui.labels.noDescription')}</div>
+                </div>
+                <StatusBadge label={t('ui.meta.templateShared')} tone="success" />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
+                <StatusBadge label={t('ui.meta.questionCount', { count: template.itemCount })} />
+                <StatusBadge label={t('ui.meta.durationMinutes', { count: template.estimatedDurationMinutes })} />
+                <StatusBadge label={template.scoringVersion} />
+                <StatusBadge label={template.targetClassName ? `班级：${template.targetClassName}` : '所有学生可见'} />
+                <StatusBadge label={t('ui.meta.ownerName', { name: template.ownerDisplayName || `教师 #${template.ownerUserId}` })} />
+              </div>
+
+              <div className="mt-3 text-xs text-slate-400 dark:text-white/30">{t('ui.meta.lastUpdated', { time: formatDateTime(template.updatedAt) })}</div>
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => createFromTemplateMutation.mutate(template.id)}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                >
+                  <FilePenLine size={14} />
+                  {t('ui.actions.createDraftFromTemplate')}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {!marketTemplatesQuery.isLoading && !(marketTemplatesQuery.data?.records || []).length && (
+            <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+              {t('ui.labels.noTemplateMarket')}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 };

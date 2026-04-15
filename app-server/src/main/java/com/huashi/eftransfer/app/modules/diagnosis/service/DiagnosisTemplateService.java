@@ -29,6 +29,8 @@ import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisTemplateItemVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisTemplateSummaryVO;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
+import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
+import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.ContextSupportLevel;
 import com.huashi.eftransfer.shared.enums.DiagnosisTaskType;
@@ -58,6 +60,8 @@ import java.util.stream.Collectors;
 public class DiagnosisTemplateService {
 
     private static final Logger log = LoggerFactory.getLogger(DiagnosisTemplateService.class);
+    private static final String SHARE_SCOPE_PRIVATE = "PRIVATE";
+    private static final String SHARE_SCOPE_PUBLIC = "PUBLIC";
 
     private final DiagnosisTemplateMapper diagnosisTemplateMapper;
     private final DiagnosisTemplateItemMapper diagnosisTemplateItemMapper;
@@ -67,6 +71,7 @@ public class DiagnosisTemplateService {
     private final TeachingClassService teachingClassService;
     private final DiagnosisJsonCodec diagnosisJsonCodec;
     private final AuditLogService auditLogService;
+    private final UserMapper userMapper;
 
     public DiagnosisTemplateService(
             DiagnosisTemplateMapper diagnosisTemplateMapper,
@@ -76,7 +81,8 @@ public class DiagnosisTemplateService {
             TeachingClassMapper teachingClassMapper,
             TeachingClassService teachingClassService,
             DiagnosisJsonCodec diagnosisJsonCodec,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            UserMapper userMapper
     ) {
         this.diagnosisTemplateMapper = diagnosisTemplateMapper;
         this.diagnosisTemplateItemMapper = diagnosisTemplateItemMapper;
@@ -86,6 +92,7 @@ public class DiagnosisTemplateService {
         this.teachingClassService = teachingClassService;
         this.diagnosisJsonCodec = diagnosisJsonCodec;
         this.auditLogService = auditLogService;
+        this.userMapper = userMapper;
     }
 
     @Transactional
@@ -102,6 +109,7 @@ public class DiagnosisTemplateService {
         entity.setStatus(status.name());
         entity.setEstimatedDurationMinutes(request.estimatedDurationMinutes());
         entity.setTargetClassId(resolveTargetClassId(request.targetClassId()));
+        entity.setShareScope(resolveShareScope(request.shareScope()));
         entity.setScoringVersion(resolveScoringVersion(request.scoringVersion()));
         entity.setItemCount(request.items().size());
         entity.setMetadataJson(buildMetadataJson(request.items(), lexicalPairMap));
@@ -126,6 +134,7 @@ public class DiagnosisTemplateService {
         entity.setStatus(status.name());
         entity.setEstimatedDurationMinutes(request.estimatedDurationMinutes());
         entity.setTargetClassId(resolveTargetClassId(request.targetClassId()));
+        entity.setShareScope(resolveShareScope(request.shareScope()));
         entity.setScoringVersion(resolveScoringVersion(request.scoringVersion()));
         entity.setItemCount(request.items().size());
         entity.setMetadataJson(buildMetadataJson(request.items(), lexicalPairMap));
@@ -186,9 +195,47 @@ public class DiagnosisTemplateService {
                 .map(DiagnosisTemplateEntity::getTargetClassId)
                 .filter(Objects::nonNull)
                 .toList());
+        Map<Long, UserEntity> ownerMap = loadUserMap(templates.stream()
+                .map(DiagnosisTemplateEntity::getOwnerUserId)
+                .filter(Objects::nonNull)
+                .toList());
 
         List<DiagnosisTemplateSummaryVO> records = templates.stream()
-                .map(entity -> toSummaryVO(entity, classMap.get(entity.getTargetClassId())))
+                .map(entity -> toSummaryVO(entity, classMap.get(entity.getTargetClassId()), ownerMap.get(entity.getOwnerUserId())))
+                .toList();
+        return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
+    }
+
+    public PageResult<DiagnosisTemplateSummaryVO> pageMarketQuery(DiagnosisTemplatePageQuery query) {
+        PageQuery pageQuery = query.toPageQuery();
+        LambdaQueryWrapper<DiagnosisTemplateEntity> wrapper = Wrappers.<DiagnosisTemplateEntity>lambdaQuery()
+                .eq(DiagnosisTemplateEntity::getStatus, DiagnosisTemplateStatus.PUBLISHED.name())
+                .eq(DiagnosisTemplateEntity::getShareScope, SHARE_SCOPE_PUBLIC)
+                .ne(DiagnosisTemplateEntity::getOwnerUserId, currentUserId())
+                .orderByDesc(DiagnosisTemplateEntity::getUpdatedAt)
+                .orderByDesc(DiagnosisTemplateEntity::getId);
+
+        if (query.keyword() != null && !query.keyword().isBlank()) {
+            String keyword = query.keyword().trim();
+            wrapper.and(condition -> condition.like(DiagnosisTemplateEntity::getTemplateName, keyword)
+                    .or()
+                    .like(DiagnosisTemplateEntity::getDescription, keyword));
+        }
+
+        long total = diagnosisTemplateMapper.selectCount(wrapper);
+        List<DiagnosisTemplateEntity> templates = diagnosisTemplateMapper.selectList(wrapper
+                .last("LIMIT " + pageQuery.pageSize() + " OFFSET " + pageQuery.offset()));
+        Map<Long, TeachingClassEntity> classMap = loadTeachingClassMap(templates.stream()
+                .map(DiagnosisTemplateEntity::getTargetClassId)
+                .filter(Objects::nonNull)
+                .toList());
+        Map<Long, UserEntity> ownerMap = loadUserMap(templates.stream()
+                .map(DiagnosisTemplateEntity::getOwnerUserId)
+                .filter(Objects::nonNull)
+                .toList());
+
+        List<DiagnosisTemplateSummaryVO> records = templates.stream()
+                .map(entity -> toSummaryVO(entity, classMap.get(entity.getTargetClassId()), ownerMap.get(entity.getOwnerUserId())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
     }
@@ -221,15 +268,19 @@ public class DiagnosisTemplateService {
                 .map(DiagnosisTemplateEntity::getTargetClassId)
                 .filter(Objects::nonNull)
                 .toList());
+        Map<Long, UserEntity> ownerMap = loadUserMap(templates.stream()
+                .map(DiagnosisTemplateEntity::getOwnerUserId)
+                .filter(Objects::nonNull)
+                .toList());
 
         List<DiagnosisTemplateSummaryVO> records = templates.stream()
-                .map(entity -> toSummaryVO(entity, classMap.get(entity.getTargetClassId())))
+                .map(entity -> toSummaryVO(entity, classMap.get(entity.getTargetClassId()), ownerMap.get(entity.getOwnerUserId())))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), records);
     }
 
     public DiagnosisTemplateDetailVO getDetail(Long templateId) {
-        DiagnosisTemplateEntity template = requireManageableTemplate(templateId);
+        DiagnosisTemplateEntity template = requireReadableTemplate(templateId);
         List<DiagnosisTemplateItemEntity> itemEntities = diagnosisTemplateItemMapper.selectList(Wrappers.<DiagnosisTemplateItemEntity>lambdaQuery()
                 .eq(DiagnosisTemplateItemEntity::getTemplateId, templateId)
                 .orderByAsc(DiagnosisTemplateItemEntity::getSortOrder)
@@ -244,6 +295,7 @@ public class DiagnosisTemplateService {
         TeachingClassEntity targetClass = template.getTargetClassId() == null
                 ? null
                 : teachingClassMapper.selectById(template.getTargetClassId());
+        UserEntity owner = userMapper.selectById(template.getOwnerUserId());
 
         return new DiagnosisTemplateDetailVO(
                 template.getId(),
@@ -255,11 +307,25 @@ public class DiagnosisTemplateService {
                 template.getEstimatedDurationMinutes(),
                 template.getScoringVersion(),
                 template.getItemCount(),
+                template.getShareScope(),
                 template.getOwnerUserId(),
+                owner == null ? null : owner.getDisplayName(),
                 template.getCreatedAt(),
                 template.getUpdatedAt(),
                 items
         );
+    }
+
+    @Transactional
+    public DiagnosisTemplateDetailVO updateSharing(Long templateId, String shareScope) {
+        DiagnosisTemplateEntity entity = requireManageableTemplate(templateId);
+        entity.setShareScope(resolveShareScope(shareScope));
+        diagnosisTemplateMapper.updateById(entity);
+        auditLogService.record("template_sharing_update", "diagnosis_template", String.valueOf(templateId), Map.of(
+                "templateId", templateId,
+                "shareScope", entity.getShareScope()
+        ), ResultCode.SUCCESS.code());
+        return getDetail(templateId);
     }
 
     public DiagnosisTemplateEntity requirePublishedTemplate(Long templateId) {
@@ -289,7 +355,19 @@ public class DiagnosisTemplateService {
                 .orderByAsc(DiagnosisTemplateItemEntity::getId));
     }
 
-    private DiagnosisTemplateSummaryVO toSummaryVO(DiagnosisTemplateEntity entity, TeachingClassEntity targetClass) {
+    public boolean canManageTemplate(Long templateId) {
+        DiagnosisTemplateEntity template = diagnosisTemplateMapper.selectById(templateId);
+        if (template == null) {
+            return false;
+        }
+        return isAdmin() || Objects.equals(template.getOwnerUserId(), currentUserId());
+    }
+
+    private DiagnosisTemplateSummaryVO toSummaryVO(
+            DiagnosisTemplateEntity entity,
+            TeachingClassEntity targetClass,
+            UserEntity owner
+    ) {
         return new DiagnosisTemplateSummaryVO(
                 entity.getId(),
                 entity.getTemplateName(),
@@ -300,7 +378,9 @@ public class DiagnosisTemplateService {
                 entity.getItemCount(),
                 entity.getEstimatedDurationMinutes(),
                 entity.getScoringVersion(),
+                entity.getShareScope(),
                 entity.getOwnerUserId(),
+                owner == null ? null : owner.getDisplayName(),
                 entity.getUpdatedAt()
         );
     }
@@ -331,6 +411,18 @@ public class DiagnosisTemplateService {
             throw new BusinessException(ResultCode.FORBIDDEN, "You do not have permission to manage this diagnosis template", 403);
         }
         return template;
+    }
+
+    private DiagnosisTemplateEntity requireReadableTemplate(Long templateId) {
+        DiagnosisTemplateEntity template = requireTemplate(templateId);
+        if (isAdmin() || Objects.equals(template.getOwnerUserId(), currentUserId())) {
+            return template;
+        }
+        if (DiagnosisTemplateStatus.PUBLISHED.name().equals(template.getStatus())
+                && SHARE_SCOPE_PUBLIC.equals(template.getShareScope())) {
+            return template;
+        }
+        throw new BusinessException(ResultCode.FORBIDDEN, "You do not have permission to view this diagnosis template", 403);
     }
 
     private DiagnosisTemplateEntity requireTemplate(Long templateId) {
@@ -548,6 +640,18 @@ public class DiagnosisTemplateService {
                 .collect(Collectors.toMap(TeachingClassEntity::getId, teachingClass -> teachingClass));
     }
 
+    private Map<Long, UserEntity> loadUserMap(Collection<Long> userIds) {
+        Set<Long> normalizedIds = userIds == null ? Set.of() : userIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (normalizedIds.isEmpty()) {
+            return Map.of();
+        }
+        return userMapper.selectBatchIds(normalizedIds).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(UserEntity::getId, user -> user));
+    }
+
     private Long resolveTargetClassId(Long targetClassId) {
         if (targetClassId == null) {
             return null;
@@ -579,6 +683,17 @@ public class DiagnosisTemplateService {
             return "RULE_V1";
         }
         return value.trim();
+    }
+
+    private String resolveShareScope(String value) {
+        if (value == null || value.isBlank()) {
+            return SHARE_SCOPE_PRIVATE;
+        }
+        String normalized = value.trim().toUpperCase();
+        if (SHARE_SCOPE_PRIVATE.equals(normalized) || SHARE_SCOPE_PUBLIC.equals(normalized)) {
+            return normalized;
+        }
+        throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported diagnosis template share scope: " + value, 400);
     }
 
     private DiagnosisTemplateStatus parseTemplateStatus(String value) {

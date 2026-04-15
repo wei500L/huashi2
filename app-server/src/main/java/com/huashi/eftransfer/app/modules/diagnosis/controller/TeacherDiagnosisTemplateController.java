@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.modules.diagnosis.controller;
 
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplatePageQuery;
+import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateShareUpdateRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.DiagnosisTemplateUpsertRequest;
 import com.huashi.eftransfer.app.modules.diagnosis.service.DiagnosisTemplateService;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisTemplateDeleteResultVO;
@@ -47,9 +48,22 @@ public class TeacherDiagnosisTemplateController {
         return ApiResponse.success(diagnosisTemplateService.pageQuery(query), MDC.get("traceId"));
     }
 
+    @GetMapping("/market")
+    public ApiResponse<PageResult<DiagnosisTemplateSummaryVO>> marketQuery(@Valid @ModelAttribute DiagnosisTemplatePageQuery query) {
+        return ApiResponse.success(diagnosisTemplateService.pageMarketQuery(query), MDC.get("traceId"));
+    }
+
     @GetMapping("/{templateId}")
     public ApiResponse<DiagnosisTemplateDetailVO> getDetail(@PathVariable Long templateId) {
         return ApiResponse.success(diagnosisTemplateService.getDetail(templateId), MDC.get("traceId"));
+    }
+
+    @PutMapping("/{templateId}/sharing")
+    public ApiResponse<DiagnosisTemplateDetailVO> updateSharing(
+            @PathVariable Long templateId,
+            @Valid @RequestBody DiagnosisTemplateShareUpdateRequest request
+    ) {
+        return ApiResponse.success(diagnosisTemplateService.updateSharing(templateId, request.shareScope()), MDC.get("traceId"));
     }
 
     @DeleteMapping("/{templateId}")

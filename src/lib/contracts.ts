@@ -296,7 +296,9 @@ export interface DiagnosisTemplateSummaryVO {
   itemCount: number;
   estimatedDurationMinutes: number;
   scoringVersion: string;
+  shareScope: string;
   ownerUserId: number;
+  ownerDisplayName?: string | null;
   updatedAt: string;
 }
 
@@ -381,7 +383,9 @@ export interface DiagnosisTemplateDetailVO {
   estimatedDurationMinutes: number;
   scoringVersion: string;
   itemCount: number;
+  shareScope: string;
   ownerUserId: number;
+  ownerDisplayName?: string | null;
   createdAt: string;
   updatedAt: string;
   items: DiagnosisTemplateItemVO[];
@@ -393,6 +397,7 @@ export interface DiagnosisTemplateDraftBasicVO {
   publishTarget?: string | null;
   estimatedDurationMinutes: number;
   targetClassId?: number | null;
+  shareScope?: string | null;
   scoringVersion: string;
 }
 
@@ -460,6 +465,7 @@ export interface DiagnosisTemplateDraftBasicRequest {
   publishTarget?: string | null;
   estimatedDurationMinutes: number;
   targetClassId?: number | null;
+  shareScope?: string | null;
   scoringVersion: string;
 }
 
@@ -491,6 +497,10 @@ export interface DiagnosisTemplateDeleteResultVO {
   templateId: number;
   outcome: 'DELETED' | 'ARCHIVED';
   status?: string | null;
+}
+
+export interface DiagnosisTemplateShareUpdateRequest {
+  shareScope: string;
 }
 
 export interface DiagnosisHistorySummaryVO {
@@ -1543,6 +1553,7 @@ export interface DiagnosisTemplateUpsertRequest {
   status: string;
   estimatedDurationMinutes: number;
   targetClassId?: number | null;
+  shareScope?: string | null;
   scoringVersion: string;
   items: DiagnosisTemplateItemRequest[];
 }

@@ -35,6 +35,7 @@ function toRequestSchema(detail: NonNullable<Awaited<ReturnType<typeof diagnosis
       publishTarget: detail.basic.publishTarget || 'SELF',
       estimatedDurationMinutes: detail.basic.estimatedDurationMinutes || 10,
       targetClassId: detail.basic.targetClassId ?? null,
+      shareScope: detail.basic.shareScope || 'PRIVATE',
       scoringVersion: detail.basic.scoringVersion || 'RULE_V1',
     },
     items: detail.items.map((item) => ({
@@ -586,6 +587,17 @@ const TemplateDraftEditorPage: React.FC = () => {
               />
             </label>
             <label className="block">
+              <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">教师共享</div>
+              <select
+                value={schema.basic.shareScope || 'PRIVATE'}
+                onChange={(event) => updateBasicField('shareScope', event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+              >
+                <option value="PRIVATE">私有，仅自己管理</option>
+                <option value="PUBLIC">公开到模板市场</option>
+              </select>
+            </label>
+            <label className="block">
               <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">发布目标</div>
               <select
                 value={schema.basic.publishTarget || 'SELF'}
@@ -992,6 +1004,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                 <div>模板名称：{schema.basic.templateName || '--'}</div>
                 <div>描述：{schema.basic.description || '--'}</div>
                 <div>预计时长：{schema.basic.estimatedDurationMinutes} 分钟</div>
+                <div>教师共享：{schema.basic.shareScope === 'PUBLIC' ? '公开到模板市场' : '私有'}</div>
                 <div>计分版本：{schema.basic.scoringVersion}</div>
               </div>
             </div>

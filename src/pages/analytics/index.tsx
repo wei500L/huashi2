@@ -1,11 +1,13 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, Filter } from 'lucide-react';
+import { Download, FileText, Filter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { StudentAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow } from '@/components/common';
 import { saveBlob } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
+import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { studentService } from '@/lib/services';
 import {
   buildHeatmapOption,
@@ -20,6 +22,10 @@ import {
 const AnalyticsPage: React.FC = () => {
   const { t } = useTranslation();
   const [range, setRange] = React.useState<'7d' | '30d'>('30d');
+  const [reportErrorMessage, setReportErrorMessage] = React.useState<string | null>(null);
+  const [isPdfExporting, setIsPdfExporting] = React.useState(false);
+  const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
+  const reportRef = React.useRef<HTMLDivElement | null>(null);
 
   const overviewQuery = useQuery({
     queryKey: ['student-overview'],
@@ -87,9 +93,34 @@ const AnalyticsPage: React.FC = () => {
   };
 
   const handleExport = async () => {
-    const blob = await studentService.exportCsv(range);
-    saveBlob(blob, `student-analytics-${range}.csv`);
+    try {
+      setReportErrorMessage(null);
+      const blob = await studentService.exportCsv(range);
+      saveBlob(blob, `student-analytics-${range}.csv`);
+    } catch (error) {
+      setReportErrorMessage(error instanceof Error ? error.message : 'CSV 导出失败');
+    }
   };
+
+  const handlePdfExport = async () => {
+    try {
+      setIsPdfExporting(true);
+      setReportErrorMessage(null);
+      setReportGeneratedAt(new Date().toISOString());
+      await exportReportPagesToPdf(reportRef.current, `student-analytics-${range}-report.pdf`);
+    } catch (error) {
+      setReportErrorMessage(error instanceof Error ? error.message : 'PDF 报告导出失败');
+    } finally {
+      setIsPdfExporting(false);
+      setReportGeneratedAt(null);
+    }
+  };
+
+  const canExportPdf =
+    Boolean(overviewQuery.data) &&
+    Boolean(trendsQuery.data) &&
+    Boolean(heatmapQuery.data) &&
+    Boolean(scatterQuery.data);
 
   return (
     <div className="space-y-10 pb-20">
@@ -98,7 +129,7 @@ const AnalyticsPage: React.FC = () => {
         title={t('analytics.title')}
         subtitle={t('analytics.subtitle')}
         actions={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <div className="flex gap-2 rounded-full border border-slate-200 dark:border-white/10 p-1">
               {(['7d', '30d'] as const).map((value) => (
                 <button
@@ -113,12 +144,28 @@ const AnalyticsPage: React.FC = () => {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => void handleExport()} className="btn-liquid px-5 py-3 text-white flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handlePdfExport()}
+              disabled={!canExportPdf || isPdfExporting}
+              className="btn-liquid flex items-center gap-2 px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FileText size={14} /> {isPdfExporting ? t('common.actions.exportingPdf') : t('common.actions.exportPdf')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/80"
+            >
               <Download size={14} /> {t('common.actions.exportCsv')}
             </button>
           </div>
         }
       />
+
+      {reportErrorMessage && (
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{reportErrorMessage}</div>
+      )}
 
       {overviewQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{overviewQuery.error.message}</div>
@@ -227,6 +274,20 @@ const AnalyticsPage: React.FC = () => {
           </div>
         </section>
       )}
+
+      {reportGeneratedAt ? (
+        <StudentAnalyticsPdfReport
+          reportRef={reportRef}
+          range={range}
+          generatedAt={reportGeneratedAt}
+          overview={overviewQuery.data}
+          trend={trendsQuery.data}
+          heatmap={heatmapQuery.data}
+          scatter={scatterQuery.data}
+          highRiskPairs={highRiskPairsQuery.data}
+          errorDistribution={errorDistributionQuery.data}
+        />
+      ) : null}
     </div>
   );
 };

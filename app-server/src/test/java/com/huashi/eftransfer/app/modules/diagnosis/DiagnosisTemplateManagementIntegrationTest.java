@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -115,6 +117,119 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                         .with(bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ARCHIVED"));
+    }
+
+    @Test
+    void shouldExposePublicTemplatesInMarketAndCloneWithoutOverwritingSource() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        String ownerToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+
+        mockMvc.perform(post("/api/admin/users")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "teacher.market",
+                                  "email": "teacher.market@example.com",
+                                  "displayName": "市场教师",
+                                  "initialPassword": "Teacher@123456",
+                                  "enabled": true,
+                                  "roles": ["TEACHER"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("teacher.market"));
+        String marketTeacherToken = loginAndGetAccessToken("teacher.market", "Teacher@123456");
+
+        long tablePairId = createLexicalPair(ownerToken, """
+                {
+                  "englishWord": "table",
+                  "frenchWord": "table",
+                  "chineseGloss": "桌子",
+                  "lexicalPairType": "cognate",
+                  "semanticOverlapScore": 0.95,
+                  "falseFriendRisk": 0.05,
+                  "defaultContextSupport": "low",
+                  "difficultyLevel": 1,
+                  "active": true,
+                  "tags": ["basic"]
+                }
+                """);
+        long coinPairId = createLexicalPair(ownerToken, """
+                {
+                  "englishWord": "coin",
+                  "frenchWord": "coin",
+                  "chineseGloss": "硬币；角落",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.10,
+                  "falseFriendRisk": 0.92,
+                  "defaultContextSupport": "medium",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend"]
+                }
+                """);
+        long actuallyPairId = createLexicalPair(ownerToken, """
+                {
+                  "englishWord": "actually",
+                  "frenchWord": "actuellement",
+                  "chineseGloss": "实际上；目前",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.20,
+                  "falseFriendRisk": 0.88,
+                  "defaultContextSupport": "high",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend", "context"]
+                }
+                """);
+
+        long sourceTemplateId = createPublishedTemplate(
+                ownerToken,
+                tablePairId,
+                coinPairId,
+                actuallyPairId,
+                "Shared template",
+                null,
+                "PUBLIC"
+        );
+
+        mockMvc.perform(get("/api/teacher/diagnosis-templates/market")
+                        .with(bearer(marketTeacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value((int) sourceTemplateId))
+                .andExpect(jsonPath("$.data.records[0].shareScope").value("PUBLIC"))
+                .andExpect(jsonPath("$.data.records[0].ownerDisplayName").value("张老师"));
+
+        MvcResult draftResult = mockMvc.perform(post("/api/teacher/diagnosis-template-drafts/from-template/{templateId}", sourceTemplateId)
+                        .with(bearer(marketTeacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sourceTemplateId").value((int) sourceTemplateId))
+                .andReturn();
+        long draftId = readJson(draftResult).path("data").path("draftId").asLong();
+        assertTrue(readJson(draftResult).path("data").path("publishedTemplateId").isNull());
+
+        MvcResult publishResult = mockMvc.perform(post("/api/teacher/diagnosis-template-drafts/{draftId}/publish", draftId)
+                        .with(bearer(marketTeacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ownerDisplayName").value("市场教师"))
+                .andReturn();
+        long clonedTemplateId = readJson(publishResult).path("data").path("id").asLong();
+        assertNotEquals(sourceTemplateId, clonedTemplateId);
+
+        mockMvc.perform(get("/api/teacher/diagnosis-templates/{templateId}", sourceTemplateId)
+                        .with(bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.templateName").value("Shared template"))
+                .andExpect(jsonPath("$.data.ownerDisplayName").value("张老师"))
+                .andExpect(jsonPath("$.data.shareScope").value("PUBLIC"));
+
+        mockMvc.perform(get("/api/teacher/diagnosis-templates/{templateId}", clonedTemplateId)
+                        .with(bearer(marketTeacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.templateName").value("Shared template"))
+                .andExpect(jsonPath("$.data.ownerDisplayName").value("市场教师"));
     }
 
     @Test
@@ -360,7 +475,7 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
             long actuallyPairId,
             String templateName
     ) throws Exception {
-        return createPublishedTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId, templateName, null);
+        return createPublishedTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId, templateName, null, null);
     }
 
     private long createPublishedTemplate(
@@ -370,6 +485,18 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
             long actuallyPairId,
             String templateName,
             Long targetClassId
+    ) throws Exception {
+        return createPublishedTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId, templateName, targetClassId, null);
+    }
+
+    private long createPublishedTemplate(
+            String teacherToken,
+            long tablePairId,
+            long coinPairId,
+            long actuallyPairId,
+            String templateName,
+            Long targetClassId,
+            String shareScope
     ) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/teacher/diagnosis-templates")
                         .with(bearer(teacherToken))
@@ -381,6 +508,7 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                                   "status": "published",
                                   "estimatedDurationMinutes": 8,
                                   "targetClassId": %s,
+                                  "shareScope": %s,
                                   "scoringVersion": "RULE_V1",
                                   "items": [
                                     {
@@ -440,7 +568,14 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                                     }
                                   ]
                                 }
-                                """.formatted(templateName, targetClassId == null ? "null" : targetClassId, tablePairId, coinPairId, actuallyPairId)))
+                                """.formatted(
+                                        templateName,
+                                        targetClassId == null ? "null" : targetClassId,
+                                        shareScope == null ? "null" : "\"" + shareScope + "\"",
+                                        tablePairId,
+                                        coinPairId,
+                                        actuallyPairId
+                                )))
                 .andExpect(status().isOk())
                 .andReturn();
         return readJson(result).path("data").asLong();

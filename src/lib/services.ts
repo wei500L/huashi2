@@ -20,6 +20,7 @@ import type {
   DiagnosisTemplateDraftSaveRequest,
   DiagnosisTemplateDraftSummaryVO,
   DiagnosisTemplateDraftValidationResponseVO,
+  DiagnosisTemplateShareUpdateRequest,
   DiagnosisTemplateSummaryVO,
   LexicalListDetailVO,
   LexicalListItemVO,
@@ -158,6 +159,8 @@ export const diagnosisTemplateService = {
     apiGet<PageResult<DiagnosisTemplateSummaryVO>>('/student/diagnosis-templates', { ...options, params }),
   listTeacherTemplates: (params: { pageNo?: number; pageSize?: number; keyword?: string; status?: string; mineOnly?: boolean }, options?: RequestOptions) =>
     apiGet<PageResult<DiagnosisTemplateSummaryVO>>('/teacher/diagnosis-templates', { ...options, params }),
+  listMarketTemplates: (params: { pageNo?: number; pageSize?: number; keyword?: string }, options?: RequestOptions) =>
+    apiGet<PageResult<DiagnosisTemplateSummaryVO>>('/teacher/diagnosis-templates/market', { ...options, params }),
   listDrafts: (params: { pageNo?: number; pageSize?: number; keyword?: string }, options?: RequestOptions) =>
     apiGet<PageResult<DiagnosisTemplateDraftSummaryVO>>('/teacher/diagnosis-template-drafts', { ...options, params }),
   createDraft: () => apiPost<DiagnosisTemplateDraftDetailVO>('/teacher/diagnosis-template-drafts'),
@@ -178,6 +181,8 @@ export const diagnosisTemplateService = {
     apiPost<number>('/teacher/diagnosis-templates', payload),
   updateTeacherTemplate: (templateId: number, payload: DiagnosisTemplateUpsertRequest) =>
     apiPut<number>(`/teacher/diagnosis-templates/${templateId}`, payload),
+  updateTeacherTemplateSharing: (templateId: number, payload: DiagnosisTemplateShareUpdateRequest) =>
+    apiPut<DiagnosisTemplateDetailVO>(`/teacher/diagnosis-templates/${templateId}/sharing`, payload),
   deleteTeacherTemplate: (templateId: number) =>
     apiDelete<DiagnosisTemplateDeleteResultVO>(`/teacher/diagnosis-templates/${templateId}`),
 };

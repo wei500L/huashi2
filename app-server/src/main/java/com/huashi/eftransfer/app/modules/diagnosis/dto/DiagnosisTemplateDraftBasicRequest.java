@@ -11,6 +11,8 @@ public record DiagnosisTemplateDraftBasicRequest(
         String publishTarget,
         Integer estimatedDurationMinutes,
         Long targetClassId,
+        @Size(max = 16, message = "shareScope must be less than or equal to 16 characters")
+        String shareScope,
         @Size(max = 32, message = "scoringVersion must be less than or equal to 32 characters")
         String scoringVersion
 ) {

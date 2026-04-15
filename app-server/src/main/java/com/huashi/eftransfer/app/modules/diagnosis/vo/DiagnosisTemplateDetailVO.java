@@ -13,7 +13,9 @@ public record DiagnosisTemplateDetailVO(
         Integer estimatedDurationMinutes,
         String scoringVersion,
         Integer itemCount,
+        String shareScope,
         Long ownerUserId,
+        String ownerDisplayName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         List<DiagnosisTemplateItemVO> items

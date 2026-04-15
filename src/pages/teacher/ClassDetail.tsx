@@ -1,14 +1,16 @@
 import React from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, PencilLine, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { Download, FileText, PencilLine, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ClassAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
 import { saveBlob } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
+import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { teacherAnalyticsService, teacherClassService } from '@/lib/services';
-import { buildHeatmapOption, buildRadarOption, buildTrendOption, formatDateTime, formatMaybePercent, formatMs, trainingModeLabel } from '@/lib/format';
+import { buildHeatmapOption, buildRadarOption, buildTrendOption, formatDateTime, formatMaybePercent, formatMs } from '@/lib/format';
 
 const TeacherClassDetailPage: React.FC = () => {
   const { t } = useTranslation();
@@ -24,6 +26,10 @@ const TeacherClassDetailPage: React.FC = () => {
   const [selectedStudentIds, setSelectedStudentIds] = React.useState<number[]>([]);
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [exportErrorMessage, setExportErrorMessage] = React.useState<string | null>(null);
+  const [isPdfExporting, setIsPdfExporting] = React.useState(false);
+  const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
+  const reportRef = React.useRef<HTMLDivElement | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['teacher-class-detail', classId],
@@ -159,8 +165,27 @@ const TeacherClassDetailPage: React.FC = () => {
   };
 
   const handleExport = async () => {
-    const blob = await teacherAnalyticsService.exportClassCsv(classId);
-    saveBlob(blob, `class-${classId}-analytics.csv`);
+    try {
+      setExportErrorMessage(null);
+      const blob = await teacherAnalyticsService.exportClassCsv(classId);
+      saveBlob(blob, `class-${classId}-analytics.csv`);
+    } catch (error) {
+      setExportErrorMessage(error instanceof Error ? error.message : 'CSV 导出失败');
+    }
+  };
+
+  const handlePdfExport = async () => {
+    try {
+      setIsPdfExporting(true);
+      setExportErrorMessage(null);
+      setReportGeneratedAt(new Date().toISOString());
+      await exportReportPagesToPdf(reportRef.current, `class-${classId}-analytics-report.pdf`);
+    } catch (error) {
+      setExportErrorMessage(error instanceof Error ? error.message : 'PDF 报告导出失败');
+    } finally {
+      setIsPdfExporting(false);
+      setReportGeneratedAt(null);
+    }
   };
 
   const handleArchive = () => {
@@ -180,6 +205,9 @@ const TeacherClassDetailPage: React.FC = () => {
   };
 
   const managementErrorMessage = React.useMemo(() => {
+    if (exportErrorMessage) {
+      return exportErrorMessage;
+    }
     if (errorMessage) {
       return errorMessage;
     }
@@ -187,7 +215,14 @@ const TeacherClassDetailPage: React.FC = () => {
       return detailQuery.error.message;
     }
     return null;
-  }, [detailQuery.error, errorMessage]);
+  }, [detailQuery.error, errorMessage, exportErrorMessage]);
+
+  const canExportPdf =
+    hasValidClassId &&
+    Boolean(detailQuery.data) &&
+    Boolean(overviewQuery.data) &&
+    Boolean(heatmapQuery.data) &&
+    Boolean(completionRateQuery.data);
 
   return (
     <div className="space-y-10 pb-20">
@@ -203,7 +238,19 @@ const TeacherClassDetailPage: React.FC = () => {
           .join(' · ')}
         actions={
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => void handleExport()} className="btn-liquid flex items-center gap-2 px-5 py-3 text-white">
+            <button
+              type="button"
+              onClick={() => void handlePdfExport()}
+              disabled={!canExportPdf || isPdfExporting}
+              className="btn-liquid flex items-center gap-2 px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FileText size={14} /> {isPdfExporting ? t('common.actions.exportingPdf') : t('common.actions.exportPdf')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/80"
+            >
               <Download size={14} /> {t('common.actions.exportCsv')}
             </button>
             <button
@@ -439,6 +486,20 @@ const TeacherClassDetailPage: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {reportGeneratedAt ? (
+        <ClassAnalyticsPdfReport
+          reportRef={reportRef}
+          generatedAt={reportGeneratedAt}
+          detail={detailQuery.data}
+          overview={overviewQuery.data}
+          riskDistribution={riskDistributionQuery.data}
+          heatmap={heatmapQuery.data}
+          errorDistribution={errorDistributionQuery.data}
+          completionRate={completionRateQuery.data}
+          students={analyticsStudentsQuery.data}
+        />
+      ) : null}
     </div>
   );
 };

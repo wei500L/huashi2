@@ -55,6 +55,7 @@ public class DiagnosisTemplateDraftService {
 
     private static final String DEFAULT_TEMPLATE_NAME = "未命名模板草稿";
     private static final String DEFAULT_PUBLISH_TARGET = "SELF";
+    private static final String DEFAULT_SHARE_SCOPE = "PRIVATE";
     private static final String CLASS_PUBLISH_TARGET = "CLASS";
     private static final String DEFAULT_SCORING_VERSION = "RULE_V1";
     private static final String STEP_BASIC_INFO = "BASIC_INFO";
@@ -134,17 +135,18 @@ public class DiagnosisTemplateDraftService {
         }
 
         DiagnosisTemplateDetailVO template = diagnosisTemplateService.getDetail(templateId);
+        boolean manageableSource = diagnosisTemplateService.canManageTemplate(templateId);
         DiagnosisTemplateDraftSchemaVO schema = schemaFromTemplate(template);
         DiagnosisTemplateDraftEntity entity = new DiagnosisTemplateDraftEntity();
         entity.setOwnerUserId(currentUserId());
         entity.setSourceTemplateId(templateId);
-        entity.setPublishedTemplateId(templateId);
+        entity.setPublishedTemplateId(manageableSource ? templateId : null);
         entity.setTemplateName(template.templateName());
         entity.setDescription(template.description());
         entity.setPublishTarget(template.targetClassId() == null ? DEFAULT_PUBLISH_TARGET : CLASS_PUBLISH_TARGET);
         entity.setEstimatedDurationMinutes(template.estimatedDurationMinutes());
         entity.setScoringVersion(template.scoringVersion());
-        entity.setSyncState("IN_SYNC");
+        entity.setSyncState(manageableSource ? "IN_SYNC" : "DIRTY");
         entity.setVersion(1L);
         entity.setSchemaJson(writeSchema(schema));
         diagnosisTemplateDraftMapper.insert(entity);
@@ -197,7 +199,7 @@ public class DiagnosisTemplateDraftService {
         Long templateId = entity.getPublishedTemplateId();
         if (templateId != null) {
             diagnosisTemplateService.update(templateId, payload);
-        } else if (entity.getSourceTemplateId() != null) {
+        } else if (entity.getSourceTemplateId() != null && diagnosisTemplateService.canManageTemplate(entity.getSourceTemplateId())) {
             templateId = entity.getSourceTemplateId();
             diagnosisTemplateService.update(templateId, payload);
         } else {
@@ -263,7 +265,7 @@ public class DiagnosisTemplateDraftService {
 
     private DiagnosisTemplateDraftSchemaVO blankSchema() {
         return new DiagnosisTemplateDraftSchemaVO(
-                new DiagnosisTemplateDraftBasicVO(DEFAULT_TEMPLATE_NAME, null, DEFAULT_PUBLISH_TARGET, 10, null, DEFAULT_SCORING_VERSION),
+                new DiagnosisTemplateDraftBasicVO(DEFAULT_TEMPLATE_NAME, null, DEFAULT_PUBLISH_TARGET, 10, null, DEFAULT_SHARE_SCOPE, DEFAULT_SCORING_VERSION),
                 List.of()
         );
     }
@@ -279,6 +281,7 @@ public class DiagnosisTemplateDraftService {
                         template.targetClassId() == null ? DEFAULT_PUBLISH_TARGET : CLASS_PUBLISH_TARGET,
                         template.estimatedDurationMinutes(),
                         template.targetClassId(),
+                        template.shareScope(),
                         template.scoringVersion()
                 ),
                 items
@@ -332,6 +335,7 @@ public class DiagnosisTemplateDraftService {
                         basicRequest == null ? null : basicRequest.publishTarget(),
                         basicRequest == null ? null : basicRequest.targetClassId()
                 ),
+                normalizeShareScope(basicRequest == null ? null : basicRequest.shareScope()),
                 normalizeScoringVersion(basicRequest == null ? null : basicRequest.scoringVersion())
         );
         List<DiagnosisTemplateDraftItemVO> items = (request.schema().items() == null ? List.<DiagnosisTemplateDraftItemRequest>of() : request.schema().items())
@@ -610,6 +614,7 @@ public class DiagnosisTemplateDraftService {
                 status,
                 schema.basic().estimatedDurationMinutes(),
                 schema.basic().targetClassId(),
+                schema.basic().shareScope(),
                 schema.basic().scoringVersion(),
                 items
         );
@@ -705,6 +710,13 @@ public class DiagnosisTemplateDraftService {
 
     private String normalizeScoringVersion(String value) {
         return hasText(value) ? value.trim() : DEFAULT_SCORING_VERSION;
+    }
+
+    private String normalizeShareScope(String value) {
+        if (!hasText(value)) {
+            return DEFAULT_SHARE_SCOPE;
+        }
+        return "PUBLIC".equalsIgnoreCase(value.trim()) ? "PUBLIC" : DEFAULT_SHARE_SCOPE;
     }
 
     private String normalizeDraftItemId(String value) {

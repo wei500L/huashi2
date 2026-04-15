@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight, BookOpen, Brain, Clock3, FileText, Flame, Re
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
+import { OnboardingTour, useOnboardingTour } from '@/features/onboarding';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
 import {
@@ -23,6 +24,7 @@ import {
 import { assessmentService, studentService, trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
 import type { StudentAchievementBadgeVO, StudentAnalyticsOverviewVO, StudentAssessmentSummaryVO } from '@/lib/contracts';
+import { useAuthStore } from '@/store';
 import type { LucideIcon } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
@@ -131,6 +133,7 @@ const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [dailyTrainingTargetInput, setDailyTrainingTargetInput] = React.useState('');
   const [weeklyAccuracyTargetInput, setWeeklyAccuracyTargetInput] = React.useState('');
   const [goalErrorMessage, setGoalErrorMessage] = React.useState<string | null>(null);
@@ -206,6 +209,43 @@ const DashboardPage: React.FC = () => {
       ? t('ui.meta.accuracyAhead', { count: learningGoal.weeklyAccuracyDelta.toFixed(1) })
       : t('ui.meta.accuracyGap', { count: Math.abs(learningGoal.weeklyAccuracyDelta).toFixed(1) });
   const now = Date.now();
+  const studentOnboarding = useOnboardingTour({
+    tourId: 'student-dashboard',
+    userId: user?.id,
+  });
+  const onboardingSteps = React.useMemo(
+    () => [
+      {
+        id: 'quick-start',
+        selector: '[data-onboarding="student-dashboard-quick-start"]',
+        title: t('ui.onboarding.studentDashboard.quickStart.title'),
+        description: t('ui.onboarding.studentDashboard.quickStart.description'),
+        placement: 'bottom' as const,
+      },
+      {
+        id: 'learning-goals',
+        selector: '[data-onboarding="student-dashboard-learning-goals"]',
+        title: t('ui.onboarding.studentDashboard.learningGoals.title'),
+        description: t('ui.onboarding.studentDashboard.learningGoals.description'),
+        placement: 'top' as const,
+      },
+      {
+        id: 'recommended-plan',
+        selector: '[data-onboarding="student-dashboard-recommended-plan"]',
+        title: t('ui.onboarding.studentDashboard.recommendedPlan.title'),
+        description: t('ui.onboarding.studentDashboard.recommendedPlan.description'),
+        placement: 'left' as const,
+      },
+      {
+        id: 'review-schedule',
+        selector: '[data-onboarding="student-dashboard-review-schedule"]',
+        title: t('ui.onboarding.studentDashboard.reviewSchedule.title'),
+        description: t('ui.onboarding.studentDashboard.reviewSchedule.description'),
+        placement: 'top' as const,
+      },
+    ],
+    [t]
+  );
 
   React.useEffect(() => {
     if (!learningGoal || isGoalDirty) {
@@ -276,9 +316,11 @@ const DashboardPage: React.FC = () => {
         title={t('dashboard.title')}
         subtitle={t('dashboard.subtitle')}
         actions={
-          <button onClick={() => navigate('/diagnosis')} className="btn-liquid px-6 py-3 text-white">
-            {t('common.actions.startDiagnosis')}
-          </button>
+          <div data-onboarding="student-dashboard-quick-start">
+            <button onClick={() => navigate('/diagnosis')} className="btn-liquid px-6 py-3 text-white">
+              {t('common.actions.startDiagnosis')}
+            </button>
+          </div>
         }
       />
 
@@ -411,7 +453,7 @@ const DashboardPage: React.FC = () => {
         )}
       </section>
 
-      <section className="liquid-glass-panel rounded-[2.8rem] p-8">
+      <section data-onboarding="student-dashboard-learning-goals" className="liquid-glass-panel rounded-[2.8rem] p-8">
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <SectionEyebrow>{t('ui.sections.learningGoals')}</SectionEyebrow>
@@ -596,7 +638,7 @@ const DashboardPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="liquid-glass-panel rounded-[2.5rem] p-8">
+        <section data-onboarding="student-dashboard-recommended-plan" className="liquid-glass-panel rounded-[2.5rem] p-8">
           <SectionEyebrow className="mb-4">{t('ui.sections.recommendedPlan')}</SectionEyebrow>
           {recommendedPlanQuery.data ? (
             <div className="space-y-4">
@@ -783,7 +825,7 @@ const DashboardPage: React.FC = () => {
           )}
         </section>
 
-        <section className="liquid-glass-panel rounded-[2.5rem] p-8">
+        <section data-onboarding="student-dashboard-review-schedule" className="liquid-glass-panel rounded-[2.5rem] p-8">
           <div className="mb-6 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Brain size={16} className="text-primary" />
@@ -858,6 +900,12 @@ const DashboardPage: React.FC = () => {
           )}
         </section>
       </div>
+
+      <OnboardingTour
+        open={studentOnboarding.isOpen}
+        steps={onboardingSteps}
+        onComplete={studentOnboarding.complete}
+      />
     </div>
   );
 };

@@ -12,7 +12,9 @@ public record DiagnosisTemplateSummaryVO(
         Integer itemCount,
         Integer estimatedDurationMinutes,
         String scoringVersion,
+        String shareScope,
         Long ownerUserId,
+        String ownerDisplayName,
         LocalDateTime updatedAt
 ) {
 }

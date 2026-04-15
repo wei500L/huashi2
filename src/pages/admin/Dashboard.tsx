@@ -15,10 +15,12 @@ import {
 import { Link } from 'react-router-dom';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
+import { OnboardingTour, useOnboardingTour } from '@/features/onboarding';
 import { getApiErrorMessage } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
 import { formatDateTime } from '@/lib/format';
 import { adminService } from '@/lib/services';
+import { useAuthStore } from '@/store';
 
 const integerFormatter = new Intl.NumberFormat('zh-CN');
 const percentFormatter = new Intl.NumberFormat('zh-CN', {
@@ -191,9 +193,14 @@ function buildSceneOption(data: Array<{ scene: string; count: number }>): AppCha
 }
 
 const AdminDashboardPage: React.FC = () => {
+  const user = useAuthStore((state) => state.user);
   const dashboardQuery = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: ({ signal }) => adminService.getDashboard({ signal }),
+  });
+  const adminOnboarding = useOnboardingTour({
+    tourId: 'admin-dashboard',
+    userId: user?.id,
   });
 
   const overview = dashboardQuery.data?.overview;
@@ -215,6 +222,39 @@ const AdminDashboardPage: React.FC = () => {
     ],
     [overview]
   );
+  const onboardingSteps = React.useMemo(
+    () => [
+      {
+        id: 'header-actions',
+        selector: '[data-onboarding="admin-dashboard-actions"]',
+        title: '后台入口导航',
+        description: '首页顶部保留了管理员最常用的三个操作入口，先从用户管理、语料库管理和配置中心进入核心维护流程。',
+        placement: 'bottom' as const,
+      },
+      {
+        id: 'overview',
+        selector: '[data-onboarding="admin-dashboard-overview"]',
+        title: '全局运行概览',
+        description: '这一块先看平台总体体量和最近刷新时间，方便你判断当前数据是否足够新、是否需要继续排查异常。',
+        placement: 'bottom' as const,
+      },
+      {
+        id: 'stats',
+        selector: '[data-onboarding="admin-dashboard-stats"]',
+        title: '关键指标卡片',
+        description: '这里汇总了用户活跃、学习闭环完成量和 AI 调用情况，适合快速筛出是否是增长问题、教学问题还是系统稳定性问题。',
+        placement: 'bottom' as const,
+      },
+      {
+        id: 'ai-observability',
+        selector: '[data-onboarding="admin-dashboard-ai"]',
+        title: 'AI 监控区域',
+        description: '最后看 AI 调用量、错误率和场景分布。若回退率上升，优先联动配置中心检查模型、密钥和限流配置。',
+        placement: 'top' as const,
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-10 pb-20">
@@ -223,7 +263,7 @@ const AdminDashboardPage: React.FC = () => {
         title="管理员仪表盘"
         subtitle="统一查看用户增长、登录活跃、学习闭环完成量，以及 AI 调用与回退情况。"
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div data-onboarding="admin-dashboard-actions" className="flex flex-wrap gap-3">
             <Link
               to="/admin/users"
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
@@ -255,7 +295,7 @@ const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
+      <section data-onboarding="admin-dashboard-overview" className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
         <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <SectionEyebrow>全局概览</SectionEyebrow>
@@ -276,7 +316,7 @@ const AdminDashboardPage: React.FC = () => {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div data-onboarding="admin-dashboard-stats" className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
         {statCards.map((card) => (
           <StatCard key={card.title} title={card.title} value={card.value} icon={card.icon} color={card.color} />
         ))}
@@ -301,7 +341,7 @@ const AdminDashboardPage: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+      <div data-onboarding="admin-dashboard-ai" className="grid grid-cols-1 gap-8 xl:grid-cols-[1.2fr_0.8fr]">
         <ChartCard
           title="AI 调用量与错误率"
           option={buildAiOption(aiTrend)}
@@ -355,6 +395,12 @@ const AdminDashboardPage: React.FC = () => {
           </div>
         </section>
       </div>
+
+      <OnboardingTour
+        open={adminOnboarding.isOpen}
+        steps={onboardingSteps}
+        onComplete={adminOnboarding.complete}
+      />
     </div>
   );
 };
