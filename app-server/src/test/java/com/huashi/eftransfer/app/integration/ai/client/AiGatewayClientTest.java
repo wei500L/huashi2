@@ -354,7 +354,13 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        AiGatewayCallResult<RagAnswerResponse> response = aiGatewayClient.ragAnswer(new RagAnswerRequest("Why is coin/coin risky?", null, null));
+        AiGatewayCallResult<RagAnswerResponse> response = aiGatewayClient.ragAnswer(new RagAnswerRequest(
+                "Why is coin/coin risky?",
+                null,
+                null,
+                null,
+                null
+        ));
 
         assertThat(response.success()).isTrue();
         assertThat(response.data().grounded()).isTrue();
@@ -407,6 +413,8 @@ class AiGatewayClientTest {
         AiGatewayCallResult<RagRetrieveResponse> response = aiGatewayClient.ragRetrieve(new RagRetrieveRequest(
                 "What is the difference between coin and coin?",
                 List.of("LEXICAL_PAIR"),
+                null,
+                null,
                 null
         ));
 
@@ -544,7 +552,9 @@ class AiGatewayClientTest {
         AiGatewayCallResult<RagAnswerResponse> response = aiGatewayClient.ragAnswer(new RagAnswerRequest(
                 "Why is coin/coin risky?",
                 List.of("TRAINING_GUIDE"),
-                List.of()
+                List.of(),
+                null,
+                null
         ));
 
         assertThat(response.success()).isFalse();

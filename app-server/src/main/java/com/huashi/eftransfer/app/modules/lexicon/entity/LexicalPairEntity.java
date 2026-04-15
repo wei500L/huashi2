@@ -24,6 +24,8 @@ public class LexicalPairEntity extends BaseAuditEntity {
     private String notes;
     private String source;
     private String searchableText;
+    private String searchPinyin;
+    private String searchInitials;
     private String knowledgeStatus;
     private String embeddingStatus;
 
@@ -118,6 +120,22 @@ public class LexicalPairEntity extends BaseAuditEntity {
 
     public void setSearchableText(String searchableText) {
         this.searchableText = searchableText;
+    }
+
+    public String getSearchPinyin() {
+        return searchPinyin;
+    }
+
+    public void setSearchPinyin(String searchPinyin) {
+        this.searchPinyin = searchPinyin;
+    }
+
+    public String getSearchInitials() {
+        return searchInitials;
+    }
+
+    public void setSearchInitials(String searchInitials) {
+        this.searchInitials = searchInitials;
     }
 
     public String getKnowledgeStatus() {

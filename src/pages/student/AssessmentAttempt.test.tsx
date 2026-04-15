@@ -34,6 +34,8 @@ vi.mock('@/components/common', () => ({
       <div>{actions}</div>
     </div>
   ),
+  SectionEyebrow: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  StatusBadge: ({ label }: { label: string }) => <div>{label}</div>,
 }));
 
 vi.mock('@/lib/services', () => ({
@@ -182,6 +184,8 @@ describe('AssessmentAttempt', () => {
     renderAttemptPage();
     expect(await screen.findByPlaceholderText('请输入答案')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '交卷' }));
+    expect(await screen.findByText('你还有 1 题未作答，确认提交？')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '确认交卷' }));
 
     expect(await screen.findByText('submit failed')).toBeInTheDocument();
     await waitFor(() => {
@@ -190,5 +194,48 @@ describe('AssessmentAttempt', () => {
       expect(screen.getByPlaceholderText('请输入答案')).not.toBeDisabled();
       expect(screen.getByRole('button', { name: '交卷' })).not.toBeDisabled();
     });
+  });
+
+  it('shows unanswered question numbers before manual submission', async () => {
+    vi.mocked(assessmentService.getStudentAttempt).mockResolvedValue(
+      createAttemptDetail({
+        questionCount: 2,
+        questions: [
+          {
+            answerId: 501,
+            questionId: 601,
+            questionOrder: 1,
+            questionType: 'FILL_BLANK',
+            stemText: '请输入答案一',
+            promptText: '任写一个即可',
+            options: [],
+            score: 5,
+            responses: ['已答'],
+            answered: true,
+          },
+          {
+            answerId: 502,
+            questionId: 602,
+            questionOrder: 2,
+            questionType: 'FILL_BLANK',
+            stemText: '请输入答案二',
+            promptText: '任写一个即可',
+            options: [],
+            score: 5,
+            responses: [],
+            answered: false,
+          },
+        ],
+        answeredCount: 1,
+      })
+    );
+
+    renderAttemptPage();
+    expect(await screen.findByText('请输入答案二')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '交卷' }));
+
+    expect(await screen.findByText('你还有 1 题未作答，确认提交？')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '第 2 题' })).toBeInTheDocument();
+    expect(assessmentService.submitStudentAttempt).not.toHaveBeenCalled();
   });
 });

@@ -26,6 +26,7 @@ import type {
   LexicalListItemVO,
   LexicalListSummaryVO,
   LexicalPairDetailVO,
+  LexicalPairSuggestionVO,
   LexicalImportBatchCreatedVO,
   LexicalImportBatchDetailVO,
   LexicalImportBatchSummaryVO,
@@ -35,6 +36,8 @@ import type {
   LexicalPairSummaryVO,
   LexicalPairUpsertRequest,
   LexicalRagAnswerVO,
+  LexicalRagConversationDetailVO,
+  LexicalRagConversationSummaryVO,
   LoginResponse,
   RegisterStudentRequest,
   NotificationItemVO,
@@ -284,7 +287,11 @@ export const aiService = {
     apiPost<AiGuidanceResponseVO>('/ai/explain-diagnosis', diagnosisSummaryId ? { diagnosisSummaryId } : undefined, options),
   recommendTraining: (diagnosisSummaryId?: number | null, options?: RequestOptions) =>
     apiPost<AiGuidanceResponseVO>('/ai/recommend-training', diagnosisSummaryId ? { diagnosisSummaryId } : undefined, options),
-  queryLexicalRag: (query: string) => apiPost<LexicalRagAnswerVO>('/ai/lexical-rag/query', { query }),
+  queryLexicalRag: (payload: { query: string; conversationId?: string | null }) => apiPost<LexicalRagAnswerVO>('/ai/lexical-rag/query', payload),
+  listLexicalRagConversations: (params?: { pageNo?: number; pageSize?: number }, options?: RequestOptions) =>
+    apiGet<PageResult<LexicalRagConversationSummaryVO>>('/ai/lexical-rag/conversations', { ...options, params }),
+  getLexicalRagConversation: (conversationId: string, options?: RequestOptions) =>
+    apiGet<LexicalRagConversationDetailVO>(`/ai/lexical-rag/conversations/${conversationId}`, options),
   suggestTeacherIntervention: (payload: { classId: number; studentUserId: number; diagnosisSummaryId?: number | null }) =>
     apiPost<AiGuidanceResponseVO>('/teacher/intervention-suggest', payload),
 };
@@ -345,6 +352,8 @@ export const teacherInterventionService = {
 export const lexicalPairService = {
   pageQuery: (params: { pageNo?: number; pageSize?: number; keyword?: string; lexicalPairType?: string; riskLevel?: string; contextSupportLevel?: string; active?: boolean; embeddingStatus?: string }, options?: RequestOptions) =>
     apiGet<PageResult<LexicalPairSummaryVO>>('/lexical-pairs', { ...options, params }),
+  suggest: (params: { keyword: string; limit?: number; active?: boolean }, options?: RequestOptions) =>
+    apiGet<LexicalPairSuggestionVO[]>('/lexical-pairs/suggestions', { ...options, params }),
   getOverview: (options?: RequestOptions) => apiGet<LexicalPairOverviewVO>('/lexical-pairs/overview', options),
   getDetail: (lexicalPairId: number, options?: RequestOptions) => apiGet<LexicalPairDetailVO>(`/lexical-pairs/${lexicalPairId}`, options),
   exportCsv: (params: { keyword?: string; lexicalPairType?: string; riskLevel?: string; contextSupportLevel?: string; active?: boolean; embeddingStatus?: string }, options?: RequestOptions) =>

@@ -14,6 +14,8 @@ import java.util.List;
 public record LexicalRagAnswerVO(
         @NotBlank(message = "requestId must not be blank")
         String requestId,
+        @NotBlank(message = "conversationId must not be blank")
+        String conversationId,
         @NotBlank(message = "generationSource must not be blank")
         String generationSource,
         String model,

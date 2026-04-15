@@ -7,10 +7,13 @@ import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportResultVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportTemplateVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairDetailVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairOverviewVO;
+import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSuggestionVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSummaryVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.page.PageResult;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.slf4j.MDC;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -27,10 +30,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Validated
 @RestController
@@ -61,6 +66,16 @@ public class LexicalPairController {
     @GetMapping("/{lexicalPairId}")
     public ApiResponse<LexicalPairDetailVO> getDetail(@PathVariable Long lexicalPairId) {
         return ApiResponse.success(lexicalPairService.getDetail(lexicalPairId), MDC.get("traceId"));
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
+    @GetMapping("/suggestions")
+    public ApiResponse<List<LexicalPairSuggestionVO>> suggest(
+            @RequestParam String keyword,
+            @RequestParam(required = false) @Min(1) @Max(20) Integer limit,
+            @RequestParam(required = false) Boolean active
+    ) {
+        return ApiResponse.success(lexicalPairService.suggest(keyword, limit, active), MDC.get("traceId"));
     }
 
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")

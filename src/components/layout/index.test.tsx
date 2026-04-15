@@ -1,11 +1,34 @@
 import React from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import i18n from '@/lib/i18n';
-import type { CurrentUserVO } from '@/lib/contracts';
+import type {
+  CurrentUserVO,
+  LexicalRagAnswerVO,
+  LexicalRagConversationDetailVO,
+  LexicalRagConversationSummaryVO,
+  PageResult,
+} from '@/lib/contracts';
 import { useAuthStore, useUIStore } from '@/store';
-import { Sidebar } from './index';
+import { AppLayout, Sidebar } from './index';
+
+const listLexicalRagConversations = vi.fn();
+const getLexicalRagConversation = vi.fn();
+const queryLexicalRag = vi.fn();
+
+vi.mock('./NotificationBell', () => ({
+  NotificationBell: () => <div data-testid="notification-bell" />,
+}));
+
+vi.mock('@/lib/services', () => ({
+  aiService: {
+    listLexicalRagConversations: (...args: unknown[]) => listLexicalRagConversations(...args),
+    getLexicalRagConversation: (...args: unknown[]) => getLexicalRagConversation(...args),
+    queryLexicalRag: (...args: unknown[]) => queryLexicalRag(...args),
+  },
+}));
 
 const originalAuthState = useAuthStore.getState();
 const originalUiState = useUIStore.getState();
@@ -31,10 +54,84 @@ const teacherOnlyUser: CurrentUserVO = {
   capabilities: ['TEACHING_WORKSPACE'],
 };
 
+const studentUser: CurrentUserVO = {
+  id: 31,
+  username: 'student.demo',
+  email: 'student.demo@example.com',
+  displayName: 'Student Demo',
+  primaryRole: 'STUDENT',
+  roles: ['STUDENT'],
+  capabilities: ['STUDENT_WORKSPACE'],
+  studentProfile: null,
+  teacherProfile: null,
+};
+
 const LocationProbe: React.FC = () => {
   const location = useLocation();
   return <div data-testid="location-probe">{location.pathname}</div>;
 };
+
+function renderWithShell() {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<div>dashboard-page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
+function assistantPayload(overrides?: Partial<LexicalRagAnswerVO>): LexicalRagAnswerVO {
+  return {
+    requestId: 'req-1',
+    conversationId: 'conv-1',
+    generationSource: 'AI',
+    model: 'stub-model',
+    latencyMs: 12,
+    grounded: true,
+    answer: 'coin usually means money, while French coin often means corner [C1]',
+    explanation: 'Use context instead of surface similarity [C1]',
+    recommendedActions: ['Compare the core senses.', 'Check whether the examples can be swapped.'],
+    confidence: 0.86,
+    citationIds: ['C1'],
+    citations: [
+      {
+        citationId: 'C1',
+        sourceType: 'LEXICAL_PAIR',
+        sourceId: '1001',
+        title: 'coin / coin',
+        snippet: 'False friend pair guidance',
+        score: 0.91,
+      },
+    ],
+    contextChunks: [
+      {
+        citationId: 'C1',
+        sourceType: 'LEXICAL_PAIR',
+        sourceId: '1001',
+        title: 'coin / coin',
+        content: 'English coin means money while French coin often means corner.',
+        snippet: 'English coin means money while French coin often means corner.',
+        score: 0.91,
+        metadata: { chunkKind: 'LEXICAL_PAIR' },
+      },
+    ],
+    fallbackReason: null,
+    ...overrides,
+  };
+}
 
 describe('Sidebar workspace navigation', () => {
   beforeEach(async () => {
@@ -57,6 +154,7 @@ describe('Sidebar workspace navigation', () => {
     useAuthStore.setState(originalAuthState);
     useUIStore.setState(originalUiState);
     window.localStorage.clear();
+    vi.clearAllMocks();
   });
 
   it('shows only the current workspace navigation and switches route/context together', async () => {
@@ -99,5 +197,148 @@ describe('Sidebar workspace navigation', () => {
     );
 
     expect(screen.queryByText('切换工作空间')).not.toBeInTheDocument();
+  });
+});
+
+describe('Assistant drawer conversation flow', () => {
+  beforeEach(async () => {
+    window.localStorage.clear();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation(() => ({
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }))
+    );
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      user: studentUser,
+    });
+    useUIStore.setState({
+      ...useUIStore.getState(),
+      locale: 'zh-CN',
+      isSidebarCollapsed: false,
+      activeWorkspace: 'STUDENT_WORKSPACE',
+      preferredWorkspaceByUser: {},
+      isAssistantOpen: true,
+      assistantDraft: '',
+      activeAssistantConversationId: 'conv-1',
+    });
+
+    const conversations: PageResult<LexicalRagConversationSummaryVO> = {
+      total: 2,
+      pageNo: 1,
+      pageSize: 20,
+      records: [
+        { conversationId: 'conv-2', title: '新的误判追问', lastMessageAt: '2026-04-15T11:00:00Z' },
+        { conversationId: 'conv-1', title: 'coin / coin', lastMessageAt: '2026-04-15T10:00:00Z' },
+      ],
+    };
+    const conversationDetails: Record<string, LexicalRagConversationDetailVO> = {
+      'conv-1': {
+        conversationId: 'conv-1',
+        title: 'coin / coin',
+        scene: 'LEXICAL_RAG_QUERY',
+        lastMessageAt: '2026-04-15T10:00:00Z',
+        messages: [
+          {
+            messageId: 1,
+            role: 'user',
+            content: 'coin / coin 有什么区别？',
+            requestId: null,
+            assistantPayload: null,
+            createdAt: '2026-04-15T10:00:00Z',
+          },
+          {
+            messageId: 2,
+            role: 'assistant',
+            content: 'coin usually means money...',
+            requestId: 'req-1',
+            assistantPayload: assistantPayload({ conversationId: 'conv-1' }),
+            createdAt: '2026-04-15T10:01:00Z',
+          },
+        ],
+      },
+      'conv-2': {
+        conversationId: 'conv-2',
+        title: '新的误判追问',
+        scene: 'LEXICAL_RAG_QUERY',
+        lastMessageAt: '2026-04-15T11:00:00Z',
+        messages: [
+          {
+            messageId: 3,
+            role: 'user',
+            content: '那为什么总会误判？',
+            requestId: null,
+            assistantPayload: null,
+            createdAt: '2026-04-15T11:00:00Z',
+          },
+          {
+            messageId: 4,
+            role: 'assistant',
+            content: 'Because the pair is a classic false friend...',
+            requestId: 'req-2',
+            assistantPayload: assistantPayload({
+              requestId: 'req-2',
+              conversationId: 'conv-2',
+              answer: 'Because the pair is a classic false friend [C1]',
+            }),
+            createdAt: '2026-04-15T11:01:00Z',
+          },
+        ],
+      },
+    };
+
+    listLexicalRagConversations.mockResolvedValue(conversations);
+    getLexicalRagConversation.mockImplementation((conversationId: string) => Promise.resolve(conversationDetails[conversationId]));
+    queryLexicalRag.mockResolvedValue(
+      assistantPayload({
+        requestId: 'req-2',
+        conversationId: 'conv-2',
+        answer: 'Because the pair is a classic false friend [C1]',
+      })
+    );
+
+    await i18n.changeLanguage('zh-CN');
+  });
+
+  afterEach(() => {
+    useAuthStore.setState(originalAuthState);
+    useUIStore.setState(originalUiState);
+    window.localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('renders conversation history, starts a new chat, and switches conversations', async () => {
+    renderWithShell();
+
+    expect(await screen.findByRole('button', { name: 'coin / coin' })).toBeInTheDocument();
+    expect(await screen.findByText('coin usually means money, while French coin often means corner [C1]')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '新对话' }));
+    expect(screen.getByText('这是一个新的对话草稿，发送首条消息后会自动创建会话。')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('误判原因问题'), { target: { value: '为什么总会误判？' } });
+    fireEvent.click(screen.getByRole('button', { name: '搜索' }));
+
+    await waitFor(() => {
+      expect(queryLexicalRag).toHaveBeenCalledWith({ query: '为什么总会误判？', conversationId: null });
+    });
+
+    await waitFor(() => {
+      expect(useUIStore.getState().activeAssistantConversationId).toBe('conv-2');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'coin / coin' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('coin usually means money, while French coin often means corner [C1]')).toBeInTheDocument();
+    });
   });
 });

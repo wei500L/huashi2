@@ -20,6 +20,7 @@ import com.huashi.eftransfer.app.modules.ai.vo.AiFocusLexicalPairVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiGuidanceResponseVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiRecommendationPathItemVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiRecommendedTrainingModeVO;
+import com.huashi.eftransfer.app.modules.ai.vo.DiagnosisInsightVO;
 import com.huashi.eftransfer.app.modules.analytics.entity.InterventionRecordEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.InterventionRecordMapper;
 import com.huashi.eftransfer.app.modules.analytics.service.InterventionEffectTrackingService;
@@ -116,6 +117,8 @@ public class AiInsightService {
         AiGatewayCallResult<RagAnswerResponse> ragResult = aiGatewayClient.ragAnswer(new RagAnswerRequest(
                 buildRecommendRagQuery(context, focusPairs),
                 List.of("TRAINING_GUIDE", "ERROR_TYPE", "COURSE_GUIDE"),
+                List.of(),
+                null,
                 List.of()
         ));
         rawResponses.put("ragAnswer", ragResult);
@@ -260,6 +263,8 @@ public class AiInsightService {
         AiGatewayCallResult<RagAnswerResponse> ragResult = aiGatewayClient.ragAnswer(new RagAnswerRequest(
                 buildTeacherRagQuery(context, focusPairs),
                 List.of("INTERVENTION_TEMPLATE", "COURSE_GUIDE", "ERROR_TYPE"),
+                List.of(),
+                null,
                 List.of()
         ));
         rawResponses.put("ragAnswer", ragResult);
@@ -370,6 +375,7 @@ public class AiInsightService {
                     payload.recommendedTrainingModes(),
                     payload.explanation(),
                     payload.teacherNote(),
+                    payload.diagnosisInsight(),
                     payload.confidence(),
                     null
             );
@@ -408,6 +414,7 @@ public class AiInsightService {
                 fallbackResponse.recommendedTrainingModes(),
                 fallbackResponse.explanation(),
                 fallbackResponse.teacherNote(),
+                fallbackResponse.diagnosisInsight(),
                 fallbackResponse.confidence(),
                 failureReason.name()
         );
@@ -528,6 +535,7 @@ public class AiInsightService {
                 "诊断显示负迁移风险 %.2f，语境敏感度 %.2f，平均反应时 %dms。当前更适合先围绕 %s 建立稳定辨析路径。"
                         .formatted(context.negativeTransferRisk(), context.contextSensitivity(), context.averageReactionTimeMs(), AiDisplaySupport.errorLabel(topError)),
                 "教师可先关注 %s 相关错因，并在下一轮训练前提供最小对比示例与语境提示。".formatted(AiDisplaySupport.errorLabel(topError)),
+                null,
                 0.66d,
                 fallbackReason
         );
@@ -559,6 +567,7 @@ public class AiInsightService {
                 "诊断结果表明负迁移风险 %.2f、语境敏感度 %.2f、语义辨析 %.2f。主要问题集中在 %s，说明学生在看到相似词形时容易过早套用已有语义。"
                         .formatted(context.negativeTransferRisk(), context.contextSensitivity(), context.semanticDiscrimination(), AiDisplaySupport.errorLabel(topError)),
                 "教师讲解时应先给出最小语义对比，再要求学生口头说明判断依据，避免只凭词形作答。",
+                buildExplainInsight(topError, primaryMode),
                 0.62d,
                 fallbackReason
         );
@@ -589,8 +598,27 @@ public class AiInsightService {
                 "学生当前负迁移风险 %.2f，语境敏感度 %.2f，语义辨析 %.2f。建议将课堂干预集中在高风险词对和最近反复出现的错误模式上。"
                         .formatted(context.negativeTransferRisk(), context.contextSensitivity(), context.semanticDiscrimination()),
                 "建议教师在本周内安排一次短时定向纠偏，先解释错因，再要求学生在新语境中复述正确判断路径。",
+                null,
                 0.58d,
                 fallbackReason
+        );
+    }
+
+    private DiagnosisInsightVO buildExplainInsight(String topError, String primaryMode) {
+        String errorLabel = AiDisplaySupport.errorLabel(topError);
+        return new DiagnosisInsightVO(
+                List.of(
+                        "学生已经具备基础语义判断能力，部分题目能够避开表层词形干扰。",
+                        "当前风险相对集中，说明只要先处理 " + errorLabel + "，整体表现就有明显提升空间。"
+                ),
+                List.of(
+                        "看到相似词形时，仍容易过早调用已有熟词义，忽略后续语境线索。",
+                        "一旦题目要求在语境中重新锁定义项，准确率和反应稳定性都会下降。"
+                ),
+                List.of(
+                        "先用最小语义对比示例讲清 " + errorLabel + " 的典型误判路径。",
+                        "下一轮训练优先安排 " + AiDisplaySupport.modeLabel(primaryMode) + "，把正确判断迁移到新语境。"
+                )
         );
     }
 

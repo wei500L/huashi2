@@ -23,7 +23,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Magnetic } from '@/components/common';
@@ -31,6 +31,7 @@ import { RouteErrorBoundary } from '@/components/common/AppErrorBoundary';
 import { NotificationBell } from './NotificationBell';
 import { useAuthStore, useUIStore } from '@/store';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
+import type { LexicalRagAnswerVO, LexicalRagConversationMessageVO } from '@/lib/contracts';
 import { resolveRouteTitle } from '@/lib/page-title';
 import { aiService } from '@/lib/services';
 import { cn } from '@/lib/utils';
@@ -470,11 +471,134 @@ const MobileSidebarDrawer: React.FC = () => {
   );
 };
 
+const lexicalRagConversationListKey = ['lexical-rag-conversations'] as const;
+const lexicalRagConversationDetailKey = (conversationId: string | null) => ['lexical-rag-conversation', conversationId] as const;
+
+function formatAssistantTimestamp(value: string | null | undefined, locale: string): string {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+type AssistantResponsePanelProps = {
+  locale: string;
+  payload: LexicalRagAnswerVO;
+  t: (key: string) => string;
+  timestamp?: string | null;
+};
+
+const AssistantResponsePanel: React.FC<AssistantResponsePanelProps> = ({ locale, payload, t, timestamp }) => (
+  <section className="rounded-3xl border border-slate-200 dark:border-white/10 p-5 bg-white/60 dark:bg-white/5">
+    <div className="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{t('shell.answer')}</div>
+        {timestamp && (
+          <div className="mt-2 text-[11px] text-slate-400 dark:text-white/35">{formatAssistantTimestamp(timestamp, locale)}</div>
+        )}
+      </div>
+      {payload.fallbackReason && (
+        <span className="text-[10px] uppercase tracking-[0.24em] text-amber-500">{t('shell.fallbackReason')}</span>
+      )}
+    </div>
+    <p className="text-base leading-7 text-slate-800 dark:text-white/85">{payload.answer}</p>
+    <p className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">{payload.explanation}</p>
+
+    {!!payload.recommendedActions?.length && (
+      <div className="mt-5">
+        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-3">{t('shell.actions')}</div>
+        <div className="space-y-3">
+          {payload.recommendedActions.map((item) => (
+            <div key={item} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
+              {item}
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {!!payload.citations?.length && (
+      <div className="mt-5">
+        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-3">{t('shell.citations')}</div>
+        <div className="space-y-3">
+          {payload.citations.map((citation) => (
+            <div key={citation.citationId} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
+              <div className="font-bold text-slate-900 dark:text-white/90">{citation.title || citation.sourceId}</div>
+              <div className="text-sm text-slate-500 dark:text-white/50 mt-1">{citation.snippet}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {!!payload.contextChunks?.length && (
+      <div className="mt-5">
+        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-3">{t('shell.context')}</div>
+        <div className="space-y-3">
+          {payload.contextChunks.map((chunk) => (
+            <details key={`${chunk.citationId}-${chunk.sourceId}`} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
+              <summary className="cursor-pointer font-bold text-slate-900 dark:text-white/90">
+                {chunk.title || chunk.sourceId}
+              </summary>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-500 dark:text-white/55">
+                {chunk.content || chunk.snippet}
+              </p>
+            </details>
+          ))}
+        </div>
+      </div>
+    )}
+  </section>
+);
+
+type ConversationMessageCardProps = {
+  locale: string;
+  message: LexicalRagConversationMessageVO;
+  t: (key: string) => string;
+};
+
+const ConversationMessageCard: React.FC<ConversationMessageCardProps> = ({ locale, message, t }) => {
+  if (message.role === 'assistant' && message.assistantPayload) {
+    return <AssistantResponsePanel locale={locale} payload={message.assistantPayload} t={t} timestamp={message.createdAt} />;
+  }
+
+  return (
+    <section className="rounded-3xl border border-primary/15 bg-primary/[0.06] px-5 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs uppercase tracking-[0.3em] text-primary/80">{t('shell.messages')}</div>
+        {message.createdAt && (
+          <div className="text-[11px] text-slate-400 dark:text-white/35">{formatAssistantTimestamp(message.createdAt, locale)}</div>
+        )}
+      </div>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-white/80">{message.content}</p>
+    </section>
+  );
+};
+
 const AssistantDrawer: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const { user } = useAuthStore();
-  const { activeWorkspace, preferredWorkspaceByUser, isAssistantOpen, assistantDraft, closeAssistant, setAssistantDraft } = useUIStore();
+  const queryClient = useQueryClient();
+  const {
+    activeWorkspace,
+    preferredWorkspaceByUser,
+    isAssistantOpen,
+    assistantDraft,
+    activeAssistantConversationId,
+    closeAssistant,
+    setAssistantDraft,
+    setActiveAssistantConversation,
+  } = useUIStore();
   const [query, setQuery] = useState(assistantDraft);
   const drawerRef = React.useRef<HTMLElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -491,8 +615,27 @@ const AssistantDrawer: React.FC = () => {
   );
   const canUseAssistant = currentWorkspace === 'STUDENT_WORKSPACE' && userHasCapability(user, 'STUDENT_WORKSPACE');
   const assistantOpen = canUseAssistant && isAssistantOpen;
+  const conversationListQuery = useQuery({
+    queryKey: lexicalRagConversationListKey,
+    queryFn: () => aiService.listLexicalRagConversations({ pageNo: 1, pageSize: 20 }),
+    enabled: assistantOpen,
+  });
+  const conversationDetailQuery = useQuery({
+    queryKey: lexicalRagConversationDetailKey(activeAssistantConversationId),
+    queryFn: () => aiService.getLexicalRagConversation(activeAssistantConversationId as string),
+    enabled: assistantOpen && !!activeAssistantConversationId,
+  });
   const ragMutation = useMutation({
-    mutationFn: (value: string) => aiService.queryLexicalRag(value),
+    mutationFn: (payload: { query: string; conversationId?: string | null }) => aiService.queryLexicalRag(payload),
+    onSuccess: async (payload) => {
+      setActiveAssistantConversation(payload.conversationId);
+      setAssistantDraft('');
+      setQuery('');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: lexicalRagConversationListKey }),
+        queryClient.invalidateQueries({ queryKey: lexicalRagConversationDetailKey(payload.conversationId) }),
+      ]);
+    },
   });
 
   useEffect(() => {
@@ -504,6 +647,22 @@ const AssistantDrawer: React.FC = () => {
       closeAssistant();
     }
   }, [canUseAssistant, isAssistantOpen, closeAssistant]);
+
+  useEffect(() => {
+    if (!assistantOpen || activeAssistantConversationId || assistantDraft.trim()) {
+      return;
+    }
+    const firstConversation = conversationListQuery.data?.records?.[0];
+    if (firstConversation) {
+      setActiveAssistantConversation(firstConversation.conversationId);
+    }
+  }, [
+    assistantOpen,
+    activeAssistantConversationId,
+    assistantDraft,
+    conversationListQuery.data?.records,
+    setActiveAssistantConversation,
+  ]);
 
   useBodyScrollLock(assistantOpen);
   useDialogAccessibility({
@@ -517,6 +676,21 @@ const AssistantDrawer: React.FC = () => {
     return null;
   }
 
+  const activeMessages = conversationDetailQuery.data?.messages ?? [];
+  const locale = i18n.resolvedLanguage || i18n.language || 'zh-CN';
+
+  const handleNewConversation = () => {
+    setActiveAssistantConversation(null);
+    setAssistantDraft('');
+    setQuery('');
+  };
+
+  const handleConversationSelect = (conversationId: string) => {
+    setActiveAssistantConversation(conversationId);
+    setAssistantDraft('');
+    setQuery('');
+  };
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const trimmed = query.trim();
@@ -524,7 +698,10 @@ const AssistantDrawer: React.FC = () => {
       return;
     }
     setAssistantDraft(trimmed);
-    ragMutation.mutate(trimmed);
+    ragMutation.mutate({
+      query: trimmed,
+      conversationId: activeAssistantConversationId,
+    });
   };
 
   return (
@@ -549,7 +726,7 @@ const AssistantDrawer: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="fixed top-0 right-0 h-screen w-full max-w-xl liquid-glass-panel z-[80] border-l border-white/10 p-6 overflow-y-auto"
+            className="fixed top-0 right-0 h-screen w-full max-w-6xl liquid-glass-panel z-[80] border-l border-white/10 p-4 md:p-6 overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -566,90 +743,137 @@ const AssistantDrawer: React.FC = () => {
                 <X size={18} />
               </button>
             </div>
-
-            <form onSubmit={submit} className="space-y-4">
-              <textarea
-                aria-label={t('shell.drawerPromptLabel')}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                rows={4}
-                placeholder={t('shell.drawerPromptPlaceholder')}
-                className="w-full rounded-3xl bg-white/70 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 px-5 py-4 outline-none focus:border-primary/50"
-              />
-              <button type="submit" className="btn-liquid px-6 py-3 text-white">
-                {t('common.actions.search')}
-              </button>
-            </form>
-
-            {ragMutation.isPending && (
-              <div className="mt-6 rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
-                {t('common.loading.searchingKnowledge')}
-              </div>
-            )}
-
-            {ragMutation.error && (
-              <div className="mt-6 rounded-3xl border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-                {ragMutation.error.message}
-              </div>
-            )}
-
-            {ragMutation.data && (
-              <div className="mt-6 space-y-5">
-                <section className="rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{t('shell.answer')}</div>
-                    {ragMutation.data.fallbackReason && (
-                      <span className="text-[10px] uppercase tracking-[0.24em] text-amber-500">{t('shell.fallbackReason')}</span>
-                    )}
+            <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+              <aside className="rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{t('shell.recentConversations')}</div>
+                    <div className="mt-2 text-sm font-black text-slate-900 dark:text-white">{t('shell.conversationHistory')}</div>
                   </div>
-                  <p className="text-base leading-7 text-slate-800 dark:text-white/85">{ragMutation.data.answer}</p>
-                  <p className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">{ragMutation.data.explanation}</p>
-                </section>
+                  <button
+                    type="button"
+                    onClick={handleNewConversation}
+                    className="rounded-2xl border border-slate-200 dark:border-white/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/70 hover:border-primary/40 hover:text-primary"
+                  >
+                    {t('shell.newConversation')}
+                  </button>
+                </div>
 
-                <section className="rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
-                  <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">{t('shell.actions')}</div>
-                  <div className="space-y-3">
-                    {ragMutation.data.recommendedActions.map((item) => (
-                      <div key={item} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
-                        {item}
-                      </div>
-                    ))}
+                {conversationListQuery.isLoading && (
+                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3 text-sm text-slate-500 dark:text-white/60">
+                    {t('common.loading.searchingKnowledge')}
                   </div>
-                </section>
-
-                {!!ragMutation.data.citations?.length && (
-                  <section className="rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
-                    <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">{t('shell.citations')}</div>
-                    <div className="space-y-3">
-                      {ragMutation.data.citations.map((citation) => (
-                        <div key={citation.citationId} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
-                          <div className="font-bold text-slate-900 dark:text-white/90">{citation.title || citation.sourceId}</div>
-                          <div className="text-sm text-slate-500 dark:text-white/50 mt-1">{citation.snippet}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
                 )}
 
-                {!!ragMutation.data.contextChunks?.length && (
-                  <section className="rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
-                    <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-4">{t('shell.context')}</div>
-                    <div className="space-y-3">
-                      {ragMutation.data.contextChunks.map((chunk) => (
-                        <details key={`${chunk.citationId}-${chunk.sourceId}`} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
-                          <summary className="cursor-pointer font-bold text-slate-900 dark:text-white/90">
-                            {chunk.title || chunk.sourceId}
-                          </summary>
-                          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-500 dark:text-white/55">
-                            {chunk.content || chunk.snippet}
-                          </p>
-                        </details>
-                      ))}
-                    </div>
-                  </section>
+                {conversationListQuery.error && (
+                  <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                    {conversationListQuery.error.message}
+                  </div>
                 )}
-              </div>
-            )}
+
+                {!conversationListQuery.isLoading && !conversationListQuery.data?.records?.length && (
+                  <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 px-4 py-6 text-sm text-slate-500 dark:text-white/60">
+                    {t('shell.noConversations')}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {conversationListQuery.data?.records?.map((conversation) => {
+                    const isActive = activeAssistantConversationId === conversation.conversationId;
+                    return (
+                      <button
+                        key={conversation.conversationId}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => handleConversationSelect(conversation.conversationId)}
+                        className={cn(
+                          'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
+                          isActive
+                            ? 'border-primary/25 bg-primary/[0.08] text-primary'
+                            : 'border-slate-200/70 bg-white/60 text-slate-600 hover:border-primary/30 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/70'
+                        )}
+                      >
+                        <div className="text-sm font-black leading-5">{conversation.title}</div>
+                        {conversation.lastMessageAt && (
+                          <div className="mt-2 text-[11px] text-slate-400 dark:text-white/35">
+                            {formatAssistantTimestamp(conversation.lastMessageAt, locale)}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              <section className="rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-white/5 p-4 md:p-5">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{t('shell.messages')}</div>
+                    <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">
+                      {conversationDetailQuery.data?.title || t('shell.continueConversation')}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {conversationDetailQuery.isLoading && activeAssistantConversationId && (
+                    <div className="rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
+                      {t('shell.loadingConversation')}
+                    </div>
+                  )}
+
+                  {!activeAssistantConversationId && (
+                    <div className="rounded-3xl border border-dashed border-slate-200 dark:border-white/10 p-6 text-sm leading-6 text-slate-500 dark:text-white/60">
+                      {assistantDraft.trim() ? t('shell.conversationDraftHint') : t('shell.conversationEmpty')}
+                    </div>
+                  )}
+
+                  {conversationDetailQuery.error && (
+                    <div className="rounded-3xl border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+                      {conversationDetailQuery.error.message}
+                    </div>
+                  )}
+
+                  {activeMessages.map((message) => (
+                    <ConversationMessageCard key={message.messageId} locale={locale} message={message} t={t} />
+                  ))}
+
+                  {ragMutation.isPending && (
+                    <div className="rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
+                      {t('common.loading.searchingKnowledge')}
+                    </div>
+                  )}
+
+                  {ragMutation.error && (
+                    <div className="rounded-3xl border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+                      {ragMutation.error.message}
+                    </div>
+                  )}
+                </div>
+
+                <form onSubmit={submit} className="space-y-4 mt-6">
+                  <textarea
+                    aria-label={t('shell.drawerPromptLabel')}
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setAssistantDraft(event.target.value);
+                    }}
+                    rows={4}
+                    placeholder={t('shell.drawerPromptPlaceholder')}
+                    className="w-full rounded-3xl bg-white/70 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 px-5 py-4 outline-none focus:border-primary/50"
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs text-slate-400 dark:text-white/35">
+                      {activeAssistantConversationId ? t('shell.continueConversation') : t('shell.newConversation')}
+                    </div>
+                    <button type="submit" disabled={ragMutation.isPending} className="btn-liquid px-6 py-3 text-white disabled:opacity-70">
+                      {t('common.actions.search')}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
           </motion.aside>
         </>
       )}

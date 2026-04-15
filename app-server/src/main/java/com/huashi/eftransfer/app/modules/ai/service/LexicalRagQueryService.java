@@ -5,13 +5,17 @@ import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayFailureReason;
+import com.huashi.eftransfer.app.modules.ai.dto.LexicalRagConversationPageQuery;
 import com.huashi.eftransfer.app.modules.ai.dto.LexicalRagQueryRequest;
 import com.huashi.eftransfer.app.modules.ai.entity.AiGenerationRecordEntity;
+import com.huashi.eftransfer.app.modules.ai.entity.LexicalRagConversationSessionEntity;
 import com.huashi.eftransfer.app.modules.ai.support.AiConstants;
 import com.huashi.eftransfer.app.modules.ai.support.AiJsonCodec;
 import com.huashi.eftransfer.app.modules.ai.support.AiUsageSummary;
 import com.huashi.eftransfer.app.modules.ai.support.LexicalStructuredAnswerPayload;
 import com.huashi.eftransfer.app.modules.ai.vo.LexicalRagAnswerVO;
+import com.huashi.eftransfer.app.modules.ai.vo.LexicalRagConversationDetailVO;
+import com.huashi.eftransfer.app.modules.ai.vo.LexicalRagConversationSummaryVO;
 import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.RagCitation;
 import com.huashi.eftransfer.shared.ai.RagContextChunk;
@@ -21,6 +25,7 @@ import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import com.huashi.eftransfer.shared.page.PageResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +51,7 @@ public class LexicalRagQueryService {
     private final AiOutputSchemaFactory aiOutputSchemaFactory;
     private final AiResponseValidator aiResponseValidator;
     private final AiGenerationRecordService aiGenerationRecordService;
+    private final LexicalRagConversationService lexicalRagConversationService;
     private final AiJsonCodec aiJsonCodec;
     private final AiGatewayClientProperties aiGatewayClientProperties;
 
@@ -55,6 +61,7 @@ public class LexicalRagQueryService {
             AiOutputSchemaFactory aiOutputSchemaFactory,
             AiResponseValidator aiResponseValidator,
             AiGenerationRecordService aiGenerationRecordService,
+            LexicalRagConversationService lexicalRagConversationService,
             AiJsonCodec aiJsonCodec,
             AiGatewayClientProperties aiGatewayClientProperties
     ) {
@@ -63,8 +70,19 @@ public class LexicalRagQueryService {
         this.aiOutputSchemaFactory = aiOutputSchemaFactory;
         this.aiResponseValidator = aiResponseValidator;
         this.aiGenerationRecordService = aiGenerationRecordService;
+        this.lexicalRagConversationService = lexicalRagConversationService;
         this.aiJsonCodec = aiJsonCodec;
         this.aiGatewayClientProperties = aiGatewayClientProperties;
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<LexicalRagConversationSummaryVO> pageConversations(LexicalRagConversationPageQuery query) {
+        return lexicalRagConversationService.pageMine(currentUserId(), query);
+    }
+
+    @Transactional(readOnly = true)
+    public LexicalRagConversationDetailVO getConversationDetail(String conversationId) {
+        return lexicalRagConversationService.detail(currentUserId(), conversationId);
     }
 
     @Transactional
@@ -73,72 +91,57 @@ public class LexicalRagQueryService {
         String requestId = UUID.randomUUID().toString();
         String promptVersion = AiConstants.DEFAULT_PROMPT_VERSION;
         Long studentUserId = currentUserId();
+        LexicalRagConversationSessionEntity conversation = lexicalRagConversationService.getOrCreateConversation(
+                studentUserId,
+                request.conversationId(),
+                request.query()
+        );
+        List<ChatMessage> messageHistory = lexicalRagConversationService.recentChatHistory(conversation.getId());
+        lexicalRagConversationService.saveUserMessage(conversation, request.query());
+
         Map<String, Object> inputPayload = new LinkedHashMap<>();
         inputPayload.put("query", request.query());
+        inputPayload.put("conversationId", conversation.getConversationId());
         inputPayload.put("sourceTypes", SOURCE_TYPES);
+        inputPayload.put("messageHistory", messageHistory);
+
         Map<String, Object> rawResponses = new LinkedHashMap<>();
         AiUsageSummary usageSummary = new AiUsageSummary();
 
         AiGatewayCallResult<RagRetrieveResponse> retrieveResult = aiGatewayClient.ragRetrieve(new RagRetrieveRequest(
                 request.query(),
                 SOURCE_TYPES,
-                List.of()
+                List.of(),
+                conversation.getConversationId(),
+                messageHistory
         ));
         rawResponses.put("ragRetrieve", retrieveResult);
 
         if (!retrieveResult.success()) {
             LexicalRagAnswerVO fallback = buildFallbackWithoutContext(
                     requestId,
+                    conversation.getConversationId(),
                     request.query(),
                     retrieveResult.failureReason(),
                     elapsedMillis(startedAt)
             );
-            persistGenerationRecord(
-                    fallback,
-                    studentUserId,
-                    promptVersion,
-                    null,
-                    null,
-                    usageSummary,
-                    inputPayload,
-                    rawResponses
-            );
-            return fallback;
+            return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
 
         RagRetrieveResponse retrieved = retrieveResult.data();
         if (retrieved == null || !retrieved.grounded() || retrieved.citations() == null || retrieved.citations().isEmpty()) {
             LexicalRagAnswerVO fallback = buildFallbackWithoutContext(
                     requestId,
+                    conversation.getConversationId(),
                     request.query(),
                     AiGatewayFailureReason.NO_GROUNDED_CONTEXT,
                     elapsedMillis(startedAt)
             );
-            persistGenerationRecord(
-                    fallback,
-                    studentUserId,
-                    promptVersion,
-                    null,
-                    null,
-                    usageSummary,
-                    inputPayload,
-                    rawResponses
-            );
-            return fallback;
+            return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
 
         StructuredChatRequest structuredRequest = new StructuredChatRequest(
-                List.of(
-                        new ChatMessage("system", aiPromptTemplateService.loadSystemPrompt(PROMPT_FOLDER, promptVersion)),
-                        new ChatMessage("user", aiPromptTemplateService.renderUserPrompt(
-                                PROMPT_FOLDER,
-                                promptVersion,
-                                Map.of(
-                                        "QUERY", request.query(),
-                                        "CONTEXT_JSON", aiJsonCodec.write(promptPayload(request.query(), retrieved))
-                                )
-                        ))
-                ),
+                buildStructuredMessages(messageHistory, request.query(), retrieved, promptVersion),
                 null,
                 0.2d,
                 SCHEMA_NAME,
@@ -152,22 +155,13 @@ public class LexicalRagQueryService {
         if (!structuredResult.success()) {
             LexicalRagAnswerVO fallback = buildFallbackWithRetrievedContext(
                     requestId,
+                    conversation.getConversationId(),
                     request.query(),
                     retrieved,
                     structuredResult.failureReason(),
                     elapsedMillis(startedAt)
             );
-            persistGenerationRecord(
-                    fallback,
-                    studentUserId,
-                    promptVersion,
-                    null,
-                    null,
-                    usageSummary,
-                    inputPayload,
-                    rawResponses
-            );
-            return fallback;
+            return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
 
         usageSummary.addStructured(structuredResult.data());
@@ -175,22 +169,13 @@ public class LexicalRagQueryService {
             rawResponses.put("validationError", "Structured lexical RAG payload was empty");
             LexicalRagAnswerVO fallback = buildFallbackWithRetrievedContext(
                     requestId,
+                    conversation.getConversationId(),
                     request.query(),
                     retrieved,
                     AiGatewayFailureReason.INVALID_JSON,
                     elapsedMillis(startedAt)
             );
-            persistGenerationRecord(
-                    fallback,
-                    studentUserId,
-                    promptVersion,
-                    null,
-                    null,
-                    usageSummary,
-                    inputPayload,
-                    rawResponses
-            );
-            return fallback;
+            return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
 
         try {
@@ -205,6 +190,7 @@ public class LexicalRagQueryService {
             List<RagContextChunk> contextChunks = selectContextChunks(payload.citationIds(), retrieved.contextChunks());
             LexicalRagAnswerVO response = new LexicalRagAnswerVO(
                     requestId,
+                    conversation.getConversationId(),
                     AiConstants.GENERATION_SOURCE_AI,
                     structuredResult.data().model(),
                     elapsedMillis(startedAt),
@@ -218,8 +204,9 @@ public class LexicalRagQueryService {
                     contextChunks,
                     null
             );
-            persistGenerationRecord(
+            return finalizeResponse(
                     response,
+                    conversation,
                     studentUserId,
                     promptVersion,
                     structuredResult.data().model(),
@@ -228,28 +215,63 @@ public class LexicalRagQueryService {
                     inputPayload,
                     rawResponses
             );
-            return response;
         } catch (IllegalStateException validationException) {
             rawResponses.put("validationError", validationException.getMessage());
             LexicalRagAnswerVO fallback = buildFallbackWithRetrievedContext(
                     requestId,
+                    conversation.getConversationId(),
                     request.query(),
                     retrieved,
                     AiGatewayFailureReason.SCHEMA_VALIDATION_FAILED,
                     elapsedMillis(startedAt)
             );
-            persistGenerationRecord(
-                    fallback,
-                    studentUserId,
-                    promptVersion,
-                    null,
-                    null,
-                    usageSummary,
-                    inputPayload,
-                    rawResponses
-            );
-            return fallback;
+            return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
+    }
+
+    private LexicalRagAnswerVO finalizeResponse(
+            LexicalRagAnswerVO response,
+            LexicalRagConversationSessionEntity conversation,
+            Long studentUserId,
+            String promptVersion,
+            String model,
+            String providerRequestId,
+            AiUsageSummary usageSummary,
+            Map<String, Object> inputPayload,
+            Map<String, Object> rawResponses
+    ) {
+        persistGenerationRecord(
+                response,
+                studentUserId,
+                promptVersion,
+                model,
+                providerRequestId,
+                usageSummary,
+                inputPayload,
+                rawResponses
+        );
+        lexicalRagConversationService.saveAssistantMessage(conversation, response);
+        return response;
+    }
+
+    private List<ChatMessage> buildStructuredMessages(
+            List<ChatMessage> messageHistory,
+            String query,
+            RagRetrieveResponse retrieved,
+            String promptVersion
+    ) {
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(new ChatMessage("system", aiPromptTemplateService.loadSystemPrompt(PROMPT_FOLDER, promptVersion)));
+        messages.addAll(messageHistory);
+        messages.add(new ChatMessage("user", aiPromptTemplateService.renderUserPrompt(
+                PROMPT_FOLDER,
+                promptVersion,
+                Map.of(
+                        "QUERY", query,
+                        "CONTEXT_JSON", aiJsonCodec.write(promptPayload(query, retrieved))
+                )
+        )));
+        return messages;
     }
 
     private Map<String, Object> promptPayload(String query, RagRetrieveResponse retrieved) {
@@ -282,6 +304,7 @@ public class LexicalRagQueryService {
 
     private LexicalRagAnswerVO buildFallbackWithoutContext(
             String requestId,
+            String conversationId,
             String query,
             AiGatewayFailureReason failureReason,
             long latencyMs
@@ -313,6 +336,7 @@ public class LexicalRagQueryService {
 
         return new LexicalRagAnswerVO(
                 requestId,
+                conversationId,
                 AiConstants.GENERATION_SOURCE_RULE_FALLBACK,
                 null,
                 latencyMs,
@@ -330,6 +354,7 @@ public class LexicalRagQueryService {
 
     private LexicalRagAnswerVO buildFallbackWithRetrievedContext(
             String requestId,
+            String conversationId,
             String query,
             RagRetrieveResponse retrieved,
             AiGatewayFailureReason failureReason,
@@ -361,6 +386,7 @@ public class LexicalRagQueryService {
         List<String> citationIds = citations.stream().map(RagCitation::citationId).toList();
         return new LexicalRagAnswerVO(
                 requestId,
+                conversationId,
                 AiConstants.GENERATION_SOURCE_RULE_FALLBACK,
                 null,
                 latencyMs,

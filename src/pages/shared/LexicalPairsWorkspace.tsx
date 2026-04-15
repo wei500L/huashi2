@@ -17,6 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
+import { LexicalPairSuggestionInput } from '@/components/common/LexicalPairSuggestionInput';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { saveBlob } from '@/lib/api';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, userHasCapability } from '@/lib/format';
@@ -1104,15 +1105,17 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或可检索文本模糊查询。">
-                <div className="relative">
-                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" />
-                  <input
-                    value={filters.keyword}
-                    onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))}
-                    placeholder="coin / faux ami / 中文释义"
-                    className="w-full rounded-2xl border border-slate-200 bg-white/80 py-3 pl-11 pr-4 text-sm outline-none focus:border-primary/40 dark:border-white/10 dark:bg-slate-950/45"
-                  />
-                </div>
+                <LexicalPairSuggestionInput
+                  value={filters.keyword}
+                  onChange={(value) => setFilters((current) => ({ ...current, keyword: value }))}
+                  onSuggestionSelect={(suggestion) => {
+                    setFilters((current) => ({ ...current, keyword: suggestion.englishWord }));
+                    setSelectedId(suggestion.id);
+                  }}
+                  active={filters.active === 'ALL' ? undefined : filters.active === 'ACTIVE'}
+                  placeholder="coin / faux ami / 中文释义 / yingbi / yb"
+                  inputClassName="text-sm outline-none focus:border-primary/40 dark:bg-slate-950/45"
+                />
               </FieldCard>
               <FieldCard label="词对类型">
                 <SelectInput

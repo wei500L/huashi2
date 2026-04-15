@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Check, Link as LinkIcon, Plus, Search, Trash2 } fro
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { LexicalPairSuggestionInput } from '@/components/common/LexicalPairSuggestionInput';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, riskLevelLabel } from '@/lib/format';
 import type {
   AddLexicalListItemsResultVO,
@@ -600,18 +601,16 @@ const TeacherLexicalListsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="relative">
-                  <Search
-                    size={16}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30"
-                  />
-                  <input
-                    value={pairSearchKeyword}
-                    onChange={(event) => setPairSearchKeyword(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-white/70 py-3 pl-11 pr-4 dark:border-white/10 dark:bg-white/5"
-                    placeholder="搜索英文、法文或中文释义"
-                  />
-                </div>
+                <LexicalPairSuggestionInput
+                  value={pairSearchKeyword}
+                  onChange={setPairSearchKeyword}
+                  onSuggestionSelect={(suggestion) => {
+                    setPairSearchKeyword(suggestion.englishWord);
+                    togglePairSelection(suggestion.id);
+                  }}
+                  active
+                  placeholder="搜索英文、法文、中文、拼音或首字母"
+                />
 
                 <div className="space-y-3">
                   {pairSearchQuery.isLoading && (

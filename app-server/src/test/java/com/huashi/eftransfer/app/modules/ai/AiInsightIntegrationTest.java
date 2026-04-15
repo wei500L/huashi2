@@ -125,6 +125,9 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.recommendationPath.length()").value(3))
                 .andExpect(jsonPath("$.data.focusLexicalPairs.length()").value(2))
                 .andExpect(jsonPath("$.data.explanation").isString())
+                .andExpect(jsonPath("$.data.diagnosisInsight.strengths.length()").value(2))
+                .andExpect(jsonPath("$.data.diagnosisInsight.weaknesses.length()").value(2))
+                .andExpect(jsonPath("$.data.diagnosisInsight.suggestions.length()").value(2))
                 .andReturn();
 
         MvcResult teacherResult = mockMvc.perform(post("/api/teacher/intervention-suggest")
@@ -791,6 +794,20 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
             ));
             payload.put("explanation", "学生当前最需要先稳住高风险词对辨析，再把正确判断迁移到新语境中。");
             payload.put("teacherNote", "教师可先讲清最小语义差异，再让学生口头复述判断路径，避免只凭词形作答。");
+            payload.put("diagnosisInsight", Map.of(
+                    "strengths", List.of(
+                            "已经能够在部分题目中给出稳定判断。",
+                            "风险集中在少数高风险词对，便于定向修正。"
+                    ),
+                    "weaknesses", List.of(
+                            "仍容易先看词形再补语境。",
+                            "进入新语境后，判断稳定性会下降。"
+                    ),
+                    "suggestions", List.of(
+                            "先做最小语义对比辨析。",
+                            "再进入语境修正训练验证迁移。"
+                    )
+            ));
             payload.put("confidence", 0.91d);
             return payload;
         }

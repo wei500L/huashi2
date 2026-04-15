@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Brain, CheckCircle2, ChevronRight, Timer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader, PanelSkeleton } from '@/components/common';
+import { PageHeader, PanelSkeleton, SectionEyebrow } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
 import { getApiErrorMessage } from '@/lib/api';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
@@ -89,6 +89,29 @@ function DiagnosisItemReviewCard({ item }: { item: DiagnosisItemResultDetailVO }
       <div className="mt-4 grid gap-2 text-sm text-slate-500 dark:text-white/45">
         <div>你的答案：{selectedLabel || '未作答'}</div>
         <div>正确答案：{correctLabel || '未返回'}</div>
+      </div>
+    </div>
+  );
+}
+
+function DiagnosisInsightCard({
+  title,
+  items,
+  toneClassName,
+}: {
+  title: string;
+  items: string[];
+  toneClassName: string;
+}) {
+  return (
+    <div className={`rounded-[1.6rem] border p-4 ${toneClassName}`}>
+      <SectionEyebrow>{title}</SectionEyebrow>
+      <div className="mt-3 space-y-3">
+        {items.map((entry) => (
+          <div key={entry} className="rounded-[1rem] bg-white/70 px-3 py-3 text-sm leading-6 text-slate-700 dark:bg-white/5 dark:text-white/75">
+            {entry}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -620,9 +643,26 @@ const DiagnosisPage: React.FC = () => {
                 <PanelSkeleton className="min-h-[280px] p-0" />
               ) : explanationQuery.data ? (
                 <div className="space-y-4">
-                  <p className="text-base leading-7 text-slate-800 dark:text-white/85">
-                    {explanationQuery.data.explanation}
-                  </p>
+                  {explanationQuery.data.diagnosisInsight ? (
+                    <div className="grid gap-4">
+                      <DiagnosisInsightCard
+                        title={t('diagnosis.strengths')}
+                        items={explanationQuery.data.diagnosisInsight.strengths}
+                        toneClassName="border-emerald-500/20 bg-emerald-500/5"
+                      />
+                      <DiagnosisInsightCard
+                        title={t('diagnosis.weaknesses')}
+                        items={explanationQuery.data.diagnosisInsight.weaknesses}
+                        toneClassName="border-rose-500/20 bg-rose-500/5"
+                      />
+                      <DiagnosisInsightCard
+                        title={t('diagnosis.suggestions')}
+                        items={explanationQuery.data.diagnosisInsight.suggestions}
+                        toneClassName="border-sky-500/20 bg-sky-500/5"
+                      />
+                    </div>
+                  ) : null}
+                  <p className="text-base leading-7 text-slate-800 dark:text-white/85">{explanationQuery.data.explanation}</p>
                   <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-sm font-bold text-slate-900 dark:text-white">
                       {t('diagnosis.teacherNote')}

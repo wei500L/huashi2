@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -66,6 +67,7 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.generationSource").value("AI"))
                 .andExpect(jsonPath("$.data.grounded").value(true))
+                .andExpect(jsonPath("$.data.conversationId").isString())
                 .andExpect(jsonPath("$.data.answer").value(org.hamcrest.Matchers.containsString("[C1]")))
                 .andExpect(jsonPath("$.data.citationIds.length()").value(2))
                 .andExpect(jsonPath("$.data.citations.length()").value(2))
@@ -79,10 +81,74 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(generationRecord.getScene()).isEqualTo("LEXICAL_RAG_QUERY");
         assertThat(generationRecord.getGenerationSource()).isEqualTo("AI");
         assertThat(generationRecord.getValidatedOutputJson()).contains("citationIds");
+        assertThat(generationRecord.getInputPayloadJson()).contains("conversationId");
     }
 
     @Test
-    void shouldFallbackWhenStructuredPayloadIsInvalidAndPreserveRetrievedContext() throws Exception {
+    void shouldCarryConversationHistoryIntoFollowUpQueryAndExposeConversationDetail() throws Exception {
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        MvcResult firstResult = mockMvc.perform(post("/api/ai/lexical-rag/query")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "query": "先告诉我 coin / coin 的区别"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String conversationId = readJson(firstResult).path("data").path("conversationId").asText();
+
+        mockMvc.perform(post("/api/ai/lexical-rag/query")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "conversationId": "%s",
+                                  "query": "那为什么总会误判？"
+                                }
+                                """.formatted(conversationId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversationId").value(conversationId))
+                .andExpect(jsonPath("$.data.grounded").value(true));
+
+        assertThat(stubAiGatewayClient.lastRetrieveRequest()).isNotNull();
+        assertThat(stubAiGatewayClient.lastRetrieveRequest().conversationId()).isEqualTo(conversationId);
+        assertThat(stubAiGatewayClient.lastRetrieveRequest().messageHistory()).hasSize(2);
+        assertThat(stubAiGatewayClient.lastStructuredRequest()).isNotNull();
+        assertThat(stubAiGatewayClient.lastStructuredRequest().messages()).hasSize(4);
+
+        mockMvc.perform(get("/api/ai/lexical-rag/conversations/{conversationId}", conversationId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversationId").value(conversationId))
+                .andExpect(jsonPath("$.data.messages.length()").value(4))
+                .andExpect(jsonPath("$.data.messages[0].role").value("user"))
+                .andExpect(jsonPath("$.data.messages[1].role").value("assistant"))
+                .andExpect(jsonPath("$.data.messages[1].assistantPayload.answer").isString())
+                .andExpect(jsonPath("$.data.messages[2].role").value("user"))
+                .andExpect(jsonPath("$.data.messages[3].role").value("assistant"));
+    }
+
+    @Test
+    void shouldListConversationsByMostRecentMessage() throws Exception {
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        String firstConversationId = createConversation(studentToken, "coin / coin 的误判线索");
+        String secondConversationId = createConversation(studentToken, "faux amis 应该怎么区分");
+
+        mockMvc.perform(get("/api/ai/lexical-rag/conversations")
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records.length()").value(2))
+                .andExpect(jsonPath("$.data.records[0].conversationId").value(secondConversationId))
+                .andExpect(jsonPath("$.data.records[1].conversationId").value(firstConversationId));
+    }
+
+    @Test
+    void shouldFallbackWhenStructuredPayloadIsInvalidAndPersistAssistantFallbackMessage() throws Exception {
         String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
         stubAiGatewayClient.setStructuredMode(StructuredMode.INVALID_JSON);
 
@@ -105,10 +171,17 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
 
         JsonNode json = readJson(result);
         String requestId = json.path("data").path("requestId").asText();
+        String conversationId = json.path("data").path("conversationId").asText();
         AiGenerationRecordEntity generationRecord = generationRecord(requestId);
         assertThat(generationRecord).isNotNull();
         assertThat(generationRecord.getFallbackReason()).isEqualTo(AiGatewayFailureReason.INVALID_JSON.name());
         assertThat(generationRecord.getGenerationSource()).isEqualTo("RULE_FALLBACK");
+
+        mockMvc.perform(get("/api/ai/lexical-rag/conversations/{conversationId}", conversationId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messages.length()").value(2))
+                .andExpect(jsonPath("$.data.messages[1].assistantPayload.fallbackReason").value(AiGatewayFailureReason.INVALID_JSON.name()));
     }
 
     @Test
@@ -139,6 +212,32 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(generationRecord.getFallbackReason()).isEqualTo(AiGatewayFailureReason.NO_GROUNDED_CONTEXT.name());
     }
 
+    @Test
+    void shouldRejectConversationDetailAccessFromAnotherStudent() throws Exception {
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+        String otherStudentToken = loginAndGetAccessToken("student.wang", "Student@123456");
+        String conversationId = createConversation(studentToken, "coin / coin 为什么会误判");
+
+        mockMvc.perform(get("/api/ai/lexical-rag/conversations/{conversationId}", conversationId)
+                        .with(bearer(otherStudentToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    private String createConversation(String studentToken, String query) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/ai/lexical-rag/query")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "query": "%s"
+                                }
+                                """.formatted(query)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(result).path("data").path("conversationId").asText();
+    }
+
     private AiGenerationRecordEntity generationRecord(String requestId) {
         return aiGenerationRecordMapper.selectOne(Wrappers.<AiGenerationRecordEntity>lambdaQuery()
                 .eq(AiGenerationRecordEntity::getRequestId, requestId)
@@ -158,8 +257,11 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
     static class StubAiGatewayClient extends AiGatewayClient {
 
         private static final String STRUCTURED_MODEL = "stub-structured-model";
+
         private RetrieveMode retrieveMode = RetrieveMode.SUCCESS;
         private StructuredMode structuredMode = StructuredMode.SUCCESS;
+        private RagRetrieveRequest lastRetrieveRequest;
+        private StructuredChatRequest lastStructuredRequest;
 
         StubAiGatewayClient(AiGatewayClientProperties properties) {
             super(RestClient.builder().baseUrl("http://localhost").build(), properties);
@@ -168,6 +270,8 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
         void reset() {
             this.retrieveMode = RetrieveMode.SUCCESS;
             this.structuredMode = StructuredMode.SUCCESS;
+            this.lastRetrieveRequest = null;
+            this.lastStructuredRequest = null;
         }
 
         void setRetrieveMode(RetrieveMode retrieveMode) {
@@ -178,8 +282,17 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
             this.structuredMode = structuredMode;
         }
 
+        RagRetrieveRequest lastRetrieveRequest() {
+            return lastRetrieveRequest;
+        }
+
+        StructuredChatRequest lastStructuredRequest() {
+            return lastStructuredRequest;
+        }
+
         @Override
         public AiGatewayCallResult<RagRetrieveResponse> ragRetrieve(RagRetrieveRequest request) {
+            this.lastRetrieveRequest = request;
             if (retrieveMode == RetrieveMode.UNGROUNDED) {
                 return AiGatewayCallResult.success(
                         new RagRetrieveResponse(false, "No relevant lexical knowledge found.", List.of(), List.of()),
@@ -238,6 +351,7 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
 
         @Override
         public AiGatewayCallResult<StructuredChatResponse> structuredChat(StructuredChatRequest request) {
+            this.lastStructuredRequest = request;
             if (structuredMode == StructuredMode.INVALID_JSON) {
                 return AiGatewayCallResult.success(
                         new StructuredChatResponse(

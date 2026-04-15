@@ -1,8 +1,9 @@
 import React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, CheckCircle2, Code2, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Code2, Plus, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow } from '@/components/common';
+import { LexicalPairSuggestionInput } from '@/components/common/LexicalPairSuggestionInput';
 import { getApiErrorMessage } from '@/lib/api';
 import {
   buildDraftTemplateItemFromPair,
@@ -900,15 +901,14 @@ const TemplateDraftEditorPage: React.FC = () => {
                 <div className="text-xl font-black text-slate-900 dark:text-white">搜索词对</div>
                 <div className="mt-2 text-sm text-slate-500 dark:text-white/45">所有插入动作都基于搜索选择，不再手动记忆 Pair ID。</div>
               </div>
-              <div className="relative">
-                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" />
-                <input
-                  value={pairSearchKeyword}
-                  onChange={(event) => setPairSearchKeyword(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white/80 py-3 pl-11 pr-4 dark:border-white/10 dark:bg-white/5"
-                  placeholder="coin / actuellement / 中文释义"
-                />
-              </div>
+              <LexicalPairSuggestionInput
+                value={pairSearchKeyword}
+                onChange={setPairSearchKeyword}
+                onSuggestionSelect={(suggestion) => setPairSearchKeyword(suggestion.englishWord)}
+                active
+                placeholder="coin / actuellement / 中文释义 / yingbi / yb"
+                inputClassName="bg-white/80 dark:bg-white/5"
+              />
               <div className="space-y-3">
                 {(pairSearchQuery.data?.records || []).map((pair) => (
                   <button

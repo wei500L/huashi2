@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight, BookOpen, Brain, Clock3, FileText, Flame, Re
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
+import { TrainingModeSummaryCard } from '@/components/common/TrainingModeSummaryCard';
 import { OnboardingTour, useOnboardingTour } from '@/features/onboarding';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
@@ -209,6 +210,8 @@ const DashboardPage: React.FC = () => {
       ? t('ui.meta.accuracyAhead', { count: learningGoal.weeklyAccuracyDelta.toFixed(1) })
       : t('ui.meta.accuracyGap', { count: Math.abs(learningGoal.weeklyAccuracyDelta).toFixed(1) });
   const now = Date.now();
+  const dueReviewItems = (reviewScheduleQuery.data || []).filter((item) => new Date(item.dueAt).getTime() <= now);
+  const nextDueReviewItem = dueReviewItems[0] || reviewScheduleQuery.data?.[0] || null;
   const studentOnboarding = useOnboardingTour({
     tourId: 'student-dashboard',
     userId: user?.id,
@@ -372,6 +375,48 @@ const DashboardPage: React.FC = () => {
           />
         ))}
       </div>
+
+      <section className="rounded-[2.8rem] border border-amber-500/20 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),rgba(249,115,22,0.08))] p-8 shadow-[0_24px_80px_rgba(245,158,11,0.12)]">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-3">
+              <SectionEyebrow className="text-amber-600 dark:text-amber-300">到期复习提醒</SectionEyebrow>
+              <StatusBadge label={`${dueReviewItems.length} 项到期`} tone={dueReviewItems.length > 0 ? 'warning' : 'info'} />
+            </div>
+            <div className="mt-4 text-3xl font-black text-slate-900 dark:text-white">
+              {dueReviewItems.length > 0 ? '先把今天到期的复习清掉，再继续新训练。' : '当前没有逾期复习，继续保持节奏。'}
+            </div>
+            <div className="mt-3 text-sm leading-7 text-slate-600 dark:text-white/65">
+              错题本共 {wrongBookQuery.data?.length || 0} 组，待复习计划 {reviewScheduleQuery.data?.length || 0} 项。
+              {nextDueReviewItem ? ` 当前最该处理的是 ${nextDueReviewItem.englishWord} / ${nextDueReviewItem.frenchWord}。` : ''}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {nextDueReviewItem ? (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    buildTrainingHref({
+                      mode: nextDueReviewItem.reviewMode,
+                      source: 'dashboard-review-reminder',
+                      lexicalPairId: nextDueReviewItem.lexicalPairId,
+                      wrongBookId: nextDueReviewItem.wrongBookId,
+                      reviewScheduleId: nextDueReviewItem.reviewScheduleId,
+                    })
+                  )
+                }
+                className="btn-liquid px-5 py-3 text-white"
+              >
+                处理首个到期复习
+              </button>
+            ) : null}
+            <button type="button" onClick={() => navigate('/errors')} className="rounded-full border border-slate-200/80 px-5 py-3 text-sm font-bold dark:border-white/10">
+              查看错题与复习计划
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="liquid-glass-panel rounded-[2.8rem] p-8">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -642,13 +687,12 @@ const DashboardPage: React.FC = () => {
           <SectionEyebrow className="mb-4">{t('ui.sections.recommendedPlan')}</SectionEyebrow>
           {recommendedPlanQuery.data ? (
             <div className="space-y-4">
-              <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingModeLabel(recommendedPlanQuery.data.priorityMode)}</div>
+              <TrainingModeSummaryCard mode={recommendedPlanQuery.data.priorityMode} />
               <p className="text-sm leading-6 text-slate-500 dark:text-white/45">{recommendedPlanQuery.data.recommendationReason}</p>
               <div className="space-y-3">
                 {recommendedPlanQuery.data.suggestedSessions.map((session) => (
-                  <button
+                  <TrainingModeSummaryCard
                     key={session.mode}
-                    type="button"
                     onClick={() =>
                       navigate(
                         buildTrainingHref({
@@ -658,11 +702,10 @@ const DashboardPage: React.FC = () => {
                         })
                       )
                     }
-                    className="w-full rounded-[1.4rem] border border-slate-200/70 p-4 text-left transition-all hover:border-primary/40 dark:border-white/10"
-                  >
-                    <div className="font-bold text-slate-900 dark:text-white">{session.label}</div>
-                    <div className="mt-1 text-sm text-slate-500 dark:text-white/45">{t('training.suggestedQuestionCount', { count: session.count })}</div>
-                  </button>
+                    mode={session.mode}
+                    count={session.count}
+                    className="w-full"
+                  />
                 ))}
               </div>
             </div>
@@ -755,7 +798,10 @@ const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
         <section className="liquid-glass-panel rounded-[2.5rem] p-8">
           <div className="mb-6 flex items-center justify-between">
-            <SectionEyebrow>{t('ui.sections.wrongBook')}</SectionEyebrow>
+            <div className="flex items-center gap-3">
+              <SectionEyebrow>{t('ui.sections.wrongBook')}</SectionEyebrow>
+              <StatusBadge label={`${wrongBookQuery.data?.length || 0}`} tone="info" />
+            </div>
             <div className="flex items-center gap-4">
               {!!wrongBookQuery.data?.length && (
                 <button
@@ -830,6 +876,7 @@ const DashboardPage: React.FC = () => {
             <div className="flex items-center gap-3">
               <Brain size={16} className="text-primary" />
               <SectionEyebrow>{t('ui.sections.reviewSchedule')}</SectionEyebrow>
+              <StatusBadge label={`${dueReviewItems.length}`} tone={dueReviewItems.length > 0 ? 'warning' : 'info'} />
             </div>
             {!!reviewScheduleQuery.data?.length && (
               <button

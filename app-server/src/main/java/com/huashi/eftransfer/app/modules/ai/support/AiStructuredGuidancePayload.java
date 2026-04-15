@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.ai.support;
 import com.huashi.eftransfer.app.modules.ai.vo.AiFocusLexicalPairVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiRecommendationPathItemVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiRecommendedTrainingModeVO;
+import com.huashi.eftransfer.app.modules.ai.vo.DiagnosisInsightVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -22,6 +23,8 @@ public record AiStructuredGuidancePayload(
         String explanation,
         @NotBlank(message = "teacherNote must not be blank")
         String teacherNote,
+        @Valid
+        DiagnosisInsightVO diagnosisInsight,
         @DecimalMin(value = "0.0", message = "confidence must be >= 0")
         @DecimalMax(value = "1.0", message = "confidence must be <= 1")
         double confidence

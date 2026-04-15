@@ -29,6 +29,8 @@ public record AiGuidanceResponseVO(
         String explanation,
         @NotBlank(message = "teacherNote must not be blank")
         String teacherNote,
+        @Valid
+        DiagnosisInsightVO diagnosisInsight,
         @DecimalMin(value = "0.0", message = "confidence must be >= 0")
         @DecimalMax(value = "1.0", message = "confidence must be <= 1")
         double confidence,

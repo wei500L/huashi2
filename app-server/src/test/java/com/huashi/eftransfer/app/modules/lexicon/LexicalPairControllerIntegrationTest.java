@@ -79,6 +79,25 @@ class LexicalPairControllerIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.records[0].riskLevel").value("CRITICAL"))
                 .andExpect(jsonPath("$.data.records[0].tags.length()").value(2));
 
+        mockMvc.perform(get("/api/lexical-pairs")
+                        .with(bearer(teacherToken))
+                        .param("pageNo", "1")
+                        .param("pageSize", "10")
+                        .param("keyword", "yingbi"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].englishWord").value("coin"));
+
+        mockMvc.perform(get("/api/lexical-pairs/suggestions")
+                        .with(bearer(teacherToken))
+                        .param("keyword", "yb")
+                        .param("limit", "5")
+                        .param("active", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].englishWord").value("coin"))
+                .andExpect(jsonPath("$.data[0].matchedBy").value("INITIALS"));
+
         mockMvc.perform(get("/api/lexical-pairs/{id}", lexicalPairId)
                         .with(bearer(teacherToken)))
                 .andExpect(status().isOk())

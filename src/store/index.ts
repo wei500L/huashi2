@@ -124,6 +124,7 @@ interface UIStore {
   locale: SupportedLocale;
   isAssistantOpen: boolean;
   assistantDraft: string;
+  activeAssistantConversationId: string | null;
   activeWorkspace: WorkspaceId | null;
   preferredWorkspaceByUser: Record<string, WorkspaceId>;
   toggleSidebar: () => void;
@@ -134,6 +135,7 @@ interface UIStore {
   openAssistant: (seed?: string) => void;
   closeAssistant: () => void;
   setAssistantDraft: (value: string) => void;
+  setActiveAssistantConversation: (conversationId: string | null) => void;
   setActiveWorkspace: (workspace: WorkspaceId | null, user?: Pick<CurrentUserVO, 'id' | 'username'> | null) => void;
 }
 
@@ -146,6 +148,7 @@ export const useUIStore = create<UIStore>()(
       locale: readStoredLocale(),
       isAssistantOpen: false,
       assistantDraft: '',
+      activeAssistantConversationId: null,
       activeWorkspace: null,
       preferredWorkspaceByUser: {},
       toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
@@ -159,9 +162,11 @@ export const useUIStore = create<UIStore>()(
       openAssistant: (seed) => set((state) => ({
         isAssistantOpen: true,
         assistantDraft: seed ?? state.assistantDraft,
+        activeAssistantConversationId: seed && seed.trim() ? null : state.activeAssistantConversationId,
       })),
       closeAssistant: () => set({ isAssistantOpen: false }),
       setAssistantDraft: (value) => set({ assistantDraft: value }),
+      setActiveAssistantConversation: (conversationId) => set({ activeAssistantConversationId: conversationId }),
       setActiveWorkspace: (workspace, user) =>
         set((state) => {
           const nextState: Pick<UIStore, 'activeWorkspace' | 'preferredWorkspaceByUser'> = {

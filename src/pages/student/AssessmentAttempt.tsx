@@ -5,6 +5,7 @@ import { useBeforeUnload, useBlocker } from 'react-router';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
+import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 import type { AssessmentAttemptDetailVO, AssessmentAttemptQuestionVO } from '@/lib/contracts';
@@ -56,6 +57,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const [saveNotice, setSaveNotice] = React.useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
+  const [submitConfirmOpen, setSubmitConfirmOpen] = React.useState(false);
   const [clientNow, setClientNow] = React.useState(Date.now());
   const [serverOffsetMs, setServerOffsetMs] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -68,6 +70,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const skipAutosaveRef = React.useRef(true);
   const latestSaveRequestRef = React.useRef(0);
   const saveQueueRef = React.useRef<Promise<void>>(Promise.resolve());
+  const submitDialogRef = React.useRef<HTMLDivElement | null>(null);
+  const submitCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['student-assessment-attempt', attemptId],
@@ -124,8 +128,17 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const orderedQuestions = detail?.questions || [];
   const currentQuestion = orderedQuestions.find((question) => question.questionOrder === selectedQuestionOrder) || orderedQuestions[0];
   const answeredCountFromLocal = orderedQuestions.filter((question) => hasResponses(responsesByOrder[question.questionOrder])).length;
+  const unansweredQuestionOrders = orderedQuestions.filter((question) => !hasResponses(responsesByOrder[question.questionOrder])).map((question) => question.questionOrder);
   const canEdit = detail?.status === 'IN_PROGRESS' && !submitLocked;
   const shouldWarnBeforeLeave = detail?.status === 'IN_PROGRESS' && !submitLocked;
+
+  useBodyScrollLock(submitConfirmOpen);
+  useDialogAccessibility({
+    open: submitConfirmOpen,
+    containerRef: submitDialogRef,
+    initialFocusRef: submitCancelButtonRef,
+    onClose: () => setSubmitConfirmOpen(false),
+  });
 
   const navigateToResult = React.useCallback(
     (nextAttemptId: number) => {
@@ -453,7 +466,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             <button
               type="button"
               disabled={!detail || detail.status !== 'IN_PROGRESS' || isSubmitting}
-              onClick={() => void handleSubmit('manual')}
+              onClick={() => setSubmitConfirmOpen(true)}
               className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
             >
               <Send size={14} className="inline-block mr-2" />
@@ -602,6 +615,68 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               </div>
             )}
           </section>
+        </div>
+      )}
+
+      {submitConfirmOpen && detail?.status === 'IN_PROGRESS' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div
+            ref={submitDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assessment-submit-title"
+            className="w-full max-w-xl rounded-[2rem] border border-slate-200/80 bg-white/96 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/96"
+          >
+            <SectionEyebrow>交卷确认</SectionEyebrow>
+            <div id="assessment-submit-title" className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+              {unansweredQuestionOrders.length > 0
+                ? `你还有 ${unansweredQuestionOrders.length} 题未作答，确认提交？`
+                : '所有题目已作答，确认提交？'}
+            </div>
+            <div className="mt-3 text-sm leading-7 text-slate-500 dark:text-white/50">
+              提交后将锁定答卷，不能继续修改。建议先检查未完成题目，再决定是否立即交卷。
+            </div>
+            {unansweredQuestionOrders.length > 0 && (
+              <div className="mt-5">
+                <div className="text-sm font-bold text-slate-900 dark:text-white">未作答题号</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {unansweredQuestionOrders.map((questionOrder) => (
+                    <button
+                      key={questionOrder}
+                      type="button"
+                      onClick={() => {
+                        setSelectedQuestionOrder(questionOrder);
+                        setSubmitConfirmOpen(false);
+                      }}
+                      className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-700 dark:text-amber-300"
+                    >
+                      第 {questionOrder} 题
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                ref={submitCancelButtonRef}
+                type="button"
+                onClick={() => setSubmitConfirmOpen(false)}
+                className="rounded-full border border-slate-200 px-4 py-3 text-sm font-bold dark:border-white/10"
+              >
+                继续检查
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitConfirmOpen(false);
+                  void handleSubmit('manual');
+                }}
+                className="btn-liquid px-5 py-3 text-white"
+              >
+                确认交卷
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

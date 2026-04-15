@@ -926,6 +926,12 @@ export interface AiRecommendedTrainingModeVO {
   reason: string;
 }
 
+export interface DiagnosisInsightVO {
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+}
+
 export interface AiGuidanceResponseVO {
   requestId: string;
   generationSource: string;
@@ -937,6 +943,7 @@ export interface AiGuidanceResponseVO {
   recommendedTrainingModes: AiRecommendedTrainingModeVO[];
   explanation: string;
   teacherNote: string;
+  diagnosisInsight?: DiagnosisInsightVO | null;
   confidence: number;
   fallbackReason?: string | null;
 }
@@ -963,6 +970,7 @@ export interface RagContextChunk {
 
 export interface LexicalRagAnswerVO {
   requestId: string;
+  conversationId: string;
   generationSource: string;
   model?: string | null;
   latencyMs: number;
@@ -975,6 +983,29 @@ export interface LexicalRagAnswerVO {
   citations?: RagCitation[];
   contextChunks?: RagContextChunk[];
   fallbackReason?: string | null;
+}
+
+export interface LexicalRagConversationSummaryVO {
+  conversationId: string;
+  title: string;
+  lastMessageAt?: string | null;
+}
+
+export interface LexicalRagConversationMessageVO {
+  messageId: number;
+  role: string;
+  content: string;
+  assistantPayload?: LexicalRagAnswerVO | null;
+  requestId?: string | null;
+  createdAt?: string | null;
+}
+
+export interface LexicalRagConversationDetailVO {
+  conversationId: string;
+  title: string;
+  scene: string;
+  lastMessageAt?: string | null;
+  messages: LexicalRagConversationMessageVO[];
 }
 
 export interface TeachingClassSummaryVO {
@@ -1358,6 +1389,15 @@ export interface LexicalPairSummaryVO {
   embeddingStatus?: string | null;
   lastEmbeddedAt?: string | null;
   tags: string[];
+}
+
+export interface LexicalPairSuggestionVO {
+  id: number;
+  englishWord: string;
+  frenchWord: string;
+  chineseGloss: string;
+  lexicalPairType: string;
+  matchedBy: string;
 }
 
 export interface LexicalPairOverviewVO {

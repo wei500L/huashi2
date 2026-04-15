@@ -24,6 +24,7 @@ import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingItem;
 import com.huashi.eftransfer.shared.ai.EmbeddingRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
+import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExampleItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
@@ -159,6 +160,8 @@ class LexicalRagFlowIntegrationTest {
         RagRetrieveResponse response = ragService.retrieve(new RagRetrieveRequest(
                 "Why is coin and coin easy to confuse?",
                 List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                List.of(),
+                null,
                 List.of()
         ));
 
@@ -169,6 +172,38 @@ class LexicalRagFlowIntegrationTest {
         assertThat(response.citations().get(1).sourceType()).isEqualTo("LEXICAL_SENSE");
         assertThat(response.citations().get(2).sourceType()).isEqualTo("LEXICAL_PAIR");
         assertThat(response.contextChunks().get(0).content()).contains("I found a coin on the floor");
+    }
+
+    @Test
+    void shouldUseConversationHistoryToDisambiguateFollowUpRetrieval() {
+        when(appServerKnowledgeClient.exportLexicalPairs(any(), any(), anyInt(), any()))
+                .thenReturn(new LexicalKnowledgeExportPageResponse(
+                        List.of(coinLexicalItem()),
+                        null,
+                        OffsetDateTime.now(ZoneOffset.UTC)
+                ));
+
+        knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
+                "FULL",
+                List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                List.of(),
+                true
+        ));
+
+        RagRetrieveResponse response = ragService.retrieve(new RagRetrieveRequest(
+                "why is it confusing?",
+                List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                List.of(),
+                "conv-1",
+                List.of(
+                        new ChatMessage("user", "Tell me about coin / coin."),
+                        new ChatMessage("assistant", "It is a false friend pair."),
+                        new ChatMessage("user", "What is the difference between them?")
+                )
+        ));
+
+        assertThat(response.grounded()).isTrue();
+        assertThat(response.citations()).isNotEmpty();
     }
 
     @Test

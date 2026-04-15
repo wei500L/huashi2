@@ -104,7 +104,12 @@ class InternalRagControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "query": "Why is coin/coin risky?"
+                                  "query": "Why is coin/coin risky?",
+                                  "conversationId": "conv-rag-1",
+                                  "messageHistory": [
+                                    {"role": "user", "content": "Tell me about coin / coin"},
+                                    {"role": "assistant", "content": "It is a risky false friend pair"}
+                                  ]
                                 }
                                 """))
                 .andExpect(status().isOk())

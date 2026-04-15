@@ -31,4 +31,15 @@ public class AiJsonCodec {
             throw new IllegalStateException("Failed to convert AI payload", exception);
         }
     }
+
+    public <T> T read(String value, Class<T> targetType) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(value, targetType);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Failed to deserialize AI payload", exception);
+        }
+    }
 }

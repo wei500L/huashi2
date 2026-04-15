@@ -21,6 +21,7 @@ import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairTagRelMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalTagMapper;
 import com.huashi.eftransfer.app.modules.lexicon.event.LexicalKnowledgeChangedEventPublisher;
 import com.huashi.eftransfer.app.modules.lexicon.support.LexicalRiskSupport;
+import com.huashi.eftransfer.app.modules.lexicon.support.PinyinSearchIndexSupport;
 import com.huashi.eftransfer.app.modules.lexicon.support.SearchableTextBuilder;
 import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportFailureVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.CsvImportResultVO;
@@ -30,6 +31,7 @@ import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairDetailVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairExampleVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairOverviewVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSenseVO;
+import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSuggestionVO;
 import com.huashi.eftransfer.app.modules.lexicon.vo.LexicalPairSummaryVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.ContextSupportLevel;
@@ -79,6 +81,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class LexicalPairService {
+
+    private record SuggestionMatch(String matchedBy, int priority) {
+    }
 
     public record CsvExportFile(
             String filename,
@@ -262,6 +267,40 @@ public class LexicalPairService {
         );
     }
 
+    public List<LexicalPairSuggestionVO> suggest(String keyword, Integer limit, Boolean active) {
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+        int resolvedLimit = limit == null ? 8 : Math.max(1, Math.min(limit, 20));
+        LambdaQueryWrapper<LexicalPairEntity> wrapper = Wrappers.<LexicalPairEntity>lambdaQuery()
+                .orderByDesc(LexicalPairEntity::getUpdatedAt)
+                .orderByDesc(LexicalPairEntity::getId)
+                .last("LIMIT 30");
+        if (active != null) {
+            wrapper.eq(LexicalPairEntity::getActive, active);
+        }
+        applyKeywordFilter(wrapper, normalizedKeyword);
+
+        return lexicalPairMapper.selectList(wrapper).stream()
+                .map(pair -> Map.entry(pair, resolveSuggestionMatch(pair, normalizedKeyword)))
+                .filter(entry -> entry.getValue() != null)
+                .sorted(Comparator
+                        .comparingInt((Map.Entry<LexicalPairEntity, SuggestionMatch> entry) -> entry.getValue().priority())
+                        .thenComparing((Map.Entry<LexicalPairEntity, SuggestionMatch> entry) -> safeLower(entry.getKey().getEnglishWord()))
+                        .thenComparing((Map.Entry<LexicalPairEntity, SuggestionMatch> entry) -> safeLower(entry.getKey().getFrenchWord())))
+                .limit(resolvedLimit)
+                .map(entry -> new LexicalPairSuggestionVO(
+                        entry.getKey().getId(),
+                        entry.getKey().getEnglishWord(),
+                        entry.getKey().getFrenchWord(),
+                        entry.getKey().getChineseGloss(),
+                        entry.getKey().getLexicalPairType(),
+                        entry.getValue().matchedBy()
+                ))
+                .toList();
+    }
+
     @Transactional
     public Long create(LexicalPairUpsertRequest request) {
         Long lexicalPairId = createInternal(request);
@@ -294,6 +333,7 @@ public class LexicalPairService {
         existing.setEmbeddingStatus(embeddingStatus.name());
         existing.setLastEmbeddedAt(embeddingStatus == EmbeddingStatus.EMBEDDED ? LocalDateTime.now() : null);
         existing.setSearchableText(buildPairSearchableText(request, normalizedTags));
+        applySearchIndex(existing, request, normalizedTags);
         lexicalPairMapper.updateById(existing);
 
         replaceSenses(existing.getId(), request.senses());
@@ -453,6 +493,33 @@ public class LexicalPairService {
         return new CsvImportResultVO(successCount, failures.size(), failures);
     }
 
+    @Transactional
+    public int backfillMissingSearchIndexes() {
+        List<LexicalPairEntity> pairs = lexicalPairMapper.selectList(Wrappers.<LexicalPairEntity>lambdaQuery()
+                .and(wrapper -> wrapper
+                        .isNull(LexicalPairEntity::getSearchPinyin)
+                        .or()
+                        .eq(LexicalPairEntity::getSearchPinyin, "")
+                        .or()
+                        .isNull(LexicalPairEntity::getSearchInitials)
+                        .or()
+                        .eq(LexicalPairEntity::getSearchInitials, "")));
+        for (LexicalPairEntity pair : pairs) {
+            List<String> searchParts = new ArrayList<>();
+            searchParts.add(pair.getEnglishWord());
+            searchParts.add(pair.getFrenchWord());
+            searchParts.add(pair.getChineseGloss());
+            searchParts.add(pair.getSource());
+            searchParts.add(pair.getNotes());
+            searchParts.add(pair.getSearchableText());
+            PinyinSearchIndexSupport.SearchIndex searchIndex = PinyinSearchIndexSupport.build(searchParts);
+            pair.setSearchPinyin(searchIndex.pinyin());
+            pair.setSearchInitials(searchIndex.initials());
+            lexicalPairMapper.updateById(pair);
+        }
+        return pairs.size();
+    }
+
     private Long createInternal(LexicalPairUpsertRequest request) {
         validatePairUniqueness(request.englishWord(), request.frenchWord(), null);
         validateSenses(request.senses());
@@ -475,6 +542,7 @@ public class LexicalPairService {
         entity.setEmbeddingStatus(embeddingStatus.name());
         entity.setLastEmbeddedAt(embeddingStatus == EmbeddingStatus.EMBEDDED ? LocalDateTime.now() : null);
         entity.setSearchableText(buildPairSearchableText(request, normalizedTags));
+        applySearchIndex(entity, request, normalizedTags);
         lexicalPairMapper.insert(entity);
 
         replaceSenses(entity.getId(), request.senses());
@@ -485,15 +553,7 @@ public class LexicalPairService {
     private LambdaQueryWrapper<LexicalPairEntity> buildPageWrapper(LexicalPairPageQuery query) {
         LambdaQueryWrapper<LexicalPairEntity> wrapper = Wrappers.lambdaQuery();
         if (query.keyword() != null && !query.keyword().isBlank()) {
-            String normalizedKeyword = "%" + query.keyword().trim().toLowerCase(Locale.ROOT) + "%";
-            wrapper.and(condition -> condition
-                    .apply("LOWER(english_word) LIKE {0}", normalizedKeyword)
-                    .or()
-                    .apply("LOWER(french_word) LIKE {0}", normalizedKeyword)
-                    .or()
-                    .apply("LOWER(chinese_gloss) LIKE {0}", normalizedKeyword)
-                    .or()
-                    .apply("LOWER(searchable_text) LIKE {0}", normalizedKeyword));
+            applyKeywordFilter(wrapper, query.keyword().trim().toLowerCase(Locale.ROOT));
         }
         if (query.lexicalPairType() != null && !query.lexicalPairType().isBlank()) {
             wrapper.eq(LexicalPairEntity::getLexicalPairType, parseLexicalPairType(query.lexicalPairType()).name());
@@ -511,6 +571,22 @@ public class LexicalPairService {
             wrapper.eq(LexicalPairEntity::getEmbeddingStatus, parseEmbeddingStatus(query.embeddingStatus()).name());
         }
         return wrapper;
+    }
+
+    private void applyKeywordFilter(LambdaQueryWrapper<LexicalPairEntity> wrapper, String normalizedKeyword) {
+        String fuzzyKeyword = "%" + normalizedKeyword + "%";
+        wrapper.and(condition -> condition
+                .apply("LOWER(english_word) LIKE {0}", fuzzyKeyword)
+                .or()
+                .apply("LOWER(french_word) LIKE {0}", fuzzyKeyword)
+                .or()
+                .apply("LOWER(chinese_gloss) LIKE {0}", fuzzyKeyword)
+                .or()
+                .apply("LOWER(searchable_text) LIKE {0}", fuzzyKeyword)
+                .or()
+                .apply("LOWER(search_pinyin) LIKE {0}", fuzzyKeyword)
+                .or()
+                .apply("LOWER(search_initials) LIKE {0}", fuzzyKeyword));
     }
 
     private void applyRiskFilter(LambdaQueryWrapper<LexicalPairEntity> wrapper, RiskLevel riskLevel) {
@@ -754,7 +830,18 @@ public class LexicalPairService {
         );
     }
 
-    private String buildPairSearchableText(LexicalPairUpsertRequest request, List<String> tags) {
+    private void applySearchIndex(LexicalPairEntity entity, LexicalPairUpsertRequest request, List<String> tags) {
+        PinyinSearchIndexSupport.SearchIndex searchIndex = buildSearchIndex(request, tags);
+        entity.setSearchPinyin(searchIndex.pinyin());
+        entity.setSearchInitials(searchIndex.initials());
+    }
+
+    private PinyinSearchIndexSupport.SearchIndex buildSearchIndex(LexicalPairUpsertRequest request, List<String> tags) {
+        List<String> parts = buildSearchParts(request, tags);
+        return PinyinSearchIndexSupport.build(parts);
+    }
+
+    private List<String> buildSearchParts(LexicalPairUpsertRequest request, List<String> tags) {
         List<String> parts = new ArrayList<>();
         parts.add(request.englishWord());
         parts.add(request.frenchWord());
@@ -777,7 +864,50 @@ public class LexicalPairService {
                 }
             }
         }
-        return SearchableTextBuilder.concat(parts);
+        return parts;
+    }
+
+    private String buildPairSearchableText(LexicalPairUpsertRequest request, List<String> tags) {
+        return SearchableTextBuilder.concat(buildSearchParts(request, tags));
+    }
+
+    private SuggestionMatch resolveSuggestionMatch(LexicalPairEntity pair, String keyword) {
+        String englishWord = safeLower(pair.getEnglishWord());
+        String frenchWord = safeLower(pair.getFrenchWord());
+        String chineseGloss = safeLower(pair.getChineseGloss());
+        String searchPinyin = safeLower(pair.getSearchPinyin());
+        String searchInitials = safeLower(pair.getSearchInitials());
+        String searchableText = safeLower(pair.getSearchableText());
+
+        if (englishWord.equals(keyword)) {
+            return new SuggestionMatch("ENGLISH_WORD", 0);
+        }
+        if (frenchWord.equals(keyword)) {
+            return new SuggestionMatch("FRENCH_WORD", 1);
+        }
+        if (englishWord.startsWith(keyword)) {
+            return new SuggestionMatch("ENGLISH_PREFIX", 2);
+        }
+        if (frenchWord.startsWith(keyword)) {
+            return new SuggestionMatch("FRENCH_PREFIX", 3);
+        }
+        if (chineseGloss.contains(keyword)) {
+            return new SuggestionMatch("CHINESE_GLOSS", 4);
+        }
+        if (searchPinyin.contains(keyword)) {
+            return new SuggestionMatch("PINYIN", 5);
+        }
+        if (searchInitials.contains(keyword)) {
+            return new SuggestionMatch("INITIALS", 6);
+        }
+        if (searchableText.contains(keyword)) {
+            return new SuggestionMatch("SEARCHABLE_TEXT", 7);
+        }
+        return null;
+    }
+
+    private String safeLower(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
     }
 
     private List<String> normalizeTags(List<String> tags) {

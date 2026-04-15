@@ -21,6 +21,7 @@
         <bucket4j.version>8.13.0</bucket4j.version>
         <jjwt.version>0.12.6</jjwt.version>
         <commons.csv.version>1.11.0</commons.csv.version>
+        <pinyin4j.version>2.5.1</pinyin4j.version>
         <poi.version>5.4.1</poi.version>
         <springdoc.version>3.0.0</springdoc.version>
         <resilience4j.version>2.3.0</resilience4j.version>
@@ -134,6 +135,11 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
             <version>${commons.csv.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.belerweb</groupId>
+            <artifactId>pinyin4j</artifactId>
+            <version>${pinyin4j.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>

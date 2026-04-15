@@ -71,6 +71,28 @@ public class AiOutputSchemaFactory {
                         ),
                         "explanation", Map.of("type", "string"),
                         "teacherNote", Map.of("type", "string"),
+                        "diagnosisInsight", Map.of(
+                                "type", "object",
+                                "additionalProperties", false,
+                                "properties", Map.of(
+                                        "strengths", Map.of(
+                                                "type", "array",
+                                                "minItems", 1,
+                                                "items", Map.of("type", "string")
+                                        ),
+                                        "weaknesses", Map.of(
+                                                "type", "array",
+                                                "minItems", 1,
+                                                "items", Map.of("type", "string")
+                                        ),
+                                        "suggestions", Map.of(
+                                                "type", "array",
+                                                "minItems", 1,
+                                                "items", Map.of("type", "string")
+                                        )
+                                ),
+                                "required", List.of("strengths", "weaknesses", "suggestions")
+                        ),
                         "confidence", Map.of("type", "number")
                 ),
                 "required", List.of(

@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Award, Brain, Clock3, Rocket } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, PanelSkeleton } from '@/components/common';
+import { TrainingModeSummaryCard } from '@/components/common/TrainingModeSummaryCard';
 import { aiService, trainingService } from '@/lib/services';
-import { formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
+import { errorTypeLabel, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel, trainingModeLabel } from '@/lib/format';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { buildTrainingHref, clearTrainingLaunchParams, parseTrainingLaunchNumber, type TrainingLaunchParams } from '@/lib/training-launch';
 import type { TrainingItemResultDetailVO, TrainingOptionViewVO } from '@/lib/contracts';
@@ -35,7 +36,7 @@ function TrainingItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) 
             {item.englishWord} / {item.frenchWord}
           </div>
           <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">
-            {item.mode} · {item.cognitiveTag} · {item.detectedErrorType || '已完成'}
+            {trainingModeLabel(item.mode)} · {item.cognitiveTag} · {item.detectedErrorType ? errorTypeLabel(item.detectedErrorType) : '已完成'}
           </div>
           <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
             <div className="font-semibold">{item.content.question}</div>
@@ -424,7 +425,7 @@ const TrainingPage: React.FC = () => {
 
             <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
-                {currentItem.mode} · {currentItem.cognitiveTag} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
+                {trainingModeLabel(currentItem.mode)} · {currentItem.cognitiveTag} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
               </div>
 
               <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -678,9 +679,15 @@ const TrainingPage: React.FC = () => {
                   <Rocket size={14} />
                   {t('training.recommendedPlan')}
                 </div>
-                <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">
-                  {recommendedPlanQuery.data?.priorityMode || t('training.recommendationLoading')}
-                </h2>
+                {recommendedPlanQuery.data?.priorityMode ? (
+                  <div className="mt-5">
+                    <TrainingModeSummaryCard mode={recommendedPlanQuery.data.priorityMode} />
+                  </div>
+                ) : (
+                  <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">
+                    {t('training.recommendationLoading')}
+                  </h2>
+                )}
                 <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
                   {recommendedPlanQuery.data?.recommendationReason || t('training.planLoading')}
                 </p>
@@ -728,18 +735,13 @@ const TrainingPage: React.FC = () => {
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {(recommendedPlanQuery.data?.suggestedSessions || []).map((session) => (
-                  <button
+                  <TrainingModeSummaryCard
                     key={session.mode}
-                    type="button"
                     onClick={() => void startSessionForMode(session.mode)}
                     disabled={startMutation.isPending}
-                    className="text-left rounded-[1.8rem] border border-slate-200/80 bg-white/60 p-5 transition-all hover:border-primary/40 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
-                  >
-                    <div className="font-black text-slate-900 dark:text-white">{session.label}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                      {t('training.suggestedQuestionCount', { count: session.count })}
-                    </div>
-                  </button>
+                    mode={session.mode}
+                    count={session.count}
+                  />
                 ))}
               </div>
             </section>
@@ -758,7 +760,7 @@ const TrainingPage: React.FC = () => {
                       {item.englishWord} / {item.frenchWord}
                     </div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                      {item.recommendedMode} · {item.recommendedReason}
+                      {trainingModeLabel(item.recommendedMode)} · {item.recommendedReason}
                     </div>
                   </div>
                 ))}
@@ -814,7 +816,7 @@ const TrainingPage: React.FC = () => {
                     {item.englishWord} / {item.frenchWord}
                   </div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    {item.reviewMode} · {formatDateTime(item.dueAt)}
+                    {trainingModeLabel(item.reviewMode)} · {formatDateTime(item.dueAt)}
                   </div>
                   <button
                     type="button"
@@ -875,7 +877,7 @@ const TrainingPage: React.FC = () => {
                     {item.englishWord} / {item.frenchWord}
                   </div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    {lexicalPairTypeLabel(item.lexicalPairType)} · {item.recommendedMode} · {item.lastErrorType} ·{' '}
+                    {lexicalPairTypeLabel(item.lexicalPairType)} · {trainingModeLabel(item.recommendedMode)} · {errorTypeLabel(item.lastErrorType)} ·{' '}
                     {t('training.wrongCount', { count: item.wrongCount })}
                   </div>
                   <button

@@ -8,6 +8,7 @@ import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSourceTypes;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievalResult;
 import com.huashi.eftransfer.ai.modules.rag.support.RagSearchFilter;
 import com.huashi.eftransfer.ai.modules.rag.vector.RagAdvisorVectorStore;
+import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagCitation;
@@ -20,6 +21,7 @@ import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvi
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -74,11 +76,12 @@ public class RagService {
                         .similarityThreshold(retrieval.recallThreshold())
                         .build())
                 .build();
+        String prompt = buildAnswerPrompt(request.query(), request.messageHistory());
 
         String answer = bundle.chatClient().prompt()
                 .system(ANSWER_SYSTEM_PROMPT)
                 .advisors(advisor)
-                .user(request.query())
+                .user(prompt)
                 .call()
                 .content();
 
@@ -97,7 +100,8 @@ public class RagService {
 
     public RagRetrieveResponse retrieve(RagRetrieveRequest request) {
         RagSearchFilter filter = new RagSearchFilter(normalizeSourceTypes(request.sourceTypes()), normalizeIds(request.sourceIds()));
-        RagRetrievalResult retrievalResult = knowledgeSearchService.search(request.query(), filter);
+        String retrievalQuery = buildRetrievalQuery(request.query(), request.messageHistory());
+        RagRetrievalResult retrievalResult = knowledgeSearchService.search(retrievalQuery, filter);
         boolean grounded = !retrievalResult.chunks().isEmpty();
         String uncertaintyNote = grounded ? null : "No sufficiently relevant knowledge chunks were retrieved from the knowledge base.";
         return new RagRetrieveResponse(
@@ -106,6 +110,44 @@ public class RagService {
                 toCitations(retrievalResult),
                 toContextChunks(retrievalResult)
         );
+    }
+
+    private String buildAnswerPrompt(String query, List<ChatMessage> messageHistory) {
+        if (messageHistory == null || messageHistory.isEmpty()) {
+            return query;
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("Conversation history for context only:\n");
+        for (ChatMessage message : messageHistory) {
+            if (message == null || message.content() == null || message.content().isBlank()) {
+                continue;
+            }
+            String label = "assistant".equals(message.role()) ? "Assistant" : "User";
+            builder.append(label).append(": ").append(message.content().trim()).append('\n');
+        }
+        builder.append("\nCurrent user question:\n").append(query).append("\n\n");
+        builder.append("Use retrieved knowledge as evidence. Do not treat the conversation history as a citation source.");
+        return builder.toString();
+    }
+
+    private String buildRetrievalQuery(String query, List<ChatMessage> messageHistory) {
+        if (messageHistory == null || messageHistory.isEmpty()) {
+            return query;
+        }
+        List<String> userTurns = new ArrayList<>();
+        for (ChatMessage message : messageHistory) {
+            if (message == null || !"user".equals(message.role()) || message.content() == null || message.content().isBlank()) {
+                continue;
+            }
+            userTurns.add(message.content().trim());
+        }
+        int start = Math.max(0, userTurns.size() - 2);
+        Set<String> retrievalTurns = new LinkedHashSet<>(userTurns.subList(start, userTurns.size()));
+        retrievalTurns.add(query);
+        if (retrievalTurns.size() == 1) {
+            return query;
+        }
+        return "Current question: " + query + "\nRecent user context: " + String.join(" | ", retrievalTurns);
     }
 
     public RagExplainRiskResponse explainRisk(RagExplainRiskRequest request) {

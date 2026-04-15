@@ -14,6 +14,18 @@ export const uiSlice: TranslationSlice = {
           retry: '可重试失败',
         },
       },
+      lexicalSearch: {
+        loadingSuggestions: '正在整理搜索建议...',
+        noSuggestions: '暂无匹配建议，继续输入可直接按关键词搜索。',
+        matchedBy: {
+          english: '命中英文',
+          french: '命中法文',
+          chinese: '命中中文释义',
+          pinyin: '命中拼音',
+          initials: '命中首字母',
+          keyword: '命中关键词',
+        },
+      },
       chart: {
         loadingTitle: '正在整理图表数据',
         loadingDescription: '系统正在准备可视化结果，当前页面其他内容不受影响。',
@@ -379,6 +391,18 @@ export const uiSlice: TranslationSlice = {
           permission: 'Access limited',
           error: 'Request failed',
           retry: 'Retry available',
+        },
+      },
+      lexicalSearch: {
+        loadingSuggestions: 'Loading suggestions...',
+        noSuggestions: 'No suggestion found yet. Keep typing to search by keyword directly.',
+        matchedBy: {
+          english: 'Matched English',
+          french: 'Matched French',
+          chinese: 'Matched Chinese gloss',
+          pinyin: 'Matched pinyin',
+          initials: 'Matched initials',
+          keyword: 'Matched keyword',
         },
       },
       chart: {
