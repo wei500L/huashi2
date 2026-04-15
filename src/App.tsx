@@ -16,6 +16,7 @@ import {
 import type { WorkspaceId } from './lib/workspaces';
 
 const Login = React.lazy(() => import('./pages/Login'));
+const Register = React.lazy(() => import('./pages/Register'));
 const AccountActionPage = React.lazy(() => import('./pages/AccountAction'));
 const Dashboard = React.lazy(() => import('./pages/dashboard/index'));
 const DiagnosisPage = React.lazy(() => import('./pages/diagnosis/index'));
@@ -195,6 +196,10 @@ const App: React.FC = () => {
       <Route
         path="/login"
         element={status === 'authenticated' && user ? <Navigate to={resolvedHomePath} replace /> : withSuspense(<Login />)}
+      />
+      <Route
+        path="/register"
+        element={status === 'authenticated' && user ? <Navigate to={resolvedHomePath} replace /> : withSuspense(<Register />)}
       />
       <Route path="/account-action/:token" element={withSuspense(<AccountActionPage />)} />
 

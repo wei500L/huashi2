@@ -246,6 +246,10 @@ const TeacherClassDetailPage: React.FC = () => {
           <StatusBadge label={`建档 ${formatDateTime(detailQuery.data?.createdAt) || '--'}`} />
           <StatusBadge label={`最近更新 ${formatDateTime(detailQuery.data?.updatedAt) || '--'}`} />
           <StatusBadge label={`年级 ${detailQuery.data?.gradeName || '--'}`} />
+          <StatusBadge label={`邀请码 ${detailQuery.data?.classCode || '--'}`} />
+        </div>
+        <div className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/45">
+          把邀请码发给学生即可。学生在 `/register` 完成注册后，会自动进入当前班级。
         </div>
       </section>
 

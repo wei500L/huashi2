@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -153,6 +153,13 @@ const Login: React.FC = () => {
               <button type="submit" disabled={isSubmitting} className="btn-liquid w-full py-4 text-white disabled:opacity-70">
                 {isSubmitting ? t('login.submitting') : t('login.submit')}
               </button>
+
+              <div className="rounded-2xl border border-slate-200/70 bg-white/55 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/50">
+                <div>{t('login.registerCtaHint')}</div>
+                <Link to="/register" className="mt-2 inline-flex font-semibold text-primary transition hover:opacity-80">
+                  {t('login.registerCta')}
+                </Link>
+              </div>
             </form>
           </section>
         </div>

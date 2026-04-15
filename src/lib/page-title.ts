@@ -4,6 +4,9 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   if (pathname === '/login') {
     return t('login.accountLogin');
   }
+  if (pathname === '/register') {
+    return t('register.accountRegister');
+  }
   if (pathname.startsWith('/teacher/workspace')) {
     return t('shell.titles.teacherWorkspace');
   }

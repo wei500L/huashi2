@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CurrentUserVO, LoginResponse } from '@/lib/contracts';
+import type { CurrentUserVO, LoginResponse, RegisterStudentRequest } from '@/lib/contracts';
 import type { SupportedLocale } from '@/lib/locale';
 import { readStoredLocale, writeStoredLocale } from '@/lib/locale';
 import { authService } from '@/lib/services';
@@ -17,6 +17,7 @@ interface AuthStore {
   error: string | null;
   initialize: () => Promise<void>;
   login: (payload: { usernameOrEmail: string; password: string }) => Promise<void>;
+  registerStudent: (payload: RegisterStudentRequest) => Promise<void>;
   logout: () => Promise<void>;
   syncFromStorage: () => void;
   clearError: () => void;
@@ -65,6 +66,24 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         session: null,
         user: null,
         error: error instanceof Error ? error.message : 'Login failed',
+      });
+      throw error;
+    }
+  },
+
+  registerStudent: async (payload) => {
+    set({ status: 'loading', error: null });
+    try {
+      const session = await authService.registerStudent(payload);
+      writeStoredSession(session);
+      set({ status: 'authenticated', session, user: session.userInfo, error: null });
+    } catch (error) {
+      clearStoredSession();
+      set({
+        status: 'anonymous',
+        session: null,
+        user: null,
+        error: error instanceof Error ? error.message : 'Registration failed',
       });
       throw error;
     }

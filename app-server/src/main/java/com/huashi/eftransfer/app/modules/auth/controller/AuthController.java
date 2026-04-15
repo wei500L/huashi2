@@ -3,10 +3,12 @@ package com.huashi.eftransfer.app.modules.auth.controller;
 import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.security.ratelimit.AuthRequestRateLimiter;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
+import com.huashi.eftransfer.app.modules.auth.dto.RegisterStudentRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.RefreshTokenRequest;
 import com.huashi.eftransfer.app.modules.auth.service.AuthService;
 import com.huashi.eftransfer.app.modules.auth.support.AuthClientContext;
 import com.huashi.eftransfer.app.modules.auth.vo.LoginResponse;
+import com.huashi.eftransfer.app.modules.auth.vo.StudentRegistrationContextVO;
 import com.huashi.eftransfer.app.modules.user.dto.CompleteAccountActionRequest;
 import com.huashi.eftransfer.app.modules.user.service.AccountActionService;
 import com.huashi.eftransfer.app.modules.user.vo.AccountActionPreviewVO;
@@ -52,6 +54,16 @@ public class AuthController {
     public ApiResponse<LoginResponse> refresh(HttpServletRequest httpRequest, @Valid @RequestBody RefreshTokenRequest request) {
         authRequestRateLimiter.checkRefresh(httpRequest, request);
         return ApiResponse.success(authService.refresh(request, AuthClientContext.from(httpRequest)), MDC.get("traceId"));
+    }
+
+    @PostMapping("/register")
+    public ApiResponse<LoginResponse> registerStudent(HttpServletRequest httpRequest, @Valid @RequestBody RegisterStudentRequest request) {
+        return ApiResponse.success(authService.registerStudent(request, AuthClientContext.from(httpRequest)), MDC.get("traceId"));
+    }
+
+    @GetMapping("/register/context/{classCode}")
+    public ApiResponse<StudentRegistrationContextVO> getRegistrationContext(@PathVariable String classCode) {
+        return ApiResponse.success(authService.getRegistrationContext(classCode), MDC.get("traceId"));
     }
 
     @PostMapping("/logout")

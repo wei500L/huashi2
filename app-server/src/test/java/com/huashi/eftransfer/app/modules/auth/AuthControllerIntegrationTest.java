@@ -1,7 +1,14 @@
 package com.huashi.eftransfer.app.modules.auth;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
+import com.huashi.eftransfer.app.modules.user.entity.StudentProfileEntity;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
 import com.huashi.eftransfer.app.modules.user.entity.UserRoleEntity;
+import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserRoleMapper;
 import com.huashi.eftransfer.app.support.MockMvcTestSupport;
@@ -23,6 +30,7 @@ import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -61,6 +69,15 @@ class AuthControllerIntegrationTest {
 
     @Autowired
     private UserRoleMapper userRoleMapper;
+
+    @Autowired
+    private StudentProfileMapper studentProfileMapper;
+
+    @Autowired
+    private TeachingClassMapper teachingClassMapper;
+
+    @Autowired
+    private TeachingClassStudentMapper teachingClassStudentMapper;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -245,6 +262,84 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"))
                 .andExpect(jsonPath("$.message").value("User account has no assigned roles"));
+    }
+
+    @Test
+    void shouldAllowStudentSelfRegistrationAndAutomaticallyJoinClass() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "student.self",
+                                  "email": "student.self@ef.local",
+                                  "displayName": "自主注册学生",
+                                  "password": "Student@123456",
+                                  "classCode": "CLS-0001",
+                                  "englishLevel": "B1",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "FOUNDATION"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userInfo.username").value("student.self"))
+                .andExpect(jsonPath("$.data.userInfo.primaryRole").value("STUDENT"))
+                .andExpect(jsonPath("$.data.userInfo.studentProfile.gradeName").value("Pilot Grade"))
+                .andExpect(jsonPath("$.data.userInfo.studentProfile.englishLevel").value("B1"))
+                .andExpect(jsonPath("$.data.userInfo.studentProfile.frenchLevel").value("A2"))
+                .andExpect(jsonPath("$.data.userInfo.studentProfile.courseStage").value("FOUNDATION"));
+
+        UserEntity user = userMapper.selectByUsernameOrEmail("student.self");
+        assertNotNull(user);
+
+        assertEquals(1L, userRoleMapper.selectCount(Wrappers.<UserRoleEntity>lambdaQuery()
+                .eq(UserRoleEntity::getUserId, user.getId())
+                .eq(UserRoleEntity::getRoleCode, "STUDENT")));
+
+        StudentProfileEntity studentProfile = studentProfileMapper.selectOne(Wrappers.<StudentProfileEntity>lambdaQuery()
+                .eq(StudentProfileEntity::getUserId, user.getId())
+                .last("LIMIT 1"));
+        assertNotNull(studentProfile);
+        assertEquals("Pilot Grade", studentProfile.getGradeName());
+
+        TeachingClassEntity teachingClass = teachingClassMapper.selectOne(Wrappers.<TeachingClassEntity>lambdaQuery()
+                .eq(TeachingClassEntity::getClassCode, "CLS-0001")
+                .last("LIMIT 1"));
+        assertNotNull(teachingClass);
+
+        assertEquals(1L, teachingClassStudentMapper.selectCount(Wrappers.<TeachingClassStudentEntity>lambdaQuery()
+                .eq(TeachingClassStudentEntity::getTeachingClassId, teachingClass.getId())
+                .eq(TeachingClassStudentEntity::getStudentUserId, user.getId())
+                .eq(TeachingClassStudentEntity::getActive, Boolean.TRUE)));
+    }
+
+    @Test
+    void shouldRejectStudentRegistrationWhenClassInviteCodeIsInvalid() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "student.invalid",
+                                  "email": "student.invalid@ef.local",
+                                  "displayName": "邀请码错误学生",
+                                  "password": "Student@123456",
+                                  "classCode": "MISSING-CLASS",
+                                  "englishLevel": "B1",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "FOUNDATION"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value("Class invite code is invalid"));
+    }
+
+    @Test
+    void shouldExposeRegistrationContextForValidClassInviteCode() throws Exception {
+        mockMvc.perform(get("/api/auth/register/context/CLS-0001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.classCode").value("CLS-0001"))
+                .andExpect(jsonPath("$.data.className").value("2024级英法迁移试点1班"))
+                .andExpect(jsonPath("$.data.gradeName").value("Pilot Grade"));
     }
 
     @Test

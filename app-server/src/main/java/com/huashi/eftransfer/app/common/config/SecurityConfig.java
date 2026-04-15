@@ -56,6 +56,8 @@ public class SecurityConfig {
                     auth.requestMatchers(
                             "/api/health",
                             "/api/auth/login",
+                            "/api/auth/register",
+                            "/api/auth/register/context/**",
                             "/api/auth/refresh",
                             "/api/auth/account-actions/**",
                             "/ws/**",

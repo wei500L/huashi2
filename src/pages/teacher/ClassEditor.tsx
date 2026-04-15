@@ -123,13 +123,16 @@ const TeacherClassEditorPage: React.FC = () => {
         <SectionEyebrow className="mb-6">基础信息</SectionEyebrow>
         <div className="grid gap-6 md:grid-cols-2">
           <label className="space-y-3">
-            <div className="text-sm font-semibold text-slate-700 dark:text-white/80">班级编码</div>
+            <div className="text-sm font-semibold text-slate-700 dark:text-white/80">班级邀请码</div>
             <input
               value={form.classCode}
               onChange={(event) => setForm((current) => ({ ...current, classCode: event.target.value }))}
               placeholder="例如 FR-2026-A"
               className="w-full rounded-[1.4rem] border border-slate-200 bg-white/70 px-4 py-3 text-sm outline-none transition focus:border-primary dark:border-white/10 dark:bg-white/5"
             />
+            <div className="text-xs leading-5 text-slate-500 dark:text-white/45">
+              学生在 `/register` 输入这个邀请码后，会自动加入当前班级。
+            </div>
           </label>
 
           <label className="space-y-3">

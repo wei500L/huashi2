@@ -35,6 +35,7 @@ import type {
   LexicalPairUpsertRequest,
   LexicalRagAnswerVO,
   LoginResponse,
+  RegisterStudentRequest,
   NotificationItemVO,
   NotificationUnreadCountVO,
   PageResult,
@@ -95,6 +96,7 @@ import type {
   RagReindexResponse,
   SaveAssessmentResponsesRequest,
   StudentAssessmentHistorySummaryVO,
+  StudentRegistrationContextVO,
   StudentAssessmentSummaryVO,
   TeacherAssessmentAttemptResultVO,
 } from './contracts';
@@ -104,6 +106,10 @@ type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout'>;
 export const authService = {
   login: (payload: { usernameOrEmail: string; password: string }) =>
     apiPost<LoginResponse>('/auth/login', payload),
+  registerStudent: (payload: RegisterStudentRequest) =>
+    apiPost<LoginResponse>('/auth/register', payload),
+  getRegistrationContext: (classCode: string, options?: RequestOptions) =>
+    apiGet<StudentRegistrationContextVO>(`/auth/register/context/${encodeURIComponent(classCode)}`, options),
   refresh: (refreshToken: string) => apiPost<LoginResponse>('/auth/refresh', { refreshToken }),
   logout: () => apiPost<void>('/auth/logout'),
   me: (options?: RequestOptions) => apiGet<CurrentUserVO>('/auth/me', options),

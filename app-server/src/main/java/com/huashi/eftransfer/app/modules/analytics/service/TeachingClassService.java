@@ -9,11 +9,14 @@ import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMa
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class TeachingClassService {
@@ -50,6 +53,18 @@ public class TeachingClassService {
             throw new BusinessException(ResultCode.FORBIDDEN, "You do not have access to this teaching class", 403);
         }
         return teachingClass;
+    }
+
+    public Optional<TeachingClassEntity> findActiveByClassCode(String classCode) {
+        if (!StringUtils.hasText(classCode)) {
+            return Optional.empty();
+        }
+        String normalized = classCode.trim().toLowerCase(Locale.ROOT);
+        TeachingClassEntity teachingClass = teachingClassMapper.selectOne(Wrappers.<TeachingClassEntity>lambdaQuery()
+                .eq(TeachingClassEntity::getActive, Boolean.TRUE)
+                .apply("LOWER(class_code) = {0}", normalized)
+                .last("LIMIT 1"));
+        return Optional.ofNullable(teachingClass);
     }
 
     public void requireStudentInClass(Long classId, Long studentUserId) {

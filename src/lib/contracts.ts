@@ -53,6 +53,23 @@ export interface LoginResponse {
   userInfo: CurrentUserVO;
 }
 
+export interface RegisterStudentRequest {
+  username: string;
+  email: string;
+  displayName: string;
+  password: string;
+  classCode: string;
+  englishLevel: string;
+  frenchLevel: string;
+  courseStage: string;
+}
+
+export interface StudentRegistrationContextVO {
+  classCode: string;
+  className: string;
+  gradeName: string;
+}
+
 export interface NotificationItemVO {
   id: number;
   category: string;

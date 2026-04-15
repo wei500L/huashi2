@@ -7,15 +7,26 @@ import com.huashi.eftransfer.app.common.security.JwtTokenProvider;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.security.store.RefreshTokenSession;
 import com.huashi.eftransfer.app.common.util.TokenGenerator;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
+import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
+import com.huashi.eftransfer.app.modules.auth.dto.RegisterStudentRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.RefreshTokenRequest;
 import com.huashi.eftransfer.app.modules.auth.support.AuthClientContext;
 import com.huashi.eftransfer.app.modules.auth.vo.LoginResponse;
+import com.huashi.eftransfer.app.modules.auth.vo.StudentRegistrationContextVO;
+import com.huashi.eftransfer.app.modules.user.entity.StudentProfileEntity;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
+import com.huashi.eftransfer.app.modules.user.entity.UserRoleEntity;
+import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
+import com.huashi.eftransfer.app.modules.user.mapper.UserRoleMapper;
 import com.huashi.eftransfer.app.modules.user.service.UserQueryService;
 import com.huashi.eftransfer.app.modules.user.vo.CurrentUserVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
+import com.huashi.eftransfer.shared.enums.UserRole;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +40,25 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+    private static final DateTimeFormatter STUDENT_NO_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final String DEFAULT_STUDENT_COURSE_STAGE = "FOUNDATION";
+    private static final int DEFAULT_STUDENT_COMPOSITE_SCORE = 0;
 
     private final UserQueryService userQueryService;
     private final UserMapper userMapper;
+    private final UserRoleMapper userRoleMapper;
+    private final StudentProfileMapper studentProfileMapper;
+    private final TeachingClassService teachingClassService;
+    private final TeachingClassStudentMapper teachingClassStudentMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
@@ -47,6 +68,10 @@ public class AuthService {
     public AuthService(
             UserQueryService userQueryService,
             UserMapper userMapper,
+            UserRoleMapper userRoleMapper,
+            StudentProfileMapper studentProfileMapper,
+            TeachingClassService teachingClassService,
+            TeachingClassStudentMapper teachingClassStudentMapper,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
             JwtProperties jwtProperties,
@@ -55,6 +80,10 @@ public class AuthService {
     ) {
         this.userQueryService = userQueryService;
         this.userMapper = userMapper;
+        this.userRoleMapper = userRoleMapper;
+        this.studentProfileMapper = studentProfileMapper;
+        this.teachingClassService = teachingClassService;
+        this.teachingClassStudentMapper = teachingClassStudentMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.jwtProperties = jwtProperties;
@@ -124,6 +153,68 @@ public class AuthService {
         return response;
     }
 
+    @Transactional
+    public LoginResponse registerStudent(RegisterStudentRequest request, AuthClientContext clientContext) {
+        String username = normalizeValue(request.username());
+        String email = normalizeEmail(request.email());
+        ensureLoginIdentifierAvailable(username, "username");
+        ensureLoginIdentifierAvailable(email, "email");
+
+        TeachingClassEntity teachingClass = requireActiveClass(request.classCode());
+        LocalDateTime now = LocalDateTime.now();
+
+        UserEntity user = new UserEntity();
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setDisplayName(normalizeValue(request.displayName()));
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setEnabled(Boolean.TRUE);
+        user.setLastLoginAt(now);
+        userMapper.insert(user);
+
+        UserRoleEntity role = new UserRoleEntity();
+        role.setUserId(user.getId());
+        role.setRoleCode(UserRole.STUDENT.name());
+        userRoleMapper.insert(role);
+
+        StudentProfileEntity studentProfile = new StudentProfileEntity();
+        studentProfile.setUserId(user.getId());
+        studentProfile.setStudentNo(generateStudentNo());
+        studentProfile.setGradeName(teachingClass.getGradeName());
+        studentProfile.setEnglishLevel(normalizeLevel(request.englishLevel()));
+        studentProfile.setFrenchLevel(normalizeLevel(request.frenchLevel()));
+        studentProfile.setCourseStage(normalizeCourseStage(request.courseStage()));
+        studentProfile.setCompositeScore(DEFAULT_STUDENT_COMPOSITE_SCORE);
+        studentProfileMapper.insert(studentProfile);
+
+        TeachingClassStudentEntity relation = new TeachingClassStudentEntity();
+        relation.setTeachingClassId(teachingClass.getId());
+        relation.setStudentUserId(user.getId());
+        relation.setJoinedAt(now);
+        relation.setLeftAt(null);
+        relation.setActive(Boolean.TRUE);
+        teachingClassStudentMapper.insert(relation);
+
+        LoginResponse response = issueTokens(user, Set.of(UserRole.STUDENT.name()), clientContext);
+        log.info(
+                "event=student_self_register_success userId={} username={} classId={} classCode={}",
+                user.getId(),
+                user.getUsername(),
+                teachingClass.getId(),
+                teachingClass.getClassCode()
+        );
+        return response;
+    }
+
+    public StudentRegistrationContextVO getRegistrationContext(String rawClassCode) {
+        TeachingClassEntity teachingClass = requireActiveClass(rawClassCode);
+        return new StudentRegistrationContextVO(
+                teachingClass.getClassCode(),
+                teachingClass.getClassName(),
+                teachingClass.getGradeName()
+        );
+    }
+
     public void logout(JwtPrincipal principal) {
         authTokenStore.revokeAllUserSessions(principal.userId());
         Duration ttl = Duration.between(Instant.now(), principal.expiresAt());
@@ -180,6 +271,12 @@ public class AuthService {
         return new BusinessException(ResultCode.INVALID_CREDENTIALS, "Invalid username/email or password", 401);
     }
 
+    private void ensureLoginIdentifierAvailable(String value, String fieldName) {
+        if (userQueryService.findByUsernameOrEmail(value).isPresent()) {
+            throw new BusinessException(ResultCode.CONFLICT, fieldName + " already exists", 409);
+        }
+    }
+
     private void requireAssignedRoles(Set<String> roles) {
         if (roles == null || roles.isEmpty()) {
             throw new BusinessException(ResultCode.FORBIDDEN, "User account has no assigned roles", 403);
@@ -225,5 +322,50 @@ public class AuthService {
                     clientContext.ipAddress()
             );
         }
+    }
+
+    private TeachingClassEntity requireActiveClass(String classCode) {
+        return teachingClassService.findActiveByClassCode(classCode)
+                .orElseThrow(() -> new BusinessException(ResultCode.VALIDATION_ERROR, "Class invite code is invalid", 400));
+    }
+
+    private String normalizeValue(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private String normalizeEmail(String value) {
+        String normalized = normalizeValue(value);
+        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeLevel(String value) {
+        String normalized = normalizeValue(value);
+        return normalized == null ? null : normalized.toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeCourseStage(String value) {
+        String normalizedValue = normalizeValue(value);
+        if (normalizedValue == null || normalizedValue.isBlank()) {
+            return DEFAULT_STUDENT_COURSE_STAGE;
+        }
+        String normalized = normalizedValue.toUpperCase(Locale.ROOT);
+        return normalized.isBlank() ? DEFAULT_STUDENT_COURSE_STAGE : normalized;
+    }
+
+    private String generateStudentNo() {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            String candidate = "S%s%04d".formatted(
+                    LocalDateTime.now().format(STUDENT_NO_TIMESTAMP),
+                    ThreadLocalRandom.current().nextInt(0, 10_000)
+            );
+            Long count = studentProfileMapper.selectCount(
+                    com.baomidou.mybatisplus.core.toolkit.Wrappers.<StudentProfileEntity>lambdaQuery()
+                            .eq(StudentProfileEntity::getStudentNo, candidate)
+            );
+            if (count == null || count == 0) {
+                return candidate;
+            }
+        }
+        throw new BusinessException(ResultCode.INTERNAL_ERROR, "Failed to generate student number", 500);
     }
 }
