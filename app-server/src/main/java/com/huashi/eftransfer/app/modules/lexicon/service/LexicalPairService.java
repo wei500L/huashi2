@@ -273,10 +273,7 @@ public class LexicalPairService {
         }
         String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
         int resolvedLimit = limit == null ? 8 : Math.max(1, Math.min(limit, 20));
-        LambdaQueryWrapper<LexicalPairEntity> wrapper = Wrappers.<LexicalPairEntity>lambdaQuery()
-                .orderByDesc(LexicalPairEntity::getUpdatedAt)
-                .orderByDesc(LexicalPairEntity::getId)
-                .last("LIMIT 30");
+        LambdaQueryWrapper<LexicalPairEntity> wrapper = Wrappers.<LexicalPairEntity>lambdaQuery();
         if (active != null) {
             wrapper.eq(LexicalPairEntity::getActive, active);
         }

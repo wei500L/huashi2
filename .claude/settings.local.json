@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "mcp__contextweaver__codebase-retrieval"
+      "mcp__contextweaver__codebase-retrieval",
+      "Bash(ls -d app-server/src/main/java/com/huashi/*/)",
+      "Bash(ls -d app-server/src/main/java/com/huashi/*/*/)",
+      "Bash(ls -d ai-gateway/src/main/java/com/huashi/*/)",
+      "Bash(ls -d ai-gateway/src/main/java/com/huashi/*/*/)"
     ]
   }
 }

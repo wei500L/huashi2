@@ -133,7 +133,7 @@ public class LexicalRagConversationService {
         LexicalRagConversationMessageEntity entity = new LexicalRagConversationMessageEntity();
         entity.setConversationSessionId(session.getId());
         entity.setRole("assistant");
-        entity.setContentText(response.answer());
+        entity.setContentText(buildAssistantContentText(response));
         entity.setPayloadJson(aiJsonCodec.write(response));
         entity.setRequestId(response.requestId());
         entity.setGenerationSource(response.generationSource());
@@ -147,6 +147,23 @@ public class LexicalRagConversationService {
     private void touchConversation(LexicalRagConversationSessionEntity session, LocalDateTime lastMessageAt) {
         session.setLastMessageAt(lastMessageAt);
         conversationSessionMapper.updateById(session);
+    }
+
+    private String buildAssistantContentText(LexicalRagAnswerVO response) {
+        StringBuilder builder = new StringBuilder(response.answer().trim());
+        if (response.explanation() != null && !response.explanation().isBlank()) {
+            builder.append("\n\nExplanation:\n").append(response.explanation().trim());
+        }
+        if (response.recommendedActions() != null && !response.recommendedActions().isEmpty()) {
+            builder.append("\n\nRecommended actions:");
+            for (String action : response.recommendedActions()) {
+                if (action == null || action.isBlank()) {
+                    continue;
+                }
+                builder.append("\n- ").append(action.trim());
+            }
+        }
+        return builder.toString();
     }
 
     private LexicalRagConversationSessionEntity requireConversation(Long studentUserId, String conversationId) {

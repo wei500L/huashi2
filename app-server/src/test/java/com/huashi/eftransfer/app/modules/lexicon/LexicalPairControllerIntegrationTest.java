@@ -163,4 +163,74 @@ class LexicalPairControllerIntegrationTest extends AbstractWebIntegrationTest {
                         .with(bearer(teacherToken)))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void shouldRankSuggestionsBeforeApplyingResponseLimit() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+
+        createLexicalPair(teacherToken, "focus", "foyer", "焦点");
+        for (int index = 1; index <= 31; index++) {
+            createLexicalPair(
+                    teacherToken,
+                    "filler-%02d".formatted(index),
+                    "remplissage-%02d".formatted(index),
+                    "focus 干扰词 %02d".formatted(index)
+            );
+        }
+
+        mockMvc.perform(get("/api/lexical-pairs/suggestions")
+                        .with(bearer(teacherToken))
+                        .param("keyword", "focus")
+                        .param("limit", "5")
+                        .param("active", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(5))
+                .andExpect(jsonPath("$.data[0].englishWord").value("focus"))
+                .andExpect(jsonPath("$.data[0].matchedBy").value("ENGLISH_WORD"));
+    }
+
+    private long createLexicalPair(String teacherToken, String englishWord, String frenchWord, String chineseGloss) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/lexical-pairs")
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "englishWord": "%s",
+                                  "frenchWord": "%s",
+                                  "chineseGloss": "%s",
+                                  "lexicalPairType": "false_friend",
+                                  "semanticOverlapScore": 0.10,
+                                  "falseFriendRisk": 0.60,
+                                  "defaultContextSupport": "high",
+                                  "difficultyLevel": 3,
+                                  "notes": "Suggestion ranking fixture",
+                                  "source": "Test Fixture",
+                                  "active": true,
+                                  "knowledgeStatus": "ready",
+                                  "embeddingStatus": "pending",
+                                  "tags": ["suggestion-test"],
+                                  "senses": [
+                                    {
+                                      "sortOrder": 1,
+                                      "englishDefinition": "%s definition",
+                                      "frenchDefinition": "%s definition",
+                                      "chineseDefinition": "%s 释义",
+                                      "examples": [
+                                        {
+                                          "sortOrder": 1,
+                                          "englishExample": "%s example",
+                                          "frenchExample": "%s exemple",
+                                          "chineseTranslation": "%s 例句",
+                                          "contextSupportLevel": "high",
+                                          "source": "Test Fixture"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(englishWord, frenchWord, chineseGloss, englishWord, frenchWord, chineseGloss, englishWord, frenchWord, chineseGloss)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(result).path("data").asLong();
+    }
 }

@@ -318,14 +318,22 @@ describe('Assistant drawer conversation flow', () => {
   it('renders conversation history, starts a new chat, and switches conversations', async () => {
     renderWithShell();
 
-    expect(await screen.findByRole('button', { name: 'coin / coin' })).toBeInTheDocument();
+    const conversationLabels = await screen.findAllByText('coin / coin');
+    const firstConversationButton = conversationLabels.find((element) => element.closest('button'))?.closest('button') ?? null;
+    expect(firstConversationButton).not.toBeNull();
     expect(await screen.findByText('coin usually means money, while French coin often means corner [C1]')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '新对话' }));
-    expect(screen.getByText('这是一个新的对话草稿，发送首条消息后会自动创建会话。')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(useUIStore.getState().activeAssistantConversationId).toBeNull();
+      expect(screen.getByText('选择一个已有会话，或新建一个对话开始连续追问。')).toBeInTheDocument();
+    });
 
-    fireEvent.change(screen.getByLabelText('误判原因问题'), { target: { value: '为什么总会误判？' } });
-    fireEvent.click(screen.getByRole('button', { name: '搜索' }));
+    fireEvent.change(
+      screen.getByPlaceholderText('输入你想追问的误判问题，例如：coin / coin 为什么总被误判？'),
+      { target: { value: '为什么总会误判？' } }
+    );
+    fireEvent.click(screen.getByRole('button', { name: '追问原因' }));
 
     await waitFor(() => {
       expect(queryLexicalRag).toHaveBeenCalledWith({ query: '为什么总会误判？', conversationId: null });
@@ -335,7 +343,7 @@ describe('Assistant drawer conversation flow', () => {
       expect(useUIStore.getState().activeAssistantConversationId).toBe('conv-2');
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'coin / coin' }));
+    fireEvent.click(firstConversationButton as HTMLButtonElement);
 
     await waitFor(() => {
       expect(screen.getByText('coin usually means money, while French coin often means corner [C1]')).toBeInTheDocument();

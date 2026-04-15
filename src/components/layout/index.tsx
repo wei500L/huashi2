@@ -600,6 +600,7 @@ const AssistantDrawer: React.FC = () => {
     setActiveAssistantConversation,
   } = useUIStore();
   const [query, setQuery] = useState(assistantDraft);
+  const [isStartingNewConversation, setIsStartingNewConversation] = useState(false);
   const drawerRef = React.useRef<HTMLElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
@@ -628,6 +629,7 @@ const AssistantDrawer: React.FC = () => {
   const ragMutation = useMutation({
     mutationFn: (payload: { query: string; conversationId?: string | null }) => aiService.queryLexicalRag(payload),
     onSuccess: async (payload) => {
+      setIsStartingNewConversation(false);
       setActiveAssistantConversation(payload.conversationId);
       setAssistantDraft('');
       setQuery('');
@@ -649,7 +651,7 @@ const AssistantDrawer: React.FC = () => {
   }, [canUseAssistant, isAssistantOpen, closeAssistant]);
 
   useEffect(() => {
-    if (!assistantOpen || activeAssistantConversationId || assistantDraft.trim()) {
+    if (!assistantOpen || isStartingNewConversation || activeAssistantConversationId || assistantDraft.trim()) {
       return;
     }
     const firstConversation = conversationListQuery.data?.records?.[0];
@@ -658,11 +660,18 @@ const AssistantDrawer: React.FC = () => {
     }
   }, [
     assistantOpen,
+    isStartingNewConversation,
     activeAssistantConversationId,
     assistantDraft,
     conversationListQuery.data?.records,
     setActiveAssistantConversation,
   ]);
+
+  useEffect(() => {
+    if (activeAssistantConversationId) {
+      setIsStartingNewConversation(false);
+    }
+  }, [activeAssistantConversationId]);
 
   useBodyScrollLock(assistantOpen);
   useDialogAccessibility({
@@ -680,12 +689,14 @@ const AssistantDrawer: React.FC = () => {
   const locale = i18n.resolvedLanguage || i18n.language || 'zh-CN';
 
   const handleNewConversation = () => {
+    setIsStartingNewConversation(true);
     setActiveAssistantConversation(null);
     setAssistantDraft('');
     setQuery('');
   };
 
   const handleConversationSelect = (conversationId: string) => {
+    setIsStartingNewConversation(false);
     setActiveAssistantConversation(conversationId);
     setAssistantDraft('');
     setQuery('');

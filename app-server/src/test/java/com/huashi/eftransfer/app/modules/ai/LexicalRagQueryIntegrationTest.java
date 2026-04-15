@@ -117,6 +117,10 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(stubAiGatewayClient.lastRetrieveRequest()).isNotNull();
         assertThat(stubAiGatewayClient.lastRetrieveRequest().conversationId()).isEqualTo(conversationId);
         assertThat(stubAiGatewayClient.lastRetrieveRequest().messageHistory()).hasSize(2);
+        assertThat(stubAiGatewayClient.lastRetrieveRequest().messageHistory().get(1).content())
+                .contains("coin 在英语里通常指硬币")
+                .contains("检索片段表明这组词对属于典型的语义分叉型 false friend")
+                .contains("先对比两个词的核心义项。");
         assertThat(stubAiGatewayClient.lastStructuredRequest()).isNotNull();
         assertThat(stubAiGatewayClient.lastStructuredRequest().messages()).hasSize(4);
 
