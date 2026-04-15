@@ -55,6 +55,15 @@ export interface LoginResponse {
   userInfo: CurrentUserVO;
 }
 
+export interface LoginRequest {
+  usernameOrEmail: string;
+  password: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
 export interface RegisterStudentRequest {
   username: string;
   email: string;
@@ -535,6 +544,10 @@ export interface DiagnosisSessionCreatedVO {
   startedAt: string;
 }
 
+export interface CreateDiagnosisSessionRequest {
+  templateId: number;
+}
+
 export interface DiagnosisOptionViewVO {
   key: string;
   label: string;
@@ -573,6 +586,18 @@ export interface DiagnosisSessionProgressVO {
   answeredItems: number;
   currentItemOrder: number;
   completed: boolean;
+}
+
+export interface SubmitDiagnosisAnswerRequest {
+  itemResultId: number;
+  selectedSemanticMatch?: boolean;
+  selectedAnswerKey?: string;
+  reactionTimeMs: number;
+  hesitationTimeMs: number;
+}
+
+export interface SaveDiagnosisProgressRequest {
+  progressSnapshot: Record<string, unknown>;
 }
 
 export interface DiagnosisSummaryMetricsVO {
@@ -819,6 +844,16 @@ export interface TrainingSessionCreatedVO {
   currentItemOrder: number;
 }
 
+export interface StartTrainingSessionRequest {
+  planId: number;
+  mode: string;
+  launchSource?: string;
+  diagnosisSummaryId?: number | null;
+  lexicalPairId?: number | null;
+  wrongBookId?: number | null;
+  reviewScheduleId?: number | null;
+}
+
 export interface TrainingNextItemVO {
   sessionId: number;
   sessionStatus: string;
@@ -837,6 +872,17 @@ export interface TrainingSessionProgressVO {
   answeredItems: number;
   currentItemOrder: number;
   completed: boolean;
+}
+
+export interface SaveTrainingProgressRequest {
+  progressSnapshot: Record<string, unknown>;
+}
+
+export interface SubmitTrainingAnswerRequest {
+  itemResultId: number;
+  selectedAnswerKey: string;
+  reactionTimeMs: number;
+  hesitationTimeMs: number;
 }
 
 export interface TrainingHistorySummaryVO {
@@ -948,6 +994,14 @@ export interface AiGuidanceResponseVO {
   fallbackReason?: string | null;
 }
 
+export interface RecommendTrainingRequest {
+  diagnosisSummaryId?: number | null;
+}
+
+export interface ExplainDiagnosisRequest {
+  diagnosisSummaryId?: number | null;
+}
+
 export interface RagCitation {
   citationId: string;
   sourceType: string;
@@ -983,6 +1037,11 @@ export interface LexicalRagAnswerVO {
   citations?: RagCitation[];
   contextChunks?: RagContextChunk[];
   fallbackReason?: string | null;
+}
+
+export interface LexicalRagQueryRequest {
+  query: string;
+  conversationId?: string | null;
 }
 
 export interface LexicalRagConversationSummaryVO {
@@ -1214,6 +1273,12 @@ export interface TeacherInterventionUpdateRequest {
   teacherNote?: string | null;
 }
 
+export interface TeacherInterventionSuggestRequest {
+  classId: number;
+  studentUserId: number;
+  diagnosisSummaryId?: number | null;
+}
+
 export interface UserSummaryVO {
   id: number;
   username: string;
@@ -1428,6 +1493,23 @@ export interface LexicalPairSenseVO {
   frenchDefinition: string;
   chineseDefinition: string;
   examples: LexicalPairExampleVO[];
+}
+
+export interface LexicalPairExampleRequest {
+  sortOrder: number;
+  englishExample: string;
+  frenchExample: string;
+  chineseTranslation: string;
+  contextSupportLevel: string;
+  source?: string;
+}
+
+export interface LexicalPairSenseRequest {
+  sortOrder: number;
+  englishDefinition: string;
+  frenchDefinition: string;
+  chineseDefinition: string;
+  examples: LexicalPairExampleRequest[];
 }
 
 export interface LexicalPairDetailVO {
@@ -1649,7 +1731,7 @@ export interface LexicalPairUpsertRequest {
   knowledgeStatus?: string;
   embeddingStatus?: string;
   tags?: string[];
-  senses: LexicalPairSenseVO[];
+  senses: LexicalPairSenseRequest[];
 }
 
 export interface CreateLexicalListRequest {
@@ -1663,27 +1745,27 @@ export interface AddLexicalListItemsRequest {
 }
 
 export interface AiOpsChatConfig {
-  baseUrl: string;
+  baseUrl?: string | null;
   apiKey?: string | null;
-  model: string;
-  timeout: string;
-  temperature: number;
-  maxTokens: number;
+  model?: string | null;
+  timeout?: string | null;
+  temperature?: number | null;
+  maxTokens?: number | null;
 }
 
 export interface AiOpsEmbeddingConfig {
-  baseUrl: string;
+  baseUrl?: string | null;
   apiKey?: string | null;
-  model: string;
-  timeout: string;
-  dimension: number;
+  model?: string | null;
+  timeout?: string | null;
+  dimension?: number | null;
 }
 
 export interface AiOpsRerankConfig {
-  baseUrl: string;
+  baseUrl?: string | null;
   apiKey?: string | null;
-  model: string;
-  timeout: string;
+  model?: string | null;
+  timeout?: string | null;
 }
 
 export interface AiOpsProviderDefinition {
@@ -1693,37 +1775,37 @@ export interface AiOpsProviderDefinition {
 }
 
 export interface AiOpsProviderConfig {
-  activeProvider: string;
-  fallbackProvider: string;
+  activeProvider?: string | null;
+  fallbackProvider?: string | null;
   providers: Record<string, AiOpsProviderDefinition>;
 }
 
 export interface AiOpsResilienceConfig {
-  maxAttempts: number;
-  waitDuration: string;
-  failureRateThreshold: number;
-  slidingWindowSize: number;
-  openStateDuration: string;
+  maxAttempts?: number | null;
+  waitDuration?: string | null;
+  failureRateThreshold?: number | null;
+  slidingWindowSize?: number | null;
+  openStateDuration?: string | null;
 }
 
 export interface AiOpsRagAppServerConfig {
-  baseUrl: string;
+  baseUrl?: string | null;
   internalToken?: string | null;
-  connectTimeout: string;
-  readTimeout: string;
+  connectTimeout?: string | null;
+  readTimeout?: string | null;
 }
 
 export interface AiOpsRagIngestionConfig {
-  exportPageSize: number;
-  embeddingBatchSize: number;
+  exportPageSize?: number | null;
+  embeddingBatchSize?: number | null;
 }
 
 export interface AiOpsRagRetrievalConfig {
-  recallTopK: number;
-  recallThreshold: number;
-  rerankTopN: number;
-  rerankThreshold: number;
-  finalTopK: number;
+  recallTopK?: number | null;
+  recallThreshold?: number | null;
+  rerankTopN?: number | null;
+  rerankThreshold?: number | null;
+  finalTopK?: number | null;
 }
 
 export interface AiOpsRagConfig {

@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.app.modules.lexicon.vo;
 
+import jakarta.validation.constraints.NotNull;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -10,7 +12,9 @@ public record LexicalPairDetailVO(
         String frenchWord,
         String chineseGloss,
         String lexicalPairType,
+        @NotNull
         BigDecimal semanticOverlapScore,
+        @NotNull
         BigDecimal falseFriendRisk,
         String riskLevel,
         String defaultContextSupport,

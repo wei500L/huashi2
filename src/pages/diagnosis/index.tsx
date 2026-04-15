@@ -9,7 +9,14 @@ import { getApiErrorMessage } from '@/lib/api';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import { buildTrainingHref } from '@/lib/training-launch';
-import type { AnalyticsRadarMetricVO, DiagnosisItemResultDetailVO, DiagnosisOptionPayload, DiagnosisOptionViewVO, DiagnosisRadarMetric } from '@/lib/contracts';
+import type {
+  AnalyticsRadarMetricVO,
+  DiagnosisItemResultDetailVO,
+  DiagnosisOptionPayload,
+  DiagnosisOptionViewVO,
+  DiagnosisRadarMetric,
+  SubmitDiagnosisAnswerRequest,
+} from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
@@ -181,13 +188,8 @@ const DiagnosisPage: React.FC = () => {
   }, [queryClient]);
 
   const submitAnswerMutation = useMutation({
-    mutationFn: (payload: {
-      itemResultId: number;
-      selectedSemanticMatch?: boolean;
-      selectedAnswerKey?: string;
-      reactionTimeMs: number;
-      hesitationTimeMs: number;
-    }) => diagnosisSessionService.submitAnswer(state.sessionId as number, payload),
+    mutationFn: (payload: SubmitDiagnosisAnswerRequest) =>
+      diagnosisSessionService.submitAnswer(state.sessionId as number, payload),
     onSuccess: async (progress, payload) => {
       setSubmitErrorMessage(null);
       if (progress.completed) {

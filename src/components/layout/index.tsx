@@ -31,7 +31,7 @@ import { RouteErrorBoundary } from '@/components/common/AppErrorBoundary';
 import { NotificationBell } from './NotificationBell';
 import { useAuthStore, useUIStore } from '@/store';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
-import type { LexicalRagAnswerVO, LexicalRagConversationMessageVO } from '@/lib/contracts';
+import type { LexicalRagAnswerVO, LexicalRagConversationMessageVO, LexicalRagQueryRequest } from '@/lib/contracts';
 import { resolveRouteTitle } from '@/lib/page-title';
 import { aiService } from '@/lib/services';
 import { cn } from '@/lib/utils';
@@ -627,7 +627,7 @@ const AssistantDrawer: React.FC = () => {
     enabled: assistantOpen && !!activeAssistantConversationId,
   });
   const ragMutation = useMutation({
-    mutationFn: (payload: { query: string; conversationId?: string | null }) => aiService.queryLexicalRag(payload),
+    mutationFn: (payload: LexicalRagQueryRequest) => aiService.queryLexicalRag(payload),
     onSuccess: async (payload) => {
       setIsStartingNewConversation(false);
       setActiveAssistantConversation(payload.conversationId);

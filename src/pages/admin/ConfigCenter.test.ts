@@ -160,13 +160,13 @@ describe('ConfigCenter contract guards', () => {
     expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/chat\.temperature/);
   });
 
-  it('converts a valid envelope with null leaves into an editable draft', () => {
+  it('preserves nullable leaves from a valid envelope', () => {
     const normalized = normalizeAdminAiConfigView(createConfigViewEnvelope());
 
-    expect(normalized.config.provider.activeProvider).toBe('');
-    expect(normalized.config.provider.providers.qwen.chat.baseUrl).toBe('');
-    expect(normalized.config.provider.providers.qwen.embedding.dimension).toBe(0);
-    expect(normalized.config.rag.retrieval.finalTopK).toBe(0);
+    expect(normalized.config.provider.activeProvider).toBeNull();
+    expect(normalized.config.provider.providers.qwen.chat.baseUrl).toBeNull();
+    expect(normalized.config.provider.providers.qwen.embedding.dimension).toBeNull();
+    expect(normalized.config.rag.retrieval.finalTopK).toBeNull();
     expect(normalized.runtime.available).toBe(true);
     expect(normalized.stored.version).toBe(9);
   });
@@ -215,5 +215,27 @@ describe('ConfigCenter contract guards', () => {
     );
 
     expect(payload.providerOrigins).toEqual({ primary_openai: 'qwen' });
+  });
+
+  it('keeps nullable config leaves when building save payload', () => {
+    const normalized = normalizeAdminAiConfigView(createConfigViewEnvelope());
+    const payload = buildSavePayload(
+      normalized.config,
+      {
+        providers: {
+          qwen: {
+            chatApiKey: { retainExisting: true, value: '' },
+            embeddingApiKey: { retainExisting: true, value: '' },
+            rerankApiKey: { retainExisting: true, value: '' },
+          },
+        },
+        appServerInternalToken: { retainExisting: true, value: '' },
+      },
+      9
+    );
+
+    expect(payload.config.provider.activeProvider).toBeNull();
+    expect(payload.config.provider.providers.qwen.chat.temperature).toBeNull();
+    expect(payload.config.rag.ingestion.exportPageSize).toBeNull();
   });
 });

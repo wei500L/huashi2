@@ -3,15 +3,15 @@ package com.huashi.eftransfer.app.modules.analytics.vo;
 import java.time.LocalDateTime;
 
 public record TeacherWorkspaceAssessmentPublishVO(
-        Long publishId,
-        Long paperId,
+        long publishId,
+        long paperId,
         String title,
-        Long classId,
+        long classId,
         String className,
         LocalDateTime publishedAt,
         LocalDateTime dueAt,
-        Integer assignedCount,
-        Integer submittedCount,
-        Integer pendingCount
+        int assignedCount,
+        int submittedCount,
+        int pendingCount
 ) {
 }

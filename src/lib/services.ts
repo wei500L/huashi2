@@ -10,6 +10,7 @@ import type {
   CsvImportResultVO,
   CsvImportTemplateVO,
   CurrentUserVO,
+  CreateDiagnosisSessionRequest,
   DiagnosisHistorySummaryVO,
   DiagnosisResultDetailVO,
   DiagnosisSessionCreatedVO,
@@ -38,6 +39,8 @@ import type {
   LexicalRagAnswerVO,
   LexicalRagConversationDetailVO,
   LexicalRagConversationSummaryVO,
+  LexicalRagQueryRequest,
+  LoginRequest,
   LoginResponse,
   RegisterStudentRequest,
   NotificationItemVO,
@@ -103,28 +106,39 @@ import type {
   ChangePasswordRequest,
   CompleteAccountActionRequest,
   AdminOutboxRecordVO,
+  ExplainDiagnosisRequest,
   AiGatewayHealthResponse,
   AiOpsConfigValidationResponse,
   RagReindexJobResponse,
   RagReindexRequest,
   RagReindexResponse,
+  RefreshTokenRequest,
+  RecommendTrainingRequest,
   SaveAssessmentResponsesRequest,
+  SaveDiagnosisProgressRequest,
+  SaveTrainingProgressRequest,
+  StartTrainingSessionRequest,
   StudentAssessmentHistorySummaryVO,
   StudentRegistrationContextVO,
   StudentAssessmentSummaryVO,
+  SubmitDiagnosisAnswerRequest,
+  SubmitTrainingAnswerRequest,
   TeacherAssessmentAttemptResultVO,
+  TeacherInterventionSuggestRequest,
 } from './contracts';
 
 type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout'>;
 
 export const authService = {
-  login: (payload: { usernameOrEmail: string; password: string }) =>
-    apiPost<LoginResponse>('/auth/login', payload),
+  login: (payload: LoginRequest) => apiPost<LoginResponse>('/auth/login', payload),
   registerStudent: (payload: RegisterStudentRequest) =>
     apiPost<LoginResponse>('/auth/register', payload),
   resolveRegistrationContext: (payload: ResolveStudentRegistrationContextRequest, options?: RequestOptions) =>
     apiPost<StudentRegistrationContextVO>('/auth/register/context', payload, options),
-  refresh: (refreshToken: string) => apiPost<LoginResponse>('/auth/refresh', { refreshToken }),
+  refresh: (refreshToken: string) => {
+    const payload: RefreshTokenRequest = { refreshToken };
+    return apiPost<LoginResponse>('/auth/refresh', payload);
+  },
   logout: () => apiPost<void>('/auth/logout'),
   changePassword: (payload: ChangePasswordRequest) => apiPost<void>('/auth/change-password', payload),
   me: (options?: RequestOptions) => apiGet<CurrentUserVO>('/auth/me', options),
@@ -197,22 +211,21 @@ export const diagnosisTemplateService = {
 export const diagnosisSessionService = {
   listHistory: (params: { pageNo?: number; pageSize?: number; status?: string; templateId?: number }, options?: RequestOptions) =>
     apiGet<PageResult<DiagnosisHistorySummaryVO>>('/diagnosis/sessions', { ...options, params }),
-  create: (templateId: number) => apiPost<DiagnosisSessionCreatedVO>('/diagnosis/sessions', { templateId }),
+  create: (templateId: number) => {
+    const payload: CreateDiagnosisSessionRequest = { templateId };
+    return apiPost<DiagnosisSessionCreatedVO>('/diagnosis/sessions', payload);
+  },
   getNextItem: (sessionId: number, options?: RequestOptions) => apiGet<DiagnosisNextItemVO>(`/diagnosis/sessions/${sessionId}/next-item`, options),
-  submitAnswer: (
-    sessionId: number,
-    payload: {
-      itemResultId: number;
-      selectedSemanticMatch?: boolean;
-      selectedAnswerKey?: string;
-      reactionTimeMs: number;
-      hesitationTimeMs: number;
-    }
-  ) => apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/answers`, payload),
-  saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
-    apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, { progressSnapshot }),
-  saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
-    apiPostKeepalive<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, { progressSnapshot }),
+  submitAnswer: (sessionId: number, payload: SubmitDiagnosisAnswerRequest) =>
+    apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/answers`, payload),
+  saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) => {
+    const payload: SaveDiagnosisProgressRequest = { progressSnapshot };
+    return apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, payload);
+  },
+  saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) => {
+    const payload: SaveDiagnosisProgressRequest = { progressSnapshot };
+    return apiPostKeepalive<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, payload);
+  },
   complete: (sessionId: number) => apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/complete`),
   getResult: (sessionId: number, options?: RequestOptions) => apiGet<DiagnosisResultDetailVO>(`/diagnosis/sessions/${sessionId}/result`, options),
 };
@@ -225,25 +238,18 @@ export const trainingService = {
     apiGet<ReviewScheduleItemVO[]>('/training/review-schedule', { ...options, params: { pendingOnly } }),
   listHistory: (params: { pageNo?: number; pageSize?: number; status?: string; planId?: number }, options?: RequestOptions) =>
     apiGet<PageResult<TrainingHistorySummaryVO>>('/training/sessions', { ...options, params }),
-  startSession: (payload: {
-    planId: number;
-    mode: string;
-    launchSource?: string;
-    diagnosisSummaryId?: number | null;
-    lexicalPairId?: number | null;
-    wrongBookId?: number | null;
-    reviewScheduleId?: number | null;
-  }) =>
-    apiPost<TrainingSessionCreatedVO>('/training/sessions', payload),
+  startSession: (payload: StartTrainingSessionRequest) => apiPost<TrainingSessionCreatedVO>('/training/sessions', payload),
   getNextItem: (sessionId: number, options?: RequestOptions) => apiGet<TrainingNextItemVO>(`/training/sessions/${sessionId}/next-item`, options),
-  saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
-    apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, { progressSnapshot }),
-  saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) =>
-    apiPostKeepalive<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, { progressSnapshot }),
-  submitAnswer: (
-    sessionId: number,
-    payload: { itemResultId: number; selectedAnswerKey: string; reactionTimeMs: number; hesitationTimeMs: number }
-  ) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/answers`, payload),
+  saveProgress: (sessionId: number, progressSnapshot: Record<string, unknown>) => {
+    const payload: SaveTrainingProgressRequest = { progressSnapshot };
+    return apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, payload);
+  },
+  saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) => {
+    const payload: SaveTrainingProgressRequest = { progressSnapshot };
+    return apiPostKeepalive<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, payload);
+  },
+  submitAnswer: (sessionId: number, payload: SubmitTrainingAnswerRequest) =>
+    apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/answers`, payload),
   complete: (sessionId: number) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/complete`),
   getSummary: (sessionId: number, options?: RequestOptions) => apiGet<TrainingSessionSummaryVO>(`/training/sessions/${sessionId}/summary`, options),
 };
@@ -283,16 +289,20 @@ export const assessmentService = {
 };
 
 export const aiService = {
-  explainDiagnosis: (diagnosisSummaryId?: number | null, options?: RequestOptions) =>
-    apiPost<AiGuidanceResponseVO>('/ai/explain-diagnosis', diagnosisSummaryId ? { diagnosisSummaryId } : undefined, options),
-  recommendTraining: (diagnosisSummaryId?: number | null, options?: RequestOptions) =>
-    apiPost<AiGuidanceResponseVO>('/ai/recommend-training', diagnosisSummaryId ? { diagnosisSummaryId } : undefined, options),
-  queryLexicalRag: (payload: { query: string; conversationId?: string | null }) => apiPost<LexicalRagAnswerVO>('/ai/lexical-rag/query', payload),
+  explainDiagnosis: (diagnosisSummaryId?: number | null, options?: RequestOptions) => {
+    const payload: ExplainDiagnosisRequest | undefined = diagnosisSummaryId ? { diagnosisSummaryId } : undefined;
+    return apiPost<AiGuidanceResponseVO>('/ai/explain-diagnosis', payload, options);
+  },
+  recommendTraining: (diagnosisSummaryId?: number | null, options?: RequestOptions) => {
+    const payload: RecommendTrainingRequest | undefined = diagnosisSummaryId ? { diagnosisSummaryId } : undefined;
+    return apiPost<AiGuidanceResponseVO>('/ai/recommend-training', payload, options);
+  },
+  queryLexicalRag: (payload: LexicalRagQueryRequest) => apiPost<LexicalRagAnswerVO>('/ai/lexical-rag/query', payload),
   listLexicalRagConversations: (params?: { pageNo?: number; pageSize?: number }, options?: RequestOptions) =>
     apiGet<PageResult<LexicalRagConversationSummaryVO>>('/ai/lexical-rag/conversations', { ...options, params }),
   getLexicalRagConversation: (conversationId: string, options?: RequestOptions) =>
     apiGet<LexicalRagConversationDetailVO>(`/ai/lexical-rag/conversations/${conversationId}`, options),
-  suggestTeacherIntervention: (payload: { classId: number; studentUserId: number; diagnosisSummaryId?: number | null }) =>
+  suggestTeacherIntervention: (payload: TeacherInterventionSuggestRequest) =>
     apiPost<AiGuidanceResponseVO>('/teacher/intervention-suggest', payload),
 };
 

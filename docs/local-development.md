@@ -48,7 +48,7 @@ root
 - `platform.internal-api.enabled=true` 时，所有 `/internal/**` 接口都要求 `X-Internal-Token`
 - `APP_DEMO_DATA_ENABLED=false` 是默认值；demo 用户初始化仅在 `local/test` profile 且显式打开时执行
 - `ai-gateway` 的 `/internal/ai/**`、`/internal/ai/rag/**` 与 `app-server` 的 `/internal/**` 都采用同一内部鉴权头
-- `ai-gateway` 的 `rag.app-server.internal-token` 现在是必填配置，缺失时不会启动为“半可用”状态
+- `app-server` 与 `ai-gateway` 现在都要求显式提供 `PLATFORM_INTERNAL_API_TOKEN`，缺失时不会启动为“半可用”状态
 
 ## 5. 环境变量
 

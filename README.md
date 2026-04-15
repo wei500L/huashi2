@@ -32,7 +32,7 @@
 
 - `X-Internal-Token` 是内部接口统一鉴权头
 - `PLATFORM_INTERNAL_API_ENABLED=true` 时，`/internal/**` 一律 fail-close
-- `PLATFORM_INTERNAL_API_TOKEN` 由 `app-server` 与 `ai-gateway` 共享，缺失时 `ai-gateway` 的 app-server 内部调用配置不会通过校验
+- `PLATFORM_INTERNAL_API_TOKEN` 由 `app-server` 与 `ai-gateway` 共享，缺失时两个服务都会显式拒绝启动
 - `APP_JWT_ACTIVE_KID` 与 `APP_JWT_KEYS_*` 控制当前签名 key ring；新 access token 始终带 `kid`
 - `APP_JWT_LEGACY_SECRET` 仅用于旧 token 兼容验签窗口
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 与 JWT 密钥职责分离，非 `local/test` 缺失时 `app-server` 不会启动

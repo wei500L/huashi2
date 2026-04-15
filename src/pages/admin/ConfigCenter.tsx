@@ -323,25 +323,25 @@ function assertAdminAiConfigViewEnvelope(view: unknown): asserts view is Partial
 function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinition> | null): AiOpsProviderDefinition {
   return {
     chat: {
-      baseUrl: definition?.chat?.baseUrl ?? '',
+      baseUrl: definition?.chat?.baseUrl ?? null,
       apiKey: definition?.chat?.apiKey ?? null,
-      model: definition?.chat?.model ?? '',
-      timeout: definition?.chat?.timeout ?? '',
-      temperature: definition?.chat?.temperature ?? 0,
-      maxTokens: definition?.chat?.maxTokens ?? 0,
+      model: definition?.chat?.model ?? null,
+      timeout: definition?.chat?.timeout ?? null,
+      temperature: definition?.chat?.temperature ?? null,
+      maxTokens: definition?.chat?.maxTokens ?? null,
     },
     embedding: {
-      baseUrl: definition?.embedding?.baseUrl ?? '',
+      baseUrl: definition?.embedding?.baseUrl ?? null,
       apiKey: definition?.embedding?.apiKey ?? null,
-      model: definition?.embedding?.model ?? '',
-      timeout: definition?.embedding?.timeout ?? '',
-      dimension: definition?.embedding?.dimension ?? 0,
+      model: definition?.embedding?.model ?? null,
+      timeout: definition?.embedding?.timeout ?? null,
+      dimension: definition?.embedding?.dimension ?? null,
     },
     rerank: {
-      baseUrl: definition?.rerank?.baseUrl ?? '',
+      baseUrl: definition?.rerank?.baseUrl ?? null,
       apiKey: definition?.rerank?.apiKey ?? null,
-      model: definition?.rerank?.model ?? '',
-      timeout: definition?.rerank?.timeout ?? '',
+      model: definition?.rerank?.model ?? null,
+      timeout: definition?.rerank?.timeout ?? null,
     },
   };
 }
@@ -349,8 +349,8 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinitio
 function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsConfigPayload> | null): AiOpsConfigPayload {
   return {
     provider: {
-      activeProvider: payload?.provider?.activeProvider ?? '',
-      fallbackProvider: payload?.provider?.fallbackProvider ?? '',
+      activeProvider: payload?.provider?.activeProvider ?? null,
+      fallbackProvider: payload?.provider?.fallbackProvider ?? null,
       providers: Object.fromEntries(
         Object.entries(payload?.provider?.providers || {}).map(([providerName, definition]) => [
           providerName,
@@ -359,29 +359,29 @@ function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsConfigPayload> | nul
       ),
     },
     resilience: {
-      maxAttempts: payload?.resilience?.maxAttempts ?? 0,
-      waitDuration: payload?.resilience?.waitDuration ?? '',
-      failureRateThreshold: payload?.resilience?.failureRateThreshold ?? 0,
-      slidingWindowSize: payload?.resilience?.slidingWindowSize ?? 0,
-      openStateDuration: payload?.resilience?.openStateDuration ?? '',
+      maxAttempts: payload?.resilience?.maxAttempts ?? null,
+      waitDuration: payload?.resilience?.waitDuration ?? null,
+      failureRateThreshold: payload?.resilience?.failureRateThreshold ?? null,
+      slidingWindowSize: payload?.resilience?.slidingWindowSize ?? null,
+      openStateDuration: payload?.resilience?.openStateDuration ?? null,
     },
     rag: {
       appServer: {
-        baseUrl: payload?.rag?.appServer?.baseUrl ?? '',
+        baseUrl: payload?.rag?.appServer?.baseUrl ?? null,
         internalToken: payload?.rag?.appServer?.internalToken ?? null,
-        connectTimeout: payload?.rag?.appServer?.connectTimeout ?? '',
-        readTimeout: payload?.rag?.appServer?.readTimeout ?? '',
+        connectTimeout: payload?.rag?.appServer?.connectTimeout ?? null,
+        readTimeout: payload?.rag?.appServer?.readTimeout ?? null,
       },
       ingestion: {
-        exportPageSize: payload?.rag?.ingestion?.exportPageSize ?? 0,
-        embeddingBatchSize: payload?.rag?.ingestion?.embeddingBatchSize ?? 0,
+        exportPageSize: payload?.rag?.ingestion?.exportPageSize ?? null,
+        embeddingBatchSize: payload?.rag?.ingestion?.embeddingBatchSize ?? null,
       },
       retrieval: {
-        recallTopK: payload?.rag?.retrieval?.recallTopK ?? 0,
-        recallThreshold: payload?.rag?.retrieval?.recallThreshold ?? 0,
-        rerankTopN: payload?.rag?.retrieval?.rerankTopN ?? 0,
-        rerankThreshold: payload?.rag?.retrieval?.rerankThreshold ?? 0,
-        finalTopK: payload?.rag?.retrieval?.finalTopK ?? 0,
+        recallTopK: payload?.rag?.retrieval?.recallTopK ?? null,
+        recallThreshold: payload?.rag?.retrieval?.recallThreshold ?? null,
+        rerankTopN: payload?.rag?.retrieval?.rerankTopN ?? null,
+        rerankThreshold: payload?.rag?.retrieval?.rerankThreshold ?? null,
+        finalTopK: payload?.rag?.retrieval?.finalTopK ?? null,
       },
     },
   };
@@ -470,8 +470,8 @@ function createEmptyProviderDefinition(): AiOpsProviderDefinition {
       apiKey: null,
       model: '',
       timeout: '',
-      temperature: 0,
-      maxTokens: 0,
+      temperature: null,
+      maxTokens: null,
     },
     embedding: {
       baseUrl: '',
@@ -487,6 +487,24 @@ function createEmptyProviderDefinition(): AiOpsProviderDefinition {
       timeout: '',
     },
   };
+}
+
+function parseNullableInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseNullableFloat(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number.parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeProviderKey(value: string): string {
@@ -936,7 +954,13 @@ function buildConfigRiskHints(view: AdminAiConfigViewVO, config: AiOpsConfigPayl
   if (view.config.provider.fallbackProvider !== config.provider.fallbackProvider) {
     hints.push(`备用 Provider 将从 ${view.config.provider.fallbackProvider || '--'} 切换到 ${config.provider.fallbackProvider || '--'}。`);
   }
-  if (config.resilience.failureRateThreshold < view.config.resilience.failureRateThreshold) {
+  if (
+    config.resilience.failureRateThreshold !== null &&
+    config.resilience.failureRateThreshold !== undefined &&
+    view.config.resilience.failureRateThreshold !== null &&
+    view.config.resilience.failureRateThreshold !== undefined &&
+    config.resilience.failureRateThreshold < view.config.resilience.failureRateThreshold
+  ) {
     hints.push('熔断失败率阈值被调低，网关会更早触发熔断和切换。');
   }
 
@@ -1589,7 +1613,8 @@ const AdminConfigCenterPage: React.FC = () => {
   const providerNames = providerEntries.map(([providerName]) => providerName);
   const activeProviderOptions = buildProviderOptions(providerNames, config.provider.activeProvider);
   const fallbackProviderOptions = buildProviderOptions(providerNames, config.provider.fallbackProvider);
-  const activeProviderDefinition = config.provider.providers?.[config.provider.activeProvider];
+  const activeProviderName = config.provider.activeProvider || undefined;
+  const activeProviderDefinition = activeProviderName ? config.provider.providers?.[activeProviderName] : undefined;
   const runtimeUnavailable = !view.runtime.available;
   const runtimeOutOfSync = view.runtime.available && view.stored.present && !view.runtime.inSync;
   const displayedSnapshot = view.stored.present ? 'app-server 数据库权威快照' : view.runtime.available ? 'ai-gateway 启动初始化快照' : '未获取到有效配置';
@@ -2048,7 +2073,10 @@ const AdminConfigCenterPage: React.FC = () => {
                       type="number"
                       step="0.1"
                       value={definition.chat.temperature}
-                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, temperature: Number(value) } }))}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
+                        ...current,
+                        chat: { ...current.chat, temperature: parseNullableFloat(value) },
+                      }))}
                       disabled={!editing}
                     />
                   </FieldCard>
@@ -2056,7 +2084,10 @@ const AdminConfigCenterPage: React.FC = () => {
                     <TextInput
                       type="number"
                       value={definition.chat.maxTokens}
-                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, maxTokens: Number(value) } }))}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
+                        ...current,
+                        chat: { ...current.chat, maxTokens: parseNullableInteger(value) },
+                      }))}
                       disabled={!editing}
                     />
                   </FieldCard>
@@ -2117,7 +2148,10 @@ const AdminConfigCenterPage: React.FC = () => {
                     <TextInput
                       type="number"
                       value={definition.embedding.dimension}
-                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, dimension: Number(value) } }))}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
+                        ...current,
+                        embedding: { ...current.embedding, dimension: parseNullableInteger(value) },
+                      }))}
                       disabled={!editing}
                     />
                   </FieldCard>
@@ -2202,7 +2236,10 @@ const AdminConfigCenterPage: React.FC = () => {
               <TextInput
                 type="number"
                 value={config.resilience.maxAttempts}
-                onChange={(value) => updateConfig((current) => ({ ...current, resilience: { ...current.resilience, maxAttempts: Number(value) } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  resilience: { ...current.resilience, maxAttempts: parseNullableInteger(value) },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2222,7 +2259,10 @@ const AdminConfigCenterPage: React.FC = () => {
                 type="number"
                 step="0.1"
                 value={config.resilience.failureRateThreshold}
-                onChange={(value) => updateConfig((current) => ({ ...current, resilience: { ...current.resilience, failureRateThreshold: Number(value) } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  resilience: { ...current.resilience, failureRateThreshold: parseNullableFloat(value) },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2234,7 +2274,10 @@ const AdminConfigCenterPage: React.FC = () => {
               <TextInput
                 type="number"
                 value={config.resilience.slidingWindowSize}
-                onChange={(value) => updateConfig((current) => ({ ...current, resilience: { ...current.resilience, slidingWindowSize: Number(value) } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  resilience: { ...current.resilience, slidingWindowSize: parseNullableInteger(value) },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2316,7 +2359,10 @@ const AdminConfigCenterPage: React.FC = () => {
               <TextInput
                 type="number"
                 value={config.rag.ingestion.exportPageSize}
-                onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, ingestion: { ...current.rag.ingestion, exportPageSize: Number(value) } } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, ingestion: { ...current.rag.ingestion, exportPageSize: parseNullableInteger(value) } },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2324,7 +2370,10 @@ const AdminConfigCenterPage: React.FC = () => {
               <TextInput
                 type="number"
                 value={config.rag.ingestion.embeddingBatchSize}
-                onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, ingestion: { ...current.rag.ingestion, embeddingBatchSize: Number(value) } } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, ingestion: { ...current.rag.ingestion, embeddingBatchSize: parseNullableInteger(value) } },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2336,7 +2385,10 @@ const AdminConfigCenterPage: React.FC = () => {
               <TextInput
                 type="number"
                 value={config.rag.retrieval.recallTopK}
-                onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, retrieval: { ...current.rag.retrieval, recallTopK: Number(value) } } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, retrieval: { ...current.rag.retrieval, recallTopK: parseNullableInteger(value) } },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2349,7 +2401,10 @@ const AdminConfigCenterPage: React.FC = () => {
                 type="number"
                 step="0.01"
                 value={config.rag.retrieval.recallThreshold}
-                onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, retrieval: { ...current.rag.retrieval, recallThreshold: Number(value) } } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, retrieval: { ...current.rag.retrieval, recallThreshold: parseNullableFloat(value) } },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2361,7 +2416,10 @@ const AdminConfigCenterPage: React.FC = () => {
               <TextInput
                 type="number"
                 value={config.rag.retrieval.rerankTopN}
-                onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, retrieval: { ...current.rag.retrieval, rerankTopN: Number(value) } } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, retrieval: { ...current.rag.retrieval, rerankTopN: parseNullableInteger(value) } },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2374,7 +2432,10 @@ const AdminConfigCenterPage: React.FC = () => {
                 type="number"
                 step="0.01"
                 value={config.rag.retrieval.rerankThreshold}
-                onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, retrieval: { ...current.rag.retrieval, rerankThreshold: Number(value) } } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, retrieval: { ...current.rag.retrieval, rerankThreshold: parseNullableFloat(value) } },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>
@@ -2386,7 +2447,10 @@ const AdminConfigCenterPage: React.FC = () => {
               <TextInput
                 type="number"
                 value={config.rag.retrieval.finalTopK}
-                onChange={(value) => updateConfig((current) => ({ ...current, rag: { ...current.rag, retrieval: { ...current.rag.retrieval, finalTopK: Number(value) } } }))}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, retrieval: { ...current.rag.retrieval, finalTopK: parseNullableInteger(value) } },
+                }))}
                 disabled={!editing}
               />
             </FieldCard>

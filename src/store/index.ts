@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CurrentUserVO, LoginResponse, RegisterStudentRequest } from '@/lib/contracts';
+import type { CurrentUserVO, LoginRequest, LoginResponse, RegisterStudentRequest } from '@/lib/contracts';
 import { getApiErrorMessage } from '@/lib/api';
 import type { SupportedLocale } from '@/lib/locale';
 import { readStoredLocale, writeStoredLocale } from '@/lib/locale';
@@ -17,7 +17,7 @@ interface AuthStore {
   user: CurrentUserVO | null;
   error: string | null;
   initialize: () => Promise<void>;
-  login: (payload: { usernameOrEmail: string; password: string }) => Promise<void>;
+  login: (payload: LoginRequest) => Promise<void>;
   registerStudent: (payload: RegisterStudentRequest) => Promise<void>;
   logout: () => Promise<void>;
   syncFromStorage: () => void;

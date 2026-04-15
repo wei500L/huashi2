@@ -9,7 +9,7 @@ import { aiService, trainingService } from '@/lib/services';
 import { errorTypeLabel, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel, trainingModeLabel } from '@/lib/format';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { buildTrainingHref, clearTrainingLaunchParams, parseTrainingLaunchNumber, type TrainingLaunchParams } from '@/lib/training-launch';
-import type { TrainingItemResultDetailVO, TrainingOptionViewVO } from '@/lib/contracts';
+import type { SubmitTrainingAnswerRequest, TrainingItemResultDetailVO, TrainingOptionViewVO } from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
@@ -201,12 +201,8 @@ const TrainingPage: React.FC = () => {
   }, [queryClient]);
 
   const answerMutation = useMutation({
-    mutationFn: (payload: {
-      itemResultId: number;
-      selectedAnswerKey: string;
-      reactionTimeMs: number;
-      hesitationTimeMs: number;
-    }) => trainingService.submitAnswer(state.sessionId as number, payload),
+    mutationFn: (payload: SubmitTrainingAnswerRequest) =>
+      trainingService.submitAnswer(state.sessionId as number, payload),
     onSuccess: async (progress, payload) => {
       setSubmitErrorMessage(null);
       if (progress.completed) {

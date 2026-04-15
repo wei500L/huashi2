@@ -152,12 +152,12 @@ app:
 platform:
   internal-api:
     enabled: ${PLATFORM_INTERNAL_API_ENABLED:true}
-    token: ${PLATFORM_INTERNAL_API_TOKEN:}
+    token: ${PLATFORM_INTERNAL_API_TOKEN}
 
 integration:
   ai:
     base-url: ${AI_GATEWAY_BASE_URL:http://localhost:8090}
-    internal-token: ${PLATFORM_INTERNAL_API_TOKEN:}
+    internal-token: ${PLATFORM_INTERNAL_API_TOKEN}
     connect-timeout: ${AI_GATEWAY_CONNECT_TIMEOUT:PT3S}
     read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT5S}
     max-attempts: ${AI_GATEWAY_MAX_ATTEMPTS:2}
