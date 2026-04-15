@@ -9,6 +9,8 @@ import java.util.Optional;
 
 public class RedisAuthTokenStore implements AuthTokenStore {
 
+    private static final String REGISTRATION_CONTEXT_PREFIX = "auth:registration-context:";
+    private static final String REGISTRATION_CONTEXT_LOCK_PREFIX = "auth:registration-context-lock:";
     private static final String REFRESH_PREFIX = "auth:refresh:";
     private static final String USER_SESSION_PREFIX = "auth:user-session:";
     private static final String ACCESS_BLACKLIST_PREFIX = "auth:access-blacklist:";
@@ -19,6 +21,49 @@ public class RedisAuthTokenStore implements AuthTokenStore {
     public RedisAuthTokenStore(StringRedisTemplate stringRedisTemplate, ObjectMapper objectMapper) {
         this.stringRedisTemplate = stringRedisTemplate;
         this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public Optional<RegistrationContextSession> findRegistrationContextSession(String tokenHash) {
+        String payload = stringRedisTemplate.opsForValue().get(registrationContextKey(tokenHash));
+        if (payload == null || payload.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(payload, RegistrationContextSession.class));
+        } catch (JacksonException exception) {
+            stringRedisTemplate.delete(registrationContextKey(tokenHash));
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public boolean acquireRegistrationContextLock(String tokenHash, Duration ttl) {
+        Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(registrationContextLockKey(tokenHash), "1", ttl);
+        return Boolean.TRUE.equals(acquired);
+    }
+
+    @Override
+    public void releaseRegistrationContextLock(String tokenHash) {
+        stringRedisTemplate.delete(registrationContextLockKey(tokenHash));
+    }
+
+    @Override
+    public void saveRegistrationContextSession(RegistrationContextSession session, Duration ttl) {
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    registrationContextKey(session.tokenHash()),
+                    objectMapper.writeValueAsString(session),
+                    ttl
+            );
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Failed to serialize registration context session", exception);
+        }
+    }
+
+    @Override
+    public void revokeRegistrationContextSession(String tokenHash) {
+        stringRedisTemplate.delete(registrationContextKey(tokenHash));
     }
 
     @Override
@@ -82,6 +127,14 @@ public class RedisAuthTokenStore implements AuthTokenStore {
 
     private String refreshKey(String refreshTokenHash) {
         return REFRESH_PREFIX + refreshTokenHash;
+    }
+
+    private String registrationContextKey(String tokenHash) {
+        return REGISTRATION_CONTEXT_PREFIX + tokenHash;
+    }
+
+    private String registrationContextLockKey(String tokenHash) {
+        return REGISTRATION_CONTEXT_LOCK_PREFIX + tokenHash;
     }
 
     private String userSessionKey(Long userId) {

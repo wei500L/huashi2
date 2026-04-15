@@ -11,7 +11,9 @@ export const shellSlice: TranslationSlice = {
         system: '系统',
       },
       nav: {
+        adminDashboard: '仪表盘',
         adminUsers: '用户管理',
+        adminAuditLogs: '审计日志',
         adminLexicalPairs: '语料库管理',
         adminConfigCenter: '配置中心',
         teacherWorkspace: '教师工作台',
@@ -31,6 +33,7 @@ export const shellSlice: TranslationSlice = {
         settings: '设置',
       },
       titles: {
+        adminDashboard: '管理员仪表盘',
         teacherWorkspace: '教师工作台',
         teacherClasses: '班级与学生',
         teacherAssessments: '发布课堂测评',
@@ -39,6 +42,7 @@ export const shellSlice: TranslationSlice = {
         teacherLexicalLists: '沉淀词表资产',
         teacherInterventions: '跟进高风险学生',
         adminUsers: '用户管理',
+        adminAuditLogs: '审计日志',
         adminLexicalPairs: '语料库管理',
         adminConfigCenter: '运维配置中心',
         diagnosis: '开始风险诊断',
@@ -94,7 +98,9 @@ export const shellSlice: TranslationSlice = {
         system: 'System',
       },
       nav: {
+        adminDashboard: 'Dashboard',
         adminUsers: 'Users',
+        adminAuditLogs: 'Audit Logs',
         adminLexicalPairs: 'Corpus',
         adminConfigCenter: 'Config Center',
         teacherWorkspace: 'Teacher Workspace',
@@ -114,6 +120,7 @@ export const shellSlice: TranslationSlice = {
         settings: 'Settings',
       },
       titles: {
+        adminDashboard: 'Admin Dashboard',
         teacherWorkspace: 'Teacher Workspace',
         teacherClasses: 'Classes & Students',
         teacherAssessments: 'Publish Class Assessments',
@@ -122,6 +129,7 @@ export const shellSlice: TranslationSlice = {
         teacherLexicalLists: 'Build Lexical Lists',
         teacherInterventions: 'Follow Up High-Risk Students',
         adminUsers: 'User Management',
+        adminAuditLogs: 'Audit Logs',
         adminLexicalPairs: 'Corpus Management',
         adminConfigCenter: 'Ops Config Center',
         diagnosis: 'Start Risk Diagnosis',

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Save } from 'lucide-react';
 import { PageHeader, SectionEyebrow } from '@/components/common';
 import type { TeacherClassUpsertRequest } from '@/lib/contracts';
 import { teacherClassService } from '@/lib/services';
@@ -24,6 +24,7 @@ const TeacherClassEditorPage: React.FC = () => {
   const [form, setForm] = React.useState<TeacherClassUpsertRequest>(emptyForm);
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const hasAutoFilledInviteCodeRef = React.useRef(false);
 
   const detailQuery = useQuery({
     queryKey: ['teacher-class-detail', classId],
@@ -41,6 +42,30 @@ const TeacherClassEditorPage: React.FC = () => {
       gradeName: detailQuery.data.gradeName,
     });
   }, [detailQuery.data]);
+
+  const inviteCodeMutation = useMutation({
+    mutationFn: () => teacherClassService.generateInviteCode(),
+    onSuccess: ({ classCode }) => {
+      setForm((current) => ({ ...current, classCode }));
+      setErrorMessage(null);
+      hasAutoFilledInviteCodeRef.current = true;
+    },
+    onError: (error) => {
+      setErrorMessage(error instanceof Error ? error.message : '邀请码生成失败');
+    },
+  });
+
+  const handleGenerateInviteCode = React.useCallback(() => {
+    inviteCodeMutation.mutate();
+  }, [inviteCodeMutation]);
+
+  React.useEffect(() => {
+    if (isEditing || hasAutoFilledInviteCodeRef.current || form.classCode.trim()) {
+      return;
+    }
+    hasAutoFilledInviteCodeRef.current = true;
+    handleGenerateInviteCode();
+  }, [form.classCode, handleGenerateInviteCode, isEditing]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -79,6 +104,7 @@ const TeacherClassEditorPage: React.FC = () => {
   }, [classId, isEditing, source]);
 
   const canSubmit = form.classCode.trim() && form.className.trim() && form.gradeName.trim();
+  const isGeneratingInviteCode = inviteCodeMutation.isPending;
 
   return (
     <div className="space-y-8 pb-20">
@@ -123,15 +149,26 @@ const TeacherClassEditorPage: React.FC = () => {
         <SectionEyebrow className="mb-6">基础信息</SectionEyebrow>
         <div className="grid gap-6 md:grid-cols-2">
           <label className="space-y-3">
-            <div className="text-sm font-semibold text-slate-700 dark:text-white/80">班级邀请码</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-slate-700 dark:text-white/80">班级邀请码</div>
+              <button
+                type="button"
+                onClick={handleGenerateInviteCode}
+                disabled={isGeneratingInviteCode}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-white/70"
+              >
+                <RefreshCw size={12} className={isGeneratingInviteCode ? 'animate-spin' : undefined} />
+                {form.classCode.trim() ? '重新生成' : '生成邀请码'}
+              </button>
+            </div>
             <input
               value={form.classCode}
               onChange={(event) => setForm((current) => ({ ...current, classCode: event.target.value }))}
-              placeholder="例如 FR-2026-A"
+              placeholder="点击右侧按钮生成，也可手动调整"
               className="w-full rounded-[1.4rem] border border-slate-200 bg-white/70 px-4 py-3 text-sm outline-none transition focus:border-primary dark:border-white/10 dark:bg-white/5"
             />
             <div className="text-xs leading-5 text-slate-500 dark:text-white/45">
-              学生在 `/register` 输入这个邀请码后，会自动加入当前班级。
+              系统会生成可分享的邀请码。学生在 `/register` 输入后，会自动加入当前班级。
             </div>
           </label>
 

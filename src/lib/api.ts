@@ -130,6 +130,11 @@ export function normalizeApiError(error: unknown): ApiError {
 }
 
 const API_ERROR_MESSAGES: Record<string, string> = {
+  INVALID_CREDENTIALS: '用户名、邮箱或密码不正确。',
+  ACCOUNT_LOCKED: '尝试次数过多，账号已被临时锁定，请稍后再试。',
+  CONFLICT: '提交的信息与现有数据冲突，请检查后重试。',
+  REGISTRATION_CONTEXT_INVALID: '邀请码验证已失效，请重新输入并验证邀请码。',
+  REGISTRATION_CONTEXT_BUSY: '当前注册正在处理中，请稍后再试。',
   RATE_LIMITED: '请求过于频繁，请稍后再试。',
   VALIDATION_ERROR: '提交内容未通过校验，请检查后重试。',
   AI_PROVIDER_UNAVAILABLE: 'AI 服务暂时不可用，请稍后再试。',

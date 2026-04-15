@@ -58,7 +58,7 @@ describe('workspace helpers', () => {
 
   it('keeps global pages in place and falls back unmatched pages to the workspace home', () => {
     expect(mapPathBetweenWorkspaces('/settings', '?tab=session', 'ADMIN_CONSOLE')).toBe('/settings?tab=session');
-    expect(mapPathBetweenWorkspaces('/teacher/classes', '?page=2', 'ADMIN_CONSOLE')).toBe('/admin/users');
+    expect(mapPathBetweenWorkspaces('/teacher/classes', '?page=2', 'ADMIN_CONSOLE')).toBe('/admin/dashboard');
   });
 
   it('prefers the path workspace over remembered state, then falls back to the remembered workspace', () => {

@@ -68,6 +68,10 @@ public class TeachingClassService {
     }
 
     public void requireStudentInClass(Long classId, Long studentUserId) {
+        TeachingClassEntity teachingClass = teachingClassMapper.selectById(classId);
+        if (teachingClass == null || !Boolean.TRUE.equals(teachingClass.getActive())) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Teaching class was not found", 404);
+        }
         Long count = teachingClassStudentMapper.selectCount(Wrappers.<TeachingClassStudentEntity>lambdaQuery()
                 .eq(TeachingClassStudentEntity::getTeachingClassId, classId)
                 .eq(TeachingClassStudentEntity::getStudentUserId, studentUserId)
@@ -100,7 +104,7 @@ public class TeachingClassService {
     }
 
     public List<Long> listActiveClassIdsByStudent(Long studentUserId, LocalDateTime asOf) {
-        return List.copyOf(teachingClassStudentMapper.selectList(Wrappers.<TeachingClassStudentEntity>lambdaQuery()
+        List<Long> classIds = teachingClassStudentMapper.selectList(Wrappers.<TeachingClassStudentEntity>lambdaQuery()
                         .eq(TeachingClassStudentEntity::getStudentUserId, studentUserId)
                         .eq(TeachingClassStudentEntity::getActive, Boolean.TRUE)
                         .le(TeachingClassStudentEntity::getJoinedAt, asOf)
@@ -111,6 +115,17 @@ public class TeachingClassService {
                         .orderByAsc(TeachingClassStudentEntity::getId))
                 .stream()
                 .map(TeachingClassStudentEntity::getTeachingClassId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
+        if (classIds.isEmpty()) {
+            return List.of();
+        }
+        List<TeachingClassEntity> teachingClasses = teachingClassMapper.selectBatchIds(classIds);
+        return List.copyOf(teachingClasses.stream()
+                .filter(Objects::nonNull)
+                .filter(teachingClass -> Boolean.TRUE.equals(teachingClass.getActive()))
+                .map(TeachingClassEntity::getId)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)));
     }
 

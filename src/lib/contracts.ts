@@ -58,16 +58,21 @@ export interface RegisterStudentRequest {
   email: string;
   displayName: string;
   password: string;
-  classCode: string;
+  registrationToken: string;
   englishLevel: string;
   frenchLevel: string;
   courseStage: string;
 }
 
-export interface StudentRegistrationContextVO {
+export interface ResolveStudentRegistrationContextRequest {
   classCode: string;
+}
+
+export interface StudentRegistrationContextVO {
   className: string;
   gradeName: string;
+  registrationToken: string;
+  registrationTokenExpiresAt: string;
 }
 
 export interface NotificationItemVO {
@@ -962,6 +967,10 @@ export interface TeacherClassUpsertRequest {
   gradeName: string;
 }
 
+export interface TeacherClassInviteCodeVO {
+  classCode: string;
+}
+
 export interface TeacherClassStudentBatchRequest {
   studentUserIds: number[];
 }
@@ -1080,6 +1089,35 @@ export interface TeacherInterventionSummaryVO {
   updatedAt?: string | null;
   patternDetected: string;
   suggestedAction: string;
+  effectTracking?: TeacherInterventionEffectVO | null;
+}
+
+export interface TeacherInterventionEffectSnapshotVO {
+  snapshotId: number;
+  snapshotAt?: string | null;
+  primaryRiskLevel?: string | null;
+  recommendedTrainingMode?: string | null;
+  pendingReviewCount?: number | null;
+  highRiskPairCount?: number | null;
+  recentAccuracy?: number | null;
+  recentNegativeTransferRisk?: number | null;
+  recentAvgReactionTimeMs?: number | null;
+}
+
+export interface TeacherInterventionEffectDiffVO {
+  recentAccuracyDelta?: number | null;
+  recentNegativeTransferRiskDelta?: number | null;
+  recentAvgReactionTimeMsDelta?: number | null;
+  pendingReviewCountDelta?: number | null;
+  highRiskPairCountDelta?: number | null;
+}
+
+export interface TeacherInterventionEffectVO {
+  baselineSnapshotId?: number | null;
+  completionSnapshotId?: number | null;
+  baselineSnapshot?: TeacherInterventionEffectSnapshotVO | null;
+  completionSnapshot?: TeacherInterventionEffectSnapshotVO | null;
+  metricDiff?: TeacherInterventionEffectDiffVO | null;
 }
 
 export interface TeacherInterventionUpdateRequest {
@@ -1104,6 +1142,22 @@ export interface UserSummaryVO {
   hasActiveSession?: boolean;
 }
 
+export interface AdminAuditLogItemVO {
+  id: number;
+  actorUserId?: number | null;
+  actorUsername?: string | null;
+  actorDisplayName?: string | null;
+  actionType: string;
+  targetType: string;
+  targetId?: string | null;
+  requestPath: string;
+  requestMethod: string;
+  traceId: string;
+  requestPayload?: string | null;
+  responseCode: string;
+  createdAt: string;
+}
+
 export interface AdminUserCreateRequest {
   username: string;
   email: string;
@@ -1122,6 +1176,54 @@ export interface AdminUserAccessUpdateRequest {
 export interface AdminUserProvisionResultVO {
   user: UserSummaryVO;
   accountAction?: AccountActionLinkVO | null;
+}
+
+export interface AdminDashboardOverviewVO {
+  totalUsers: number;
+  enabledUsers: number;
+  registrationsLast30Days: number;
+  dailyActiveUsers: number;
+  weeklyActiveUsers: number;
+  diagnosisCompletedLast30Days: number;
+  trainingCompletedLast30Days: number;
+  assessmentCompletedLast30Days: number;
+  aiCallsLast30Days: number;
+  aiFallbackCountLast30Days: number;
+  aiFallbackRateLast30Days: number;
+  generatedAt: string;
+}
+
+export interface AdminDashboardRegistrationTrendPointVO {
+  date: string;
+  registrations: number;
+}
+
+export interface AdminDashboardCompletionTrendPointVO {
+  date: string;
+  diagnosisCompleted: number;
+  trainingCompleted: number;
+  assessmentCompleted: number;
+}
+
+export interface AdminDashboardAiTrendPointVO {
+  date: string;
+  totalCalls: number;
+  fallbackCalls: number;
+  fallbackRate: number;
+}
+
+export interface AdminDashboardSceneDistributionVO {
+  scene: string;
+  count: number;
+  ratio: number;
+}
+
+export interface AdminDashboardVO {
+  overview: AdminDashboardOverviewVO;
+  registrationTrend: AdminDashboardRegistrationTrendPointVO[];
+  completionTrend: AdminDashboardCompletionTrendPointVO[];
+  aiTrend: AdminDashboardAiTrendPointVO[];
+  aiSceneDistribution: AdminDashboardSceneDistributionVO[];
 }
 
 export interface AccountActionLinkVO {

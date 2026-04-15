@@ -19,9 +19,9 @@ public record RegisterStudentRequest(
         @NotBlank(message = "password must not be blank")
         @Size(min = 8, max = 128, message = "password must be between 8 and 128 characters")
         String password,
-        @NotBlank(message = "classCode must not be blank")
-        @Size(max = 64, message = "classCode must be at most 64 characters")
-        String classCode,
+        @NotBlank(message = "registrationToken must not be blank")
+        @Size(max = 256, message = "registrationToken must be at most 256 characters")
+        String registrationToken,
         @NotBlank(message = "englishLevel must not be blank")
         @Pattern(regexp = "A1|A2|B1|B2|C1|C2", message = "englishLevel must be one of A1, A2, B1, B2, C1, C2")
         String englishLevel,

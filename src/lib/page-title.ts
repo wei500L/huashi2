@@ -28,8 +28,14 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   if (pathname.startsWith('/teacher/interventions')) {
     return t('shell.titles.teacherInterventions');
   }
+  if (pathname.startsWith('/admin/dashboard')) {
+    return t('shell.titles.adminDashboard');
+  }
   if (pathname.startsWith('/admin/users')) {
     return t('shell.titles.adminUsers');
+  }
+  if (pathname.startsWith('/admin/audit-logs')) {
+    return t('shell.titles.adminAuditLogs');
   }
   if (pathname.startsWith('/admin/lexical-pairs')) {
     return t('shell.titles.adminLexicalPairs');

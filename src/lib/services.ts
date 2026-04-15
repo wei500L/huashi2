@@ -41,12 +41,14 @@ import type {
   PageResult,
   RecommendedTrainingPlanVO,
   ReorderLexicalListItemsRequest,
+  ResolveStudentRegistrationContextRequest,
   ReviewScheduleItemVO,
   SessionOverviewVO,
   StudentAnalyticsOverviewVO,
   StudentProfileSummaryVO,
   TeacherInterventionSummaryVO,
   TeacherClassDetailVO,
+  TeacherClassInviteCodeVO,
   TeacherClassStudentBatchRequest,
   TeacherClassStudentCandidateVO,
   TeacherClassUpsertRequest,
@@ -69,7 +71,9 @@ import type {
   AnalyticsRiskBucketVO,
   DiagnosisNextItemVO,
   DiagnosisTemplateUpsertRequest,
+  AdminDashboardVO,
   AdminAiConfigSaveRequest,
+  AdminAuditLogItemVO,
   AdminUserAccessUpdateRequest,
   AdminUserCreateRequest,
   AdminAiConfigViewVO,
@@ -108,8 +112,8 @@ export const authService = {
     apiPost<LoginResponse>('/auth/login', payload),
   registerStudent: (payload: RegisterStudentRequest) =>
     apiPost<LoginResponse>('/auth/register', payload),
-  getRegistrationContext: (classCode: string, options?: RequestOptions) =>
-    apiGet<StudentRegistrationContextVO>(`/auth/register/context/${encodeURIComponent(classCode)}`, options),
+  resolveRegistrationContext: (payload: ResolveStudentRegistrationContextRequest, options?: RequestOptions) =>
+    apiPost<StudentRegistrationContextVO>('/auth/register/context', payload, options),
   refresh: (refreshToken: string) => apiPost<LoginResponse>('/auth/refresh', { refreshToken }),
   logout: () => apiPost<void>('/auth/logout'),
   me: (options?: RequestOptions) => apiGet<CurrentUserVO>('/auth/me', options),
@@ -293,6 +297,8 @@ export const teacherClassService = {
   listClasses: (options?: RequestOptions) => apiGet<TeachingClassSummaryVO[]>('/teacher/classes', options),
   createClass: (payload: TeacherClassUpsertRequest) =>
     apiPost<TeacherClassDetailVO>('/teacher/classes', payload),
+  generateInviteCode: () =>
+    apiPost<TeacherClassInviteCodeVO>('/teacher/classes/invite-code'),
   getDetail: (classId: number, options?: RequestOptions) =>
     apiGet<TeacherClassDetailVO>(`/teacher/classes/${classId}`, options),
   updateClass: (classId: number, payload: TeacherClassUpsertRequest) =>
@@ -374,10 +380,15 @@ export const lexicalListService = {
 };
 
 export const adminService = {
+  getDashboard: (options?: RequestOptions) => apiGet<AdminDashboardVO>('/admin/dashboard', options),
   listUsers: (
     params: { pageNo?: number; pageSize?: number; keyword?: string; role?: string; enabled?: boolean; invitationStatus?: string; profileLinkStatus?: string },
     options?: RequestOptions
   ) => apiGet<PageResult<UserSummaryVO>>('/admin/users', { ...options, params }),
+  listAuditLogs: (
+    params: { pageNo?: number; pageSize?: number; startAt?: string; endAt?: string; actionType?: string; userKeyword?: string },
+    options?: RequestOptions
+  ) => apiGet<PageResult<AdminAuditLogItemVO>>('/admin/audit-logs', { ...options, params }),
   createUser: (payload: AdminUserCreateRequest) => apiPost<AdminUserProvisionResultVO>('/admin/users', payload),
   updateUserAccess: (userId: number, payload: AdminUserAccessUpdateRequest) =>
     apiPut<UserSummaryVO>(`/admin/users/${userId}/access`, payload),

@@ -44,7 +44,9 @@ const TeacherLexicalPairEditorPage = React.lazy(() => import('./pages/teacher/Le
 const TeacherLexicalPairImportsPage = React.lazy(() => import('./pages/teacher/LexicalPairImports'));
 const TeacherLexicalListsPage = React.lazy(() => import('./pages/teacher/LexicalLists'));
 const TeacherInterventionsPage = React.lazy(() => import('./pages/teacher/Interventions'));
+const AdminDashboardPage = React.lazy(() => import('./pages/admin/Dashboard'));
 const AdminUsersPage = React.lazy(() => import('./pages/admin/index'));
+const AdminAuditLogsPage = React.lazy(() => import('./pages/admin/AuditLogs'));
 const AdminConfigCenterPage = React.lazy(() => import('./pages/admin/ConfigCenter'));
 const AdminLexicalPairsPage = React.lazy(() => import('./pages/admin/LexicalPairs'));
 const AdminLexicalPairEditorPage = React.lazy(() => import('./pages/admin/LexicalPairEditor'));
@@ -384,6 +386,12 @@ const App: React.FC = () => {
         />
 
         <Route
+          path="admin/dashboard"
+          element={
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminDashboardPage />)}</RequireCapability>
+          }
+        />
+        <Route
           path="admin/config-center"
           element={
             <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminConfigCenterPage />)}</RequireCapability>
@@ -421,6 +429,13 @@ const App: React.FC = () => {
             <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminUsersPage />)}</RequireCapability>
           }
         />
+        <Route
+          path="admin/audit-logs"
+          element={
+            <RequireCapability capability="ADMIN_CONSOLE">{withSuspense(<AdminAuditLogsPage />)}</RequireCapability>
+          }
+        />
+        <Route path="admin" element={<Navigate to="/admin/dashboard" replace />} />
 
         <Route path="teacher" element={<Navigate to="/teacher/workspace" replace />} />
         <Route path="monitor" element={<Navigate to="/teacher/interventions" replace />} />

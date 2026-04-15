@@ -16,6 +16,7 @@ public record TeacherInterventionSummaryVO(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         String patternDetected,
-        String suggestedAction
+        String suggestedAction,
+        TeacherInterventionEffectVO effectTracking
 ) {
 }

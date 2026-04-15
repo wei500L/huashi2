@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.common.security.ratelimit;
 
 import com.huashi.eftransfer.app.common.config.AuthRateLimitProperties;
+import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.util.TokenGenerator;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
@@ -78,6 +79,34 @@ public class AuthRequestRateLimiter {
         );
     }
 
+    public void checkRegister(HttpServletRequest request) {
+        if (!properties.isEnabled()) {
+            return;
+        }
+        consume(
+                "auth:rl:register:ip:" + remoteAddress(request),
+                properties.getRegister().getIp(),
+                "Too many registration attempts",
+                request,
+                "register",
+                "ip"
+        );
+    }
+
+    public void checkRegistrationContext(HttpServletRequest request) {
+        if (!properties.isEnabled()) {
+            return;
+        }
+        consume(
+                "auth:rl:register-context:ip:" + remoteAddress(request),
+                properties.getRegisterContext().getIp(),
+                "Too many invite code lookup attempts",
+                request,
+                "register-context",
+                "ip"
+        );
+    }
+
     private void consume(
             String key,
             AuthRateLimitProperties.RateLimitWindow limit,
@@ -112,7 +141,6 @@ public class AuthRequestRateLimiter {
     }
 
     private String remoteAddress(HttpServletRequest request) {
-        String remoteAddr = request.getRemoteAddr();
-        return remoteAddr == null || remoteAddr.isBlank() ? "unknown" : remoteAddr;
+        return ClientRequestContextResolver.resolveIpAddress(request);
     }
 }

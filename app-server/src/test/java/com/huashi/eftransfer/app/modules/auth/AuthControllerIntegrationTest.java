@@ -49,7 +49,11 @@ import static org.hamcrest.Matchers.containsString;
         "app.security.rate-limit.auth.refresh.ip.limit=5",
         "app.security.rate-limit.auth.refresh.ip.window=PT1H",
         "app.security.rate-limit.auth.refresh.session.limit=2",
-        "app.security.rate-limit.auth.refresh.session.window=PT1H"
+        "app.security.rate-limit.auth.refresh.session.window=PT1H",
+        "app.security.rate-limit.auth.register.ip.limit=3",
+        "app.security.rate-limit.auth.register.ip.window=PT1H",
+        "app.security.rate-limit.auth.register-context.ip.limit=2",
+        "app.security.rate-limit.auth.register-context.ip.window=PT1H"
 })
 @ActiveProfiles("test")
 @Import(TestAuthTokenStoreConfiguration.class)
@@ -266,6 +270,8 @@ class AuthControllerIntegrationTest {
 
     @Test
     void shouldAllowStudentSelfRegistrationAndAutomaticallyJoinClass() throws Exception {
+        String registrationToken = resolveRegistrationToken("CLS-0001");
+
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -274,12 +280,12 @@ class AuthControllerIntegrationTest {
                                   "email": "student.self@ef.local",
                                   "displayName": "自主注册学生",
                                   "password": "Student@123456",
-                                  "classCode": "CLS-0001",
+                                  "registrationToken": "%s",
                                   "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
-                                """))
+                                """.formatted(registrationToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userInfo.username").value("student.self"))
                 .andExpect(jsonPath("$.data.userInfo.primaryRole").value("STUDENT"))
@@ -313,7 +319,7 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    void shouldRejectStudentRegistrationWhenClassInviteCodeIsInvalid() throws Exception {
+    void shouldRejectStudentRegistrationWhenRegistrationTokenIsInvalid() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -322,24 +328,190 @@ class AuthControllerIntegrationTest {
                                   "email": "student.invalid@ef.local",
                                   "displayName": "邀请码错误学生",
                                   "password": "Student@123456",
-                                  "classCode": "MISSING-CLASS",
+                                  "registrationToken": "missing-registration-token",
                                   "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.message").value("Class invite code is invalid"));
+                .andExpect(jsonPath("$.code").value("REGISTRATION_CONTEXT_INVALID"))
+                .andExpect(jsonPath("$.message").value("Registration verification is invalid or has expired. Re-enter the class invite code."));
     }
 
     @Test
     void shouldExposeRegistrationContextForValidClassInviteCode() throws Exception {
-        mockMvc.perform(get("/api/auth/register/context/CLS-0001"))
+        mockMvc.perform(post("/api/auth/register/context")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "classCode": "CLS-0001"
+                                }
+                                """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.classCode").value("CLS-0001"))
                 .andExpect(jsonPath("$.data.className").value("2024级英法迁移试点1班"))
-                .andExpect(jsonPath("$.data.gradeName").value("Pilot Grade"));
+                .andExpect(jsonPath("$.data.gradeName").value("Pilot Grade"))
+                .andExpect(jsonPath("$.data.registrationToken").isString())
+                .andExpect(jsonPath("$.data.registrationTokenExpiresAt").isString())
+                .andExpect(jsonPath("$.data.classCode").doesNotExist());
+    }
+
+    @Test
+    void shouldAllowStudentRegistrationWhenIpChangesButUserAgentMatches() throws Exception {
+        String registrationToken = resolveRegistrationToken("CLS-0001", "10.0.0.61", DEFAULT_USER_AGENT);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .with(remoteAddress("10.0.0.62"))
+                        .header("User-Agent", DEFAULT_USER_AGENT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "student.boundary",
+                                  "email": "student.boundary@ef.local",
+                                  "displayName": "客户端绑定学生",
+                                  "password": "Student@123456",
+                                  "registrationToken": "%s",
+                                  "englishLevel": "B1",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "FOUNDATION"
+                                }
+                                """.formatted(registrationToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userInfo.username").value("student.boundary"));
+    }
+
+    @Test
+    void shouldRejectStudentRegistrationWhenUserAgentChanges() throws Exception {
+        String registrationToken = resolveRegistrationToken("CLS-0001", "10.0.0.61", DEFAULT_USER_AGENT);
+
+        mockMvc.perform(post("/api/auth/register")
+                        .with(remoteAddress("10.0.0.62"))
+                        .header("User-Agent", "curl/8.7.1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "student.ua",
+                                  "email": "student.ua@ef.local",
+                                  "displayName": "客户端绑定学生",
+                                  "password": "Student@123456",
+                                  "registrationToken": "%s",
+                                  "englishLevel": "B1",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "FOUNDATION"
+                                }
+                                """.formatted(registrationToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REGISTRATION_CONTEXT_INVALID"));
+    }
+
+    @Test
+    void shouldInvalidateRegistrationTokenAfterSuccessfulRegistration() throws Exception {
+        String registrationToken = resolveRegistrationToken("CLS-0001");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "student.once",
+                                  "email": "student.once@ef.local",
+                                  "displayName": "单次令牌学生",
+                                  "password": "Student@123456",
+                                  "registrationToken": "%s",
+                                  "englishLevel": "B1",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "FOUNDATION"
+                                }
+                                """.formatted(registrationToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "student.once.again",
+                                  "email": "student.once.again@ef.local",
+                                  "displayName": "重复令牌学生",
+                                  "password": "Student@123456",
+                                  "registrationToken": "%s",
+                                  "englishLevel": "B1",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "FOUNDATION"
+                                }
+                                """.formatted(registrationToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REGISTRATION_CONTEXT_INVALID"));
+    }
+
+    @Test
+    void shouldRateLimitRepeatedStudentRegistrationAttempts() throws Exception {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            mockMvc.perform(post("/api/auth/register")
+                            .with(remoteAddress("10.0.0.31"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "username": "student.throttle",
+                                      "email": "student.throttle@ef.local",
+                                      "displayName": "限流学生",
+                                      "password": "Student@123456",
+                                      "registrationToken": "bogus-registration-token",
+                                      "englishLevel": "B1",
+                                      "frenchLevel": "A2",
+                                      "courseStage": "FOUNDATION"
+                                    }
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("REGISTRATION_CONTEXT_INVALID"))
+                    .andExpect(jsonPath("$.message").value("Registration verification is invalid or has expired. Re-enter the class invite code."));
+        }
+
+        mockMvc.perform(post("/api/auth/register")
+                        .with(remoteAddress("10.0.0.31"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "student.throttle",
+                                  "email": "student.throttle@ef.local",
+                                  "displayName": "限流学生",
+                                  "password": "Student@123456",
+                                  "registrationToken": "bogus-registration-token",
+                                  "englishLevel": "B1",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "FOUNDATION"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(jsonPath("$.message").value("Too many registration attempts"));
+    }
+
+    @Test
+    void shouldRateLimitRepeatedRegistrationContextLookups() throws Exception {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mockMvc.perform(post("/api/auth/register/context")
+                            .with(remoteAddress("10.0.0.41"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "classCode": "MISSING-CLASS"
+                                    }
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.message").value("Class invite code is invalid"));
+        }
+
+        mockMvc.perform(post("/api/auth/register/context")
+                        .with(remoteAddress("10.0.0.41"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "classCode": "MISSING-CLASS"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(jsonPath("$.message").value("Too many invite code lookup attempts"));
     }
 
     @Test
@@ -703,6 +875,34 @@ class AuthControllerIntegrationTest {
 
         JsonNode refreshJson = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
         return refreshJson.path("data").path("refreshToken").asText();
+    }
+
+    private String resolveRegistrationToken(String classCode) throws Exception {
+        return resolveRegistrationToken(classCode, null);
+    }
+
+    private String resolveRegistrationToken(String classCode, String remoteAddress) throws Exception {
+        return resolveRegistrationToken(classCode, remoteAddress, null);
+    }
+
+    private String resolveRegistrationToken(String classCode, String remoteAddress, String userAgent) throws Exception {
+        MvcResult contextResult = mockMvc.perform(post("/api/auth/register/context")
+                        .with(remoteAddress == null ? request -> request : remoteAddress(remoteAddress))
+                        .with(userAgent == null ? request -> request : request -> {
+                            request.addHeader("User-Agent", userAgent);
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "classCode": "%s"
+                                }
+                                """.formatted(classCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode contextJson = objectMapper.readTree(contextResult.getResponse().getContentAsString());
+        return contextJson.path("data").path("registrationToken").asText();
     }
 
     private RequestPostProcessor remoteAddress(String remoteAddress) {

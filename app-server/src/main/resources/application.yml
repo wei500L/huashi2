@@ -133,6 +133,17 @@ app:
           session:
             limit: ${APP_AUTH_RATE_LIMIT_REFRESH_SESSION_LIMIT:20}
             window: ${APP_AUTH_RATE_LIMIT_REFRESH_SESSION_WINDOW:PT10M}
+        register:
+          ip:
+            limit: ${APP_AUTH_RATE_LIMIT_REGISTER_IP_LIMIT:10}
+            window: ${APP_AUTH_RATE_LIMIT_REGISTER_IP_WINDOW:PT10M}
+        register-context:
+          ip:
+            limit: ${APP_AUTH_RATE_LIMIT_REGISTER_CONTEXT_IP_LIMIT:30}
+            window: ${APP_AUTH_RATE_LIMIT_REGISTER_CONTEXT_IP_WINDOW:PT1M}
+    registration:
+      context-token-ttl: ${APP_AUTH_REGISTRATION_CONTEXT_TOKEN_TTL:PT10M}
+      context-lock-ttl: ${APP_AUTH_REGISTRATION_CONTEXT_LOCK_TTL:PT1M}
     lockout:
       enabled: ${APP_AUTH_LOCKOUT_ENABLED:true}
       threshold: ${APP_AUTH_LOCKOUT_THRESHOLD:5}

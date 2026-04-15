@@ -78,7 +78,9 @@ function buildSections(t: (key: string) => string, workspace?: WorkspaceId | nul
       sections.push({
         label: t('shell.sections.admin'),
         items: [
+          { name: t('shell.nav.adminDashboard'), path: '/admin/dashboard', icon: LayoutDashboard },
           { name: t('shell.nav.adminUsers'), path: '/admin/users', icon: Users },
+          { name: t('shell.nav.adminAuditLogs'), path: '/admin/audit-logs', icon: History },
           { name: t('shell.nav.adminLexicalPairs'), path: '/admin/lexical-pairs', icon: BookOpen },
           { name: t('shell.nav.adminConfigCenter'), path: '/admin/config-center', icon: Shield },
         ],

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
+import InterventionEffectPanel from '@/features/interventions/InterventionEffectPanel';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
 import { teacherAnalyticsService, teacherInterventionService } from '@/lib/services';
 import { formatDateTime, interventionPriorityLabel, interventionStatusLabel, interventionStatusTone } from '@/lib/format';
@@ -436,6 +437,8 @@ const TeacherInterventionsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              <InterventionEffectPanel effectTracking={selectedIntervention.effectTracking} />
 
               <div className="grid gap-4 md:grid-cols-3">
                 <label className="space-y-2 text-sm">

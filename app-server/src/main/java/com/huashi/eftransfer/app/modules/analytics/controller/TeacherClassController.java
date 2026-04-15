@@ -4,6 +4,7 @@ import com.huashi.eftransfer.app.modules.analytics.dto.TeacherClassStudentBatchR
 import com.huashi.eftransfer.app.modules.analytics.dto.TeacherClassUpsertRequest;
 import com.huashi.eftransfer.app.modules.analytics.service.TeacherClassManagementService;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherClassDetailVO;
+import com.huashi.eftransfer.app.modules.analytics.vo.TeacherClassInviteCodeVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherClassStudentCandidateVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeachingClassSummaryVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
@@ -41,6 +42,11 @@ public class TeacherClassController {
     @PostMapping
     public ApiResponse<TeacherClassDetailVO> createClass(@Valid @RequestBody TeacherClassUpsertRequest request) {
         return ApiResponse.success(teacherClassManagementService.createClass(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/invite-code")
+    public ApiResponse<TeacherClassInviteCodeVO> generateInviteCode() {
+        return ApiResponse.success(teacherClassManagementService.generateInviteCode(), MDC.get("traceId"));
     }
 
     @GetMapping("/{classId}")

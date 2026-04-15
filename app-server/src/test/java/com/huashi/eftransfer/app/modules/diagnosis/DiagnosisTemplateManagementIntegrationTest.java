@@ -1,6 +1,8 @@
 package com.huashi.eftransfer.app.modules.diagnosis;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
@@ -23,6 +25,9 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private TeachingClassMapper teachingClassMapper;
 
     @Autowired
     private TeachingClassStudentMapper teachingClassStudentMapper;
@@ -214,6 +219,84 @@ class DiagnosisTemplateManagementIntegrationTest extends AbstractWebIntegrationT
                                 """.formatted(targetedTemplateId)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Student is not in the teaching class"));
+    }
+
+    @Test
+    void shouldHideArchivedClassTemplatesAndBlockSessionCreation() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        long classId = loadFirstAccessibleClassId(teacherToken);
+        long tablePairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "table",
+                  "frenchWord": "table",
+                  "chineseGloss": "桌子",
+                  "lexicalPairType": "cognate",
+                  "semanticOverlapScore": 0.95,
+                  "falseFriendRisk": 0.05,
+                  "defaultContextSupport": "low",
+                  "difficultyLevel": 1,
+                  "active": true,
+                  "tags": ["basic"]
+                }
+                """);
+        long coinPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "coin",
+                  "frenchWord": "coin",
+                  "chineseGloss": "硬币；角落",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.10,
+                  "falseFriendRisk": 0.92,
+                  "defaultContextSupport": "medium",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend"]
+                }
+                """);
+        long actuallyPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "actually",
+                  "frenchWord": "actuellement",
+                  "chineseGloss": "实际上；目前",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.20,
+                  "falseFriendRisk": 0.88,
+                  "defaultContextSupport": "high",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend", "context"]
+                }
+                """);
+        long targetedTemplateId = createPublishedTemplate(
+                teacherToken,
+                tablePairId,
+                coinPairId,
+                actuallyPairId,
+                "Archived class template",
+                classId
+        );
+
+        TeachingClassEntity teachingClass = teachingClassMapper.selectById(classId);
+        teachingClass.setActive(Boolean.FALSE);
+        teachingClassMapper.updateById(teachingClass);
+
+        mockMvc.perform(get("/api/student/diagnosis-templates")
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+
+        mockMvc.perform(post("/api/diagnosis/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateId": %d
+                                }
+                                """.formatted(targetedTemplateId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Teaching class was not found"));
     }
 
     private long createLexicalPair(String teacherToken, String body) throws Exception {

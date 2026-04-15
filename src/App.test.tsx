@@ -28,6 +28,10 @@ vi.mock('./pages/admin/index', () => ({
   default: () => <div>admin-users</div>,
 }));
 
+vi.mock('./pages/admin/Dashboard', () => ({
+  default: () => <div>admin-dashboard</div>,
+}));
+
 vi.mock('./pages/Login', () => ({
   default: function LoginMock() {
     const location = useLocation();

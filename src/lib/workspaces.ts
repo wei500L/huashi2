@@ -57,7 +57,7 @@ export function defaultWorkspaceForUser(
 export function homePathForWorkspace(workspace?: WorkspaceId | null): string {
   switch (workspace) {
     case 'ADMIN_CONSOLE':
-      return '/admin/users';
+      return '/admin/dashboard';
     case 'TEACHING_WORKSPACE':
       return '/teacher/workspace';
     case 'STUDENT_WORKSPACE':

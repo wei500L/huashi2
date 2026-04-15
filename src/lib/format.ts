@@ -424,7 +424,7 @@ export function userHasCapability(user: Pick<CurrentUserVO, 'capabilities'> | nu
 
 export function homePathForCapabilities(capabilities?: Capability[] | null): string {
   if (hasCapability(capabilities, 'ADMIN_CONSOLE')) {
-    return '/admin/users';
+    return '/admin/dashboard';
   }
   if (hasCapability(capabilities, 'TEACHING_WORKSPACE')) {
     return '/teacher/workspace';

@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.support;
 import com.huashi.eftransfer.app.common.security.lockout.AuthLockoutStore;
 import com.huashi.eftransfer.app.common.security.lockout.LocalAuthLockoutStore;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
+import com.huashi.eftransfer.app.common.security.store.RegistrationContextSession;
 import com.huashi.eftransfer.app.common.security.store.RefreshTokenSession;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @TestConfiguration
 public class TestAuthTokenStoreConfiguration {
@@ -31,9 +33,54 @@ public class TestAuthTokenStoreConfiguration {
 
     static class InMemoryAuthTokenStore implements AuthTokenStore {
 
+        private final Map<String, RegistrationContextSession> registrationContextSessions = new ConcurrentHashMap<>();
+        private final Map<String, Instant> registrationContextLocks = new ConcurrentHashMap<>();
         private final Map<String, RefreshTokenSession> refreshSessions = new ConcurrentHashMap<>();
         private final Map<Long, String> activeUserSessions = new ConcurrentHashMap<>();
         private final Map<String, Instant> blacklistedAccessTokens = new ConcurrentHashMap<>();
+
+        @Override
+        public Optional<RegistrationContextSession> findRegistrationContextSession(String tokenHash) {
+            RegistrationContextSession session = registrationContextSessions.get(tokenHash);
+            if (session == null) {
+                return Optional.empty();
+            }
+            if (session.expiresAt().isBefore(Instant.now())) {
+                revokeRegistrationContextSession(tokenHash);
+                return Optional.empty();
+            }
+            return Optional.of(session);
+        }
+
+        @Override
+        public boolean acquireRegistrationContextLock(String tokenHash, Duration ttl) {
+            Instant now = Instant.now();
+            AtomicBoolean acquired = new AtomicBoolean(false);
+            registrationContextLocks.compute(tokenHash, (key, expiration) -> {
+                if (expiration == null || expiration.isBefore(now)) {
+                    acquired.set(true);
+                    return now.plus(ttl);
+                }
+                return expiration;
+            });
+            return acquired.get();
+        }
+
+        @Override
+        public void releaseRegistrationContextLock(String tokenHash) {
+            registrationContextLocks.remove(tokenHash);
+        }
+
+        @Override
+        public void saveRegistrationContextSession(RegistrationContextSession session, Duration ttl) {
+            registrationContextSessions.put(session.tokenHash(), session);
+        }
+
+        @Override
+        public void revokeRegistrationContextSession(String tokenHash) {
+            registrationContextSessions.remove(tokenHash);
+            registrationContextLocks.remove(tokenHash);
+        }
 
         @Override
         public Optional<RefreshTokenSession> findRefreshSession(String refreshTokenHash) {

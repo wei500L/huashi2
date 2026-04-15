@@ -6,6 +6,7 @@ import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.modules.analytics.dto.TeacherInterventionPageQuery;
 import com.huashi.eftransfer.app.modules.analytics.dto.TeacherInterventionUpdateRequest;
 import com.huashi.eftransfer.app.modules.analytics.entity.InterventionRecordEntity;
+import com.huashi.eftransfer.app.modules.analytics.entity.LearningProfileSnapshotEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.InterventionRecordMapper;
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
@@ -36,19 +37,22 @@ public class TeacherInterventionService {
     private final TeachingClassMapper teachingClassMapper;
     private final UserMapper userMapper;
     private final AnalyticsJsonCodec analyticsJsonCodec;
+    private final InterventionEffectTrackingService interventionEffectTrackingService;
 
     public TeacherInterventionService(
             InterventionRecordMapper interventionRecordMapper,
             TeachingClassService teachingClassService,
             TeachingClassMapper teachingClassMapper,
             UserMapper userMapper,
-            AnalyticsJsonCodec analyticsJsonCodec
+            AnalyticsJsonCodec analyticsJsonCodec,
+            InterventionEffectTrackingService interventionEffectTrackingService
     ) {
         this.interventionRecordMapper = interventionRecordMapper;
         this.teachingClassService = teachingClassService;
         this.teachingClassMapper = teachingClassMapper;
         this.userMapper = userMapper;
         this.analyticsJsonCodec = analyticsJsonCodec;
+        this.interventionEffectTrackingService = interventionEffectTrackingService;
     }
 
     public PageResult<TeacherInterventionSummaryVO> pageQuery(TeacherInterventionPageQuery query) {
@@ -81,9 +85,18 @@ public class TeacherInterventionService {
         Map<Long, UserEntity> userMap = loadUserMap(records.stream()
                 .map(InterventionRecordEntity::getStudentUserId)
                 .toList());
+        Map<Long, LearningProfileSnapshotEntity> snapshotMap = interventionEffectTrackingService.loadSnapshotMap(records.stream()
+                .flatMap(record -> java.util.stream.Stream.of(record.getBaselineSnapshotId(), record.getCompletionSnapshotId()))
+                .toList());
 
         List<TeacherInterventionSummaryVO> items = records.stream()
-                .map(record -> toSummary(record, classMap.get(record.getTeachingClassId()), userMap.get(record.getStudentUserId())))
+                .map(record -> toSummary(
+                        record,
+                        classMap.get(record.getTeachingClassId()),
+                        userMap.get(record.getStudentUserId()),
+                        snapshotMap.get(record.getBaselineSnapshotId()),
+                        snapshotMap.get(record.getCompletionSnapshotId())
+                ))
                 .toList();
         return new PageResult<>(total, pageQuery.pageNo(), pageQuery.pageSize(), items);
     }
@@ -146,6 +159,7 @@ public class TeacherInterventionService {
             throw new BusinessException(ResultCode.NOT_FOUND, "Intervention record was not found", 404);
         }
         requireAccessible(entity);
+        boolean wasCompleted = "COMPLETED".equalsIgnoreCase(entity.getStatus());
 
         if (request.priority() != null) {
             entity.setPriority(request.priority().trim().toUpperCase());
@@ -160,8 +174,12 @@ public class TeacherInterventionService {
             if (entity.getCompletedAt() == null) {
                 entity.setCompletedAt(LocalDateTime.now());
             }
+            if (!wasCompleted || entity.getCompletionSnapshotId() == null) {
+                interventionEffectTrackingService.captureCompletionSnapshot(entity);
+            }
         } else {
             entity.setCompletedAt(null);
+            entity.setCompletionSnapshotId(null);
         }
 
         interventionRecordMapper.updateById(entity);
@@ -184,12 +202,16 @@ public class TeacherInterventionService {
         if ("COMPLETED".equalsIgnoreCase(entity.getStatus())) {
             if (entity.getCompletedAt() == null) {
                 entity.setCompletedAt(LocalDateTime.now());
+                if (entity.getCompletionSnapshotId() == null) {
+                    interventionEffectTrackingService.captureCompletionSnapshot(entity);
+                }
                 interventionRecordMapper.updateById(entity);
             }
             return;
         }
         entity.setStatus("COMPLETED");
         entity.setCompletedAt(LocalDateTime.now());
+        interventionEffectTrackingService.captureCompletionSnapshot(entity);
         interventionRecordMapper.updateById(entity);
     }
 
@@ -249,6 +271,20 @@ public class TeacherInterventionService {
             TeachingClassEntity teachingClass,
             UserEntity student
     ) {
+        Map<Long, LearningProfileSnapshotEntity> snapshotMap = interventionEffectTrackingService.loadSnapshotMap(java.util.Arrays.asList(
+                entity.getBaselineSnapshotId(),
+                entity.getCompletionSnapshotId()
+        ));
+        return toSummary(entity, teachingClass, student, snapshotMap.get(entity.getBaselineSnapshotId()), snapshotMap.get(entity.getCompletionSnapshotId()));
+    }
+
+    private TeacherInterventionSummaryVO toSummary(
+            InterventionRecordEntity entity,
+            TeachingClassEntity teachingClass,
+            UserEntity student,
+            LearningProfileSnapshotEntity baselineSnapshot,
+            LearningProfileSnapshotEntity completionSnapshot
+    ) {
         Map<?, ?> snapshot = analyticsJsonCodec.read(entity.getTriggerSnapshotJson(), Map.class);
         String patternDetected = resolvePatternDetected(snapshot, entity);
         String suggestedAction = resolveSuggestedAction(snapshot, entity);
@@ -266,7 +302,8 @@ public class TeacherInterventionService {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 patternDetected,
-                suggestedAction
+                suggestedAction,
+                interventionEffectTrackingService.buildEffectTracking(entity, baselineSnapshot, completionSnapshot)
         );
     }
 

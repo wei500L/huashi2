@@ -3,9 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
-import { BadgeCheck, KeyRound, UserPlus2 } from 'lucide-react';
+import { BadgeCheck, KeyRound, RefreshCcw, UserPlus2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ApiError, getApiErrorMessage, normalizeApiError } from '@/lib/api';
+import type { StudentRegistrationContextVO } from '@/lib/contracts';
 import { authService } from '@/lib/services';
 import { useAuthStore } from '@/store';
 
@@ -23,12 +24,23 @@ type RegisterFormData = {
 
 const levelOptions = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 const courseStageOptions = ['FOUNDATION', 'INTERMEDIATE', 'ADVANCED'] as const;
+const REGISTRATION_CONTEXT_RESOLVE_DELAY_MS = 350;
+
+type ResolvedRegistrationContext = {
+  requestedClassCode: string;
+  payload: StudentRegistrationContextVO;
+};
 
 const RegisterPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const initialClassCode = searchParams.get('code') ?? '';
-  const { registerStudent, error, clearError } = useAuthStore();
+  const { registerStudent, clearError } = useAuthStore();
+  const [resolvedContext, setResolvedContext] = React.useState<ResolvedRegistrationContext | null>(null);
+  const [contextErrorMessage, setContextErrorMessage] = React.useState<string | null>(null);
+  const [submitErrorState, setSubmitErrorState] = React.useState<{ message: string; traceId?: string | null } | null>(null);
+  const [isResolvingContext, setIsResolvingContext] = React.useState(false);
+  const [contextRefreshNonce, setContextRefreshNonce] = React.useState(0);
 
   const registerSchema = React.useMemo(() => z.object({
     classCode: z.string().min(1, t('register.validation.inviteCodeRequired')),
@@ -60,6 +72,8 @@ const RegisterPage: React.FC = () => {
     register,
     handleSubmit,
     watch,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -80,24 +94,154 @@ const RegisterPage: React.FC = () => {
     clearError();
   }, [clearError]);
 
-  const deferredClassCode = React.useDeferredValue(watch('classCode').trim());
-  const classContextQuery = useQuery({
-    queryKey: ['student-registration-context', deferredClassCode],
-    queryFn: ({ signal }) => authService.getRegistrationContext(deferredClassCode, { signal }),
-    enabled: deferredClassCode.length > 0,
-    retry: false,
+  const currentClassCode = watch('classCode').trim();
+  const deferredClassCode = React.useDeferredValue(currentClassCode);
+  const activeResolvedContext = resolvedContext?.requestedClassCode === currentClassCode ? resolvedContext.payload : null;
+  const tokenExpiryLabel = React.useMemo(() => {
+    if (!activeResolvedContext?.registrationTokenExpiresAt) {
+      return null;
+    }
+    return new Intl.DateTimeFormat(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(activeResolvedContext.registrationTokenExpiresAt));
+  }, [activeResolvedContext?.registrationTokenExpiresAt, i18n.language]);
+
+  const triggerRegistrationContextRefresh = React.useCallback(() => {
+    React.startTransition(() => {
+      setContextRefreshNonce((current) => current + 1);
+    });
+  }, []);
+
+  const resolveRegistrationContext = React.useEffectEvent(async (classCode: string, signal: AbortSignal) => {
+    setIsResolvingContext(true);
+    try {
+      const payload = await authService.resolveRegistrationContext({ classCode }, { signal });
+      if (signal.aborted) {
+        return;
+      }
+      clearErrors('classCode');
+      setResolvedContext({ requestedClassCode: classCode, payload });
+      setContextErrorMessage(null);
+    } catch (error) {
+      if (signal.aborted) {
+        return;
+      }
+      const normalizedError = normalizeApiError(error);
+      setResolvedContext(null);
+      if (normalizedError.code === 'VALIDATION_ERROR') {
+        setContextErrorMessage(t('register.contextState.invalid'));
+        return;
+      }
+      if (normalizedError.code === 'RATE_LIMITED') {
+        setContextErrorMessage(t('register.contextState.rateLimited'));
+        return;
+      }
+      setContextErrorMessage(getApiErrorMessage(error, t('register.contextState.unavailable')));
+    } finally {
+      if (!signal.aborted) {
+        setIsResolvingContext(false);
+      }
+    }
   });
+
+  React.useEffect(() => {
+    setSubmitErrorState(null);
+  }, [currentClassCode]);
+
+  React.useEffect(() => {
+    if (!deferredClassCode) {
+      clearErrors('classCode');
+      setResolvedContext(null);
+      setContextErrorMessage(null);
+      setIsResolvingContext(false);
+      return;
+    }
+
+    clearErrors('classCode');
+    setResolvedContext((current) => current?.requestedClassCode === deferredClassCode ? current : null);
+    setContextErrorMessage(null);
+
+    const abortController = new AbortController();
+    const timer = window.setTimeout(() => {
+      void resolveRegistrationContext(deferredClassCode, abortController.signal);
+    }, REGISTRATION_CONTEXT_RESOLVE_DELAY_MS);
+
+    return () => {
+      abortController.abort();
+      window.clearTimeout(timer);
+    };
+  }, [deferredClassCode, contextRefreshNonce, resolveRegistrationContext]);
 
   const onSubmit = async (values: RegisterFormData) => {
     clearError();
-    const { confirmPassword: _confirmPassword, ...payload } = values;
-    await registerStudent({
-      ...payload,
-      classCode: values.classCode.trim(),
-      displayName: values.displayName.trim(),
-      username: values.username.trim(),
-      email: values.email.trim(),
-    });
+    setSubmitErrorState(null);
+    if (!activeResolvedContext) {
+      setError('classCode', {
+        type: 'manual',
+        message: t('register.validation.resolveInviteCodeFirst'),
+      });
+      triggerRegistrationContextRefresh();
+      return;
+    }
+
+    const { confirmPassword: _confirmPassword, classCode: _classCode, ...payload } = values;
+    try {
+      await registerStudent({
+        ...payload,
+        registrationToken: activeResolvedContext.registrationToken,
+        displayName: values.displayName.trim(),
+        username: values.username.trim(),
+        email: values.email.trim(),
+      });
+    } catch (error) {
+      const normalizedError = normalizeApiError(error);
+      if (normalizedError.code === 'REGISTRATION_CONTEXT_BUSY') {
+        setSubmitErrorState({
+          message: t('register.feedback.inProgress'),
+          traceId: normalizedError.traceId,
+        });
+        return;
+      }
+      if (normalizedError.code === 'REGISTRATION_CONTEXT_INVALID') {
+        setResolvedContext(null);
+        setContextErrorMessage(t('register.contextState.expired'));
+        setError('classCode', {
+          type: 'manual',
+          message: t('register.validation.inviteCodeExpired'),
+        });
+        triggerRegistrationContextRefresh();
+        return;
+      }
+      if (normalizedError.status === 409 && /username already exists/i.test(normalizedError.message)) {
+        setError('username', {
+          type: 'server',
+          message: t('register.validation.usernameTaken'),
+        });
+        return;
+      }
+      if (normalizedError.status === 409 && /email already exists/i.test(normalizedError.message)) {
+        setError('email', {
+          type: 'server',
+          message: t('register.validation.emailTaken'),
+        });
+        return;
+      }
+      if (normalizedError instanceof ApiError && normalizedError.code === 'VALIDATION_ERROR' && /registrationToken/i.test(normalizedError.message)) {
+        setResolvedContext(null);
+        setContextErrorMessage(t('register.contextState.expired'));
+        setError('classCode', {
+          type: 'manual',
+          message: t('register.validation.inviteCodeExpired'),
+        });
+        triggerRegistrationContextRefresh();
+        return;
+      }
+      setSubmitErrorState({
+        message: getApiErrorMessage(error, t('register.feedback.submitFailed')),
+        traceId: normalizedError.traceId,
+      });
+    }
   };
 
   return (
@@ -135,12 +279,21 @@ const RegisterPage: React.FC = () => {
               <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
                 {t('register.classPreviewLabel')}
               </div>
-              {classContextQuery.isSuccess ? (
+              {activeResolvedContext ? (
                 <div className="mt-4">
-                  <div className="text-2xl font-black text-slate-900 dark:text-white">{classContextQuery.data.className}</div>
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    {classContextQuery.data.gradeName} · {classContextQuery.data.classCode}
+                  <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                    <BadgeCheck size={14} />
+                    {t('register.contextState.verified')}
                   </div>
+                  <div className="mt-4 text-2xl font-black text-slate-900 dark:text-white">{activeResolvedContext.className}</div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                    {activeResolvedContext.gradeName}
+                  </div>
+                  {tokenExpiryLabel && (
+                    <div className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+                      {t('register.contextState.validUntil', { time: tokenExpiryLabel })}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/45">
@@ -148,13 +301,21 @@ const RegisterPage: React.FC = () => {
                 </div>
               )}
 
-              {classContextQuery.isFetching && (
-                <div className="mt-4 text-sm text-slate-400 dark:text-white/35">正在校验邀请码...</div>
+              {isResolvingContext && (
+                <div className="mt-4 text-sm text-slate-400 dark:text-white/35">{t('register.contextState.checking')}</div>
               )}
 
-              {classContextQuery.isError && deferredClassCode.length > 0 && (
+              {contextErrorMessage && deferredClassCode.length > 0 && (
                 <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-                  {classContextQuery.error instanceof Error ? classContextQuery.error.message : '邀请码暂不可用'}
+                  <div>{contextErrorMessage}</div>
+                  <button
+                    type="button"
+                    onClick={triggerRegistrationContextRefresh}
+                    className="mt-3 inline-flex items-center gap-2 font-semibold text-amber-700 transition hover:opacity-80 dark:text-amber-300"
+                  >
+                    <RefreshCcw size={14} />
+                    {t('register.contextState.retry')}
+                  </button>
                 </div>
               )}
             </div>
@@ -281,9 +442,26 @@ const RegisterPage: React.FC = () => {
                 </label>
               </div>
 
-              {error && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">{error}</div>}
+              {!activeResolvedContext && currentClassCode.length > 0 && !isResolvingContext && !contextErrorMessage && (
+                <div className="rounded-2xl border border-slate-200/80 bg-white/60 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/55">
+                  {t('register.contextState.pending')}
+                </div>
+              )}
 
-              <button type="submit" disabled={isSubmitting} className="btn-liquid w-full py-4 text-white disabled:opacity-70">
+              {submitErrorState && (
+                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                  <div>{submitErrorState.message}</div>
+                  {submitErrorState.traceId && (
+                    <div className="mt-2 text-xs text-rose-400">{t('register.feedback.traceId', { traceId: submitErrorState.traceId })}</div>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting || isResolvingContext || !activeResolvedContext}
+                className="btn-liquid w-full py-4 text-white disabled:opacity-70"
+              >
                 {isSubmitting ? t('register.submitting') : t('register.submit')}
               </button>
 

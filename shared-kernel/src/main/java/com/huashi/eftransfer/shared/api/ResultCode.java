@@ -13,6 +13,8 @@ public enum ResultCode {
     ACCOUNT_LOCKED("ACCOUNT_LOCKED", "Account is temporarily locked"),
     TOKEN_INVALID("TOKEN_INVALID", "Token is invalid"),
     TOKEN_EXPIRED("TOKEN_EXPIRED", "Token has expired"),
+    REGISTRATION_CONTEXT_INVALID("REGISTRATION_CONTEXT_INVALID", "Registration context is invalid or expired"),
+    REGISTRATION_CONTEXT_BUSY("REGISTRATION_CONTEXT_BUSY", "Registration context is already in use"),
     RATE_LIMITED("RATE_LIMITED", "Too many requests"),
     AI_PROVIDER_UNAVAILABLE("AI_PROVIDER_UNAVAILABLE", "AI provider unavailable"),
     INTERNAL_ERROR("INTERNAL_ERROR", "Internal server error");

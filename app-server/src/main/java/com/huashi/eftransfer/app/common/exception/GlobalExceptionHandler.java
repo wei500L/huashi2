@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -33,11 +34,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValid(MethodArgumentNotValidException exception, HttpServletRequest request) {
-        String message = exception.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(this::formatFieldError)
-                .collect(Collectors.joining("; "));
+        String message = formatFieldErrors(exception.getBindingResult().getFieldErrors());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure(ResultCode.VALIDATION_ERROR, message, traceId(request)));
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBindException(BindException exception, HttpServletRequest request) {
+        String message = formatFieldErrors(exception.getBindingResult().getFieldErrors());
         return ResponseEntity.badRequest()
                 .body(ApiResponse.failure(ResultCode.VALIDATION_ERROR, message, traceId(request)));
     }
@@ -83,6 +87,12 @@ public class GlobalExceptionHandler {
 
     private String formatFieldError(FieldError fieldError) {
         return fieldError.getField() + ": " + fieldError.getDefaultMessage();
+    }
+
+    private String formatFieldErrors(java.util.List<FieldError> fieldErrors) {
+        return fieldErrors.stream()
+                .map(this::formatFieldError)
+                .collect(Collectors.joining("; "));
     }
 
     private String traceId(HttpServletRequest request) {

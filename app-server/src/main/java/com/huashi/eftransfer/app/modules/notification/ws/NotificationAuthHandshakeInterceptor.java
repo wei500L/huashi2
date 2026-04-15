@@ -47,6 +47,8 @@ public class NotificationAuthHandshakeInterceptor implements HandshakeIntercepto
                 return false;
             }
             attributes.put(NotificationWebSocketHandler.USER_ID_ATTRIBUTE, principal.userId());
+            attributes.put(NotificationWebSocketHandler.TOKEN_ID_ATTRIBUTE, principal.tokenId());
+            attributes.put(NotificationWebSocketHandler.TOKEN_EXPIRES_AT_ATTRIBUTE, principal.expiresAt());
             return true;
         } catch (JwtException exception) {
             response.setStatusCode(HttpStatus.UNAUTHORIZED);

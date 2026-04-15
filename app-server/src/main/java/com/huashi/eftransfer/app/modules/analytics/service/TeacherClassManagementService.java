@@ -9,6 +9,7 @@ import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEn
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherClassDetailVO;
+import com.huashi.eftransfer.app.modules.analytics.vo.TeacherClassInviteCodeVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherClassStudentCandidateVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeacherClassStudentVO;
 import com.huashi.eftransfer.app.modules.analytics.vo.TeachingClassSummaryVO;
@@ -35,11 +36,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 public class TeacherClassManagementService {
+
+    private static final String INVITE_CODE_PREFIX = "CLS-";
+    private static final char[] INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
+    private static final int INVITE_CODE_RANDOM_LENGTH = 6;
+    private static final int INVITE_CODE_MAX_ATTEMPTS = 20;
 
     private final TeachingClassMapper teachingClassMapper;
     private final TeachingClassStudentMapper teachingClassStudentMapper;
@@ -78,6 +85,10 @@ public class TeacherClassManagementService {
 
     public TeacherClassDetailVO getClassDetail(Long classId) {
         return buildClassDetail(teachingClassService.requireAccessibleClass(classId));
+    }
+
+    public TeacherClassInviteCodeVO generateInviteCode() {
+        return new TeacherClassInviteCodeVO(generateUniqueInviteCode());
     }
 
     @Transactional
@@ -376,6 +387,27 @@ public class TeacherClassManagementService {
         if (count != null && count > 0) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Class code already exists", 400);
         }
+    }
+
+    private String generateUniqueInviteCode() {
+        for (int attempt = 0; attempt < INVITE_CODE_MAX_ATTEMPTS; attempt++) {
+            String candidate = randomInviteCode();
+            Long count = teachingClassMapper.selectCount(Wrappers.<TeachingClassEntity>lambdaQuery()
+                    .eq(TeachingClassEntity::getClassCode, candidate));
+            if (count == null || count == 0) {
+                return candidate;
+            }
+        }
+        throw new BusinessException(ResultCode.INTERNAL_ERROR, "Failed to generate a unique class invite code", 500);
+    }
+
+    private String randomInviteCode() {
+        StringBuilder builder = new StringBuilder(INVITE_CODE_PREFIX);
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        for (int index = 0; index < INVITE_CODE_RANDOM_LENGTH; index++) {
+            builder.append(INVITE_CODE_ALPHABET[random.nextInt(INVITE_CODE_ALPHABET.length)]);
+        }
+        return builder.toString();
     }
 
     private String normalize(String value) {

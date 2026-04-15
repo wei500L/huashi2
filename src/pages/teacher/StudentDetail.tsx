@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
+import InterventionEffectPanel from '@/features/interventions/InterventionEffectPanel';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
 import { aiService, teacherAnalyticsService, teacherInterventionService } from '@/lib/services';
 import {
@@ -333,6 +334,8 @@ const TeacherStudentDetailPage: React.FC = () => {
                       {selectedIntervention.suggestedAction}
                     </div>
                   </div>
+
+                  <InterventionEffectPanel effectTracking={selectedIntervention.effectTracking} />
 
                   <div className="grid gap-4 md:grid-cols-3">
                     <label className="space-y-2 text-sm">

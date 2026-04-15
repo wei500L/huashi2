@@ -5,6 +5,16 @@ import java.util.Optional;
 
 public interface AuthTokenStore {
 
+    Optional<RegistrationContextSession> findRegistrationContextSession(String tokenHash);
+
+    boolean acquireRegistrationContextLock(String tokenHash, Duration ttl);
+
+    void releaseRegistrationContextLock(String tokenHash);
+
+    void saveRegistrationContextSession(RegistrationContextSession session, Duration ttl);
+
+    void revokeRegistrationContextSession(String tokenHash);
+
     Optional<RefreshTokenSession> findRefreshSession(String refreshTokenHash);
 
     void saveRefreshSession(RefreshTokenSession session, Duration ttl);

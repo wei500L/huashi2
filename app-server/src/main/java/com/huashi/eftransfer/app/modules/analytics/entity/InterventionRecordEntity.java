@@ -30,6 +30,12 @@ public class InterventionRecordEntity extends BaseAuditEntity {
     @TableField("trigger_snapshot_json")
     private String triggerSnapshotJson;
 
+    @TableField("baseline_snapshot_id")
+    private Long baselineSnapshotId;
+
+    @TableField("completion_snapshot_id")
+    private Long completionSnapshotId;
+
     private String note;
 
     @TableField("planned_at")
@@ -100,6 +106,22 @@ public class InterventionRecordEntity extends BaseAuditEntity {
 
     public void setTriggerSnapshotJson(String triggerSnapshotJson) {
         this.triggerSnapshotJson = triggerSnapshotJson;
+    }
+
+    public Long getBaselineSnapshotId() {
+        return baselineSnapshotId;
+    }
+
+    public void setBaselineSnapshotId(Long baselineSnapshotId) {
+        this.baselineSnapshotId = baselineSnapshotId;
+    }
+
+    public Long getCompletionSnapshotId() {
+        return completionSnapshotId;
+    }
+
+    public void setCompletionSnapshotId(Long completionSnapshotId) {
+        this.completionSnapshotId = completionSnapshotId;
     }
 
     public String getNote() {

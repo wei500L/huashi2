@@ -60,6 +60,29 @@ class AuthorizationAccessIntegrationTest {
                 .andExpect(jsonPath("$.data.length()").value(4));
     }
 
+    @Test
+    void shouldEnforceAdminAccessOnAdminDashboardEndpoint() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+
+        mockMvc.perform(get("/api/admin/dashboard"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(get("/api/admin/dashboard")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        mockMvc.perform(get("/api/admin/dashboard")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.overview").exists())
+                .andExpect(jsonPath("$.data.registrationTrend").isArray())
+                .andExpect(jsonPath("$.data.completionTrend").isArray())
+                .andExpect(jsonPath("$.data.aiTrend").isArray());
+    }
+
     private String loginAndGetAccessToken(String usernameOrEmail, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

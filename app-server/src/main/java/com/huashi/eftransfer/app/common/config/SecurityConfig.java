@@ -30,7 +30,7 @@ import java.util.Arrays;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, InternalApiProperties.class, CorsProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, InternalApiProperties.class, CorsProperties.class, AuthRegistrationProperties.class})
 public class SecurityConfig {
 
     @Bean
@@ -57,7 +57,7 @@ public class SecurityConfig {
                             "/api/health",
                             "/api/auth/login",
                             "/api/auth/register",
-                            "/api/auth/register/context/**",
+                            "/api/auth/register/context",
                             "/api/auth/refresh",
                             "/api/auth/account-actions/**",
                             "/ws/**",

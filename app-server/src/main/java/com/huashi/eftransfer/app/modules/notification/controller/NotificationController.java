@@ -6,6 +6,7 @@ import com.huashi.eftransfer.app.modules.notification.vo.NotificationItemVO;
 import com.huashi.eftransfer.app.modules.notification.vo.NotificationUnreadCountVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.page.PageResult;
+import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +28,7 @@ public class NotificationController {
     }
 
     @GetMapping
-    public ApiResponse<PageResult<NotificationItemVO>> page(@ModelAttribute NotificationPageQuery query) {
+    public ApiResponse<PageResult<NotificationItemVO>> page(@Valid @ModelAttribute NotificationPageQuery query) {
         return ApiResponse.success(notificationService.pageMine(query), MDC.get("traceId"));
     }
 

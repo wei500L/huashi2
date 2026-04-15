@@ -36,18 +36,27 @@ class TeacherClassControllerIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(studentLi).isNotNull();
         assertThat(studentWang).isNotNull();
 
+        MvcResult inviteCodeResult = mockMvc.perform(post("/api/teacher/classes/invite-code")
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.classCode").isString())
+                .andReturn();
+        String generatedInviteCode = readJson(inviteCodeResult).path("data").path("classCode").asText();
+        assertThat(generatedInviteCode).startsWith("CLS-");
+        assertThat(generatedInviteCode).hasSize(10);
+
         MvcResult createResult = mockMvc.perform(post("/api/teacher/classes")
                         .with(bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "classCode": "CLS-2026-NEW",
+                                  "classCode": "%s",
                                   "className": "2026 教学实验班",
                                   "gradeName": "Grade 12"
                                 }
-                                """))
+                                """.formatted(generatedInviteCode)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.classCode").value("CLS-2026-NEW"))
+                .andExpect(jsonPath("$.data.classCode").value(generatedInviteCode))
                 .andExpect(jsonPath("$.data.className").value("2026 教学实验班"))
                 .andExpect(jsonPath("$.data.studentCount").value(0))
                 .andReturn();

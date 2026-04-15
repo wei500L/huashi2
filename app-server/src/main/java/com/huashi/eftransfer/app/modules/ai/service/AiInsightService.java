@@ -22,6 +22,7 @@ import com.huashi.eftransfer.app.modules.ai.vo.AiRecommendationPathItemVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiRecommendedTrainingModeVO;
 import com.huashi.eftransfer.app.modules.analytics.entity.InterventionRecordEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.InterventionRecordMapper;
+import com.huashi.eftransfer.app.modules.analytics.service.InterventionEffectTrackingService;
 import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
 import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
@@ -57,6 +58,7 @@ public class AiInsightService {
     private final AiJsonCodec aiJsonCodec;
     private final AiGatewayClientProperties aiGatewayClientProperties;
     private final InterventionRecordMapper interventionRecordMapper;
+    private final InterventionEffectTrackingService interventionEffectTrackingService;
     private final TeachingClassService teachingClassService;
     private final AuditLogService auditLogService;
 
@@ -70,6 +72,7 @@ public class AiInsightService {
             AiJsonCodec aiJsonCodec,
             AiGatewayClientProperties aiGatewayClientProperties,
             InterventionRecordMapper interventionRecordMapper,
+            InterventionEffectTrackingService interventionEffectTrackingService,
             TeachingClassService teachingClassService,
             AuditLogService auditLogService
     ) {
@@ -82,6 +85,7 @@ public class AiInsightService {
         this.aiJsonCodec = aiJsonCodec;
         this.aiGatewayClientProperties = aiGatewayClientProperties;
         this.interventionRecordMapper = interventionRecordMapper;
+        this.interventionEffectTrackingService = interventionEffectTrackingService;
         this.teachingClassService = teachingClassService;
         this.auditLogService = auditLogService;
     }
@@ -677,7 +681,12 @@ public class AiInsightService {
         entity.setTriggerSnapshotJson(aiJsonCodec.write(triggerSnapshot));
         if (entity.getId() == null) {
             interventionRecordMapper.insert(entity);
+            interventionEffectTrackingService.ensureBaselineSnapshot(entity);
+            interventionRecordMapper.updateById(entity);
         } else {
+            if (entity.getBaselineSnapshotId() == null) {
+                interventionEffectTrackingService.ensureBaselineSnapshot(entity);
+            }
             interventionRecordMapper.updateById(entity);
         }
         return entity.getId();

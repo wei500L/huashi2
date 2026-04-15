@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Database, KeyRound, MailPlus, Plus, Shield } from 'lucide-react';
+import { Copy, Database, KeyRound, LayoutDashboard, MailPlus, Plus, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
 import {
@@ -164,6 +164,13 @@ const AdminUsersPage: React.FC = () => {
         subtitle="支持搜索、分页、邀请链接、密码重置和资料关联状态。默认创建流程走一次性邀请链接，不依赖邮件系统。"
         actions={
           <div className="flex flex-wrap gap-3">
+            <Link
+              to="/admin/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+            >
+              <LayoutDashboard size={14} />
+              仪表盘
+            </Link>
             <button
               type="button"
               onClick={() => setShowCreateForm((value) => !value)}

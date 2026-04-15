@@ -20,6 +20,12 @@ public class AuthRateLimitProperties {
     @Valid
     private final RefreshProperties refresh = new RefreshProperties();
 
+    @Valid
+    private final RegisterProperties register = new RegisterProperties();
+
+    @Valid
+    private final RegisterContextProperties registerContext = new RegisterContextProperties();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -34,6 +40,14 @@ public class AuthRateLimitProperties {
 
     public RefreshProperties getRefresh() {
         return refresh;
+    }
+
+    public RegisterProperties getRegister() {
+        return register;
+    }
+
+    public RegisterContextProperties getRegisterContext() {
+        return registerContext;
     }
 
     public static class LoginProperties {
@@ -67,6 +81,26 @@ public class AuthRateLimitProperties {
 
         public RateLimitWindow getSession() {
             return session;
+        }
+    }
+
+    public static class RegisterProperties {
+
+        @Valid
+        private final RateLimitWindow ip = new RateLimitWindow(10, Duration.ofMinutes(10));
+
+        public RateLimitWindow getIp() {
+            return ip;
+        }
+    }
+
+    public static class RegisterContextProperties {
+
+        @Valid
+        private final RateLimitWindow ip = new RateLimitWindow(30, Duration.ofMinutes(1));
+
+        public RateLimitWindow getIp() {
+            return ip;
         }
     }
 

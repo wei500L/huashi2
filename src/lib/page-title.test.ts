@@ -24,6 +24,7 @@ describe('page title helpers', () => {
     expect(resolveRouteTitle('/analytics', t)).toBe('查看高风险词对');
     expect(resolveRouteTitle('/teacher/diagnosis-templates', t)).toBe('发布诊断任务');
     expect(resolveRouteTitle('/teacher/interventions', t)).toBe('跟进高风险学生');
+    expect(resolveRouteTitle('/admin/audit-logs', t)).toBe('审计日志');
     expect(resolveRouteTitle('/register', t)).toBe('学生注册');
   });
 

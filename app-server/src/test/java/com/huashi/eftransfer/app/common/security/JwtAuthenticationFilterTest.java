@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.common.security;
 
 import com.huashi.eftransfer.app.common.config.JwtProperties;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
+import com.huashi.eftransfer.app.common.security.store.RegistrationContextSession;
 import com.huashi.eftransfer.app.common.security.store.RefreshTokenSession;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,28 @@ class JwtAuthenticationFilterTest {
     }
 
     private static final class NoopAuthTokenStore implements AuthTokenStore {
+
+        @Override
+        public Optional<RegistrationContextSession> findRegistrationContextSession(String tokenHash) {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean acquireRegistrationContextLock(String tokenHash, Duration ttl) {
+            return true;
+        }
+
+        @Override
+        public void releaseRegistrationContextLock(String tokenHash) {
+        }
+
+        @Override
+        public void saveRegistrationContextSession(RegistrationContextSession session, Duration ttl) {
+        }
+
+        @Override
+        public void revokeRegistrationContextSession(String tokenHash) {
+        }
 
         @Override
         public Optional<RefreshTokenSession> findRefreshSession(String refreshTokenHash) {

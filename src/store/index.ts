@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CurrentUserVO, LoginResponse, RegisterStudentRequest } from '@/lib/contracts';
+import { getApiErrorMessage } from '@/lib/api';
 import type { SupportedLocale } from '@/lib/locale';
 import { readStoredLocale, writeStoredLocale } from '@/lib/locale';
 import { authService } from '@/lib/services';
@@ -65,7 +66,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         status: 'anonymous',
         session: null,
         user: null,
-        error: error instanceof Error ? error.message : 'Login failed',
+        error: getApiErrorMessage(error, '登录失败'),
       });
       throw error;
     }
@@ -83,7 +84,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         status: 'anonymous',
         session: null,
         user: null,
-        error: error instanceof Error ? error.message : 'Registration failed',
+        error: getApiErrorMessage(error, '注册失败'),
       });
       throw error;
     }
