@@ -1,10 +1,12 @@
 package com.huashi.eftransfer.app.modules.user.controller;
 
 import com.huashi.eftransfer.app.modules.user.dto.AdminUserAccessUpdateRequest;
+import com.huashi.eftransfer.app.modules.user.dto.AdminUserBatchRequest;
 import com.huashi.eftransfer.app.modules.user.dto.AdminUserCreateRequest;
 import com.huashi.eftransfer.app.modules.user.dto.AdminUserPageQuery;
 import com.huashi.eftransfer.app.modules.user.service.AccountActionService;
 import com.huashi.eftransfer.app.modules.user.service.UserAdminService;
+import com.huashi.eftransfer.app.modules.user.vo.AdminUserBatchResultVO;
 import com.huashi.eftransfer.app.modules.user.vo.AccountActionLinkVO;
 import com.huashi.eftransfer.app.modules.user.vo.AdminUserProvisionResultVO;
 import com.huashi.eftransfer.app.modules.user.vo.UserSummaryVO;
@@ -45,6 +47,11 @@ public class AdminUserController {
     @PostMapping
     public ApiResponse<AdminUserProvisionResultVO> createUser(@Valid @RequestBody AdminUserCreateRequest request) {
         return ApiResponse.success(userAdminService.createUser(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/batch")
+    public ApiResponse<AdminUserBatchResultVO> batchUsers(@Valid @RequestBody AdminUserBatchRequest request) {
+        return ApiResponse.success(userAdminService.batchUsers(request), MDC.get("traceId"));
     }
 
     @PutMapping("/{userId}/access")

@@ -194,6 +194,13 @@ export interface UpdateStudentLearningGoalRequest {
   weeklyAccuracyTarget?: number | null;
 }
 
+export interface UpdateStudentProfileRequest {
+  gradeName: string;
+  englishLevel: string;
+  frenchLevel: string;
+  courseStage: string;
+}
+
 export interface StudentAnalyticsOverviewVO {
   studentUserId: number;
   studentName: string;
@@ -1225,6 +1232,35 @@ export interface AdminUserAccessUpdateRequest {
 export interface AdminUserProvisionResultVO {
   user: UserSummaryVO;
   accountAction?: AccountActionLinkVO | null;
+}
+
+export type AdminUserBatchOperation = 'IMPORT_CREATE' | 'BULK_ACCESS_UPDATE';
+
+export interface AdminUserBatchCreateItemRequest {
+  rowNumber?: number;
+  username: string;
+  email: string;
+  displayName: string;
+  initialPassword?: string;
+  credentialMode?: 'INVITE_LINK' | 'MANUAL_PASSWORD';
+  enabled: boolean;
+  roles: Role[];
+}
+
+export interface AdminUserBatchRequest {
+  operation: AdminUserBatchOperation;
+  createItems?: AdminUserBatchCreateItemRequest[];
+  userIds?: number[];
+  enabled?: boolean;
+  roles?: Role[];
+}
+
+export interface AdminUserBatchResultVO {
+  operation: AdminUserBatchOperation;
+  totalCount: number;
+  successCount: number;
+  createdUsers: AdminUserProvisionResultVO[];
+  updatedUsers: UserSummaryVO[];
 }
 
 export interface AdminDashboardOverviewVO {

@@ -55,9 +55,18 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
 
         String apiTimestampAfterGoalUpdate = loadGoalTimestamp(studentToken);
 
-        profileAfterGoalUpdate.setLearningProfileSnapshotJson("{\"source\":\"test\"}");
-        profileAfterGoalUpdate.setLearningProfileUpdatedAt(LocalDateTime.now());
-        studentProfileMapper.updateById(profileAfterGoalUpdate);
+        mockMvc.perform(put("/api/student/profile")
+                        .with(bearer(studentToken))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "gradeName": "高二",
+                                  "englishLevel": "B2",
+                                  "frenchLevel": "A2",
+                                  "courseStage": "INTERMEDIATE"
+                                }
+                                """))
+                .andExpect(status().isOk());
 
         StudentProfileEntity profileAfterUnrelatedUpdate = loadStudentProfile(studentUserId);
         assertThat(profileAfterUnrelatedUpdate.getUpdatedAt()).isAfterOrEqualTo(firstGoalUpdatedAt);
@@ -89,6 +98,37 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                 .andExpect(status().isOk());
 
         assertThat(loadStudentProfile(studentUserId).getLearningGoalsUpdatedAt()).isAfter(firstGoalUpdatedAt);
+    }
+
+    @Test
+    void shouldUpdateCurrentStudentProfile() throws Exception {
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+        Long studentUserId = requireUserId("student.li");
+
+        MvcResult result = mockMvc.perform(put("/api/student/profile")
+                        .with(bearer(studentToken))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "gradeName": "  高三  ",
+                                  "englishLevel": "c1",
+                                  "frenchLevel": "b2",
+                                  "courseStage": "advanced"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(readJson(result).path("data").path("gradeName").asText()).isEqualTo("高三");
+        assertThat(readJson(result).path("data").path("englishLevel").asText()).isEqualTo("C1");
+        assertThat(readJson(result).path("data").path("frenchLevel").asText()).isEqualTo("B2");
+        assertThat(readJson(result).path("data").path("courseStage").asText()).isEqualTo("ADVANCED");
+
+        StudentProfileEntity profile = loadStudentProfile(studentUserId);
+        assertThat(profile.getGradeName()).isEqualTo("高三");
+        assertThat(profile.getEnglishLevel()).isEqualTo("C1");
+        assertThat(profile.getFrenchLevel()).isEqualTo("B2");
+        assertThat(profile.getCourseStage()).isEqualTo("ADVANCED");
     }
 
     private Long requireUserId(String username) {

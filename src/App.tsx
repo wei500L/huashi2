@@ -4,6 +4,7 @@ import { AppLayout } from './components/layout';
 import { RouteSkeleton } from './components/common';
 import i18n from './lib/i18n';
 import { buildDocumentTitle } from './lib/page-title';
+import { isStudentProfileIncomplete } from './lib/student-profile';
 import { AUTH_EXPIRED_EVENT, SESSION_CHANGE_EVENT, hasPendingAuthExpired } from './lib/session';
 import { useAuthStore, useUIStore } from './store';
 import { userHasCapability } from './lib/format';
@@ -55,11 +56,15 @@ const AdminLexicalPairImportsPage = React.lazy(() => import('./pages/admin/Lexic
 const BootScreen: React.FC = () => <RouteSkeleton />;
 
 function resolveHomePath(
-  user: Pick<CurrentUserVO, 'id' | 'username' | 'primaryRole' | 'capabilities'> | null | undefined,
+  user: Pick<CurrentUserVO, 'id' | 'username' | 'primaryRole' | 'capabilities' | 'studentProfile'> | null | undefined,
   pathname: string,
   activeWorkspace: WorkspaceId | null,
   preferredWorkspaceByUser: Record<string, WorkspaceId>
 ): string {
+  if (user?.primaryRole === 'STUDENT' && isStudentProfileIncomplete(user.studentProfile)) {
+    return '/settings';
+  }
+
   const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
   const currentWorkspace = resolveActiveWorkspace({
     user,

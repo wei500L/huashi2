@@ -32,6 +32,10 @@ vi.mock('./pages/admin/Dashboard', () => ({
   default: () => <div>admin-dashboard</div>,
 }));
 
+vi.mock('./pages/student/Settings', () => ({
+  default: () => <div>settings-page</div>,
+}));
+
 vi.mock('./pages/Login', () => ({
   default: function LoginMock() {
     const location = useLocation();
@@ -300,5 +304,47 @@ describe('App auth-expired handling', () => {
 
     expect(await screen.findByText('teacher-workspace')).toBeInTheDocument();
     expect(useUIStore.getState().activeWorkspace).toBe('TEACHING_WORKSPACE');
+  });
+
+  it('routes authenticated students with incomplete profiles to settings from login', async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      status: 'authenticated',
+      session: mockSession,
+      user: {
+        ...mockUser,
+        studentProfile: {
+          studentNo: 'S20260001',
+          gradeName: '',
+          englishLevel: 'A2',
+          frenchLevel: 'A1',
+          courseStage: 'FOUNDATION',
+          compositeScore: 0,
+          dailyTrainingTarget: null,
+          weeklyAccuracyTarget: null,
+        },
+      },
+      error: null,
+    });
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/login']}>
+            <App />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    });
+
+    expect(await screen.findByText('settings-page')).toBeInTheDocument();
   });
 });

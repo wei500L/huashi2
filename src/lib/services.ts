@@ -64,6 +64,7 @@ import type {
   TrainingSessionSummaryVO,
   UpdateLexicalListRequest,
   UpdateStudentLearningGoalRequest,
+  UpdateStudentProfileRequest,
   UserSummaryVO,
   WrongBookItemVO,
   AnalyticsTrendVO,
@@ -77,6 +78,8 @@ import type {
   AdminDashboardVO,
   AdminAiConfigSaveRequest,
   AdminAuditLogItemVO,
+  AdminUserBatchRequest,
+  AdminUserBatchResultVO,
   AdminUserAccessUpdateRequest,
   AdminUserCreateRequest,
   AdminAiConfigViewVO,
@@ -138,6 +141,7 @@ export const notificationService = {
 
 export const studentService = {
   getOverview: (options?: RequestOptions) => apiGet<StudentAnalyticsOverviewVO>('/student/analytics/overview', options),
+  updateProfile: (payload: UpdateStudentProfileRequest) => apiPut<CurrentUserVO['studentProfile']>('/student/profile', payload),
   getLearningGoals: (options?: RequestOptions) => apiGet<StudentLearningGoalVO>('/student/profile/goals', options),
   updateLearningGoals: (payload: UpdateStudentLearningGoalRequest) =>
     apiPut<StudentLearningGoalVO>('/student/profile/goals', payload),
@@ -402,6 +406,7 @@ export const adminService = {
     options?: RequestOptions
   ) => apiGet<PageResult<AdminAuditLogItemVO>>('/admin/audit-logs', { ...options, params }),
   createUser: (payload: AdminUserCreateRequest) => apiPost<AdminUserProvisionResultVO>('/admin/users', payload),
+  batchUsers: (payload: AdminUserBatchRequest) => apiPost<AdminUserBatchResultVO>('/admin/users/batch', payload),
   updateUserAccess: (userId: number, payload: AdminUserAccessUpdateRequest) =>
     apiPut<UserSummaryVO>(`/admin/users/${userId}/access`, payload),
   createInviteLink: (userId: number) => apiPost<AccountActionLinkVO>(`/admin/users/${userId}/invite-link`),

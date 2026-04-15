@@ -2,8 +2,10 @@ package com.huashi.eftransfer.app.modules.user.controller;
 
 import com.huashi.eftransfer.app.modules.analytics.service.AnalyticsQueryService;
 import com.huashi.eftransfer.app.modules.user.dto.UpdateStudentLearningGoalRequest;
+import com.huashi.eftransfer.app.modules.user.dto.UpdateStudentProfileRequest;
 import com.huashi.eftransfer.app.modules.user.service.StudentProfileService;
 import com.huashi.eftransfer.app.modules.user.vo.StudentLearningGoalVO;
+import com.huashi.eftransfer.app.modules.user.vo.StudentProfileVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
@@ -33,6 +35,11 @@ public class StudentProfileController {
     @GetMapping("/goals")
     public ApiResponse<StudentLearningGoalVO> getLearningGoals() {
         return ApiResponse.success(analyticsQueryService.getCurrentStudentLearningGoal(), MDC.get("traceId"));
+    }
+
+    @PutMapping
+    public ApiResponse<StudentProfileVO> updateCurrentStudentProfile(@Valid @RequestBody UpdateStudentProfileRequest request) {
+        return ApiResponse.success(studentProfileService.updateCurrentStudentProfile(request), MDC.get("traceId"));
     }
 
     @PutMapping("/goals")

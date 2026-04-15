@@ -7,15 +7,24 @@ import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { PageHeader, SectionEyebrow } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
+import type { StudentAnalyticsOverviewVO } from '@/lib/contracts';
 import { formatDateTime, roleLabel, sessionActivityLabel, workspaceLabels } from '@/lib/format';
-import { authService } from '@/lib/services';
-import { clearPendingAuthExpired, clearStoredSession } from '@/lib/session';
+import { authService, studentService } from '@/lib/services';
+import { isStudentProfileIncomplete, studentCourseStageOptions, studentLanguageLevelOptions } from '@/lib/student-profile';
+import { clearPendingAuthExpired, clearStoredSession, readStoredSession, writeStoredSession } from '@/lib/session';
 import { useAuthStore, useUIStore } from '@/store';
 
 type ChangePasswordFormData = {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
+};
+
+type StudentProfileFormData = {
+  gradeName: string;
+  englishLevel: string;
+  frenchLevel: string;
+  courseStage: string;
 };
 
 const inputClassName =
@@ -25,9 +34,12 @@ const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user, logout, syncFromStorage } = useAuthStore();
+  const { session, user, logout, syncFromStorage } = useAuthStore();
   const { isDarkMode, toggleDarkMode } = useUIStore();
+  const [profileErrorMessage, setProfileErrorMessage] = React.useState<string | null>(null);
+  const [profileSuccessMessage, setProfileSuccessMessage] = React.useState<string | null>(null);
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState<string | null>(null);
+  const studentProfileRequired = user?.primaryRole === 'STUDENT' && isStudentProfileIncomplete(user.studentProfile);
 
   const passwordSchema = React.useMemo(() => z.object({
     currentPassword: z.string().min(1, t('ui.validation.currentPasswordRequired')),
@@ -43,11 +55,33 @@ const SettingsPage: React.FC = () => {
     message: t('ui.validation.newPasswordDifferent'),
   }), [t]);
 
+  const profileSchema = React.useMemo(() => z.object({
+    gradeName: z.string()
+      .trim()
+      .min(1, t('ui.validation.gradeRequired'))
+      .max(64, t('ui.validation.gradeMax')),
+    englishLevel: z.string()
+      .min(1, t('ui.validation.englishLevelRequired'))
+      .refine((value) => studentLanguageLevelOptions.includes(value as typeof studentLanguageLevelOptions[number]), {
+        message: t('ui.validation.englishLevelRequired'),
+      }),
+    frenchLevel: z.string()
+      .min(1, t('ui.validation.frenchLevelRequired'))
+      .refine((value) => studentLanguageLevelOptions.includes(value as typeof studentLanguageLevelOptions[number]), {
+        message: t('ui.validation.frenchLevelRequired'),
+      }),
+    courseStage: z.string()
+      .min(1, t('ui.validation.courseStageRequired'))
+      .refine((value) => studentCourseStageOptions.includes(value as typeof studentCourseStageOptions[number]), {
+        message: t('ui.validation.courseStageRequired'),
+      }),
+  }), [t]);
+
   const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    reset: resetPassword,
+    formState: { errors: passwordErrors, isSubmitting: isPasswordSubmitting },
   } = useForm<ChangePasswordFormData>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -57,16 +91,93 @@ const SettingsPage: React.FC = () => {
     },
   });
 
+  const {
+    register: registerProfile,
+    handleSubmit: handleProfileSubmit,
+    reset: resetProfile,
+    formState: { errors: profileErrors, isSubmitting: isProfileSubmitting, isDirty: isProfileDirty },
+  } = useForm<StudentProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      gradeName: user?.studentProfile?.gradeName || '',
+      englishLevel: user?.studentProfile?.englishLevel || '',
+      frenchLevel: user?.studentProfile?.frenchLevel || '',
+      courseStage: user?.studentProfile?.courseStage || '',
+    },
+  });
+
+  React.useEffect(() => {
+    resetProfile({
+      gradeName: user?.studentProfile?.gradeName || '',
+      englishLevel: user?.studentProfile?.englishLevel || '',
+      frenchLevel: user?.studentProfile?.frenchLevel || '',
+      courseStage: user?.studentProfile?.courseStage || '',
+    });
+  }, [
+    resetProfile,
+    user?.studentProfile?.courseStage,
+    user?.studentProfile?.englishLevel,
+    user?.studentProfile?.frenchLevel,
+    user?.studentProfile?.gradeName,
+  ]);
+
   const sessionQuery = useQuery({
     queryKey: ['auth-session-overview'],
     queryFn: ({ signal }) => authService.getSessionOverview({ signal }),
+  });
+
+  const profileMutation = useMutation({
+    mutationFn: (payload: StudentProfileFormData) => studentService.updateProfile(payload),
+    onSuccess: (studentProfile) => {
+      if (!studentProfile) {
+        return;
+      }
+
+      const currentSession = readStoredSession() || session;
+      if (currentSession) {
+        writeStoredSession({
+          ...currentSession,
+          userInfo: {
+            ...currentSession.userInfo,
+            studentProfile,
+          },
+        });
+      }
+      syncFromStorage();
+      setProfileErrorMessage(null);
+      setProfileSuccessMessage(t('ui.messages.studentProfileSaved'));
+      resetProfile({
+        gradeName: studentProfile.gradeName || '',
+        englishLevel: studentProfile.englishLevel || '',
+        frenchLevel: studentProfile.frenchLevel || '',
+        courseStage: studentProfile.courseStage || '',
+      });
+      queryClient.setQueryData<StudentAnalyticsOverviewVO | undefined>(['student-overview'], (current) => (
+        current ? {
+          ...current,
+          gradeName: studentProfile.gradeName,
+          englishLevel: studentProfile.englishLevel,
+          frenchLevel: studentProfile.frenchLevel,
+          latestSnapshot: {
+            ...current.latestSnapshot,
+            gradeName: studentProfile.gradeName,
+            englishLevel: studentProfile.englishLevel,
+            frenchLevel: studentProfile.frenchLevel,
+          },
+        } : current
+      ));
+    },
+    onError: (error) => {
+      setProfileSuccessMessage(null);
+      setProfileErrorMessage(getApiErrorMessage(error, t('ui.errors.studentProfileSaveFailed')));
+    },
   });
 
   const changePasswordMutation = useMutation({
     mutationFn: (payload: Pick<ChangePasswordFormData, 'currentPassword' | 'newPassword'>) => authService.changePassword(payload),
     onSuccess: async () => {
       await queryClient.cancelQueries();
-      reset();
+      resetPassword();
       setPasswordErrorMessage(null);
       clearPendingAuthExpired();
       clearStoredSession();
@@ -78,7 +189,13 @@ const SettingsPage: React.FC = () => {
     },
   });
 
-  const onSubmit = async (values: ChangePasswordFormData) => {
+  const onProfileSubmit = async (values: StudentProfileFormData) => {
+    setProfileErrorMessage(null);
+    setProfileSuccessMessage(null);
+    await profileMutation.mutateAsync(values);
+  };
+
+  const onPasswordSubmit = async (values: ChangePasswordFormData) => {
     setPasswordErrorMessage(null);
     await changePasswordMutation.mutateAsync({
       currentPassword: values.currentPassword,
@@ -108,10 +225,10 @@ const SettingsPage: React.FC = () => {
           {user?.studentProfile ? (
             <div className="space-y-2 text-sm text-slate-500 dark:text-white/45">
               <div>{t('ui.fields.studentNo')}：{user.studentProfile.studentNo}</div>
-              <div>{t('ui.fields.grade')}：{user.studentProfile.gradeName}</div>
-              <div>{t('ui.fields.englishLevel')}：{user.studentProfile.englishLevel}</div>
-              <div>{t('ui.fields.frenchLevel')}：{user.studentProfile.frenchLevel}</div>
-              <div>{t('ui.fields.courseStage')}：{user.studentProfile.courseStage}</div>
+              <div>{t('ui.fields.grade')}：{user.studentProfile.gradeName || '--'}</div>
+              <div>{t('ui.fields.englishLevel')}：{user.studentProfile.englishLevel || '--'}</div>
+              <div>{t('ui.fields.frenchLevel')}：{user.studentProfile.frenchLevel || '--'}</div>
+              <div>{t('ui.fields.courseStage')}：{user.studentProfile.courseStage || '--'}</div>
             </div>
           ) : user?.teacherProfile ? (
             <div className="space-y-2 text-sm text-slate-500 dark:text-white/45">
@@ -151,22 +268,115 @@ const SettingsPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-[2.4rem] liquid-glass-panel p-8 space-y-5 xl:col-span-2">
+        {user?.primaryRole === 'STUDENT' ? (
+          <section className="rounded-[2.4rem] liquid-glass-panel p-8 space-y-5 xl:col-span-3">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionEyebrow>{t('ui.sections.studentProfile')}</SectionEyebrow>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${studentProfileRequired ? 'bg-amber-500/10 text-amber-600 dark:text-amber-300' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'}`}>
+                  {studentProfileRequired ? t('ui.labels.studentProfileRequired') : t('ui.labels.studentProfileComplete')}
+                </span>
+              </div>
+              <div className="text-sm leading-7 text-slate-500 dark:text-white/45">{t('ui.labels.studentProfileHint')}</div>
+            </div>
+
+            {studentProfileRequired ? (
+              <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-700 dark:text-amber-200">
+                {t('ui.labels.studentProfileIncompleteNotice')}
+              </div>
+            ) : null}
+
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={handleProfileSubmit(onProfileSubmit)}>
+              <label className="block">
+                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.grade')}</div>
+                <input
+                  type="text"
+                  {...registerProfile('gradeName')}
+                  className={inputClassName}
+                  placeholder={t('ui.placeholders.grade')}
+                />
+                {profileErrors.gradeName ? <div className="mt-2 text-sm text-rose-500">{profileErrors.gradeName.message}</div> : null}
+              </label>
+
+              <label className="block">
+                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.studentNo')}</div>
+                <input type="text" value={user?.studentProfile?.studentNo || '--'} disabled className={`${inputClassName} opacity-70`} />
+              </label>
+
+              <label className="block">
+                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.englishLevel')}</div>
+                <select {...registerProfile('englishLevel')} className={inputClassName}>
+                  <option value="">--</option>
+                  {studentLanguageLevelOptions.map((level) => (
+                    <option key={level} value={level}>
+                      {t(`register.levelOptions.${level}`)}
+                    </option>
+                  ))}
+                </select>
+                {profileErrors.englishLevel ? <div className="mt-2 text-sm text-rose-500">{profileErrors.englishLevel.message}</div> : null}
+              </label>
+
+              <label className="block">
+                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.frenchLevel')}</div>
+                <select {...registerProfile('frenchLevel')} className={inputClassName}>
+                  <option value="">--</option>
+                  {studentLanguageLevelOptions.map((level) => (
+                    <option key={level} value={level}>
+                      {t(`register.levelOptions.${level}`)}
+                    </option>
+                  ))}
+                </select>
+                {profileErrors.frenchLevel ? <div className="mt-2 text-sm text-rose-500">{profileErrors.frenchLevel.message}</div> : null}
+              </label>
+
+              <label className="block md:col-span-2">
+                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.courseStage')}</div>
+                <select {...registerProfile('courseStage')} className={inputClassName}>
+                  <option value="">--</option>
+                  {studentCourseStageOptions.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {t(`register.courseStageOptions.${stage}`)}
+                    </option>
+                  ))}
+                </select>
+                {profileErrors.courseStage ? <div className="mt-2 text-sm text-rose-500">{profileErrors.courseStage.message}</div> : null}
+              </label>
+
+              <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
+                <button type="submit" disabled={isProfileSubmitting || !isProfileDirty} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
+                  {isProfileSubmitting ? t('ui.actions.savingStudentProfile') : t('ui.actions.saveStudentProfile')}
+                </button>
+                {profileSuccessMessage ? (
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-300">
+                    {profileSuccessMessage}
+                  </div>
+                ) : null}
+                {profileErrorMessage ? (
+                  <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                    {profileErrorMessage}
+                  </div>
+                ) : null}
+              </div>
+            </form>
+          </section>
+        ) : null}
+
+        <section className="rounded-[2.4rem] liquid-glass-panel p-8 space-y-5 xl:col-span-3">
           <div className="space-y-2">
             <SectionEyebrow>{t('ui.sections.security')}</SectionEyebrow>
             <div className="text-sm leading-7 text-slate-500 dark:text-white/45">{t('ui.labels.passwordChangeHint')}</div>
           </div>
 
-          <form className="grid gap-4 md:grid-cols-3" onSubmit={handleSubmit(onSubmit)}>
+          <form className="grid gap-4 md:grid-cols-3" onSubmit={handlePasswordSubmit(onPasswordSubmit)}>
             <label className="block">
               <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.currentPassword')}</div>
               <input
                 type="password"
                 autoComplete="current-password"
-                {...register('currentPassword')}
+                {...registerPassword('currentPassword')}
                 className={inputClassName}
               />
-              {errors.currentPassword && <div className="mt-2 text-sm text-rose-500">{errors.currentPassword.message}</div>}
+              {passwordErrors.currentPassword ? <div className="mt-2 text-sm text-rose-500">{passwordErrors.currentPassword.message}</div> : null}
             </label>
 
             <label className="block">
@@ -174,10 +384,10 @@ const SettingsPage: React.FC = () => {
               <input
                 type="password"
                 autoComplete="new-password"
-                {...register('newPassword')}
+                {...registerPassword('newPassword')}
                 className={inputClassName}
               />
-              {errors.newPassword && <div className="mt-2 text-sm text-rose-500">{errors.newPassword.message}</div>}
+              {passwordErrors.newPassword ? <div className="mt-2 text-sm text-rose-500">{passwordErrors.newPassword.message}</div> : null}
             </label>
 
             <label className="block">
@@ -185,21 +395,21 @@ const SettingsPage: React.FC = () => {
               <input
                 type="password"
                 autoComplete="new-password"
-                {...register('confirmPassword')}
+                {...registerPassword('confirmPassword')}
                 className={inputClassName}
               />
-              {errors.confirmPassword && <div className="mt-2 text-sm text-rose-500">{errors.confirmPassword.message}</div>}
+              {passwordErrors.confirmPassword ? <div className="mt-2 text-sm text-rose-500">{passwordErrors.confirmPassword.message}</div> : null}
             </label>
 
             <div className="md:col-span-3 flex flex-wrap items-center gap-3 pt-2">
-              <button type="submit" disabled={isSubmitting} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
-                {isSubmitting ? t('ui.actions.changingPassword') : t('ui.actions.changePassword')}
+              <button type="submit" disabled={isPasswordSubmitting} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
+                {isPasswordSubmitting ? t('ui.actions.changingPassword') : t('ui.actions.changePassword')}
               </button>
-              {passwordErrorMessage && (
+              {passwordErrorMessage ? (
                 <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
                   {passwordErrorMessage}
                 </div>
-              )}
+              ) : null}
             </div>
           </form>
         </section>
