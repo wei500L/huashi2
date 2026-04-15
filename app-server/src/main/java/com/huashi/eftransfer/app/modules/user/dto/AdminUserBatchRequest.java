@@ -13,9 +13,8 @@ public record AdminUserBatchRequest(
         @Size(max = 32, message = "operation must be less than or equal to 32 characters")
         String operation,
 
-        @Valid
         @Size(max = 200, message = "createItems must be less than or equal to 200 items")
-        List<AdminUserBatchCreateItemRequest> createItems,
+        List<@NotNull(message = "createItem must not be null") @Valid AdminUserBatchCreateItemRequest> createItems,
 
         @Size(max = 200, message = "userIds must be less than or equal to 200 items")
         List<@NotNull(message = "userId must not be null") Long> userIds,

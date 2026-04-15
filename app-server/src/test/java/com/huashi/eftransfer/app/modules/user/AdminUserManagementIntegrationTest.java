@@ -209,6 +209,18 @@ class AdminUserManagementIntegrationTest extends AbstractWebIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
+                                  "operation": "IMPORT_CREATE",
+                                  "createItems": [null]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        mockMvc.perform(post("/api/admin/users/batch")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
                                   "operation": "BULK_ACCESS_UPDATE",
                                   "userIds": [],
                                   "enabled": true,
