@@ -131,6 +131,7 @@ export function normalizeApiError(error: unknown): ApiError {
 
 const API_ERROR_MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: '用户名、邮箱或密码不正确。',
+  CURRENT_PASSWORD_INCORRECT: '当前密码不正确。',
   ACCOUNT_LOCKED: '尝试次数过多，账号已被临时锁定，请稍后再试。',
   CONFLICT: '提交的信息与现有数据冲突，请检查后重试。',
   REGISTRATION_CONTEXT_INVALID: '邀请码验证已失效，请重新输入并验证邀请码。',

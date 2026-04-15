@@ -41,6 +41,7 @@ export const uiSlice: TranslationSlice = {
         account: '账户信息',
         organization: '组织关系',
         session: '会话概览',
+        security: '安全设置',
         drafts: '诊断草稿',
         publishedTemplates: '发布诊断任务',
         publishWindow: '发布窗口',
@@ -72,6 +73,9 @@ export const uiSlice: TranslationSlice = {
         refreshExpiresAt: 'Refresh 到期',
         userAgentFingerprint: 'UA 指纹',
         issuedIpAddress: '来源 IP',
+        currentPassword: '当前密码',
+        newPassword: '新密码',
+        confirmPassword: '确认新密码',
       },
       charts: {
         trend7d: '近 7 天趋势',
@@ -105,6 +109,8 @@ export const uiSlice: TranslationSlice = {
         createPaper: '新建课堂测评',
         generateIntervention: '生成干预建议',
         signOutAllSessions: '退出所有会话',
+        changePassword: '修改密码',
+        changingPassword: '提交中...',
         viewAll: '查看全部',
         backToPublishDetail: '返回发布详情',
         start: '开始',
@@ -113,11 +119,13 @@ export const uiSlice: TranslationSlice = {
         draftCreated: '已创建新的诊断草稿。',
         editableDraftGenerated: '已生成可继续发布的诊断草稿。',
         draftDeleted: '草稿已删除。',
+        passwordChanged: '密码已更新，即将退出当前账号并要求重新登录。',
       },
       errors: {
         createDraftFailed: '创建草稿失败',
         createDraftFromTemplateFailed: '生成草稿失败',
         deleteDraftFailed: '删除草稿失败',
+        changePasswordFailed: '修改密码失败',
       },
       labels: {
         noDescription: '无描述',
@@ -151,6 +159,15 @@ export const uiSlice: TranslationSlice = {
         notEnteredAssessment: '尚未进入测评',
         loadingStudentContext: '正在加载学生分析与干预上下文',
         noStudents: '班级下暂无学生。',
+        passwordChangeHint: '输入当前密码完成校验，再设置一个至少 8 位的新密码。修改成功后，当前会话会被安全撤销。',
+      },
+      validation: {
+        currentPasswordRequired: '请输入当前密码。',
+        newPasswordRequired: '请输入新密码。',
+        newPasswordMin: '新密码至少需要 8 位。',
+        confirmPasswordRequired: '请再次输入新密码。',
+        passwordMismatch: '两次输入的新密码不一致。',
+        newPasswordDifferent: '新密码不能与当前密码相同。',
       },
       meta: {
         primaryRisk: '当前主风险为 {{risk}}',
@@ -205,7 +222,7 @@ export const uiSlice: TranslationSlice = {
       pages: {
         settings: {
           title: '设置',
-          subtitle: '当前页补充账号信息、组织关系和会话概览；资料编辑仍保持只读。',
+          subtitle: '当前页汇总账号信息、组织关系、会话概览，并提供密码自助修改入口；资料编辑仍保持只读。',
         },
         teacherAssessments: {
           title: '发布课堂测评',
@@ -276,6 +293,7 @@ export const uiSlice: TranslationSlice = {
         account: 'Account',
         organization: 'Organization',
         session: 'Session overview',
+        security: 'Security',
         drafts: 'Diagnosis Drafts',
         publishedTemplates: 'Publish Diagnosis Tasks',
         publishWindow: 'Publish window',
@@ -307,6 +325,9 @@ export const uiSlice: TranslationSlice = {
         refreshExpiresAt: 'Refresh expires',
         userAgentFingerprint: 'UA fingerprint',
         issuedIpAddress: 'Issued IP',
+        currentPassword: 'Current password',
+        newPassword: 'New password',
+        confirmPassword: 'Confirm new password',
       },
       charts: {
         trend7d: '7-day trend',
@@ -340,6 +361,8 @@ export const uiSlice: TranslationSlice = {
         createPaper: 'Create Class Assessment',
         generateIntervention: 'Generate intervention',
         signOutAllSessions: 'Sign out all sessions',
+        changePassword: 'Change password',
+        changingPassword: 'Updating...',
         viewAll: 'View all',
         backToPublishDetail: 'Back to publish detail',
         start: 'Start',
@@ -348,11 +371,13 @@ export const uiSlice: TranslationSlice = {
         draftCreated: 'A diagnosis draft was created.',
         editableDraftGenerated: 'A publish-ready diagnosis draft was created.',
         draftDeleted: 'Draft deleted.',
+        passwordChanged: 'Your password was updated. You will be signed out and asked to sign in again.',
       },
       errors: {
         createDraftFailed: 'Failed to create draft',
         createDraftFromTemplateFailed: 'Failed to create draft from template',
         deleteDraftFailed: 'Failed to delete draft',
+        changePasswordFailed: 'Failed to change password',
       },
       labels: {
         noDescription: 'No description',
@@ -386,6 +411,15 @@ export const uiSlice: TranslationSlice = {
         notEnteredAssessment: 'Student has not entered the assessment yet',
         loadingStudentContext: 'Loading student analytics and intervention context',
         noStudents: 'No students are in this class yet.',
+        passwordChangeHint: 'Verify with your current password, then set a new password with at least 8 characters. Existing sessions will be revoked after the change.',
+      },
+      validation: {
+        currentPasswordRequired: 'Enter your current password.',
+        newPasswordRequired: 'Enter a new password.',
+        newPasswordMin: 'Your new password must be at least 8 characters.',
+        confirmPasswordRequired: 'Confirm your new password.',
+        passwordMismatch: 'The new passwords do not match.',
+        newPasswordDifferent: 'The new password must be different from the current password.',
       },
       meta: {
         primaryRisk: 'Primary risk: {{risk}}',
@@ -440,7 +474,7 @@ export const uiSlice: TranslationSlice = {
       pages: {
         settings: {
           title: 'Settings',
-          subtitle: 'This page summarizes account information, organization links, and session details. Profile editing remains read-only.',
+          subtitle: 'This page summarizes account information, organization links, and session details, and lets users change their password directly. Profile editing remains read-only.',
         },
         teacherAssessments: {
           title: 'Publish Class Assessments',

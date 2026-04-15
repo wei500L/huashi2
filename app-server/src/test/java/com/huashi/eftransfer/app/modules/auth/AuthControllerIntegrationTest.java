@@ -53,7 +53,11 @@ import static org.hamcrest.Matchers.containsString;
         "app.security.rate-limit.auth.register.ip.limit=3",
         "app.security.rate-limit.auth.register.ip.window=PT1H",
         "app.security.rate-limit.auth.register-context.ip.limit=2",
-        "app.security.rate-limit.auth.register-context.ip.window=PT1H"
+        "app.security.rate-limit.auth.register-context.ip.window=PT1H",
+        "app.security.rate-limit.auth.change-password.ip.limit=10",
+        "app.security.rate-limit.auth.change-password.ip.window=PT1H",
+        "app.security.rate-limit.auth.change-password.user.limit=2",
+        "app.security.rate-limit.auth.change-password.user.window=PT1H"
 })
 @ActiveProfiles("test")
 @Import(TestAuthTokenStoreConfiguration.class)
@@ -783,6 +787,137 @@ class AuthControllerIntegrationTest {
                                 """.formatted(newPassword)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userInfo.username").value("teacher.zhang"));
+    }
+
+    @Test
+    void shouldChangePasswordAndRevokeExistingSession() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "teacher.zhang",
+                                  "password": "Teacher@123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
+        String oldAccessToken = loginJson.path("data").path("accessToken").asText();
+        String oldRefreshToken = loginJson.path("data").path("refreshToken").asText();
+        String newPassword = "TeacherChanged@123456";
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .header("Authorization", "Bearer " + oldAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentPassword": "Teacher@123456",
+                                  "newPassword": "%s"
+                                }
+                                """.formatted(newPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Password changed"));
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer " + oldAccessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(oldRefreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "teacher.zhang",
+                                  "password": "%s"
+                                }
+                                """.formatted(newPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userInfo.username").value("teacher.zhang"));
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenCurrentPasswordIsIncorrect() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "teacher.zhang",
+                                  "password": "Teacher@123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String accessToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
+                .path("data")
+                .path("accessToken")
+                .asText();
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentPassword": "Teacher@000000",
+                                  "newPassword": "TeacherChanged@123456"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_INCORRECT"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "teacher.zhang",
+                                  "password": "Teacher@123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userInfo.username").value("teacher.zhang"));
+    }
+
+    @Test
+    void shouldRateLimitRepeatedPasswordChangeAttempts() throws Exception {
+        String accessToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mockMvc.perform(post("/api/auth/change-password")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "currentPassword": "Teacher@000000",
+                                      "newPassword": "TeacherChanged@123456"
+                                    }
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_INCORRECT"));
+        }
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentPassword": "Teacher@000000",
+                                  "newPassword": "TeacherChanged@123456"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+                .andExpect(jsonPath("$.message").value("Too many password change attempts"));
     }
 
     @Test

@@ -1,20 +1,90 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { z } from 'zod';
 import { PageHeader, SectionEyebrow } from '@/components/common';
+import { getApiErrorMessage } from '@/lib/api';
 import { formatDateTime, roleLabel, sessionActivityLabel, workspaceLabels } from '@/lib/format';
 import { authService } from '@/lib/services';
+import { clearPendingAuthExpired, clearStoredSession } from '@/lib/session';
 import { useAuthStore, useUIStore } from '@/store';
 
+type ChangePasswordFormData = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+const inputClassName =
+  'w-full rounded-2xl border border-slate-200 bg-white/75 px-4 py-3 outline-none focus:border-primary/50 dark:border-white/10 dark:bg-slate-950/40';
+
 const SettingsPage: React.FC = () => {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { t } = useTranslation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, syncFromStorage } = useAuthStore();
   const { isDarkMode, toggleDarkMode } = useUIStore();
+  const [passwordErrorMessage, setPasswordErrorMessage] = React.useState<string | null>(null);
+
+  const passwordSchema = React.useMemo(() => z.object({
+    currentPassword: z.string().min(1, t('ui.validation.currentPasswordRequired')),
+    newPassword: z.string()
+      .min(1, t('ui.validation.newPasswordRequired'))
+      .min(8, t('ui.validation.newPasswordMin')),
+    confirmPassword: z.string().min(1, t('ui.validation.confirmPasswordRequired')),
+  }).refine((values) => values.newPassword === values.confirmPassword, {
+    path: ['confirmPassword'],
+    message: t('ui.validation.passwordMismatch'),
+  }).refine((values) => values.currentPassword !== values.newPassword, {
+    path: ['newPassword'],
+    message: t('ui.validation.newPasswordDifferent'),
+  }), [t]);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ChangePasswordFormData>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+  });
 
   const sessionQuery = useQuery({
     queryKey: ['auth-session-overview'],
     queryFn: ({ signal }) => authService.getSessionOverview({ signal }),
   });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: (payload: Pick<ChangePasswordFormData, 'currentPassword' | 'newPassword'>) => authService.changePassword(payload),
+    onSuccess: async () => {
+      await queryClient.cancelQueries();
+      reset();
+      setPasswordErrorMessage(null);
+      clearPendingAuthExpired();
+      clearStoredSession();
+      syncFromStorage();
+      navigate('/login', { replace: true, state: { passwordChanged: true } });
+    },
+    onError: (error) => {
+      setPasswordErrorMessage(getApiErrorMessage(error, t('ui.errors.changePasswordFailed')));
+    },
+  });
+
+  const onSubmit = async (values: ChangePasswordFormData) => {
+    setPasswordErrorMessage(null);
+    await changePasswordMutation.mutateAsync({
+      currentPassword: values.currentPassword,
+      newPassword: values.newPassword,
+    });
+  };
 
   return (
     <div className="space-y-8 pb-20">
@@ -79,6 +149,59 @@ const SettingsPage: React.FC = () => {
               {t('ui.actions.signOutAllSessions')}
             </button>
           </div>
+        </section>
+
+        <section className="rounded-[2.4rem] liquid-glass-panel p-8 space-y-5 xl:col-span-2">
+          <div className="space-y-2">
+            <SectionEyebrow>{t('ui.sections.security')}</SectionEyebrow>
+            <div className="text-sm leading-7 text-slate-500 dark:text-white/45">{t('ui.labels.passwordChangeHint')}</div>
+          </div>
+
+          <form className="grid gap-4 md:grid-cols-3" onSubmit={handleSubmit(onSubmit)}>
+            <label className="block">
+              <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.currentPassword')}</div>
+              <input
+                type="password"
+                autoComplete="current-password"
+                {...register('currentPassword')}
+                className={inputClassName}
+              />
+              {errors.currentPassword && <div className="mt-2 text-sm text-rose-500">{errors.currentPassword.message}</div>}
+            </label>
+
+            <label className="block">
+              <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.newPassword')}</div>
+              <input
+                type="password"
+                autoComplete="new-password"
+                {...register('newPassword')}
+                className={inputClassName}
+              />
+              {errors.newPassword && <div className="mt-2 text-sm text-rose-500">{errors.newPassword.message}</div>}
+            </label>
+
+            <label className="block">
+              <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.confirmPassword')}</div>
+              <input
+                type="password"
+                autoComplete="new-password"
+                {...register('confirmPassword')}
+                className={inputClassName}
+              />
+              {errors.confirmPassword && <div className="mt-2 text-sm text-rose-500">{errors.confirmPassword.message}</div>}
+            </label>
+
+            <div className="md:col-span-3 flex flex-wrap items-center gap-3 pt-2">
+              <button type="submit" disabled={isSubmitting} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
+                {isSubmitting ? t('ui.actions.changingPassword') : t('ui.actions.changePassword')}
+              </button>
+              {passwordErrorMessage && (
+                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                  {passwordErrorMessage}
+                </div>
+              )}
+            </div>
+          </form>
         </section>
       </div>
     </div>

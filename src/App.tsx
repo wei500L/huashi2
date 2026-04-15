@@ -161,6 +161,10 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     const handler = () => {
+      const routeState = location.state as { expired?: boolean; from?: string; passwordChanged?: boolean } | null;
+      if (location.pathname === '/login' && routeState?.passwordChanged) {
+        return;
+      }
       const nextState = location.pathname === '/login'
         ? { expired: true }
         : { from: location.pathname, expired: true };

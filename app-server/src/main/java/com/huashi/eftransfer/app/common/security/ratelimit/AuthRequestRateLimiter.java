@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.common.security.ratelimit;
 
 import com.huashi.eftransfer.app.common.config.AuthRateLimitProperties;
+import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.util.TokenGenerator;
@@ -104,6 +105,28 @@ public class AuthRequestRateLimiter {
                 request,
                 "register-context",
                 "ip"
+        );
+    }
+
+    public void checkChangePassword(HttpServletRequest request, JwtPrincipal principal) {
+        if (!properties.isEnabled()) {
+            return;
+        }
+        consume(
+                "auth:rl:change-password:ip:" + remoteAddress(request),
+                properties.getChangePassword().getIp(),
+                "Too many password change attempts",
+                request,
+                "change-password",
+                "ip"
+        );
+        consume(
+                "auth:rl:change-password:user:" + principal.userId(),
+                properties.getChangePassword().getUser(),
+                "Too many password change attempts",
+                request,
+                "change-password",
+                "user"
         );
     }
 

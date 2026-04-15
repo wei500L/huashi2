@@ -26,6 +26,9 @@ public class AuthRateLimitProperties {
     @Valid
     private final RegisterContextProperties registerContext = new RegisterContextProperties();
 
+    @Valid
+    private final ChangePasswordProperties changePassword = new ChangePasswordProperties();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -48,6 +51,10 @@ public class AuthRateLimitProperties {
 
     public RegisterContextProperties getRegisterContext() {
         return registerContext;
+    }
+
+    public ChangePasswordProperties getChangePassword() {
+        return changePassword;
     }
 
     public static class LoginProperties {
@@ -101,6 +108,23 @@ public class AuthRateLimitProperties {
 
         public RateLimitWindow getIp() {
             return ip;
+        }
+    }
+
+    public static class ChangePasswordProperties {
+
+        @Valid
+        private final RateLimitWindow ip = new RateLimitWindow(10, Duration.ofMinutes(1));
+
+        @Valid
+        private final RateLimitWindow user = new RateLimitWindow(5, Duration.ofMinutes(10));
+
+        public RateLimitWindow getIp() {
+            return ip;
+        }
+
+        public RateLimitWindow getUser() {
+            return user;
         }
     }
 

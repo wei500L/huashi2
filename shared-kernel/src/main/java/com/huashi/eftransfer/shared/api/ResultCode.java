@@ -9,6 +9,7 @@ public enum ResultCode {
     VALIDATION_ERROR("VALIDATION_ERROR", "Validation failed"),
     CONFLICT("CONFLICT", "Resource conflict"),
     INVALID_CREDENTIALS("INVALID_CREDENTIALS", "Invalid username/email or password"),
+    CURRENT_PASSWORD_INCORRECT("CURRENT_PASSWORD_INCORRECT", "Current password is incorrect"),
     ACCOUNT_DISABLED("ACCOUNT_DISABLED", "Account is disabled"),
     ACCOUNT_LOCKED("ACCOUNT_LOCKED", "Account is temporarily locked"),
     TOKEN_INVALID("TOKEN_INVALID", "Token is invalid"),

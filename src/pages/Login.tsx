@@ -21,8 +21,10 @@ const Login: React.FC = () => {
   const { login, user, error, clearError } = useAuthStore();
   const activeWorkspace = useUIStore((state) => state.activeWorkspace);
   const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
-  const redirectTo = (location.state as { from?: string; expired?: boolean } | null)?.from;
-  const expired = Boolean((location.state as { expired?: boolean } | null)?.expired) || hasPendingAuthExpired();
+  const routeState = location.state as { from?: string; expired?: boolean; passwordChanged?: boolean } | null;
+  const redirectTo = routeState?.from;
+  const passwordChanged = Boolean(routeState?.passwordChanged);
+  const expired = !passwordChanged && (Boolean(routeState?.expired) || hasPendingAuthExpired());
   const loginSchema = React.useMemo(() => z.object({
     usernameOrEmail: z.string().min(1, t('login.validation.usernameRequired')),
     password: z.string().min(1, t('login.validation.passwordRequired')),
@@ -74,10 +76,10 @@ const Login: React.FC = () => {
   }, [navigate, redirectTo, user, location.pathname, activeWorkspace, preferredWorkspaceByUser]);
 
   React.useEffect(() => {
-    if (expired) {
+    if (expired || passwordChanged) {
       clearPendingAuthExpired();
     }
-  }, [expired]);
+  }, [expired, passwordChanged]);
 
   const onSubmit = async (values: LoginFormData) => {
     clearError();
@@ -145,6 +147,12 @@ const Login: React.FC = () => {
               {expired && (
                 <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
                   {t('login.sessionExpired')}
+                </div>
+              )}
+
+              {passwordChanged && (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-300">
+                  {t('login.passwordChanged')}
                 </div>
               )}
 

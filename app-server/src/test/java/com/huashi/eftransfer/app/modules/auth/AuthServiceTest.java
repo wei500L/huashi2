@@ -2,9 +2,11 @@ package com.huashi.eftransfer.app.modules.auth;
 
 import com.huashi.eftransfer.app.common.config.JwtProperties;
 import com.huashi.eftransfer.app.common.config.AuthRegistrationProperties;
+import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.security.JwtTokenProvider;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.security.store.RegistrationContextSession;
+import com.huashi.eftransfer.app.modules.auth.dto.ChangePasswordRequest;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
 import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
@@ -27,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -203,6 +206,63 @@ class AuthServiceTest {
         verify(authTokenStore).releaseRegistrationContextLock(org.mockito.ArgumentMatchers.anyString());
     }
 
+    @Test
+    void shouldRejectPasswordChangeWhenCurrentPasswordIsIncorrect() {
+        UserEntity user = enabledUser(101L, "teacher.zhang", "stored-password-hash");
+        ChangePasswordRequest request = new ChangePasswordRequest("wrong-password", "TeacherChanged@123456");
+
+        when(userQueryService.findEnabledById(101L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())).thenReturn(false);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> authService.changePassword(jwtPrincipal(101L, "teacher.zhang"), request)
+        );
+
+        assertEquals(ResultCode.CURRENT_PASSWORD_INCORRECT, exception.getResultCode());
+        assertEquals(400, exception.getHttpStatus());
+        verify(userMapper, never()).updateById(any(UserEntity.class));
+        verify(authTokenStore, never()).revokeAllUserSessions(any());
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenNewPasswordMatchesCurrentPassword() {
+        UserEntity user = enabledUser(102L, "teacher.li", "stored-password-hash");
+        ChangePasswordRequest request = new ChangePasswordRequest("Teacher@123456", "Teacher@123456");
+
+        when(userQueryService.findEnabledById(102L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())).thenReturn(true);
+        when(passwordEncoder.matches(request.newPassword(), user.getPasswordHash())).thenReturn(true);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> authService.changePassword(jwtPrincipal(102L, "teacher.li"), request)
+        );
+
+        assertEquals(ResultCode.CONFLICT, exception.getResultCode());
+        assertEquals(409, exception.getHttpStatus());
+        verify(userMapper, never()).updateById(any(UserEntity.class));
+        verify(authTokenStore, never()).revokeAllUserSessions(any());
+    }
+
+    @Test
+    void shouldUpdatePasswordAndRevokeExistingSessionsOnPasswordChange() {
+        UserEntity user = enabledUser(103L, "teacher.wang", "stored-password-hash");
+        ChangePasswordRequest request = new ChangePasswordRequest("Teacher@123456", "TeacherChanged@123456");
+
+        when(userQueryService.findEnabledById(103L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())).thenReturn(true);
+        when(passwordEncoder.matches(request.newPassword(), user.getPasswordHash())).thenReturn(false);
+        when(passwordEncoder.encode(request.newPassword())).thenReturn("new-password-hash");
+        when(authTokenStore.findActiveRefreshTokenHash(103L)).thenReturn(Optional.empty());
+
+        authService.changePassword(jwtPrincipal(103L, "teacher.wang"), request);
+
+        assertEquals("new-password-hash", user.getPasswordHash());
+        verify(userMapper).updateById(user);
+        verify(authTokenStore).revokeAllUserSessions(103L);
+    }
+
     private RegisterStudentRequest registerRequest() {
         return new RegisterStudentRequest(
                 "student.self",
@@ -227,6 +287,29 @@ class AuthServiceTest {
                 issuedIpAddress,
                 userAgentFingerprint
         );
+    }
+
+    private JwtPrincipal jwtPrincipal(Long userId, String username) {
+        return new JwtPrincipal(
+                userId,
+                username,
+                username,
+                java.util.Set.of("TEACHER"),
+                "token-id",
+                Instant.now().plusSeconds(600),
+                java.util.List.of()
+        );
+    }
+
+    private UserEntity enabledUser(Long userId, String username, String passwordHash) {
+        UserEntity user = new UserEntity();
+        user.setId(userId);
+        user.setUsername(username);
+        user.setEmail(username + "@ef.local");
+        user.setDisplayName(username);
+        user.setEnabled(Boolean.TRUE);
+        user.setPasswordHash(passwordHash);
+        return user;
     }
 
     private TeachingClassEntity activeClass() {

@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.modules.auth.controller;
 
 import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.security.ratelimit.AuthRequestRateLimiter;
+import com.huashi.eftransfer.app.modules.auth.dto.ChangePasswordRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.ResolveStudentRegistrationContextRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.RegisterStudentRequest;
@@ -76,6 +77,17 @@ public class AuthController {
     public ApiResponse<Void> logout(@AuthenticationPrincipal JwtPrincipal principal) {
         authService.logout(principal);
         return ApiResponse.success("Logout succeeded", MDC.get("traceId"));
+    }
+
+    @PostMapping("/change-password")
+    public ApiResponse<Void> changePassword(
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal JwtPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        authRequestRateLimiter.checkChangePassword(httpRequest, principal);
+        authService.changePassword(principal, request);
+        return ApiResponse.success("Password changed", MDC.get("traceId"));
     }
 
     @GetMapping("/me")

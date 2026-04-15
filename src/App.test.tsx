@@ -35,12 +35,13 @@ vi.mock('./pages/admin/Dashboard', () => ({
 vi.mock('./pages/Login', () => ({
   default: function LoginMock() {
     const location = useLocation();
-    const state = location.state as { expired?: boolean; from?: string } | null;
-    const expired = Boolean(state?.expired) || hasPendingAuthExpired();
+    const state = location.state as { expired?: boolean; from?: string; passwordChanged?: boolean } | null;
+    const passwordChanged = Boolean(state?.passwordChanged);
+    const expired = !passwordChanged && (Boolean(state?.expired) || hasPendingAuthExpired());
 
     return (
       <div data-testid="login-page">
-        {expired ? 'expired' : 'fresh'}:{state?.from ?? 'none'}
+        {expired ? 'expired' : 'fresh'}:{passwordChanged ? 'changed' : 'plain'}:{state?.from ?? 'none'}
       </div>
     );
   },
@@ -149,7 +150,46 @@ describe('App auth-expired handling', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('login-page')).toHaveTextContent('expired:/dashboard');
+      expect(screen.getByTestId('login-page')).toHaveTextContent('expired:plain:/dashboard');
+    });
+  });
+
+  it('keeps the password-changed login state when auth-expired fires afterwards', async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      status: 'anonymous',
+      session: null,
+      user: null,
+      error: null,
+      initialize: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={[{ pathname: '/login', state: { passwordChanged: true } }]}>
+            <App />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    });
+
+    expect(await screen.findByTestId('login-page')).toHaveTextContent('fresh:changed:none');
+
+    await act(async () => {
+      dispatchAuthExpired();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-page')).toHaveTextContent('fresh:changed:none');
     });
   });
 

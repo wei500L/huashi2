@@ -13,6 +13,7 @@ import com.huashi.eftransfer.app.common.util.TokenGenerator;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassStudentMapper;
+import com.huashi.eftransfer.app.modules.auth.dto.ChangePasswordRequest;
 import com.huashi.eftransfer.app.modules.analytics.service.TeachingClassService;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.ResolveStudentRegistrationContextRequest;
@@ -265,6 +266,24 @@ public class AuthService {
         Duration ttl = Duration.between(Instant.now(), principal.expiresAt());
         authTokenStore.blacklistAccessToken(principal.tokenId(), ttl);
         log.info("event=auth_logout_success userId={} username={}", principal.userId(), principal.username());
+    }
+
+    @Transactional
+    public void changePassword(JwtPrincipal principal, ChangePasswordRequest request) {
+        UserEntity user = userQueryService.findEnabledById(principal.userId())
+                .orElseThrow(() -> new BusinessException(ResultCode.UNAUTHORIZED, "User session is no longer valid", 401));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new BusinessException(ResultCode.CURRENT_PASSWORD_INCORRECT, "Current password is incorrect", 400);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BusinessException(ResultCode.CONFLICT, "New password must be different from current password", 409);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userMapper.updateById(user);
+        revokeExistingSession(user.getId());
+        log.info("event=auth_password_changed userId={} username={}", user.getId(), user.getUsername());
     }
 
     public CurrentUserVO currentUser(JwtPrincipal principal) {

@@ -17,6 +17,7 @@ export const loginSlice: TranslationSlice = {
       registerCtaHint: '学生还没有账号？',
       registerCta: '去学生注册',
       sessionExpired: '登录态已失效，请重新登录。',
+      passwordChanged: '密码已修改，请使用新密码重新登录。',
       validation: {
         usernameRequired: '请输入用户名或邮箱',
         passwordRequired: '请输入密码',
@@ -142,6 +143,7 @@ export const loginSlice: TranslationSlice = {
       registerCtaHint: 'No student account yet?',
       registerCta: 'Create a student account',
       sessionExpired: 'Your session expired. Please sign in again.',
+      passwordChanged: 'Your password was changed. Sign in again with the new password.',
       validation: {
         usernameRequired: 'Enter a username or email',
         passwordRequired: 'Enter a password',

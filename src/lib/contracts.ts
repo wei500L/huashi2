@@ -64,6 +64,11 @@ export interface RegisterStudentRequest {
   courseStage: string;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface ResolveStudentRegistrationContextRequest {
   classCode: string;
 }
