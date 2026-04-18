@@ -2,6 +2,8 @@ package com.huashi.eftransfer.app.integration.ai.client;
 
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
+import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
 import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
@@ -22,8 +24,11 @@ import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyRequest;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigCommitRequest;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageRequest;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
@@ -49,6 +54,12 @@ public class AiGatewayClient {
 
     private static final Logger log = LoggerFactory.getLogger(AiGatewayClient.class);
     private static final ParameterizedTypeReference<ApiResponse<AiGatewayHealthResponse>> HEALTH_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<AdminAiEmbeddingProbeVO>> EMBEDDING_PROBE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<AdminAiRerankProbeVO>> RERANK_PROBE_TYPE =
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<ChatResponse>> CHAT_TYPE =
@@ -85,6 +96,9 @@ public class AiGatewayClient {
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigApplyResponse>> CONFIG_APPLY_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigStageResponse>> CONFIG_STAGE_TYPE =
             new ParameterizedTypeReference<>() {
             };
 
@@ -141,6 +155,14 @@ public class AiGatewayClient {
         return post("/internal/ai/rerank", request, RERANK_TYPE);
     }
 
+    public AiGatewayCallResult<AdminAiEmbeddingProbeVO> probeEmbeddingConfig(AiOpsConfigPayload payload) {
+        return post("/internal/ai/config/probes/embedding", payload, EMBEDDING_PROBE_TYPE);
+    }
+
+    public AiGatewayCallResult<AdminAiRerankProbeVO> probeRerankConfig(AiOpsConfigPayload payload) {
+        return post("/internal/ai/config/probes/rerank", payload, RERANK_PROBE_TYPE);
+    }
+
     public AiGatewayCallResult<RagAnswerResponse> ragAnswer(RagAnswerRequest request) {
         return post("/internal/ai/rag/answer", request, RAG_ANSWER_TYPE);
     }
@@ -181,6 +203,30 @@ public class AiGatewayClient {
         AiGatewayCallResult<AiOpsConfigApplyResponse> result = post(
                 "/internal/ai/config/apply",
                 new AiOpsConfigApplyRequest(payload, source, version),
+                CONFIG_APPLY_TYPE
+        );
+        if (!result.success() || result.data() == null) {
+            throw new IllegalStateException(result.failureMessage());
+        }
+        return result.data();
+    }
+
+    public AiOpsConfigStageResponse stageConfig(AiOpsConfigPayload payload, String source, Long version) {
+        AiGatewayCallResult<AiOpsConfigStageResponse> result = post(
+                "/internal/ai/config/stage",
+                new AiOpsConfigStageRequest(payload, source, version),
+                CONFIG_STAGE_TYPE
+        );
+        if (!result.success() || result.data() == null) {
+            throw new IllegalStateException(result.failureMessage());
+        }
+        return result.data();
+    }
+
+    public AiOpsConfigApplyResponse commitConfig(String stageId) {
+        AiGatewayCallResult<AiOpsConfigApplyResponse> result = post(
+                "/internal/ai/config/commit",
+                new AiOpsConfigCommitRequest(stageId),
                 CONFIG_APPLY_TYPE
         );
         if (!result.success() || result.data() == null) {

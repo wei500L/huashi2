@@ -1,10 +1,16 @@
 package com.huashi.eftransfer.app.modules.opsconfig;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.common.audit.entity.AuditLogEntity;
+import com.huashi.eftransfer.app.common.audit.mapper.AuditLogMapper;
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
-import com.huashi.eftransfer.app.integration.ai.client.AiGatewayFailureReason;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
+import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
+import com.huashi.eftransfer.app.modules.opsconfig.entity.AiOpsConfigHistoryEntity;
+import com.huashi.eftransfer.app.modules.opsconfig.mapper.AiOpsConfigHistoryMapper;
 import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsConfigStorageService;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
@@ -15,6 +21,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
@@ -25,6 +32,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -35,12 +43,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.web.client.RestClient;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -54,9 +64,35 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     @Autowired
     private AiOpsConfigStorageService storageService;
 
+    @Autowired
+    private AuditLogMapper auditLogMapper;
+
+    @Autowired
+    private AiOpsConfigHistoryMapper aiOpsConfigHistoryMapper;
+
+    @BeforeEach
+    void resetGatewayStub() {
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                null,
+                "DEFAULTS",
+                1L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+        stubAiGatewayClient.validationResponse = new AiOpsConfigValidationResponse(true, List.of(), List.of());
+        stubAiGatewayClient.lastAppliedConfig = null;
+        stubAiGatewayClient.stagedConfigs.clear();
+        stubAiGatewayClient.stageSequence = 0L;
+        stubAiGatewayClient.validationUnavailable = false;
+        stubAiGatewayClient.stageUnavailable = false;
+        stubAiGatewayClient.commitUnavailable = false;
+    }
+
     @Test
     void adminCanSaveConfigAndRetainExistingSecret() throws Exception {
         String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        long initialAuditCount = saveAuditCount();
+        long initialHistoryCount = historyCount();
         stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
                 samplePayload("chat-secret-001"),
                 "DEFAULTS",
@@ -93,6 +129,16 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
 
         assertThat(storageService.load()).isPresent();
         assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(saveAuditCount()).isEqualTo(initialAuditCount + 1);
+        assertThat(historyCount()).isEqualTo(initialHistoryCount + 1);
+        AiOpsConfigHistoryEntity history = latestHistory();
+        assertThat(history.getVersionNumber()).isEqualTo(2L);
+        assertThat(history.getPreviousVersionNumber()).isEqualTo(1L);
+        AuditLogEntity auditLog = latestSaveAudit();
+        assertThat(auditLog.getRequestPayload()).contains("\"previousVersion\":1");
+        assertThat(auditLog.getRequestPayload()).contains("\"nextVersion\":2");
+        assertThat(auditLog.getRequestPayload()).contains("\"configDiffs\"");
+        assertThat(auditLog.getRequestPayload()).contains("\"secretChanges\"");
 
         mockMvc.perform(put("/api/admin/ai-config")
                         .with(bearer(adminToken))
@@ -121,6 +167,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
 
         assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
         assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(saveAuditCount()).isEqualTo(initialAuditCount + 1);
+        assertThat(historyCount()).isEqualTo(initialHistoryCount + 1);
     }
 
     @Test
@@ -269,6 +317,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         "https://stored-rerank.example.com/v1/rerank",
                         "stored-rerank-model"
                 ),
+                null,
                 5L,
                 null
         );
@@ -318,6 +367,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         "https://stored-rerank.example.com/v1/rerank",
                         "stored-rerank-model"
                 ),
+                null,
                 5L,
                 null
         );
@@ -383,6 +433,92 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     }
 
     @Test
+    void blankDraftLoadsWhenNoStoredSnapshotAndRuntimeIsUnavailable() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.currentEffective = null;
+
+        mockMvc.perform(get("/api/admin/ai-config").with(bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.runtime.available").value(false))
+                .andExpect(jsonPath("$.data.stored.present").value(false))
+                .andExpect(jsonPath("$.data.config.provider.providers").value(org.hamcrest.Matchers.anEmptyMap()))
+                .andExpect(jsonPath("$.data.config.rag.appServer").exists())
+                .andExpect(jsonPath("$.data.config.resilience").exists())
+                .andExpect(jsonPath("$.data.notices[0]").value(org.hamcrest.Matchers.containsString("No stored AI ops config exists yet")));
+    }
+
+    @Test
+    void offlineSavePersistsDatabaseSnapshotAndLeavesRuntimePending() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.currentEffective = null;
+        stubAiGatewayClient.validationUnavailable = true;
+        stubAiGatewayClient.stageUnavailable = true;
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", samplePayload(null),
+                                "expectedVersion", null,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
+                                )
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(1))
+                .andExpect(jsonPath("$.data.runtime.available").value(false))
+                .andExpect(jsonPath("$.data.runtime.inSync").value(false))
+                .andExpect(jsonPath("$.data.stored.present").value(true))
+                .andExpect(jsonPath("$.data.notices[*]").value(org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("runtime sync is pending"))));
+
+        assertThat(storageService.load()).isPresent();
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
+    }
+
+    @Test
+    void runtimeSyncEndpointAppliesStoredSnapshotToGateway() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        storageService.save(samplePayload("stored-chat-secret"), null, 5L, null);
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                samplePayload("runtime-chat-secret"),
+                "DEFAULTS",
+                4L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+
+        mockMvc.perform(post("/api/admin/ai-config/runtime/sync")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "expectedVersion": 5
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(5))
+                .andExpect(jsonPath("$.data.runtime.available").value(true))
+                .andExpect(jsonPath("$.data.runtime.version").value(5))
+                .andExpect(jsonPath("$.data.runtime.inSync").value(true));
+
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNotNull();
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey())
+                .isEqualTo("stored-chat-secret");
+    }
+
+    @Test
     void nonAdminCannotAccessConfigCenter() throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
 
@@ -431,6 +567,49 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(status().isBadRequest());
 
         assertThat(storageService.load()).isEmpty();
+    }
+
+    @Test
+    void embeddingProbeUsesDraftConfigAndReturnsGatewayResult() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.embeddingProbeResponse = new AdminAiEmbeddingProbeVO(
+                true,
+                "Embedding probe succeeded",
+                "qwen",
+                "text-embedding-v4",
+                48L,
+                "probe-embedding-1",
+                OffsetDateTime.now(),
+                1024,
+                1024,
+                1
+        );
+
+        mockMvc.perform(post("/api/admin/ai-config/probes/embedding")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", samplePayload(null),
+                                "expectedVersion", 1,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
+                                )
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ok").value(true))
+                .andExpect(jsonPath("$.data.dimension").value(1024));
     }
 
     private AiOpsConfigPayload samplePayload(String chatApiKey) {
@@ -535,6 +714,9 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
 
     static class StubAiGatewayClient extends AiGatewayClient {
 
+        private record StagedConfig(AiOpsConfigPayload payload, String source, Long version) {
+        }
+
         private AiOpsConfigEffectiveResponse currentEffective = new AiOpsConfigEffectiveResponse(
                 null,
                 "DEFAULTS",
@@ -544,6 +726,17 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         );
         private AiOpsConfigValidationResponse validationResponse = new AiOpsConfigValidationResponse(true, List.of(), List.of());
         private AiOpsConfigPayload lastAppliedConfig;
+        private final Map<String, StagedConfig> stagedConfigs = new LinkedHashMap<>();
+        private long stageSequence = 0L;
+        private boolean validationUnavailable;
+        private boolean stageUnavailable;
+        private boolean commitUnavailable;
+        private AdminAiEmbeddingProbeVO embeddingProbeResponse = new AdminAiEmbeddingProbeVO(
+                true, "Embedding probe succeeded", "qwen", "text-embedding-v4", 32L, "probe-embedding", OffsetDateTime.now(), 1024, 1024, 1
+        );
+        private AdminAiRerankProbeVO rerankProbeResponse = new AdminAiRerankProbeVO(
+                true, "Rerank probe succeeded", "qwen", "gte-rerank-v2", 35L, "probe-rerank", OffsetDateTime.now(), 3, 3, true, 0, 0.98d
+        );
 
         StubAiGatewayClient(RestClient aiGatewayRestClient, AiGatewayClientProperties properties) {
             super(aiGatewayRestClient, properties);
@@ -556,16 +749,48 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
 
         @Override
         public AiOpsConfigValidationResponse validateConfig(AiOpsConfigPayload payload) {
+            if (validationUnavailable) {
+                throw new IllegalStateException("validation unavailable");
+            }
             return validationResponse;
         }
 
         @Override
         public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload, String source, Long version) {
-            lastAppliedConfig = payload;
-            long appliedVersion = version == null ? 2L : version;
-            String appliedSource = source == null ? "ADMIN_APPLY" : source;
-            currentEffective = new AiOpsConfigEffectiveResponse(payload, appliedSource, appliedVersion, OffsetDateTime.now(), List.of());
-            return new AiOpsConfigApplyResponse(appliedSource, appliedVersion, OffsetDateTime.now(), List.of());
+            AiOpsConfigStageResponse staged = stageConfig(payload, source, version);
+            return commitConfig(staged.stageId());
+        }
+
+        @Override
+        public AiOpsConfigStageResponse stageConfig(AiOpsConfigPayload payload, String source, Long version) {
+            if (stageUnavailable) {
+                throw new IllegalStateException("stage unavailable");
+            }
+            long stagedVersion = version == null ? (currentEffective == null || currentEffective.version() == null ? 1L : currentEffective.version() + 1L) : version;
+            String stagedSource = source == null ? "ADMIN_STAGE" : source;
+            String stageId = "stage-" + (++stageSequence);
+            stagedConfigs.put(stageId, new StagedConfig(payload, stagedSource, stagedVersion));
+            return new AiOpsConfigStageResponse(stageId, stagedSource, stagedVersion, OffsetDateTime.now(), List.of());
+        }
+
+        @Override
+        public AiOpsConfigApplyResponse commitConfig(String stageId) {
+            if (commitUnavailable) {
+                throw new IllegalStateException("commit unavailable");
+            }
+            StagedConfig staged = stagedConfigs.remove(stageId);
+            if (staged == null) {
+                throw new IllegalStateException("stage not found");
+            }
+            lastAppliedConfig = staged.payload();
+            currentEffective = new AiOpsConfigEffectiveResponse(
+                    staged.payload(),
+                    staged.source(),
+                    staged.version(),
+                    OffsetDateTime.now(),
+                    List.of()
+            );
+            return new AiOpsConfigApplyResponse(staged.source(), staged.version(), OffsetDateTime.now(), List.of());
         }
 
         @Override
@@ -596,6 +821,16 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         }
 
         @Override
+        public AiGatewayCallResult<AdminAiEmbeddingProbeVO> probeEmbeddingConfig(AiOpsConfigPayload payload) {
+            return AiGatewayCallResult.success(embeddingProbeResponse, 1, embeddingProbeResponse.latencyMs(), "/internal/ai/config/probes/embedding");
+        }
+
+        @Override
+        public AiGatewayCallResult<AdminAiRerankProbeVO> probeRerankConfig(AiOpsConfigPayload payload) {
+            return AiGatewayCallResult.success(rerankProbeResponse, 1, rerankProbeResponse.latencyMs(), "/internal/ai/config/probes/rerank");
+        }
+
+        @Override
         public Optional<RagReindexJobResponse> fetchReindexJob(Long jobId) {
             return Optional.of(new RagReindexJobResponse(
                     jobId,
@@ -611,5 +846,29 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                     null
             ));
         }
+    }
+
+    private long saveAuditCount() {
+        return auditLogMapper.selectCount(Wrappers.<AuditLogEntity>lambdaQuery()
+                .eq(AuditLogEntity::getActionType, "ai_ops_config_save"));
+    }
+
+    private long historyCount() {
+        return aiOpsConfigHistoryMapper.selectCount(Wrappers.<AiOpsConfigHistoryEntity>lambdaQuery()
+                .eq(AiOpsConfigHistoryEntity::getConfigKey, AiOpsConfigStorageService.CONFIG_KEY));
+    }
+
+    private AuditLogEntity latestSaveAudit() {
+        return auditLogMapper.selectOne(Wrappers.<AuditLogEntity>lambdaQuery()
+                .eq(AuditLogEntity::getActionType, "ai_ops_config_save")
+                .orderByDesc(AuditLogEntity::getId)
+                .last("LIMIT 1"));
+    }
+
+    private AiOpsConfigHistoryEntity latestHistory() {
+        return aiOpsConfigHistoryMapper.selectOne(Wrappers.<AiOpsConfigHistoryEntity>lambdaQuery()
+                .eq(AiOpsConfigHistoryEntity::getConfigKey, AiOpsConfigStorageService.CONFIG_KEY)
+                .orderByDesc(AiOpsConfigHistoryEntity::getId)
+                .last("LIMIT 1"));
     }
 }

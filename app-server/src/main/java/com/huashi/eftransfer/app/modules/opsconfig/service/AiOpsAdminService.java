@@ -1,15 +1,19 @@
 package com.huashi.eftransfer.app.modules.opsconfig.service;
 
+import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
 import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxRecord;
 import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxService;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
+import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretFieldsVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretUpdateGroup;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiRuntimeSyncRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiRuntimeStateVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretFieldVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretFieldsVO;
@@ -17,13 +21,16 @@ import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretUpdateGroup;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretValueUpdate;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiStoredStateVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
+import com.huashi.eftransfer.app.modules.opsconfig.support.AiOpsConfigChangeSet;
 import com.huashi.eftransfer.app.modules.opsconfig.support.StoredAiOpsConfig;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
@@ -37,8 +44,6 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionSystemException;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -57,33 +62,34 @@ public class AiOpsAdminService {
     private final AiOpsConfigStorageService storageService;
     private final AiGatewayClient aiGatewayClient;
     private final PlatformEventOutboxService outboxService;
+    private final AuditLogService auditLogService;
+    private final AiOpsConfigChangeSummaryService changeSummaryService;
+    private final AiOpsLocalValidationService localValidationService;
 
     public AiOpsAdminService(
             AiOpsConfigStorageService storageService,
             AiGatewayClient aiGatewayClient,
-            PlatformEventOutboxService outboxService
+            PlatformEventOutboxService outboxService,
+            AuditLogService auditLogService,
+            AiOpsConfigChangeSummaryService changeSummaryService,
+            AiOpsLocalValidationService localValidationService
     ) {
         this.storageService = storageService;
         this.aiGatewayClient = aiGatewayClient;
         this.outboxService = outboxService;
+        this.auditLogService = auditLogService;
+        this.changeSummaryService = changeSummaryService;
+        this.localValidationService = localValidationService;
     }
 
     public AdminAiConfigViewVO getCurrentConfig() {
         Optional<StoredAiOpsConfig> stored = storageService.load();
         AiOpsConfigEffectiveResponse runtime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
-        if (runtime == null && stored.isEmpty()) {
-            throw new BusinessException(
-                    ResultCode.AI_PROVIDER_UNAVAILABLE,
-                    "ai-gateway runtime config is unavailable",
-                    503
-            );
-        }
-
         StoredAiOpsConfig storedSnapshot = stored.orElse(null);
-        AiOpsConfigPayload visiblePayload = authoritativePayload(runtime, storedSnapshot);
+        AiOpsConfigPayload visiblePayload = authoritativePayloadOrDraft(runtime, storedSnapshot);
         return toView(
                 visiblePayload,
-                buildNotices(runtime, storedSnapshot, runtime == null ? List.of() : runtime.notices()),
+                buildNotices(runtime, storedSnapshot, runtime == null ? blankDraftNotices(storedSnapshot) : runtime.notices()),
                 runtime,
                 storedSnapshot
         );
@@ -97,58 +103,98 @@ public class AiOpsAdminService {
                 safeRequest.providerOrigins(),
                 safeRequest.secrets()
         );
+        AiOpsConfigValidationResponse localValidation = localValidationService.validate(candidate, validationNotices());
+        if (!localValidation.valid()) {
+            return localValidation;
+        }
         try {
             return aiGatewayClient.validateConfig(candidate);
         } catch (RuntimeException ex) {
-            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway validation is unavailable", 503);
+            return new AiOpsConfigValidationResponse(
+                    true,
+                    List.of(),
+                    mergeNotices(validationNotices(), List.of(
+                            "ai-gateway runtime validation is unavailable. Local schema validation passed; runtime build confirmation is pending."
+                    ))
+            );
         }
     }
 
-    @Transactional
     public AdminAiConfigViewVO save(AdminAiConfigSaveRequest request) {
         AdminAiConfigSaveRequest safeRequest = requireRequest(request);
         Optional<StoredAiOpsConfig> storedSnapshot = storageService.load();
         StoredAiOpsConfig storedConfig = storedSnapshot.orElse(null);
-        AiOpsConfigEffectiveResponse currentRuntime = aiGatewayClient.fetchEffectiveConfig()
-                .orElseThrow(() -> new BusinessException(
-                        ResultCode.AI_PROVIDER_UNAVAILABLE,
-                        "ai-gateway runtime config is unavailable",
-                        503
-                ));
+        AiOpsConfigEffectiveResponse currentRuntime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
         validateExpectedVersion(safeRequest.expectedVersion(), currentVersion(currentRuntime, storedConfig));
 
+        AiOpsConfigPayload previousPayload = authoritativePayloadOrDraft(currentRuntime, storedConfig);
         AiOpsConfigPayload candidate = mergeSecrets(
-                authoritativePayload(currentRuntime, storedConfig),
+                previousPayload,
                 requestPayload(safeRequest),
                 safeRequest.providerOrigins(),
                 safeRequest.secrets()
         );
-
-        AiOpsConfigValidationResponse validation;
-        try {
-            validation = aiGatewayClient.validateConfig(candidate);
-        } catch (RuntimeException ex) {
-            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway validation is unavailable", 503);
-        }
-        if (!validation.valid()) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR, "AI ops config validation failed", 400);
-        }
-
-        Long nextVersion = nextVersion(currentRuntime.version(), storedSnapshot.map(StoredAiOpsConfig::version).orElse(null));
-        AiOpsConfigEffectiveResponse appliedRuntime;
-        try {
-            appliedRuntime = applyRuntime(candidate, "DATABASE", nextVersion);
-        } catch (RuntimeException ex) {
-            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway apply is unavailable", 503);
+        AiOpsConfigChangeSet changeSet = changeSummaryService.summarize(
+                previousPayload,
+                candidate,
+                sanitize(previousPayload),
+                sanitize(candidate)
+        );
+        if (!changeSet.hasChanges()) {
+            return toView(
+                    previousPayload,
+                    buildNotices(currentRuntime, storedConfig, currentRuntime == null ? blankDraftNotices(storedConfig) : currentRuntime.notices()),
+                    currentRuntime,
+                    storedConfig
+            );
         }
 
+        localValidationService.requireValid(candidate);
+
+        AiOpsConfigValidationResponse remoteValidation = null;
+        AiOpsConfigStageResponse stagedRuntime = null;
+        List<String> notices = new ArrayList<>(validationNotices());
         try {
-            StoredAiOpsConfig stored = storageService.save(candidate, nextVersion, SecurityUtils.getCurrentUserId().orElse(null));
-            return toView(candidate, validation.notices(), appliedRuntime, stored);
+            remoteValidation = aiGatewayClient.validateConfig(candidate);
         } catch (RuntimeException ex) {
-            rollbackRuntime(currentRuntime);
-            throw ex;
+            notices.add("ai-gateway runtime validation is unavailable. Local schema validation passed; runtime build confirmation is pending.");
         }
+        if (remoteValidation != null) {
+            if (!remoteValidation.valid()) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, formatValidationIssues(remoteValidation.issues()), 400);
+            }
+            notices = mergeNotices(notices, remoteValidation.notices());
+        }
+
+        Long previousVersion = currentVersion(currentRuntime, storedConfig);
+        Long nextVersion = nextVersion(currentRuntime == null ? null : currentRuntime.version(), storedSnapshot.map(StoredAiOpsConfig::version).orElse(null));
+        try {
+            stagedRuntime = aiGatewayClient.stageConfig(candidate, "DATABASE", nextVersion);
+        } catch (RuntimeException ex) {
+            notices.add("Stored database config was saved locally, but ai-gateway runtime sync is pending.");
+        }
+
+        Long actorUserId = SecurityUtils.getCurrentUserId().orElse(null);
+        StoredAiOpsConfig stored = storageService.save(candidate, safeRequest.expectedVersion(), nextVersion, actorUserId);
+        storageService.saveHistory(candidate, nextVersion, previousVersion, actorUserId, buildChangeAuditPayload(changeSet, previousVersion, nextVersion));
+        auditLogService.record(
+                "ai_ops_config_save",
+                "admin_ai_config",
+                AiOpsConfigStorageService.CONFIG_KEY,
+                buildSaveAuditPayload(changeSet, previousVersion, nextVersion),
+                ResultCode.SUCCESS.code()
+        );
+
+        AiOpsConfigEffectiveResponse runtimeAfterSave = currentRuntime;
+        if (stagedRuntime != null) {
+            runtimeAfterSave = commitRuntime(stagedRuntime, candidate, currentRuntime, notices);
+        }
+        return toView(
+                candidate,
+                buildNotices(runtimeAfterSave, stored, mergeNotices(notices, runtimeAfterSave == null ? List.of() : runtimeAfterSave.notices())),
+                runtimeAfterSave,
+                stored
+        );
     }
 
     public AiGatewayHealthResponse health() {
@@ -158,6 +204,72 @@ public class AiOpsAdminService {
                         "ai-gateway health is unavailable",
                         503
                 ));
+    }
+
+    public AdminAiEmbeddingProbeVO probeEmbedding(AdminAiConfigSaveRequest request) {
+        AiOpsConfigPayload candidate = buildProbeCandidate(request);
+        Map<String, Object> auditPayload = new LinkedHashMap<>();
+        auditPayload.put("configKey", AiOpsConfigStorageService.CONFIG_KEY);
+        try {
+            AiGatewayCallResult<AdminAiEmbeddingProbeVO> result = aiGatewayClient.probeEmbeddingConfig(candidate);
+            if (!result.success() || result.data() == null) {
+                auditPayload.put("message", result.failureMessage());
+                throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, result.failureMessage(), 503);
+            }
+            AdminAiEmbeddingProbeVO probe = result.data();
+            auditLogService.record(
+                    "ai_ops_embedding_probe",
+                    "admin_ai_config",
+                    AiOpsConfigStorageService.CONFIG_KEY,
+                    buildProbeAuditPayload(probe.provider(), probe.model(), probe.latencyMs(), probe.providerRequestId(), probe.message(), probeDetails(
+                            "dimension", probe.dimension(),
+                            "expectedDimension", probe.expectedDimension(),
+                            "itemCount", probe.itemCount()
+                    )),
+                    probe.ok() ? ResultCode.SUCCESS.code() : ResultCode.AI_PROVIDER_UNAVAILABLE.code()
+            );
+            return probe;
+        } catch (BusinessException exception) {
+            recordProbeFailure("ai_ops_embedding_probe", auditPayload, exception);
+            throw exception;
+        } catch (RuntimeException exception) {
+            recordProbeFailure("ai_ops_embedding_probe", auditPayload, exception);
+            throw exception;
+        }
+    }
+
+    public AdminAiRerankProbeVO probeRerank(AdminAiConfigSaveRequest request) {
+        AiOpsConfigPayload candidate = buildProbeCandidate(request);
+        Map<String, Object> auditPayload = new LinkedHashMap<>();
+        auditPayload.put("configKey", AiOpsConfigStorageService.CONFIG_KEY);
+        try {
+            AiGatewayCallResult<AdminAiRerankProbeVO> result = aiGatewayClient.probeRerankConfig(candidate);
+            if (!result.success() || result.data() == null) {
+                auditPayload.put("message", result.failureMessage());
+                throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, result.failureMessage(), 503);
+            }
+            AdminAiRerankProbeVO probe = result.data();
+            auditLogService.record(
+                    "ai_ops_rerank_probe",
+                    "admin_ai_config",
+                    AiOpsConfigStorageService.CONFIG_KEY,
+                    buildProbeAuditPayload(probe.provider(), probe.model(), probe.latencyMs(), probe.providerRequestId(), probe.message(), probeDetails(
+                            "documentsCount", probe.documentsCount(),
+                            "returnedCount", probe.returnedCount(),
+                            "ordered", probe.ordered(),
+                            "topDocumentIndex", probe.topDocumentIndex(),
+                            "topScore", probe.topScore()
+                    )),
+                    probe.ok() ? ResultCode.SUCCESS.code() : ResultCode.AI_PROVIDER_UNAVAILABLE.code()
+            );
+            return probe;
+        } catch (BusinessException exception) {
+            recordProbeFailure("ai_ops_rerank_probe", auditPayload, exception);
+            throw exception;
+        } catch (RuntimeException exception) {
+            recordProbeFailure("ai_ops_rerank_probe", auditPayload, exception);
+            throw exception;
+        }
     }
 
     public RagReindexResponse triggerReindex(RagReindexRequest request) {
@@ -195,6 +307,36 @@ public class AiOpsAdminService {
         }
     }
 
+    public AdminAiConfigViewVO syncRuntime(AdminAiRuntimeSyncRequest request) {
+        AdminAiRuntimeSyncRequest safeRequest = request == null
+                ? new AdminAiRuntimeSyncRequest(null)
+                : request;
+        StoredAiOpsConfig stored = storageService.load()
+                .orElseThrow(() -> new BusinessException(
+                        ResultCode.BAD_REQUEST,
+                        "No stored AI ops config is available to sync.",
+                        409
+                ));
+        AiOpsConfigEffectiveResponse currentRuntime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
+        validateExpectedVersion(safeRequest.expectedVersion(), currentVersion(currentRuntime, stored));
+
+        AiOpsConfigStageResponse stagedRuntime;
+        try {
+            stagedRuntime = aiGatewayClient.stageConfig(stored.config(), "DATABASE", stored.version());
+        } catch (RuntimeException ex) {
+            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway runtime sync is unavailable", 503);
+        }
+
+        List<String> notices = new ArrayList<>(validationNotices());
+        AiOpsConfigEffectiveResponse runtimeAfterSync = commitRuntime(stagedRuntime, stored.config(), currentRuntime, notices);
+        return toView(
+                stored.config(),
+                buildNotices(runtimeAfterSync, stored, mergeNotices(notices, runtimeAfterSync == null ? List.of() : runtimeAfterSync.notices())),
+                runtimeAfterSync,
+                stored
+        );
+    }
+
     public AiOpsConfigEffectiveResponse getStoredConfigForInternalSync() {
         return storageService.load()
                 .map(stored -> new AiOpsConfigEffectiveResponse(
@@ -207,14 +349,6 @@ public class AiOpsAdminService {
                 .orElse(null);
     }
 
-    private void rollbackRuntime(AiOpsConfigEffectiveResponse previousRuntime) {
-        try {
-            applyRuntime(normalizePayload(previousRuntime.config()), previousRuntime.source(), previousRuntime.version());
-        } catch (RuntimeException rollbackEx) {
-            throw new TransactionSystemException("Failed to rollback ai-gateway runtime config after persistence failure", rollbackEx);
-        }
-    }
-
     private AiOpsConfigPayload resolveBaseConfig() {
         StoredAiOpsConfig stored = storageService.load().orElse(null);
         if (stored != null) {
@@ -223,11 +357,7 @@ public class AiOpsAdminService {
         return aiGatewayClient.fetchEffectiveConfig()
                 .map(AiOpsConfigEffectiveResponse::config)
                 .map(this::normalizePayload)
-                .orElseThrow(() -> new BusinessException(
-                        ResultCode.AI_PROVIDER_UNAVAILABLE,
-                        "ai-gateway runtime config is unavailable",
-                        503
-                ));
+                .orElseGet(this::emptyPayload);
     }
 
     private AdminAiConfigSaveRequest requireRequest(AdminAiConfigSaveRequest request) {
@@ -239,6 +369,27 @@ public class AiOpsAdminService {
 
     private AiOpsConfigPayload requestPayload(AdminAiConfigSaveRequest request) {
         return normalizePayload(requireRequest(request).config());
+    }
+
+    private AiOpsConfigPayload buildProbeCandidate(AdminAiConfigSaveRequest request) {
+        AdminAiConfigSaveRequest safeRequest = requireRequest(request);
+        AiOpsConfigPayload candidate = mergeSecrets(
+                resolveBaseConfig(),
+                requestPayload(safeRequest),
+                safeRequest.providerOrigins(),
+                safeRequest.secrets()
+        );
+        localValidationService.requireValid(candidate);
+        AiOpsConfigValidationResponse validation;
+        try {
+            validation = aiGatewayClient.validateConfig(candidate);
+        } catch (RuntimeException ex) {
+            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway validation is unavailable", 503);
+        }
+        if (!validation.valid()) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "AI ops config validation failed", 400);
+        }
+        return candidate;
     }
 
     private void validateExpectedVersion(Long expectedVersion, Long currentVersion) {
@@ -266,15 +417,30 @@ public class AiOpsAdminService {
         return current + 1L;
     }
 
-    private AiOpsConfigEffectiveResponse applyRuntime(AiOpsConfigPayload payload, String source, Long version) {
-        var response = aiGatewayClient.applyConfig(payload, source, version);
-        return new AiOpsConfigEffectiveResponse(
-                payload,
-                response.source(),
-                response.version(),
-                response.appliedAt(),
-                response.notices()
-        );
+    private AiOpsConfigEffectiveResponse commitRuntime(
+            AiOpsConfigStageResponse stagedRuntime,
+            AiOpsConfigPayload payload,
+            AiOpsConfigEffectiveResponse currentRuntime,
+            List<String> notices
+    ) {
+        try {
+            AiOpsConfigApplyResponse response = aiGatewayClient.commitConfig(stagedRuntime.stageId());
+            return new AiOpsConfigEffectiveResponse(
+                    payload,
+                    response.source(),
+                    response.version(),
+                    response.appliedAt(),
+                    response.notices()
+            );
+        } catch (RuntimeException ex) {
+            AiOpsConfigEffectiveResponse effective = aiGatewayClient.fetchEffectiveConfig().orElse(null);
+            if (effective != null && Objects.equals(effective.version(), stagedRuntime.version())) {
+                notices.add("ai-gateway runtime commit completed, but the acknowledgement request failed.");
+                return effective;
+            }
+            notices.add("Stored database config is authoritative but ai-gateway runtime sync is still pending.");
+            return currentRuntime;
+        }
     }
 
     private List<String> buildNotices(
@@ -283,14 +449,15 @@ public class AiOpsAdminService {
             List<String> runtimeNotices
     ) {
         List<String> notices = new ArrayList<>();
-        if (runtimeNotices != null) {
-            notices.addAll(runtimeNotices);
+        notices = mergeNotices(notices, runtimeNotices);
+        if (runtime == null && stored == null) {
+            notices = mergeNotices(notices, List.of("No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot."));
         }
         if (runtime == null && stored != null) {
-            notices.add("ai-gateway runtime is unavailable. The page is showing the stored database snapshot instead.");
+            notices = mergeNotices(notices, List.of("ai-gateway runtime is unavailable. The page is showing the stored database snapshot instead."));
         }
         if (runtime != null && stored != null && !Objects.equals(runtime.version(), stored.version())) {
-            notices.add("Stored database config is authoritative but not in sync with the current ai-gateway runtime version.");
+            notices = mergeNotices(notices, List.of("Stored database config is authoritative but not in sync with the current ai-gateway runtime version."));
         }
         return notices;
     }
@@ -327,25 +494,21 @@ public class AiOpsAdminService {
         );
     }
 
-    private AiOpsConfigPayload authoritativePayload(AiOpsConfigEffectiveResponse runtime, StoredAiOpsConfig stored) {
+    private AiOpsConfigPayload authoritativePayloadOrDraft(AiOpsConfigEffectiveResponse runtime, StoredAiOpsConfig stored) {
         if (stored != null) {
             return normalizePayload(stored.config());
         }
         if (runtime != null) {
             return normalizePayload(runtime.config());
         }
-        throw new BusinessException(
-                ResultCode.AI_PROVIDER_UNAVAILABLE,
-                "ai-gateway runtime config is unavailable",
-                503
-        );
+        return emptyPayload();
     }
 
     private AiOpsConfigPayload normalizePayload(AiOpsConfigPayload payload) {
         if (payload == null) {
             return new AiOpsConfigPayload(
                     new AiOpsProviderConfig(null, null, Map.of()),
-                    null,
+                    new AiOpsResilienceConfig(null, null, null, null, null),
                     new AiOpsRagConfig(
                             new AiOpsRagAppServerConfig(null, null, null, null),
                             new AiOpsRagIngestionConfig(null, null),
@@ -621,6 +784,46 @@ public class AiOpsAdminService {
         return update.value();
     }
 
+    private AiOpsConfigPayload emptyPayload() {
+        return normalizePayload(null);
+    }
+
+    private List<String> validationNotices() {
+        return List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.");
+    }
+
+    private List<String> mergeNotices(List<String> baseNotices, List<String> extraNotices) {
+        List<String> notices = new ArrayList<>();
+        if (baseNotices != null) {
+            notices.addAll(baseNotices);
+        }
+        if (extraNotices != null) {
+            for (String notice : extraNotices) {
+                if (StringUtils.hasText(notice) && !notices.contains(notice)) {
+                    notices.add(notice);
+                }
+            }
+        }
+        return notices;
+    }
+
+    private List<String> blankDraftNotices(StoredAiOpsConfig stored) {
+        if (stored != null) {
+            return List.of();
+        }
+        return List.of("No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot.");
+    }
+
+    private String formatValidationIssues(List<com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue> issues) {
+        if (issues == null || issues.isEmpty()) {
+            return "AI ops config validation failed";
+        }
+        return issues.stream()
+                .map(issue -> issue.field() + ": " + issue.message())
+                .reduce((left, right) -> left + "; " + right)
+                .orElse("AI ops config validation failed");
+    }
+
     private AdminOutboxRecordVO toOutboxView(PlatformEventOutboxRecord record) {
         return new AdminOutboxRecordVO(
                 record.id(),
@@ -637,5 +840,61 @@ public class AiOpsAdminService {
                 record.createdAt(),
                 record.updatedAt()
         );
+    }
+
+    private Map<String, Object> buildSaveAuditPayload(AiOpsConfigChangeSet changeSet, Long previousVersion, Long nextVersion) {
+        Map<String, Object> payload = buildChangeAuditPayload(changeSet, previousVersion, nextVersion);
+        payload.put("configKey", AiOpsConfigStorageService.CONFIG_KEY);
+        return payload;
+    }
+
+    private Map<String, Object> buildChangeAuditPayload(AiOpsConfigChangeSet changeSet, Long previousVersion, Long nextVersion) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("previousVersion", previousVersion);
+        payload.put("nextVersion", nextVersion);
+        payload.put("configDiffs", changeSet.configDiffs());
+        payload.put("secretChanges", changeSet.secretChanges());
+        return payload;
+    }
+
+    private Map<String, Object> buildProbeAuditPayload(
+            String provider,
+            String model,
+            long latencyMs,
+            String providerRequestId,
+            String message,
+            Map<String, Object> details
+    ) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("configKey", AiOpsConfigStorageService.CONFIG_KEY);
+        payload.put("provider", provider);
+        payload.put("model", model);
+        payload.put("latencyMs", latencyMs);
+        payload.put("providerRequestId", providerRequestId);
+        payload.put("message", message);
+        payload.putAll(details);
+        return payload;
+    }
+
+    private void recordProbeFailure(String actionType, Map<String, Object> basePayload, RuntimeException exception) {
+        Map<String, Object> payload = new LinkedHashMap<>(basePayload);
+        payload.put("message", exception.getMessage());
+        auditLogService.record(
+                actionType,
+                "admin_ai_config",
+                AiOpsConfigStorageService.CONFIG_KEY,
+                payload,
+                exception instanceof BusinessException businessException
+                        ? businessException.getResultCode().code()
+                        : ResultCode.INTERNAL_ERROR.code()
+        );
+    }
+
+    private Map<String, Object> probeDetails(Object... keyValues) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        for (int index = 0; index + 1 < keyValues.length; index += 2) {
+            details.put(String.valueOf(keyValues[index]), keyValues[index + 1]);
+        }
+        return details;
     }
 }

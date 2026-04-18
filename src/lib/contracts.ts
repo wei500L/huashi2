@@ -1916,6 +1916,10 @@ export interface AdminAiConfigSaveRequest {
   secrets: AdminAiSecretUpdateGroup;
 }
 
+export interface AdminAiRuntimeSyncRequest {
+  expectedVersion: number | null;
+}
+
 export interface AdminOutboxRecordVO {
   id: number;
   eventId: string;
@@ -1949,6 +1953,34 @@ export interface AiGatewayHealthResponse {
   activeProfiles: string[];
   timestamp: string;
   appServerError?: string | null;
+}
+
+export interface AdminAiEmbeddingProbeVO {
+  ok: boolean;
+  message: string;
+  provider?: string | null;
+  model?: string | null;
+  latencyMs: number;
+  providerRequestId?: string | null;
+  testedAt: string;
+  dimension?: number | null;
+  expectedDimension?: number | null;
+  itemCount?: number | null;
+}
+
+export interface AdminAiRerankProbeVO {
+  ok: boolean;
+  message: string;
+  provider?: string | null;
+  model?: string | null;
+  latencyMs: number;
+  providerRequestId?: string | null;
+  testedAt: string;
+  documentsCount?: number | null;
+  returnedCount?: number | null;
+  ordered: boolean;
+  topDocumentIndex?: number | null;
+  topScore?: number | null;
 }
 
 export interface RagReindexRequest {

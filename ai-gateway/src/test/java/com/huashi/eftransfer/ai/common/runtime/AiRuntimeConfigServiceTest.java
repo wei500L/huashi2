@@ -18,6 +18,8 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import com.sun.net.httpserver.HttpServer;
@@ -42,6 +44,7 @@ class AiRuntimeConfigServiceTest {
     private static HttpServer server;
     private static String baseUrl;
     private static final AtomicReference<String> lastInternalToken = new AtomicReference<>();
+    private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
@@ -185,6 +188,33 @@ class AiRuntimeConfigServiceTest {
                 .contains("provider.providers.Primary OpenAI");
     }
 
+    @Test
+    void shouldStageAndCommitRuntimeBundle() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        AiOpsConfigPayload payload = payload(baseUrl, "test-internal-token");
+
+        var staged = service.stage(payload, "DATABASE", 7L);
+        var committed = service.commit(staged.stageId());
+
+        assertThat(staged.version()).isEqualTo(7L);
+        assertThat(committed.version()).isEqualTo(7L);
+        assertThat(service.current().version()).isEqualTo(7L);
+        assertThat(service.current().source()).isEqualTo("DATABASE");
+    }
+
+    @Test
+    void shouldReturnCommittedResponseWhenStageIsCommittedTwice() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        AiOpsConfigPayload payload = payload(baseUrl, "test-internal-token");
+
+        var staged = service.stage(payload, "DATABASE", 11L);
+        var firstCommit = service.commit(staged.stageId());
+        var secondCommit = service.commit(staged.stageId());
+
+        assertThat(secondCommit.version()).isEqualTo(firstCommit.version());
+        assertThat(secondCommit.source()).isEqualTo(firstCommit.source());
+    }
+
     private AiRuntimeConfigService runtimeConfigService(String appServerBaseUrl, String internalToken) {
         return runtimeConfigService(appServerBaseUrl, internalToken, "qwen", "deepseek");
     }
@@ -226,7 +256,8 @@ class AiRuntimeConfigServiceTest {
                 providerProperties,
                 resilienceProperties,
                 ragProperties,
-                bundleFactory
+                bundleFactory,
+                VALIDATOR
         );
         ReflectionTestUtils.invokeMethod(service, "initialize");
         return service;

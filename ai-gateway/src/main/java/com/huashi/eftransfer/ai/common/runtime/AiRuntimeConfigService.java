@@ -3,60 +3,74 @@ package com.huashi.eftransfer.ai.common.runtime;
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigSemanticValidator;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
-import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import jakarta.annotation.PostConstruct;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 
-import java.net.URI;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Pattern;
 
 @Service
 public class AiRuntimeConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(AiRuntimeConfigService.class);
-    private static final Pattern PROVIDER_KEY_PATTERN = Pattern.compile("^[a-z0-9_-]+$");
     private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigEffectiveResponse>> EFFECTIVE_TYPE =
             new ParameterizedTypeReference<>() {
             };
+    private static final Duration STAGED_BUNDLE_TTL = Duration.ofMinutes(10);
+    private static final int MAX_STAGED_BUNDLES = 16;
 
     private final AiProviderProperties providerProperties;
     private final AiResilienceProperties resilienceProperties;
     private final RagProperties ragProperties;
     private final AiRuntimeBundleFactory bundleFactory;
+    private final Validator validator;
     private final AtomicReference<AiRuntimeBundle> currentBundle = new AtomicReference<>();
     private final AtomicLong versionCounter = new AtomicLong();
+    private final ConcurrentMap<String, StagedRuntimeBundle> stagedBundles = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, CommittedRuntimeStage> committedStages = new ConcurrentHashMap<>();
 
     public AiRuntimeConfigService(
             AiProviderProperties providerProperties,
             AiResilienceProperties resilienceProperties,
             RagProperties ragProperties,
-            AiRuntimeBundleFactory bundleFactory
+            AiRuntimeBundleFactory bundleFactory,
+            Validator validator
     ) {
         this.providerProperties = providerProperties;
         this.resilienceProperties = resilienceProperties;
         this.ragProperties = ragProperties;
         this.bundleFactory = bundleFactory;
+        this.validator = validator;
     }
 
     @PostConstruct
@@ -111,259 +125,187 @@ public class AiRuntimeConfigService {
     }
 
     public AiOpsConfigValidationResponse validate(AiOpsConfigPayload payload) {
-        List<AiOpsConfigIssue> issues = new ArrayList<>();
-        List<String> notices = validationNotices(payload);
-        if (payload == null) {
-            issues.add(new AiOpsConfigIssue("config", "config is required"));
-            return new AiOpsConfigValidationResponse(false, issues, notices);
-        }
-        if (payload.provider() == null) {
-            issues.add(new AiOpsConfigIssue("provider", "provider section is required"));
-        }
-        if (payload.resilience() == null) {
-            issues.add(new AiOpsConfigIssue("resilience", "resilience section is required"));
-        }
-        if (payload.rag() == null) {
-            issues.add(new AiOpsConfigIssue("rag", "rag section is required"));
-        }
-        if (!issues.isEmpty()) {
-            return new AiOpsConfigValidationResponse(false, issues, notices);
+        ValidationOutcome outcome = prepareBundle(payload, "VALIDATION", current().version());
+        return new AiOpsConfigValidationResponse(
+                outcome.issues().isEmpty(),
+                outcome.issues(),
+                outcome.notices()
+        );
+    }
+
+    public AiOpsConfigStageResponse stage(AiOpsConfigPayload payload, String source, Long version) {
+        pruneStagedEntries();
+        Long resolvedVersion = version == null ? versionCounter.incrementAndGet() : version;
+        String resolvedSource = StringUtils.hasText(source) ? source : "ADMIN_STAGE";
+        ValidationOutcome outcome = prepareBundle(payload, resolvedSource, resolvedVersion);
+        if (!outcome.issues().isEmpty() || outcome.bundle() == null) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, formatIssues(outcome.issues()), 400);
         }
 
-        validateProvider(payload, issues);
-        validateResilience(payload, issues);
-        validateRag(payload, issues);
+        String stageId = UUID.randomUUID().toString();
+        OffsetDateTime stagedAt = OffsetDateTime.now();
+        stagedBundles.put(stageId, new StagedRuntimeBundle(
+                stageId,
+                outcome.bundle(),
+                stagedAt,
+                stagedAt.plus(STAGED_BUNDLE_TTL)
+        ));
+        trimStagedEntries();
+        return new AiOpsConfigStageResponse(
+                stageId,
+                outcome.bundle().source(),
+                outcome.bundle().version(),
+                stagedAt,
+                outcome.notices()
+        );
+    }
 
-        if (issues.isEmpty()) {
-            try {
-                bundleFactory.build(payload, "VALIDATION", current().version());
-            } catch (RuntimeException ex) {
-                issues.add(new AiOpsConfigIssue("config", ex.getMessage()));
-            }
+    public AiOpsConfigApplyResponse commit(String stageId) {
+        pruneStagedEntries();
+        CommittedRuntimeStage committedStage = committedStages.get(stageId);
+        if (committedStage != null && !committedStage.isExpired()) {
+            return committedStage.response();
         }
-        return new AiOpsConfigValidationResponse(issues.isEmpty(), issues, notices);
+
+        StagedRuntimeBundle stagedBundle = stagedBundles.remove(stageId);
+        if (stagedBundle == null || stagedBundle.isExpired()) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "staged AI ops config was not found or expired", 404);
+        }
+
+        AiRuntimeBundle activatedBundle = activate(stagedBundle.bundle());
+        currentBundle.set(activatedBundle);
+        if (activatedBundle.version() != null) {
+            versionCounter.updateAndGet(previous -> Math.max(previous, activatedBundle.version()));
+        }
+        AiOpsConfigApplyResponse response = new AiOpsConfigApplyResponse(
+                activatedBundle.source(),
+                activatedBundle.version(),
+                activatedBundle.appliedAt(),
+                validationNotices(activatedBundle.config())
+        );
+        committedStages.put(stageId, new CommittedRuntimeStage(
+                response,
+                OffsetDateTime.now().plus(STAGED_BUNDLE_TTL)
+        ));
+        return response;
     }
 
     public AiOpsConfigEffectiveResponse apply(AiOpsConfigPayload payload, String source, Long version) {
-        AiOpsConfigValidationResponse validation = validate(payload);
-        if (!validation.valid()) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR, "AI ops config validation failed", 400);
-        }
-        AiRuntimeBundle bundle = bundleFactory.build(
+        AiOpsConfigStageResponse staged = stage(payload, source, version);
+        AiOpsConfigApplyResponse committed = commit(staged.stageId());
+        return new AiOpsConfigEffectiveResponse(
                 payload,
-                source,
-                version == null ? versionCounter.incrementAndGet() : version
+                committed.source(),
+                committed.version(),
+                committed.appliedAt(),
+                committed.notices()
         );
-        currentBundle.set(bundle);
-        if (version != null) {
-            versionCounter.updateAndGet(previous -> Math.max(previous, version));
-        }
-        return effective();
     }
 
-    private void validateProvider(AiOpsConfigPayload payload, List<AiOpsConfigIssue> issues) {
-        requireText("provider.activeProvider", payload.provider().activeProvider(), issues);
-        requireText("provider.fallbackProvider", payload.provider().fallbackProvider(), issues);
-        if (payload.provider().providers() == null || payload.provider().providers().isEmpty()) {
-            issues.add(new AiOpsConfigIssue("provider.providers", "at least one provider definition is required"));
-            return;
+    private ValidationOutcome prepareBundle(AiOpsConfigPayload payload, String source, Long version) {
+        List<AiOpsConfigIssue> issues = collectIssues(payload);
+        List<String> notices = validationNotices(payload);
+        if (!issues.isEmpty()) {
+            return new ValidationOutcome(issues, notices, null);
         }
-        validateProviderReference("provider.activeProvider", payload.provider().activeProvider(), payload.provider().providers(), issues);
-        validateProviderReference("provider.fallbackProvider", payload.provider().fallbackProvider(), payload.provider().providers(), issues);
-        if (StringUtils.hasText(payload.provider().activeProvider())
-                && payload.provider().activeProvider().equalsIgnoreCase(payload.provider().fallbackProvider())) {
-            issues.add(new AiOpsConfigIssue("provider.fallbackProvider", "fallbackProvider must be different from activeProvider"));
-        }
-        for (Map.Entry<String, AiOpsProviderDefinition> entry : payload.provider().providers().entrySet()) {
-            validateProviderKey(entry.getKey(), issues);
-            validateProviderDefinition(entry.getKey(), entry.getValue(), issues);
+        try {
+            return new ValidationOutcome(
+                    List.of(),
+                    notices,
+                    bundleFactory.build(payload, source, version)
+            );
+        } catch (RuntimeException ex) {
+            List<AiOpsConfigIssue> buildIssues = List.of(new AiOpsConfigIssue("config", ex.getMessage()));
+            return new ValidationOutcome(buildIssues, notices, null);
         }
     }
 
-    private void validateResilience(AiOpsConfigPayload payload, List<AiOpsConfigIssue> issues) {
-        validatePositive("resilience.maxAttempts", payload.resilience().maxAttempts(), issues);
-        validateDuration("resilience.waitDuration", payload.resilience().waitDuration(), issues);
-        if (payload.resilience().failureRateThreshold() == null
-                || payload.resilience().failureRateThreshold() <= 0
-                || payload.resilience().failureRateThreshold() > 100) {
-            issues.add(new AiOpsConfigIssue(
-                    "resilience.failureRateThreshold",
-                    "failureRateThreshold must be between 0 and 100"
-            ));
+    private List<AiOpsConfigIssue> collectIssues(AiOpsConfigPayload payload) {
+        List<AiOpsConfigIssue> issues = new ArrayList<>();
+        if (payload != null) {
+            for (ConstraintViolation<AiOpsConfigPayload> violation : validator.validate(payload)) {
+                issues.add(new AiOpsConfigIssue(
+                        violation.getPropertyPath().toString(),
+                        violation.getMessage()
+                ));
+            }
         }
-        validatePositive("resilience.slidingWindowSize", payload.resilience().slidingWindowSize(), issues);
-        validateDuration("resilience.openStateDuration", payload.resilience().openStateDuration(), issues);
-    }
+        issues.addAll(AiOpsConfigSemanticValidator.validate(payload));
 
-    private void validateRag(AiOpsConfigPayload payload, List<AiOpsConfigIssue> issues) {
-        if (payload.rag().appServer() == null) {
-            issues.add(new AiOpsConfigIssue("rag.appServer", "appServer section is required"));
-            return;
-        }
-        if (payload.rag().ingestion() == null) {
-            issues.add(new AiOpsConfigIssue("rag.ingestion", "ingestion section is required"));
-            return;
-        }
-        if (payload.rag().retrieval() == null) {
-            issues.add(new AiOpsConfigIssue("rag.retrieval", "retrieval section is required"));
-            return;
-        }
-        validateUrl("rag.appServer.baseUrl", payload.rag().appServer().baseUrl(), issues);
-        requireText("rag.appServer.internalToken", payload.rag().appServer().internalToken(), issues);
-        validateDuration("rag.appServer.connectTimeout", payload.rag().appServer().connectTimeout(), issues);
-        validateDuration("rag.appServer.readTimeout", payload.rag().appServer().readTimeout(), issues);
-        validatePositive("rag.ingestion.exportPageSize", payload.rag().ingestion().exportPageSize(), issues);
-        validatePositive("rag.ingestion.embeddingBatchSize", payload.rag().ingestion().embeddingBatchSize(), issues);
-        validatePositive("rag.retrieval.recallTopK", payload.rag().retrieval().recallTopK(), issues);
-        validateProbability("rag.retrieval.recallThreshold", payload.rag().retrieval().recallThreshold(), issues);
-        validatePositive("rag.retrieval.rerankTopN", payload.rag().retrieval().rerankTopN(), issues);
-        validateProbability("rag.retrieval.rerankThreshold", payload.rag().retrieval().rerankThreshold(), issues);
-        validatePositive("rag.retrieval.finalTopK", payload.rag().retrieval().finalTopK(), issues);
-        if (payload.rag().retrieval().rerankTopN() != null
-                && payload.rag().retrieval().recallTopK() != null
-                && payload.rag().retrieval().rerankTopN() > payload.rag().retrieval().recallTopK()) {
-            issues.add(new AiOpsConfigIssue(
-                    "rag.retrieval.rerankTopN",
-                    "rerankTopN must be less than or equal to recallTopK"
-            ));
-        }
-        if (payload.rag().retrieval().finalTopK() != null
-                && payload.rag().retrieval().rerankTopN() != null
-                && payload.rag().retrieval().finalTopK() > payload.rag().retrieval().rerankTopN()) {
-            issues.add(new AiOpsConfigIssue(
-                    "rag.retrieval.finalTopK",
-                    "finalTopK must be less than or equal to rerankTopN"
-            ));
-        }
+        Map<String, AiOpsConfigIssue> deduped = new LinkedHashMap<>();
+        issues.stream()
+                .sorted(Comparator.comparing(AiOpsConfigIssue::field).thenComparing(AiOpsConfigIssue::message))
+                .forEach(issue -> deduped.putIfAbsent(issue.field() + "\u0000" + issue.message(), issue));
+        return List.copyOf(deduped.values());
     }
 
     private List<String> validationNotices(AiOpsConfigPayload payload) {
         return List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.");
     }
 
-    private void requireText(String field, String value, List<AiOpsConfigIssue> issues) {
-        if (!StringUtils.hasText(value)) {
-            issues.add(new AiOpsConfigIssue(field, "value is required"));
+    private String formatIssues(List<AiOpsConfigIssue> issues) {
+        if (issues == null || issues.isEmpty()) {
+            return "AI ops config validation failed";
         }
+        return issues.stream()
+                .map(issue -> issue.field() + ": " + issue.message())
+                .reduce((left, right) -> left + "; " + right)
+                .orElse("AI ops config validation failed");
     }
 
-    private void validateUrl(String field, String value, List<AiOpsConfigIssue> issues) {
-        requireText(field, value, issues);
-        if (!StringUtils.hasText(value)) {
+    private AiRuntimeBundle activate(AiRuntimeBundle stagedBundle) {
+        return new AiRuntimeBundle(
+                stagedBundle.config(),
+                stagedBundle.providerRuntimes(),
+                stagedBundle.appServerRestClient(),
+                stagedBundle.source(),
+                stagedBundle.version(),
+                OffsetDateTime.now()
+        );
+    }
+
+    private void pruneStagedEntries() {
+        OffsetDateTime now = OffsetDateTime.now();
+        stagedBundles.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+        committedStages.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+    }
+
+    private void trimStagedEntries() {
+        if (stagedBundles.size() <= MAX_STAGED_BUNDLES) {
             return;
         }
-        try {
-            URI uri = URI.create(value);
-            if (!StringUtils.hasText(uri.getScheme()) || !StringUtils.hasText(uri.getHost())) {
-                issues.add(new AiOpsConfigIssue(field, "must be an absolute URL"));
-            }
-        } catch (Exception ex) {
-            issues.add(new AiOpsConfigIssue(field, "must be a valid URL"));
-        }
+        stagedBundles.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.comparing(StagedRuntimeBundle::stagedAt)))
+                .limit(Math.max(0, stagedBundles.size() - MAX_STAGED_BUNDLES))
+                .map(Map.Entry::getKey)
+                .toList()
+                .forEach(stagedBundles::remove);
     }
 
-    private void validateDuration(String field, String value, List<AiOpsConfigIssue> issues) {
-        requireText(field, value, issues);
-        if (!StringUtils.hasText(value)) {
-            return;
-        }
-        try {
-            Duration duration = FlexibleDurationParser.parse(value);
-            if (duration.isNegative() || duration.isZero()) {
-                issues.add(new AiOpsConfigIssue(field, "must be a positive duration"));
-            }
-        } catch (Exception ex) {
-            issues.add(new AiOpsConfigIssue(field, "must be a valid duration"));
-        }
-    }
-
-    private void validatePositive(String field, Integer value, List<AiOpsConfigIssue> issues) {
-        if (value == null || value <= 0) {
-            issues.add(new AiOpsConfigIssue(field, "must be greater than 0"));
-        }
-    }
-
-    private void validateProbability(String field, Double value, List<AiOpsConfigIssue> issues) {
-        if (value == null || value < 0.0d || value > 1.0d) {
-            issues.add(new AiOpsConfigIssue(field, "must be between 0 and 1"));
-        }
-    }
-
-    private void validateRange(String field, Double value, double min, double max, List<AiOpsConfigIssue> issues) {
-        if (value == null || value < min || value > max) {
-            issues.add(new AiOpsConfigIssue(field, "must be between " + min + " and " + max));
-        }
-    }
-
-    private void validateProviderReference(
-            String field,
-            String providerName,
-            Map<String, AiOpsProviderDefinition> providers,
-            List<AiOpsConfigIssue> issues
+    private record ValidationOutcome(
+            List<AiOpsConfigIssue> issues,
+            List<String> notices,
+            AiRuntimeBundle bundle
     ) {
-        if (!StringUtils.hasText(providerName)) {
-            return;
-        }
-        if (!providers.containsKey(providerName)) {
-            issues.add(new AiOpsConfigIssue(field, "must reference a configured provider"));
-        }
     }
 
-    private void validateProviderKey(String providerName, List<AiOpsConfigIssue> issues) {
-        if (!StringUtils.hasText(providerName)) {
-            issues.add(new AiOpsConfigIssue("provider.providers", "provider key must not be blank"));
-            return;
-        }
-        if (!PROVIDER_KEY_PATTERN.matcher(providerName).matches()) {
-            issues.add(new AiOpsConfigIssue(
-                    "provider.providers." + providerName,
-                    "provider key must contain only lowercase letters, numbers, hyphen, or underscore"
-            ));
-        }
-    }
-
-    private void validateProviderDefinition(
-            String providerName,
-            AiOpsProviderDefinition definition,
-            List<AiOpsConfigIssue> issues
+    private record StagedRuntimeBundle(
+            String stageId,
+            AiRuntimeBundle bundle,
+            OffsetDateTime stagedAt,
+            OffsetDateTime expiresAt
     ) {
-        String prefix = "provider.providers." + providerName;
-        if (definition == null) {
-            issues.add(new AiOpsConfigIssue(prefix, "provider definition is required"));
-            return;
+        private boolean isExpired() {
+            return expiresAt.isBefore(OffsetDateTime.now());
         }
-        if (definition.chat() == null) {
-            issues.add(new AiOpsConfigIssue(prefix + ".chat", "chat section is required"));
-        } else {
-            validateUrl(prefix + ".chat.baseUrl", definition.chat().baseUrl(), issues);
-            requireText(prefix + ".chat.apiKey", definition.chat().apiKey(), issues);
-            requireText(prefix + ".chat.model", definition.chat().model(), issues);
-            validateDuration(prefix + ".chat.timeout", definition.chat().timeout(), issues);
-            validateRange(prefix + ".chat.temperature", definition.chat().temperature(), 0.0d, 2.0d, issues);
-            validatePositive(prefix + ".chat.maxTokens", definition.chat().maxTokens(), issues);
-        }
-        if (definition.embedding() == null) {
-            issues.add(new AiOpsConfigIssue(prefix + ".embedding", "embedding section is required"));
-        } else {
-            validateUrl(prefix + ".embedding.baseUrl", definition.embedding().baseUrl(), issues);
-            requireText(prefix + ".embedding.apiKey", definition.embedding().apiKey(), issues);
-            requireText(prefix + ".embedding.model", definition.embedding().model(), issues);
-            validateDuration(prefix + ".embedding.timeout", definition.embedding().timeout(), issues);
-            validatePositive(prefix + ".embedding.dimension", definition.embedding().dimension(), issues);
-            if (definition.embedding().dimension() != null && definition.embedding().dimension() != 1024) {
-                issues.add(new AiOpsConfigIssue(
-                        prefix + ".embedding.dimension",
-                        "Current pgvector schema is fixed at 1024 dimensions"
-                ));
-            }
-        }
-        if (definition.rerank() == null) {
-            issues.add(new AiOpsConfigIssue(prefix + ".rerank", "rerank section is required"));
-        } else {
-            validateUrl(prefix + ".rerank.baseUrl", definition.rerank().baseUrl(), issues);
-            requireText(prefix + ".rerank.apiKey", definition.rerank().apiKey(), issues);
-            requireText(prefix + ".rerank.model", definition.rerank().model(), issues);
-            validateDuration(prefix + ".rerank.timeout", definition.rerank().timeout(), issues);
+    }
+
+    private record CommittedRuntimeStage(
+            AiOpsConfigApplyResponse response,
+            OffsetDateTime expiresAt
+    ) {
+        private boolean isExpired() {
+            return expiresAt.isBefore(OffsetDateTime.now());
         }
     }
 }

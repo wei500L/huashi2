@@ -1,9 +1,14 @@
 package com.huashi.eftransfer.shared.ai.config;
 
+import jakarta.validation.constraints.NotBlank;
+
 public record AiOpsRerankConfig(
+        @NotBlank(message = "baseUrl is required")
         String baseUrl,
         String apiKey,
+        @NotBlank(message = "model is required")
         String model,
+        @NotBlank(message = "timeout is required")
         String timeout
 ) {
 }

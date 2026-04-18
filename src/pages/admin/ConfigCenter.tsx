@@ -7,7 +7,10 @@ import { formatDateTime } from '@/lib/format';
 import { adminService } from '@/lib/services';
 import type {
   AdminAiConfigSaveRequest,
+  AdminAiRuntimeSyncRequest,
   AdminAiConfigViewVO,
+  AdminAiEmbeddingProbeVO,
+  AdminAiRerankProbeVO,
   AdminAiSecretFieldVO,
   AdminOutboxRecordVO,
   AiGatewayHealthResponse,
@@ -665,6 +668,43 @@ const HealthBadge: React.FC<{ healthy: boolean; label: string }> = ({ healthy, l
   </div>
 );
 
+const ProbeResultCard: React.FC<{
+  title: string;
+  result: AdminAiEmbeddingProbeVO | AdminAiRerankProbeVO | null;
+  emptyHint: string;
+  rows: ProbeMetaRow[];
+}> = ({ title, result, emptyHint, rows }) => (
+  <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] p-4 space-y-3">
+    <div className="flex items-center justify-between gap-3">
+      <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
+      {result && (
+        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${result.ok ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' : 'border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
+          {result.ok ? 'SUCCESS' : 'FAILED'}
+        </span>
+      )}
+    </div>
+    {result ? (
+      <>
+        <div className={`rounded-2xl border px-3 py-3 text-sm ${result.ok ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300' : 'border-rose-500/20 bg-rose-500/5 text-rose-600 dark:text-rose-300'}`}>
+          {translateConfigMessage(result.message)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-600 dark:text-white/60">
+          {rows.map((row) => (
+            <div key={`${title}-${row.label}`} className="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-slate-950/25 px-3 py-3">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">{row.label}</div>
+              <div className="mt-2 break-all">{row.value}</div>
+            </div>
+          ))}
+        </div>
+      </>
+    ) : (
+      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 px-4 py-4 text-sm text-slate-500 dark:text-white/45">
+        {emptyHint}
+      </div>
+    )}
+  </div>
+);
+
 function humanizeFieldName(field: string): string {
   return field
     .replace(/^config\./, '')
@@ -708,8 +748,23 @@ function translateConfigMessage(message: string): string {
   if (trimmed.includes('runtime is unavailable')) {
     return 'ai-gateway 运行态当前不可达，页面正在展示数据库权威快照。';
   }
+  if (trimmed.includes('Local schema validation passed; runtime build confirmation is pending')) {
+    return '本地结构校验已通过，但 ai-gateway 当前不可达，运行时构建确认将延后执行。';
+  }
+  if (trimmed.includes('Stored database config was saved locally, but ai-gateway runtime sync is pending')) {
+    return '配置已写入数据库，但 ai-gateway 运行态同步待完成。';
+  }
+  if (trimmed.includes('Stored database config is authoritative but ai-gateway runtime sync is still pending')) {
+    return '数据库快照已成为权威版本，但 ai-gateway 运行态仍待同步。';
+  }
+  if (trimmed.includes('No stored AI ops config exists yet')) {
+    return '当前还没有数据库快照，页面展示的是未初始化草稿。';
+  }
   if (trimmed.includes('not in sync')) {
     return '数据库配置与 ai-gateway 当前运行态版本不一致。';
+  }
+  if (trimmed.includes('Current pgvector schema is fixed at 1024 dimensions')) {
+    return '当前 pgvector schema 固定为 1024 维，如需切换必须先完成数据库迁移。';
   }
   return trimmed;
 }
@@ -845,6 +900,11 @@ type ConfigDiffEntry = {
 type SecretChangeSummary = {
   field: string;
   action: string;
+};
+
+type ProbeMetaRow = {
+  label: string;
+  value: string;
 };
 
 type ConfigPreset = {
@@ -1168,6 +1228,8 @@ const AdminConfigCenterPage: React.FC = () => {
   const [renamingProviderName, setRenamingProviderName] = React.useState<string | null>(null);
   const [renameProviderDraft, setRenameProviderDraft] = React.useState('');
   const [healthState, setHealthState] = React.useState<AiGatewayHealthResponse | null>(null);
+  const [embeddingProbeResult, setEmbeddingProbeResult] = React.useState<AdminAiEmbeddingProbeVO | null>(null);
+  const [rerankProbeResult, setRerankProbeResult] = React.useState<AdminAiRerankProbeVO | null>(null);
   const [reindexForm, setReindexForm] = React.useState<RagReindexRequest>({
     mode: 'INCREMENTAL',
     sourceTypes: defaultLexicalSourceTypes,
@@ -1191,7 +1253,14 @@ const AdminConfigCenterPage: React.FC = () => {
     setNewProviderName('');
     setRenamingProviderName(null);
     setRenameProviderDraft('');
+    setEmbeddingProbeResult(null);
+    setRerankProbeResult(null);
   }, [configQuery.data]);
+
+  const clearProbeResults = React.useCallback(() => {
+    setEmbeddingProbeResult(null);
+    setRerankProbeResult(null);
+  }, []);
 
   const validateMutation = useMutation({
     mutationFn: (payload: AdminAiConfigSaveRequest) => adminService.validateAiConfig(payload),
@@ -1216,13 +1285,20 @@ const AdminConfigCenterPage: React.FC = () => {
       setSaveReviewOpen(false);
       setValidation(null);
       setHealthState(null);
-      setFeedback({ tone: 'success', message: '配置已保存并下发到 ai-gateway 运行态，请再刷新运行态健康确认链路。' });
+      clearProbeResults();
       setConfig(cloneConfig(normalizedResponse.config));
       setSecrets(buildSecretEditors(normalizedResponse));
       setProviderOrigins({});
       setNewProviderName('');
       setRenamingProviderName(null);
       setRenameProviderDraft('');
+      setFeedback({
+        tone: 'success',
+        message:
+          normalizedResponse.runtime.available && normalizedResponse.runtime.inSync
+            ? '配置已保存，数据库与 ai-gateway 运行态已同步到同一版本。'
+            : '配置已保存到数据库，但 ai-gateway 运行态仍待同步，请在运维操作页执行同步或待网关恢复后重试。',
+      });
     },
     onError: (error: Error, payload) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -1238,6 +1314,27 @@ const AdminConfigCenterPage: React.FC = () => {
     },
   });
 
+  const syncRuntimeMutation = useMutation({
+    mutationFn: (payload: AdminAiRuntimeSyncRequest) => adminService.syncAiRuntime(payload),
+    onSuccess: (response) => {
+      const normalizedResponse = normalizeAdminAiConfigView(response);
+      queryClient.setQueryData<AdminAiConfigViewVO>(['admin-ai-config'], normalizedResponse);
+      setConfig(cloneConfig(normalizedResponse.config));
+      setSecrets(buildSecretEditors(normalizedResponse));
+      setProviderOrigins({});
+      setFeedback({
+        tone: normalizedResponse.runtime.available && normalizedResponse.runtime.inSync ? 'success' : 'error',
+        message:
+          normalizedResponse.runtime.available && normalizedResponse.runtime.inSync
+            ? '数据库权威快照已重新同步到 ai-gateway 运行态。'
+            : '已触发运行态同步，但 ai-gateway 仍未确认与数据库版本一致。',
+      });
+    },
+    onError: (error: Error) => {
+      setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
+    },
+  });
+
   const healthMutation = useMutation({
     mutationFn: () => adminService.getAiHealth(),
     onSuccess: (response) => {
@@ -1245,6 +1342,36 @@ const AdminConfigCenterPage: React.FC = () => {
       setFeedback({ tone: 'success', message: 'ai-gateway 运行态健康信息已刷新。' });
     },
     onError: (error: Error) => {
+      setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
+    },
+  });
+
+  const embeddingProbeMutation = useMutation({
+    mutationFn: (payload: AdminAiConfigSaveRequest) => adminService.probeAiEmbedding(payload),
+    onSuccess: (response) => {
+      setEmbeddingProbeResult(response);
+      setFeedback({
+        tone: response.ok ? 'success' : 'error',
+        message: response.ok ? 'Embedding 测试连接成功。' : `Embedding 测试失败：${translateConfigMessage(response.message)}`,
+      });
+    },
+    onError: (error: Error) => {
+      setEmbeddingProbeResult(null);
+      setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
+    },
+  });
+
+  const rerankProbeMutation = useMutation({
+    mutationFn: (payload: AdminAiConfigSaveRequest) => adminService.probeAiRerank(payload),
+    onSuccess: (response) => {
+      setRerankProbeResult(response);
+      setFeedback({
+        tone: response.ok ? 'success' : 'error',
+        message: response.ok ? 'Rerank 测试连接成功。' : `Rerank 测试失败：${translateConfigMessage(response.message)}`,
+      });
+    },
+    onError: (error: Error) => {
+      setRerankProbeResult(null);
       setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
     },
   });
@@ -1316,8 +1443,9 @@ const AdminConfigCenterPage: React.FC = () => {
   }, [reindexJobQuery.data]);
 
   const updateConfig = React.useCallback((updater: (current: AiOpsConfigPayload) => AiOpsConfigPayload) => {
+    clearProbeResults();
     setConfig((current) => (current ? updater(current) : current));
-  }, []);
+  }, [clearProbeResults]);
 
   const updateProviderDefinition = React.useCallback((
     providerName: string,
@@ -1342,6 +1470,7 @@ const AdminConfigCenterPage: React.FC = () => {
   }, [updateConfig]);
 
   const updateProviderSecret = React.useCallback((providerName: string, key: ProviderSecretKey, patch: Partial<SecretEditorState>) => {
+    clearProbeResults();
     setSecrets((current) => {
       if (!current) {
         return current;
@@ -1361,7 +1490,7 @@ const AdminConfigCenterPage: React.FC = () => {
         },
       };
     });
-  }, []);
+  }, [clearProbeResults]);
 
   const addProvider = React.useCallback(() => {
     if (!config || !secrets) {
@@ -1500,6 +1629,7 @@ const AdminConfigCenterPage: React.FC = () => {
   }, [config, renamingProviderName, secrets, updateConfig]);
 
   const updateAppServerSecret = React.useCallback((patch: Partial<SecretEditorState>) => {
+    clearProbeResults();
     setSecrets((current) =>
       current
         ? {
@@ -1511,7 +1641,7 @@ const AdminConfigCenterPage: React.FC = () => {
           }
         : current
     );
-  }, []);
+  }, [clearProbeResults]);
 
   const toggleReindexSourceType = React.useCallback((sourceType: string, checked: boolean) => {
     setReindexForm((current) => {
@@ -1532,6 +1662,7 @@ const AdminConfigCenterPage: React.FC = () => {
     if (!configQuery.data) {
       return;
     }
+    clearProbeResults();
     setConfig(cloneConfig(configQuery.data.config));
     setSecrets(buildSecretEditors(configQuery.data));
     setProviderOrigins({});
@@ -1540,7 +1671,7 @@ const AdminConfigCenterPage: React.FC = () => {
     setNewProviderName('');
     setRenamingProviderName(null);
     setRenameProviderDraft('');
-  }, [configQuery.data]);
+  }, [clearProbeResults, configQuery.data]);
 
   const submitValidation = () => {
     if (!config || !secrets) {
@@ -1584,6 +1715,34 @@ const AdminConfigCenterPage: React.FC = () => {
     saveMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data), providerOrigins));
   };
 
+  const triggerEmbeddingProbe = () => {
+    if (!config || !secrets || !configQuery.data) {
+      return;
+    }
+    const localIssues = collectLocalProviderKeyIssues(config);
+    if (localIssues.length > 0) {
+      setValidation({ valid: false, issues: localIssues, notices: [] });
+      setFeedback({ tone: 'error', message: '测试前请先修正 provider key。' });
+      return;
+    }
+    setFeedback(null);
+    embeddingProbeMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data), providerOrigins));
+  };
+
+  const triggerRerankProbe = () => {
+    if (!config || !secrets || !configQuery.data) {
+      return;
+    }
+    const localIssues = collectLocalProviderKeyIssues(config);
+    if (localIssues.length > 0) {
+      setValidation({ valid: false, issues: localIssues, notices: [] });
+      setFeedback({ tone: 'error', message: '测试前请先修正 provider key。' });
+      return;
+    }
+    setFeedback(null);
+    rerankProbeMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data), providerOrigins));
+  };
+
   const currentIssues = validation?.issues ?? [];
   const validationNotices = validation?.notices ?? [];
 
@@ -1617,22 +1776,52 @@ const AdminConfigCenterPage: React.FC = () => {
   const activeProviderDefinition = activeProviderName ? config.provider.providers?.[activeProviderName] : undefined;
   const runtimeUnavailable = !view.runtime.available;
   const runtimeOutOfSync = view.runtime.available && view.stored.present && !view.runtime.inSync;
-  const displayedSnapshot = view.stored.present ? 'app-server 数据库权威快照' : view.runtime.available ? 'ai-gateway 启动初始化快照' : '未获取到有效配置';
-  const storedSyncLabel = !view.stored.present ? 'NO_DB_SNAPSHOT' : !view.runtime.available ? 'RUNTIME_UNKNOWN' : view.runtime.inSync ? 'IN_SYNC' : 'OUT_OF_SYNC';
+  const displayedSnapshot = view.stored.present ? 'app-server 数据库权威快照' : view.runtime.available ? 'ai-gateway 启动初始化快照' : '未初始化草稿';
+  const storedSyncLabel = !view.stored.present && !view.runtime.available
+    ? 'DRAFT_ONLY'
+    : !view.stored.present
+      ? 'NO_DB_SNAPSHOT'
+      : !view.runtime.available
+        ? 'RUNTIME_UNKNOWN'
+        : view.runtime.inSync
+          ? 'IN_SYNC'
+          : 'OUT_OF_SYNC';
   const activeTabDescription = tabDescriptions[activeTab];
   const busyMessage = saveMutation.isPending
-    ? '正在保存配置并热更新 ai-gateway 运行态，请勿重复提交。'
+    ? '正在保存配置，并尝试同步 ai-gateway 运行态，请勿重复提交。'
     : validateMutation.isPending
       ? '正在校验配置，校验结果会直接展示在当前页。'
+      : embeddingProbeMutation.isPending
+        ? '正在执行 Embedding 测试连接，这会消耗 1 次额度。'
+        : rerankProbeMutation.isPending
+          ? '正在执行 Rerank 测试连接，这会消耗 1 次额度。'
+      : syncRuntimeMutation.isPending
+        ? '正在将数据库权威快照重新同步到 ai-gateway 运行态。'
       : healthMutation.isPending
         ? '正在刷新 ai-gateway 运行态健康信息。'
       : pollJob && reindexJobQuery.data
         ? `RAG reindex #${reindexJobQuery.data.jobId} 正在执行，页面每 2 秒自动刷新一次状态。`
-        : pollJob && jobId !== null
+      : pollJob && jobId !== null
           ? `RAG reindex #${jobId} 正在执行，页面每 2 秒自动刷新一次状态。`
           : outboxQuery.isFetching && activeTab === 'operations'
             ? '正在刷新 producer outbox 状态。'
             : null;
+  const embeddingProbeRows: ProbeMetaRow[] = embeddingProbeResult ? [
+    { label: 'Provider', value: embeddingProbeResult.provider || '--' },
+    { label: 'Model', value: embeddingProbeResult.model || '--' },
+    { label: 'Latency', value: `${embeddingProbeResult.latencyMs} ms` },
+    { label: 'Dimension', value: `${embeddingProbeResult.dimension ?? '--'} / ${embeddingProbeResult.expectedDimension ?? '--'}` },
+    { label: 'Items', value: String(embeddingProbeResult.itemCount ?? '--') },
+    { label: 'Tested At', value: formatDateTime(embeddingProbeResult.testedAt) },
+  ] : [];
+  const rerankProbeRows: ProbeMetaRow[] = rerankProbeResult ? [
+    { label: 'Provider', value: rerankProbeResult.provider || '--' },
+    { label: 'Model', value: rerankProbeResult.model || '--' },
+    { label: 'Latency', value: `${rerankProbeResult.latencyMs} ms` },
+    { label: 'Returned', value: `${rerankProbeResult.returnedCount ?? '--'} / ${rerankProbeResult.documentsCount ?? '--'}` },
+    { label: 'Top Result', value: rerankProbeResult.topDocumentIndex == null ? '--' : `doc #${rerankProbeResult.topDocumentIndex}` },
+    { label: 'Tested At', value: formatDateTime(rerankProbeResult.testedAt) },
+  ] : [];
   const reindexStatusMeta = buildReindexStatusMeta(reindexJobQuery.data);
   const reindexStats = formatStats(reindexJobQuery.data?.stats);
   const outboxRecords = outboxQuery.data || [];
@@ -1836,6 +2025,7 @@ const AdminConfigCenterPage: React.FC = () => {
                     type="button"
                     disabled={disabled}
                     onClick={() => {
+                      clearProbeResults();
                       setConfig((current) => (current ? preset.apply(current, providerNames) : current));
                       setValidation(null);
                       setFeedback({
@@ -2148,11 +2338,8 @@ const AdminConfigCenterPage: React.FC = () => {
                     <TextInput
                       type="number"
                       value={definition.embedding.dimension}
-                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
-                        ...current,
-                        embedding: { ...current.embedding, dimension: parseNullableInteger(value) },
-                      }))}
-                      disabled={!editing}
+                      onChange={() => undefined}
+                      disabled
                     />
                   </FieldCard>
                 </FieldGrid>
@@ -2461,7 +2648,7 @@ const AdminConfigCenterPage: React.FC = () => {
       {activeTab === 'operations' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
-            <SectionCard title="健康检查" description="按钮会刷新 ai-gateway 当前运行态健康信息，只做 readiness/probe，不会触发计费型模型调用。">
+            <SectionCard title="健康检查" description="刷新运行态健康只做 readiness/probe，不触发计费型模型调用。下面两个测试连接会对当前草稿发起真实请求，各消耗 1 次额度，且只测试 active provider。">
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
@@ -2480,13 +2667,65 @@ const AdminConfigCenterPage: React.FC = () => {
                   <RefreshCw size={16} />
                   刷新配置
                 </button>
+                <button
+                  type="button"
+                  onClick={() => syncRuntimeMutation.mutate({ expectedVersion: currentConfigVersion(view) })}
+                  disabled={!view.stored.present || syncRuntimeMutation.isPending || saveMutation.isPending}
+                  className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-3 text-sm font-bold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-2 disabled:opacity-60"
+                >
+                  <RefreshCw size={16} />
+                  {syncRuntimeMutation.isPending ? '同步中...' : '同步数据库快照到运行态'}
+                </button>
+                <button
+                  type="button"
+                  onClick={triggerEmbeddingProbe}
+                  disabled={embeddingProbeMutation.isPending || rerankProbeMutation.isPending || saveMutation.isPending}
+                  className="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-5 py-3 text-sm font-bold text-sky-700 dark:text-sky-300 inline-flex items-center gap-2 disabled:opacity-60"
+                >
+                  <Play size={16} />
+                  {embeddingProbeMutation.isPending ? '测试中...' : '测试 Embedding'}
+                </button>
+                <button
+                  type="button"
+                  onClick={triggerRerankProbe}
+                  disabled={embeddingProbeMutation.isPending || rerankProbeMutation.isPending || saveMutation.isPending}
+                  className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-3 text-sm font-bold text-amber-700 dark:text-amber-300 inline-flex items-center gap-2 disabled:opacity-60"
+                >
+                  <Play size={16} />
+                  {rerankProbeMutation.isPending ? '测试中...' : '测试 Rerank'}
+                </button>
               </div>
+
+              <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/[0.06] p-4 text-sm text-amber-700 dark:text-amber-300">
+                测试连接会基于当前草稿直接调用 active provider，不经过 failover；如果你刚改了 baseUrl、model 或密钥，旧测试结果会在下一次编辑时自动清空。
+              </div>
+
+              {!view.stored.present && (
+                <div className="rounded-[1.6rem] border border-sky-500/20 bg-sky-500/5 p-4 text-sm text-sky-700 dark:text-sky-300">
+                  当前还没有数据库权威快照。请先完成一次保存，再执行运行态同步。
+                </div>
+              )}
 
               {healthMutation.error && (
                 <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
                   {healthMutation.error.message}
                 </div>
               )}
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <ProbeResultCard
+                  title="Embedding 测试结果"
+                  result={embeddingProbeResult}
+                  emptyHint="尚未执行 Embedding 测试。"
+                  rows={embeddingProbeRows}
+                />
+                <ProbeResultCard
+                  title="Rerank 测试结果"
+                  result={rerankProbeResult}
+                  emptyHint="尚未执行 Rerank 测试。"
+                  rows={rerankProbeRows}
+                />
+              </div>
 
               {healthState && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

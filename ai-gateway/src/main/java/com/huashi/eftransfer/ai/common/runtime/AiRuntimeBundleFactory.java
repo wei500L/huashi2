@@ -15,6 +15,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsFlexibleDurationParser;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -313,7 +314,7 @@ public class AiRuntimeBundleFactory {
     }
 
     private Duration parseDuration(String value) {
-        Duration duration = FlexibleDurationParser.parse(value);
+        Duration duration = AiOpsFlexibleDurationParser.parse(value);
         if (duration.isNegative() || duration.isZero()) {
             throw new IllegalArgumentException("duration must be positive");
         }

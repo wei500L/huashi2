@@ -41,13 +41,16 @@ public class QwenRerankClient implements RerankClient {
 
     @Override
     public RerankResponse rerank(String providerName, RerankRequest request) {
+        return rerank(providerRuntime(providerName), providerName, request);
+    }
+
+    public RerankResponse rerank(AiProviderRuntime runtime, String providerName, RerankRequest request) {
         String provider = providerName;
-        String model = resolveModel(providerName, request.model());
+        String model = resolveModel(runtime, request.model());
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
         try {
-            AiProviderRuntime runtime = providerRuntime(providerName);
             JsonNode response = resilientAiExecutor.execute(runtime, "rerank", () -> runtime.rerankRestClient().post()
                     .uri("")
                     .body(buildPayload(request, model))
@@ -153,8 +156,8 @@ public class QwenRerankClient implements RerankClient {
         return null;
     }
 
-    private String resolveModel(String providerName, String requestModel) {
-        return StringUtils.hasText(requestModel) ? requestModel : providerRuntime(providerName).definition().rerank().model();
+    private String resolveModel(AiProviderRuntime runtime, String requestModel) {
+        return StringUtils.hasText(requestModel) ? requestModel : runtime.definition().rerank().model();
     }
 
     private AiProviderRuntime providerRuntime(String providerName) {

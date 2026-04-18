@@ -171,6 +171,36 @@ describe('ConfigCenter contract guards', () => {
     expect(normalized.stored.version).toBe(9);
   });
 
+  it('accepts blank draft envelopes when runtime and stored snapshots are both absent', () => {
+    const envelope = createConfigViewEnvelope() as any;
+    envelope.config.provider.providers = {};
+    envelope.secrets.providers = {};
+    envelope.source = null;
+    envelope.version = null;
+    envelope.updatedAt = null;
+    envelope.notices = ['No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot.'];
+    envelope.runtime = {
+      available: false,
+      source: null,
+      version: null,
+      appliedAt: null,
+      inSync: false,
+    };
+    envelope.stored = {
+      present: false,
+      version: null,
+      updatedAt: null,
+    };
+
+    const normalized = normalizeAdminAiConfigView(envelope);
+
+    expect(normalized.config.provider.providers).toEqual({});
+    expect(normalized.config.resilience.openStateDuration).toBeNull();
+    expect(normalized.config.rag.ingestion.embeddingBatchSize).toBeNull();
+    expect(normalized.runtime.available).toBe(false);
+    expect(normalized.stored.present).toBe(false);
+  });
+
   it('accepts arbitrary technical provider keys', () => {
     const envelope = createConfigViewEnvelope() as any;
     envelope.config.provider.providers = {

@@ -41,6 +41,7 @@ public class QwenEmbeddingProviderClient {
 
     public EmbeddingResponse embed(String providerName, EmbeddingRequest request) {
         return embedInternal(
+                providerRuntime(providerName),
                 providerName,
                 List.of(request.text()),
                 request.model(),
@@ -49,18 +50,27 @@ public class QwenEmbeddingProviderClient {
     }
 
     public EmbeddingResponse embedBatch(String providerName, EmbeddingBatchRequest request) {
-        return embedInternal(providerName, request.texts(), request.model(), request.dimension());
+        return embedInternal(providerRuntime(providerName), providerName, request.texts(), request.model(), request.dimension());
     }
 
-    private EmbeddingResponse embedInternal(String providerName, List<String> texts, String requestModel, Integer requestDimension) {
+    public EmbeddingResponse embedBatch(AiProviderRuntime runtime, String providerName, EmbeddingBatchRequest request) {
+        return embedInternal(runtime, providerName, request.texts(), request.model(), request.dimension());
+    }
+
+    private EmbeddingResponse embedInternal(
+            AiProviderRuntime runtime,
+            String providerName,
+            List<String> texts,
+            String requestModel,
+            Integer requestDimension
+    ) {
         String provider = providerName;
-        String model = resolveModel(providerName, requestModel);
-        int dimension = requestDimension != null ? requestDimension : defaultEmbedding(providerName).dimension();
+        String model = resolveModel(runtime, requestModel);
+        int dimension = requestDimension != null ? requestDimension : runtime.definition().embedding().dimension();
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
         try {
-            AiProviderRuntime runtime = providerRuntime(providerName);
             org.springframework.ai.embedding.EmbeddingResponse response = resilientAiExecutor.execute(runtime, "embedding", () -> runtime.embeddingModel().call(
                     new org.springframework.ai.embedding.EmbeddingRequest(
                             texts,
@@ -109,12 +119,8 @@ public class QwenEmbeddingProviderClient {
                 .toList();
     }
 
-    private String resolveModel(String providerName, String requestModel) {
-        return requestModel != null && !requestModel.isBlank() ? requestModel : defaultEmbedding(providerName).model();
-    }
-
-    private com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig defaultEmbedding(String providerName) {
-        return providerRuntime(providerName).definition().embedding();
+    private String resolveModel(AiProviderRuntime runtime, String requestModel) {
+        return requestModel != null && !requestModel.isBlank() ? requestModel : runtime.definition().embedding().model();
     }
 
     private AiProviderRuntime providerRuntime(String providerName) {

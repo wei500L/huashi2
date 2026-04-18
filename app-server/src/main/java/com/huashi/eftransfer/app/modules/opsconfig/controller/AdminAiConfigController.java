@@ -2,9 +2,12 @@ package com.huashi.eftransfer.app.modules.opsconfig.controller;
 
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiRuntimeSyncRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
 import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsAdminService;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
+import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
@@ -39,7 +42,7 @@ public class AdminAiConfigController {
     }
 
     @PostMapping("/validate")
-    public ApiResponse<AiOpsConfigValidationResponse> validate(@Valid @RequestBody AdminAiConfigSaveRequest request) {
+    public ApiResponse<AiOpsConfigValidationResponse> validate(@RequestBody AdminAiConfigSaveRequest request) {
         return ApiResponse.success(aiOpsAdminService.validate(request), MDC.get("traceId"));
     }
 
@@ -51,6 +54,16 @@ public class AdminAiConfigController {
     @GetMapping("/health")
     public ApiResponse<AiGatewayHealthResponse> health() {
         return ApiResponse.success(aiOpsAdminService.health(), MDC.get("traceId"));
+    }
+
+    @PostMapping("/probes/embedding")
+    public ApiResponse<AdminAiEmbeddingProbeVO> probeEmbedding(@Valid @RequestBody AdminAiConfigSaveRequest request) {
+        return ApiResponse.success(aiOpsAdminService.probeEmbedding(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/probes/rerank")
+    public ApiResponse<AdminAiRerankProbeVO> probeRerank(@Valid @RequestBody AdminAiConfigSaveRequest request) {
+        return ApiResponse.success(aiOpsAdminService.probeRerank(request), MDC.get("traceId"));
     }
 
     @PostMapping("/reindex")
@@ -69,6 +82,11 @@ public class AdminAiConfigController {
             @RequestParam(value = "limit", required = false) Integer limit
     ) {
         return ApiResponse.success(aiOpsAdminService.listOutbox(status, limit), MDC.get("traceId"));
+    }
+
+    @PostMapping("/runtime/sync")
+    public ApiResponse<AdminAiConfigViewVO> syncRuntime(@Valid @RequestBody AdminAiRuntimeSyncRequest request) {
+        return ApiResponse.success(aiOpsAdminService.syncRuntime(request), MDC.get("traceId"));
     }
 
     @PostMapping("/outbox/{id}/replay")
