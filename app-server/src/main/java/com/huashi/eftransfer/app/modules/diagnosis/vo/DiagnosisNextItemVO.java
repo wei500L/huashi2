@@ -7,6 +7,7 @@ public record DiagnosisNextItemVO(
         Integer answeredItems,
         Integer currentItemOrder,
         Boolean hasNextItem,
+        Boolean readyToComplete,
         DiagnosisQuestionItemVO item
 ) {
 }

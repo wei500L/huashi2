@@ -1,7 +1,7 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Brain, CheckCircle2, ChevronRight, FileText, Timer } from 'lucide-react';
+import { AlertTriangle, Brain, CheckCircle2, ChevronRight, FileText, Timer } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { DiagnosisPdfReport } from '@/components/diagnosis/DiagnosisPdfReport';
@@ -18,6 +18,7 @@ import type {
   DiagnosisOptionPayload,
   DiagnosisOptionViewVO,
   DiagnosisRadarMetric,
+  DiagnosisHistorySummaryVO,
   SubmitDiagnosisAnswerRequest,
 } from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
@@ -140,6 +141,7 @@ const DiagnosisPage: React.FC = () => {
   const [reportErrorMessage, setReportErrorMessage] = React.useState<string | null>(null);
   const [isPdfExporting, setIsPdfExporting] = React.useState(false);
   const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
+  const [resumeCandidate, setResumeCandidate] = React.useState<DiagnosisHistorySummaryVO | null>(null);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
 
   const historyQuery = useQuery({
@@ -154,10 +156,11 @@ const DiagnosisPage: React.FC = () => {
     }
     const inProgress = historyQuery.data.records[0];
     if (inProgress?.sessionId) {
-      shownAtRef.current = Date.now();
-      dispatch({ type: 'resumeSession', sessionId: inProgress.sessionId });
+      dispatch({ type: 'readyToSelect' });
+      setResumeCandidate(inProgress);
       return;
     }
+    setResumeCandidate(null);
     dispatch({ type: 'readyToSelect' });
   }, [historyQuery.data]);
 
@@ -214,6 +217,11 @@ const DiagnosisPage: React.FC = () => {
         setSubmitInfoMessage('答案已提交，但下一题加载失败。请重试加载当前题，系统不会重复计入本题。');
         return;
       }
+      if (refreshed.data?.readyToComplete) {
+        setPendingNextItemId(null);
+        setSubmitInfoMessage('最后一题已完成，请确认交卷。');
+        return;
+      }
       setPendingNextItemId(null);
       setSubmitInfoMessage(null);
     },
@@ -224,6 +232,13 @@ const DiagnosisPage: React.FC = () => {
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，系统已同步到最新结果。');
         markCompleted();
+        return;
+      }
+      if (refreshed.data?.readyToComplete) {
+        setPendingNextItemId(null);
+        setSubmitErrorMessage(null);
+        setSubmitInfoMessage('答案已提交，请确认交卷。');
+        shownAtRef.current = Date.now();
         return;
       }
       if (refreshed.data?.item && refreshed.data.item.itemResultId !== payload.itemResultId) {
@@ -278,6 +293,41 @@ const DiagnosisPage: React.FC = () => {
     }
   };
 
+  const completeSessionMutation = useMutation({
+    mutationFn: () => diagnosisSessionService.complete(state.sessionId as number),
+    onSuccess: () => {
+      answerRequestRef.current = null;
+      setPendingNextItemId(null);
+      setSubmitErrorMessage(null);
+      setSubmitInfoMessage(null);
+      markCompleted();
+    },
+    onError: async (error) => {
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.data?.sessionStatus === 'COMPLETED') {
+        markCompleted();
+        return;
+      }
+      setSubmitErrorMessage(getApiErrorMessage(error));
+    },
+  });
+
+  const abandonSessionMutation = useMutation({
+    mutationFn: (sessionId: number) => diagnosisSessionService.abandon(sessionId),
+    onSuccess: async () => {
+      answerRequestRef.current = null;
+      setPendingNextItemId(null);
+      setSubmitErrorMessage(null);
+      setSubmitInfoMessage(null);
+      setResumeCandidate(null);
+      dispatch({ type: 'reset' });
+      await queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
+    },
+    onError: (error) => {
+      setSubmitErrorMessage(getApiErrorMessage(error));
+    },
+  });
+
   React.useEffect(() => {
     if (state.phase !== 'running' || !nextItemQuery.data || nextItemQuery.data.hasNextItem) {
       return;
@@ -309,7 +359,11 @@ const DiagnosisPage: React.FC = () => {
 
   const currentItem = nextItemQuery.data?.item;
   const staleSubmittedItemVisible = !!currentItem && pendingNextItemId === currentItem.itemResultId;
-  const isAnswerLocked = submitAnswerMutation.isPending || nextItemQuery.isFetching;
+  const isAnswerLocked =
+    submitAnswerMutation.isPending ||
+    completeSessionMutation.isPending ||
+    abandonSessionMutation.isPending ||
+    nextItemQuery.isFetching;
 
   React.useEffect(() => {
     if (!currentItem) {
@@ -362,6 +416,29 @@ const DiagnosisPage: React.FC = () => {
       reactionTimeMs,
       hesitationTimeMs,
     });
+  };
+
+  const handleResumeContinue = () => {
+    if (!resumeCandidate) {
+      return;
+    }
+    shownAtRef.current = Date.now();
+    dispatch({ type: 'resumeSession', sessionId: resumeCandidate.sessionId });
+    setResumeCandidate(null);
+  };
+
+  const handleResumeAbandon = async () => {
+    if (!resumeCandidate) {
+      return;
+    }
+    await abandonSessionMutation.mutateAsync(resumeCandidate.sessionId);
+  };
+
+  const handleRunningAbandon = async () => {
+    if (!state.sessionId || !window.confirm('确认放弃当前诊断吗？本次未完成内容将标记为已废弃。')) {
+      return;
+    }
+    await abandonSessionMutation.mutateAsync(state.sessionId);
   };
 
   if (state.phase === 'boot' || historyQuery.isLoading) {
@@ -441,6 +518,44 @@ const DiagnosisPage: React.FC = () => {
             ))}
           </div>
         )}
+
+        {resumeCandidate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950">
+              <div className="flex items-start gap-4">
+                <div className="rounded-full bg-amber-500/10 p-3 text-amber-500">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">发现未完成诊断</div>
+                  <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/50">
+                    上次保存时间：{resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。你可以继续答题，也可以放弃本次后重新开始。
+                  </div>
+                </div>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
+                  继续答题
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleResumeAbandon()}
+                  disabled={abandonSessionMutation.isPending}
+                  className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
+                >
+                  放弃并重开
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/history')}
+                  className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                >
+                  返回历史
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -456,18 +571,28 @@ const DiagnosisPage: React.FC = () => {
               : t('diagnosis.runningSubtitle')
           }
           actions={
-            <SessionSaveActions
-              isBusy={runtime.isSaving || isAnswerLocked}
-              onSave={() => {
-                void runtime.saveProgressManually();
-              }}
-              onSaveAndExit={() => {
-                void runtime.saveProgressManually({
-                  exitAfterSave: true,
-                  onSuccess: () => navigate('/history'),
-                });
-              }}
-            />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleRunningAbandon()}
+                disabled={isAnswerLocked}
+                className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
+              >
+                放弃本次
+              </button>
+              <SessionSaveActions
+                isBusy={runtime.isSaving || isAnswerLocked}
+                onSave={() => {
+                  void runtime.saveProgressManually();
+                }}
+                onSaveAndExit={() => {
+                  void runtime.saveProgressManually({
+                    exitAfterSave: true,
+                    onSuccess: () => navigate('/history'),
+                  });
+                }}
+              />
+            </div>
           }
         />
 
@@ -482,6 +607,34 @@ const DiagnosisPage: React.FC = () => {
 
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
+        ) : nextItemQuery.data?.readyToComplete ? (
+          <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+            <div className="max-w-2xl">
+              <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Ready To Submit</div>
+              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">所有题目已完成</h2>
+              <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
+                最后一题已经记录完成。确认交卷后，系统会生成诊断结果页。
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => void completeSessionMutation.mutateAsync()}
+                  disabled={completeSessionMutation.isPending}
+                  className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+                >
+                  {completeSessionMutation.isPending ? '正在交卷...' : '确认交卷'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleRunningAbandon()}
+                  disabled={completeSessionMutation.isPending}
+                  className="rounded-full border border-rose-200 px-6 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
+                >
+                  放弃本次
+                </button>
+              </div>
+            </div>
+          </section>
         ) : !currentItem || staleSubmittedItemVisible ? (
           <div className="rounded-[2rem] border border-slate-200 bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
             {staleSubmittedItemVisible ? '答案已提交，正在同步下一题或结果页，请稍候...' : '正在收尾诊断结果，请稍候...'}

@@ -527,6 +527,7 @@ export interface DiagnosisHistorySummaryVO {
   ownerUserId: number;
   status: string;
   startedAt: string;
+  lastSavedAt?: string | null;
   completedAt?: string | null;
   positiveTransferScore?: number | null;
   negativeTransferRisk?: number | null;
@@ -576,6 +577,7 @@ export interface DiagnosisNextItemVO {
   answeredItems: number;
   currentItemOrder: number;
   hasNextItem: boolean;
+  readyToComplete: boolean;
   item?: DiagnosisQuestionItemVO | null;
 }
 
@@ -586,6 +588,7 @@ export interface DiagnosisSessionProgressVO {
   answeredItems: number;
   currentItemOrder: number;
   completed: boolean;
+  readyToComplete: boolean;
 }
 
 export interface SubmitDiagnosisAnswerRequest {
@@ -863,6 +866,7 @@ export interface TrainingNextItemVO {
   answeredItems: number;
   currentItemOrder: number;
   hasNextItem: boolean;
+  readyToComplete: boolean;
   item?: TrainingQuestionItemVO | null;
 }
 
@@ -873,6 +877,7 @@ export interface TrainingSessionProgressVO {
   answeredItems: number;
   currentItemOrder: number;
   completed: boolean;
+  readyToComplete: boolean;
 }
 
 export interface SaveTrainingProgressRequest {

@@ -227,6 +227,7 @@ export const diagnosisSessionService = {
     return apiPostKeepalive<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, payload);
   },
   complete: (sessionId: number) => apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/complete`),
+  abandon: (sessionId: number) => apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/abandon`),
   getResult: (sessionId: number, options?: RequestOptions) => apiGet<DiagnosisResultDetailVO>(`/diagnosis/sessions/${sessionId}/result`, options),
 };
 
@@ -251,6 +252,7 @@ export const trainingService = {
   submitAnswer: (sessionId: number, payload: SubmitTrainingAnswerRequest) =>
     apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/answers`, payload),
   complete: (sessionId: number) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/complete`),
+  abandon: (sessionId: number) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/abandon`),
   getSummary: (sessionId: number, options?: RequestOptions) => apiGet<TrainingSessionSummaryVO>(`/training/sessions/${sessionId}/summary`, options),
 };
 

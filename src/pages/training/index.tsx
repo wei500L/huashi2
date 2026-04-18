@@ -9,7 +9,12 @@ import { aiService, trainingService } from '@/lib/services';
 import { errorTypeLabel, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel, trainingModeLabel } from '@/lib/format';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { buildTrainingHref, clearTrainingLaunchParams, parseTrainingLaunchNumber, type TrainingLaunchParams } from '@/lib/training-launch';
-import type { SubmitTrainingAnswerRequest, TrainingItemResultDetailVO, TrainingOptionViewVO } from '@/lib/contracts';
+import type {
+  SubmitTrainingAnswerRequest,
+  TrainingHistorySummaryVO,
+  TrainingItemResultDetailVO,
+  TrainingOptionViewVO,
+} from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
@@ -93,6 +98,7 @@ const TrainingPage: React.FC = () => {
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
   const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
+  const [resumeCandidate, setResumeCandidate] = React.useState<TrainingHistorySummaryVO | null>(null);
 
   const requestedMode = searchParams.get('mode');
   const requestedSource = searchParams.get('source');
@@ -129,10 +135,11 @@ const TrainingPage: React.FC = () => {
     }
     const inProgress = historyQuery.data.records[0];
     if (inProgress?.sessionId) {
-      shownAtRef.current = Date.now();
-      dispatch({ type: 'resumeSession', sessionId: inProgress.sessionId });
+      dispatch({ type: 'readyHome' });
+      setResumeCandidate(inProgress);
       return;
     }
+    setResumeCandidate(null);
     dispatch({ type: 'readyHome' });
   }, [historyQuery.data]);
 
@@ -220,6 +227,11 @@ const TrainingPage: React.FC = () => {
         setSubmitInfoMessage('答案已提交，但下一题加载失败。请重试加载当前题，系统不会重复计入本题。');
         return;
       }
+      if (refreshed.data?.readyToComplete) {
+        setPendingNextItemId(null);
+        setSubmitInfoMessage('最后一题已完成，请确认交卷。');
+        return;
+      }
       setPendingNextItemId(null);
       setSubmitInfoMessage(null);
     },
@@ -230,6 +242,13 @@ const TrainingPage: React.FC = () => {
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，系统已同步到最新总结。');
         markCompleted(refreshed.data.sessionId);
+        return;
+      }
+      if (refreshed.data?.readyToComplete) {
+        setPendingNextItemId(null);
+        setSubmitErrorMessage(null);
+        setSubmitInfoMessage('答案已提交，请确认交卷。');
+        shownAtRef.current = Date.now();
         return;
       }
       if (refreshed.data?.item && refreshed.data.item.itemResultId !== payload.itemResultId) {
@@ -248,6 +267,42 @@ const TrainingPage: React.FC = () => {
     queryKey: ['training-summary', state.summarySessionId],
     queryFn: ({ signal }) => trainingService.getSummary(state.summarySessionId as number, { signal }),
     enabled: state.phase === 'summary' && !!state.summarySessionId,
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: () => trainingService.complete(state.sessionId as number),
+    onSuccess: (progress) => {
+      answerRequestRef.current = null;
+      setPendingNextItemId(null);
+      setSubmitErrorMessage(null);
+      setSubmitInfoMessage(null);
+      markCompleted(progress.sessionId);
+    },
+    onError: async (error) => {
+      const refreshed = await nextItemQuery.refetch();
+      if (refreshed.data?.sessionStatus === 'COMPLETED') {
+        markCompleted(refreshed.data.sessionId);
+        return;
+      }
+      setSubmitErrorMessage(getApiErrorMessage(error));
+    },
+  });
+
+  const abandonMutation = useMutation({
+    mutationFn: (sessionId: number) => trainingService.abandon(sessionId),
+    onSuccess: async () => {
+      answerRequestRef.current = null;
+      setPendingNextItemId(null);
+      setSubmitErrorMessage(null);
+      setSubmitInfoMessage(null);
+      setResumeCandidate(null);
+      dispatch({ type: 'resetHome' });
+      await queryClient.invalidateQueries({ queryKey: ['training-history'] });
+      await queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
+    },
+    onError: (error) => {
+      setSubmitErrorMessage(getApiErrorMessage(error));
+    },
   });
 
   const clearTrainingIntent = React.useCallback(() => {
@@ -308,7 +363,7 @@ const TrainingPage: React.FC = () => {
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
 
   React.useEffect(() => {
-    if (state.phase !== 'home' || !requestedMode || !recommendedPlanQuery.data) {
+    if (state.phase !== 'home' || !requestedMode || !recommendedPlanQuery.data || resumeCandidate) {
       return;
     }
     const autoStartKey = [
@@ -331,6 +386,7 @@ const TrainingPage: React.FC = () => {
     requestedMode,
     requestedReviewScheduleId,
     requestedWrongBookId,
+    resumeCandidate,
     startMutation.isPending,
     startSessionForMode,
     state.phase,
@@ -344,7 +400,12 @@ const TrainingPage: React.FC = () => {
 
   const currentItem = nextItemQuery.data?.item;
   const staleSubmittedItemVisible = !!currentItem && pendingNextItemId === currentItem.itemResultId;
-  const isAnswerLocked = answerMutation.isPending || nextItemQuery.isFetching || staleSubmittedItemVisible;
+  const isAnswerLocked =
+    answerMutation.isPending ||
+    completeMutation.isPending ||
+    abandonMutation.isPending ||
+    nextItemQuery.isFetching ||
+    staleSubmittedItemVisible;
 
   React.useEffect(() => {
     if (!currentItem) {
@@ -386,6 +447,29 @@ const TrainingPage: React.FC = () => {
     });
   };
 
+  const handleResumeContinue = () => {
+    if (!resumeCandidate) {
+      return;
+    }
+    shownAtRef.current = Date.now();
+    dispatch({ type: 'resumeSession', sessionId: resumeCandidate.sessionId });
+    setResumeCandidate(null);
+  };
+
+  const handleResumeAbandon = async () => {
+    if (!resumeCandidate) {
+      return;
+    }
+    await abandonMutation.mutateAsync(resumeCandidate.sessionId);
+  };
+
+  const handleRunningAbandon = async () => {
+    if (!state.sessionId || !window.confirm('确认放弃当前训练吗？本次未完成内容将标记为已废弃。')) {
+      return;
+    }
+    await abandonMutation.mutateAsync(state.sessionId);
+  };
+
   if (state.phase === 'boot' || historyQuery.isLoading) {
     return (
       <div className="mx-auto max-w-5xl">
@@ -401,18 +485,28 @@ const TrainingPage: React.FC = () => {
           title={t('training.runningTitle')}
           subtitle={t('training.runningSubtitle')}
           actions={
-            <SessionSaveActions
-              isBusy={runtime.isSaving || isAnswerLocked}
-              onSave={() => {
-                void runtime.saveProgressManually();
-              }}
-              onSaveAndExit={() => {
-                void runtime.saveProgressManually({
-                  exitAfterSave: true,
-                  onSuccess: () => navigate('/history'),
-                });
-              }}
-            />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleRunningAbandon()}
+                disabled={isAnswerLocked}
+                className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
+              >
+                放弃本次
+              </button>
+              <SessionSaveActions
+                isBusy={runtime.isSaving || isAnswerLocked}
+                onSave={() => {
+                  void runtime.saveProgressManually();
+                }}
+                onSaveAndExit={() => {
+                  void runtime.saveProgressManually({
+                    exitAfterSave: true,
+                    onSuccess: () => navigate('/history'),
+                  });
+                }}
+              />
+            </div>
           }
         />
 
@@ -427,6 +521,34 @@ const TrainingPage: React.FC = () => {
 
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
+        ) : nextItemQuery.data?.readyToComplete ? (
+          <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+            <div className="max-w-2xl">
+              <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Ready To Submit</div>
+              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">当前训练已全部完成</h2>
+              <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
+                最后一题已经记录成功。确认交卷后，系统会生成本轮训练总结。
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => void completeMutation.mutateAsync()}
+                  disabled={completeMutation.isPending}
+                  className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+                >
+                  {completeMutation.isPending ? '正在交卷...' : '确认交卷'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleRunningAbandon()}
+                  disabled={completeMutation.isPending}
+                  className="rounded-full border border-rose-200 px-6 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
+                >
+                  放弃本次
+                </button>
+              </div>
+            </div>
+          </section>
         ) : !currentItem || staleSubmittedItemVisible ? (
           <div className="rounded-[2rem] border border-slate-200 bg-white/70 px-6 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
             {staleSubmittedItemVisible ? '答案已提交，正在同步下一题或总结页，请稍候...' : '正在生成训练总结，请稍候...'}
@@ -925,6 +1047,44 @@ const TrainingPage: React.FC = () => {
           )}
         </section>
       </div>
+
+      {resumeCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950">
+            <div className="flex items-start gap-4">
+              <div className="rounded-full bg-amber-500/10 p-3 text-amber-500">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="flex-1">
+                <div className="text-2xl font-black text-slate-900 dark:text-white">发现未完成训练</div>
+                <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/50">
+                  上次保存时间：{resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。你可以继续本次训练，也可以放弃后重新开始。
+                </div>
+              </div>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
+                继续训练
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleResumeAbandon()}
+                disabled={abandonMutation.isPending}
+                className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
+              >
+                放弃并重开
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/history')}
+                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+              >
+                返回历史
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

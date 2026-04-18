@@ -70,6 +70,11 @@ public class DiagnosisSessionController {
         return ApiResponse.success(diagnosisSessionService.completeSession(sessionId), MDC.get("traceId"));
     }
 
+    @PostMapping("/{sessionId}/abandon")
+    public ApiResponse<DiagnosisSessionProgressVO> abandon(@PathVariable Long sessionId) {
+        return ApiResponse.success(diagnosisSessionService.abandonSession(sessionId), MDC.get("traceId"));
+    }
+
     @GetMapping("/{sessionId}/result")
     public ApiResponse<DiagnosisResultDetailVO> getResult(@PathVariable Long sessionId) {
         return ApiResponse.success(diagnosisSessionService.getResultDetail(sessionId), MDC.get("traceId"));

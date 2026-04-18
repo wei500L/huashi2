@@ -54,6 +54,15 @@ public class TrainingSessionEntity extends BaseAuditEntity {
     @TableField("completed_at")
     private LocalDateTime completedAt;
 
+    @TableField("completion_hooks_status")
+    private String completionHooksStatus;
+
+    @TableField("completion_hooks_updated_at")
+    private LocalDateTime completionHooksUpdatedAt;
+
+    @TableField("completion_hooks_error")
+    private String completionHooksError;
+
     public Long getPlanId() {
         return planId;
     }
@@ -180,5 +189,29 @@ public class TrainingSessionEntity extends BaseAuditEntity {
 
     public void setLastSavedAt(LocalDateTime lastSavedAt) {
         this.lastSavedAt = lastSavedAt;
+    }
+
+    public String getCompletionHooksStatus() {
+        return completionHooksStatus;
+    }
+
+    public void setCompletionHooksStatus(String completionHooksStatus) {
+        this.completionHooksStatus = completionHooksStatus;
+    }
+
+    public LocalDateTime getCompletionHooksUpdatedAt() {
+        return completionHooksUpdatedAt;
+    }
+
+    public void setCompletionHooksUpdatedAt(LocalDateTime completionHooksUpdatedAt) {
+        this.completionHooksUpdatedAt = completionHooksUpdatedAt;
+    }
+
+    public String getCompletionHooksError() {
+        return completionHooksError;
+    }
+
+    public void setCompletionHooksError(String completionHooksError) {
+        this.completionHooksError = completionHooksError;
     }
 }

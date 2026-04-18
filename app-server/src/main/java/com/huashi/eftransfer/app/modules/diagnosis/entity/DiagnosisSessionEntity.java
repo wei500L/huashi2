@@ -41,6 +41,15 @@ public class DiagnosisSessionEntity extends BaseAuditEntity {
     @TableField("completed_at")
     private LocalDateTime completedAt;
 
+    @TableField("completion_hooks_status")
+    private String completionHooksStatus;
+
+    @TableField("completion_hooks_updated_at")
+    private LocalDateTime completionHooksUpdatedAt;
+
+    @TableField("completion_hooks_error")
+    private String completionHooksError;
+
     public Long getTemplateId() {
         return templateId;
     }
@@ -127,5 +136,29 @@ public class DiagnosisSessionEntity extends BaseAuditEntity {
 
     public void setCompletedAt(LocalDateTime completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public String getCompletionHooksStatus() {
+        return completionHooksStatus;
+    }
+
+    public void setCompletionHooksStatus(String completionHooksStatus) {
+        this.completionHooksStatus = completionHooksStatus;
+    }
+
+    public LocalDateTime getCompletionHooksUpdatedAt() {
+        return completionHooksUpdatedAt;
+    }
+
+    public void setCompletionHooksUpdatedAt(LocalDateTime completionHooksUpdatedAt) {
+        this.completionHooksUpdatedAt = completionHooksUpdatedAt;
+    }
+
+    public String getCompletionHooksError() {
+        return completionHooksError;
+    }
+
+    public void setCompletionHooksError(String completionHooksError) {
+        this.completionHooksError = completionHooksError;
     }
 }

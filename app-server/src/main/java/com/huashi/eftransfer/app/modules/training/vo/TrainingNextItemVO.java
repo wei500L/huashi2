@@ -8,6 +8,7 @@ public record TrainingNextItemVO(
         Integer answeredItems,
         Integer currentItemOrder,
         Boolean hasNextItem,
+        Boolean readyToComplete,
         TrainingQuestionItemVO item
 ) {
 }

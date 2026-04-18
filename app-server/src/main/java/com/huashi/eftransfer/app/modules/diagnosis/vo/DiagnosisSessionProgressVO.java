@@ -6,6 +6,7 @@ public record DiagnosisSessionProgressVO(
         Integer totalItems,
         Integer answeredItems,
         Integer currentItemOrder,
-        Boolean completed
+        Boolean completed,
+        Boolean readyToComplete
 ) {
 }

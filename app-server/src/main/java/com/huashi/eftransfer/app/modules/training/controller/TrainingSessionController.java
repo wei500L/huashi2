@@ -69,6 +69,11 @@ public class TrainingSessionController {
         return ApiResponse.success(trainingSessionService.completeSession(sessionId), MDC.get("traceId"));
     }
 
+    @PostMapping("/{sessionId}/abandon")
+    public ApiResponse<TrainingSessionProgressVO> abandon(@PathVariable Long sessionId) {
+        return ApiResponse.success(trainingSessionService.abandonSession(sessionId), MDC.get("traceId"));
+    }
+
     @GetMapping("/{sessionId}/summary")
     public ApiResponse<TrainingSessionSummaryVO> getSummary(@PathVariable Long sessionId) {
         return ApiResponse.success(trainingSessionService.getSummary(sessionId), MDC.get("traceId"));

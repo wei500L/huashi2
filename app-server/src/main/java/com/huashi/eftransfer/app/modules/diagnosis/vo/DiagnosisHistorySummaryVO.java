@@ -10,6 +10,7 @@ public record DiagnosisHistorySummaryVO(
         Long ownerUserId,
         String status,
         LocalDateTime startedAt,
+        LocalDateTime lastSavedAt,
         LocalDateTime completedAt,
         Double positiveTransferScore,
         Double negativeTransferRisk,

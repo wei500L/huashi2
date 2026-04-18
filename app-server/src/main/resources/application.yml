@@ -71,6 +71,12 @@ mybatis-plus:
       logic-not-delete-value: false
 
 app:
+  sessions:
+    lifecycle:
+      enabled: ${APP_SESSIONS_LIFECYCLE_ENABLED:true}
+      poll-interval: ${APP_SESSIONS_LIFECYCLE_POLL_INTERVAL:PT15M}
+      abandon-timeout: ${APP_SESSIONS_LIFECYCLE_ABANDON_TIMEOUT:PT12H}
+      batch-size: ${APP_SESSIONS_LIFECYCLE_BATCH_SIZE:200}
   redis:
     redisson-enabled: ${APP_REDIS_REDISSON_ENABLED:true}
   demo-data:

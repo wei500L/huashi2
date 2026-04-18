@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
 import com.huashi.eftransfer.app.common.idempotency.IdempotencyService;
+import com.huashi.eftransfer.app.common.session.SessionCompletionHookStatus;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.common.util.TokenGenerator;
 import com.huashi.eftransfer.app.modules.diagnosis.dto.CreateDiagnosisSessionRequest;
@@ -15,8 +16,6 @@ import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisSessionEntity
 import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisSummaryEntity;
 import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisTemplateEntity;
 import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisTemplateItemEntity;
-import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEvent;
-import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEventPublisher;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisItemResultMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSessionMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSummaryMapper;
@@ -48,12 +47,9 @@ import com.huashi.eftransfer.shared.page.PageQuery;
 import com.huashi.eftransfer.shared.page.PageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -85,7 +81,7 @@ public class DiagnosisSessionService {
     private final LexicalPairMapper lexicalPairMapper;
     private final DiagnosisJsonCodec diagnosisJsonCodec;
     private final DiagnosisScoringPolicy diagnosisScoringPolicy;
-    private final DiagnosisCompletedEventPublisher diagnosisCompletedEventPublisher;
+    private final DiagnosisSessionCompletionService diagnosisSessionCompletionService;
     private final AuditLogService auditLogService;
     private final IdempotencyService idempotencyService;
 
@@ -98,7 +94,7 @@ public class DiagnosisSessionService {
             LexicalPairMapper lexicalPairMapper,
             DiagnosisJsonCodec diagnosisJsonCodec,
             DiagnosisScoringPolicy diagnosisScoringPolicy,
-            DiagnosisCompletedEventPublisher diagnosisCompletedEventPublisher,
+            DiagnosisSessionCompletionService diagnosisSessionCompletionService,
             AuditLogService auditLogService,
             IdempotencyService idempotencyService
     ) {
@@ -110,7 +106,7 @@ public class DiagnosisSessionService {
         this.lexicalPairMapper = lexicalPairMapper;
         this.diagnosisJsonCodec = diagnosisJsonCodec;
         this.diagnosisScoringPolicy = diagnosisScoringPolicy;
-        this.diagnosisCompletedEventPublisher = diagnosisCompletedEventPublisher;
+        this.diagnosisSessionCompletionService = diagnosisSessionCompletionService;
         this.auditLogService = auditLogService;
         this.idempotencyService = idempotencyService;
     }
@@ -136,6 +132,7 @@ public class DiagnosisSessionService {
         session.setAnsweredItems(0);
         session.setCurrentItemOrder(orderedItems.isEmpty() ? null : 1);
         session.setStartedAt(LocalDateTime.now());
+        session.setLastSavedAt(session.getStartedAt());
         try {
             diagnosisSessionMapper.insert(session);
         } catch (DataIntegrityViolationException exception) {
@@ -176,7 +173,6 @@ public class DiagnosisSessionService {
     @Transactional
     public DiagnosisNextItemVO getNextItem(Long sessionId) {
         DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
-        session = refreshSessionAfterHealing(session);
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             return new DiagnosisNextItemVO(
                     session.getId(),
@@ -185,17 +181,25 @@ public class DiagnosisSessionService {
                     session.getAnsweredItems(),
                     session.getCurrentItemOrder(),
                     false,
+                    false,
                     null
             );
         }
         DiagnosisItemResultEntity nextItemResult = findNextPendingItem(session.getId()).orElse(null);
         if (nextItemResult == null) {
-            session = refreshSessionAfterHealing(session);
-            if (DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
-                session.setCurrentItemOrder(null);
-                diagnosisSessionMapper.updateById(session);
-            }
-            return new DiagnosisNextItemVO(session.getId(), session.getStatus(), session.getTotalItems(), session.getAnsweredItems(), null, false, null);
+            session.setCurrentItemOrder(null);
+            session.setLastSavedAt(LocalDateTime.now());
+            diagnosisSessionMapper.updateById(session);
+            return new DiagnosisNextItemVO(
+                    session.getId(),
+                    session.getStatus(),
+                    session.getTotalItems(),
+                    session.getAnsweredItems(),
+                    null,
+                    false,
+                    isSessionReadyToComplete(session),
+                    null
+            );
         }
 
         if (nextItemResult.getStimulusStartedAt() == null) {
@@ -203,6 +207,7 @@ public class DiagnosisSessionService {
             diagnosisItemResultMapper.updateById(nextItemResult);
         }
         session.setCurrentItemOrder(nextItemResult.getPresentationOrder());
+        session.setLastSavedAt(LocalDateTime.now());
         diagnosisSessionMapper.updateById(session);
 
         DiagnosisTemplateItemEntity templateItem = requireTemplateItem(nextItemResult.getTemplateItemId());
@@ -232,6 +237,7 @@ public class DiagnosisSessionService {
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder(),
                 true,
+                false,
                 itemVO
         );
     }
@@ -314,10 +320,6 @@ public class DiagnosisSessionService {
             }
 
             session = requireAccessibleSession(session.getId());
-            if (nextPendingItem.isEmpty()) {
-                session = finalizeCompletedSession(session);
-            }
-
             DiagnosisSessionProgressVO progress = progressVO(session);
             auditLogService.record("submit_answer", "diagnosis_item_result", String.valueOf(itemResult.getId()), request, ResultCode.SUCCESS.code());
             log.info("event=diagnosis_answer_submitted sessionId={} itemResultId={} correct={} errorType={} answeredItems={}/{}",
@@ -342,7 +344,6 @@ public class DiagnosisSessionService {
     @Transactional
     public DiagnosisSessionProgressVO saveProgress(Long sessionId, SaveDiagnosisProgressRequest request) {
         DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
-        session = refreshSessionAfterHealing(session);
         if (DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus())) {
             return progressVO(session);
         }
@@ -360,7 +361,6 @@ public class DiagnosisSessionService {
     @Transactional
     public DiagnosisSessionProgressVO completeSession(Long sessionId) {
         DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
-        session = refreshSessionAfterHealing(session);
         if (DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus())) {
             return progressVO(session);
         }
@@ -374,9 +374,25 @@ public class DiagnosisSessionService {
         return progressVO(session);
     }
 
+    @Transactional
+    public DiagnosisSessionProgressVO abandonSession(Long sessionId) {
+        DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
+        if (DiagnosisSessionStatus.ABANDONED.name().equals(session.getStatus())) {
+            return progressVO(session);
+        }
+        if (DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Completed diagnosis session cannot be abandoned", 409);
+        }
+        if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not in progress", 409);
+        }
+        abandonSession(session);
+        auditLogService.record("abandon_session", "diagnosis_session", String.valueOf(sessionId), Map.of("sessionId", sessionId), ResultCode.SUCCESS.code());
+        return progressVO(session);
+    }
+
     public DiagnosisResultDetailVO getResultDetail(Long sessionId) {
         DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
-        session = refreshSessionAfterHealing(session);
         if (!DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not completed", 409);
         }
@@ -434,9 +450,6 @@ public class DiagnosisSessionService {
         }
 
         Long ownerFilter = resolveHistoryOwnerFilter(query);
-        if (shouldHealInProgressHistory(query, ownerFilter)) {
-            healStaleInProgressSessions(ownerFilter);
-        }
         if (ownerFilter != null) {
             wrapper.eq(DiagnosisSessionEntity::getOwnerUserId, ownerFilter);
         }
@@ -471,6 +484,7 @@ public class DiagnosisSessionService {
                             session.getOwnerUserId(),
                             session.getStatus(),
                             session.getStartedAt(),
+                            session.getLastSavedAt(),
                             session.getCompletedAt(),
                             summary == null ? null : summary.getPositiveTransferScore().doubleValue(),
                             summary == null ? null : summary.getNegativeTransferRisk().doubleValue(),
@@ -511,55 +525,6 @@ public class DiagnosisSessionService {
             diagnosisSummaryMapper.updateById(entity);
         }
         return entity;
-    }
-
-    private void registerAfterCommitEvent(
-            DiagnosisSessionEntity session,
-            DiagnosisSummaryEntity summary,
-            DiagnosisScoringPolicy.SummaryAggregation aggregation
-    ) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            publishCompletedEvent(session, summary, aggregation);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishCompletedEvent(session, summary, aggregation);
-            }
-        });
-    }
-
-    private void publishCompletedEvent(
-            DiagnosisSessionEntity session,
-            DiagnosisSummaryEntity summary,
-            DiagnosisScoringPolicy.SummaryAggregation aggregation
-    ) {
-        DiagnosisCompletedEvent event = new DiagnosisCompletedEvent(
-                session.getId(),
-                summary.getId(),
-                session.getTemplateId(),
-                session.getOwnerUserId(),
-                session.getCompletedAt(),
-                aggregation.positiveTransferScore(),
-                aggregation.negativeTransferRisk(),
-                aggregation.contextSensitivity(),
-                aggregation.semanticDiscrimination(),
-                aggregation.overallAccuracy(),
-                aggregation.averageReactionTime(),
-                aggregation.highRiskLexicalPairs().stream()
-                        .map(pair -> new DiagnosisCompletedEvent.HighRiskLexicalPairPayload(
-                                pair.lexicalPairId(),
-                                pair.englishWord(),
-                                pair.frenchWord(),
-                                pair.riskScore(),
-                                pair.dominantErrorType()
-                        ))
-                        .toList(),
-                MDC.get("traceId"),
-                1
-        );
-        diagnosisCompletedEventPublisher.publish(event);
     }
 
     private DiagnosisItemResultDetailVO toItemResultDetailVO(
@@ -636,7 +601,6 @@ public class DiagnosisSessionService {
     }
 
     private void requireNoActiveSession(Long ownerUserId) {
-        healStaleInProgressSessions(ownerUserId);
         if (diagnosisSessionMapper.selectCount(Wrappers.<DiagnosisSessionEntity>lambdaQuery()
                 .eq(DiagnosisSessionEntity::getOwnerUserId, ownerUserId)
                 .eq(DiagnosisSessionEntity::getStatus, DiagnosisSessionStatus.IN_PROGRESS.name())) > 0) {
@@ -650,7 +614,6 @@ public class DiagnosisSessionService {
 
     private DiagnosisSessionEntity requireInProgressSession(Long sessionId) {
         DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
-        session = refreshSessionAfterHealing(session);
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not in progress", 409);
         }
@@ -825,41 +788,17 @@ public class DiagnosisSessionService {
         session.setStatus(DiagnosisSessionStatus.COMPLETED.name());
         session.setCompletedAt(LocalDateTime.now());
         session.setCurrentItemOrder(null);
+        session.setLastSavedAt(session.getCompletedAt());
+        session.setCompletionHooksStatus(SessionCompletionHookStatus.PENDING.name());
+        session.setCompletionHooksUpdatedAt(session.getCompletedAt());
+        session.setCompletionHooksError(null);
         diagnosisSessionMapper.updateById(session);
 
-        registerAfterCommitEvent(session, summary, aggregation);
+        diagnosisSessionCompletionService.triggerAfterCommit(session.getId());
         auditLogService.record("complete_session", "diagnosis_session", String.valueOf(session.getId()), Map.of("sessionId", session.getId()), ResultCode.SUCCESS.code());
         log.info("event=diagnosis_session_completed sessionId={} summaryId={} positiveTransferScore={} negativeTransferRisk={}",
                 session.getId(), summary.getId(), aggregation.positiveTransferScore(), aggregation.negativeTransferRisk());
         return session;
-    }
-
-    private DiagnosisSessionEntity finalizeStaleSessionIfReady(DiagnosisSessionEntity session) {
-        if (session == null || !DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
-            return session;
-        }
-        boolean updated = false;
-        int answeredCount = countAnsweredItems(session.getId());
-        if (!Objects.equals(session.getAnsweredItems(), answeredCount)) {
-            session.setAnsweredItems(answeredCount);
-            updated = true;
-        }
-        if (!isSessionReadyToComplete(session, answeredCount)) {
-            if (updated) {
-                diagnosisSessionMapper.updateById(session);
-            }
-            return session;
-        }
-        return finalizeCompletedSession(session);
-    }
-
-    private DiagnosisSessionEntity refreshSessionAfterHealing(DiagnosisSessionEntity session) {
-        if (session == null || session.getOwnerUserId() == null) {
-            return session;
-        }
-        healStaleInProgressSessions(session.getOwnerUserId());
-        DiagnosisSessionEntity refreshed = diagnosisSessionMapper.selectById(session.getId());
-        return refreshed == null ? session : finalizeStaleSessionIfReady(refreshed);
     }
 
     private boolean isSessionReadyToComplete(DiagnosisSessionEntity session) {
@@ -889,7 +828,8 @@ public class DiagnosisSessionService {
                 session.getTotalItems(),
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder(),
-                DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus())
+                DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus()),
+                DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus()) && isSessionReadyToComplete(session)
         );
     }
 
@@ -903,38 +843,25 @@ public class DiagnosisSessionService {
         return currentUserId();
     }
 
-    private boolean shouldHealInProgressHistory(DiagnosisSessionPageQuery query, Long ownerFilter) {
-        if (ownerFilter == null) {
-            return false;
-        }
-        if (query.status() == null || query.status().isBlank()) {
-            return true;
-        }
-        return parseSessionStatus(query.status()) == DiagnosisSessionStatus.IN_PROGRESS;
-    }
-
-    private void healStaleInProgressSessions(Long ownerUserId) {
-        DiagnosisSessionEntity keeper = null;
-        for (DiagnosisSessionEntity existing : diagnosisSessionMapper.selectList(Wrappers.<DiagnosisSessionEntity>lambdaQuery()
-                .eq(DiagnosisSessionEntity::getOwnerUserId, ownerUserId)
+    @Transactional
+    public int abandonTimedOutSessions(LocalDateTime cutoff, int limit) {
+        int abandoned = 0;
+        for (DiagnosisSessionEntity session : diagnosisSessionMapper.selectList(Wrappers.<DiagnosisSessionEntity>lambdaQuery()
                 .eq(DiagnosisSessionEntity::getStatus, DiagnosisSessionStatus.IN_PROGRESS.name())
-                .orderByDesc(DiagnosisSessionEntity::getStartedAt)
-                .orderByDesc(DiagnosisSessionEntity::getId))) {
-            DiagnosisSessionEntity healed = finalizeStaleSessionIfReady(existing);
-            if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(healed.getStatus())) {
-                continue;
-            }
-            if (keeper == null) {
-                keeper = healed;
-                continue;
-            }
-            abandonSession(healed);
+                .lt(DiagnosisSessionEntity::getLastSavedAt, cutoff)
+                .orderByAsc(DiagnosisSessionEntity::getLastSavedAt)
+                .orderByAsc(DiagnosisSessionEntity::getId)
+                .last("LIMIT " + limit))) {
+            abandonSession(session);
+            abandoned++;
         }
+        return abandoned;
     }
 
     private void abandonSession(DiagnosisSessionEntity session) {
         session.setStatus(DiagnosisSessionStatus.ABANDONED.name());
         session.setCurrentItemOrder(null);
+        session.setLastSavedAt(LocalDateTime.now());
         diagnosisSessionMapper.updateById(session);
     }
 

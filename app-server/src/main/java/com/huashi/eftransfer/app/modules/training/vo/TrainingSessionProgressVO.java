@@ -6,6 +6,7 @@ public record TrainingSessionProgressVO(
         Integer totalItems,
         Integer answeredItems,
         Integer currentItemOrder,
-        Boolean completed
+        Boolean completed,
+        Boolean readyToComplete
 ) {
 }
