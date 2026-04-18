@@ -108,6 +108,7 @@ class AiRuntimeConfigServiceTest {
 
         assertThat(lastInternalToken.get()).isEqualTo("test-internal-token");
         assertThat(service.current().version()).isEqualTo(2L);
+        assertThat(service.storedSyncStatus()).isEqualTo(AiRuntimeConfigService.STORED_SYNC_STATUS_IN_SYNC);
     }
 
     @Test
@@ -187,6 +188,55 @@ class AiRuntimeConfigServiceTest {
         assertThat(validation.issues())
                 .extracting(AiOpsConfigIssue::field)
                 .contains("provider.providers.Primary OpenAI");
+    }
+
+    @Test
+    void shouldRequireAtLeastTwoProviderDefinitionsWhenFallbackIsConfigured() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        AiOpsConfigPayload payload = payload(baseUrl, "test-internal-token");
+        payload = new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        payload.provider().activeProvider(),
+                        payload.provider().fallbackProvider(),
+                        Map.of("qwen", payload.provider().providers().get("qwen"))
+                ),
+                payload.resilience(),
+                payload.rag()
+        );
+
+        var validation = service.validate(payload);
+
+        assertThat(validation.valid()).isFalse();
+        assertThat(validation.issues())
+                .extracting(AiOpsConfigIssue::code)
+                .contains("provider_count_requires_fallback");
+    }
+
+    @Test
+    void shouldMarkStoredSyncFailedWhenStartupSyncFails() throws Exception {
+        server.removeContext("/internal/ops/ai-config");
+        try {
+            server.createContext("/internal/ops/ai-config", exchange -> {
+                byte[] body = "{\"success\":false}".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(500, body.length);
+                exchange.getResponseBody().write(body);
+                exchange.close();
+            });
+
+            AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+            service.syncStoredConfigAfterStartup();
+
+            assertThat(service.storedSyncStatus()).isEqualTo(AiRuntimeConfigService.STORED_SYNC_STATUS_SYNC_FAILED);
+        } finally {
+            server.removeContext("/internal/ops/ai-config");
+            server.createContext("/internal/ops/ai-config", exchange -> {
+                lastInternalToken.set(exchange.getRequestHeaders().getFirst(InternalApiHeaders.INTERNAL_TOKEN));
+                byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+                exchange.close();
+            });
+        }
     }
 
     @Test

@@ -234,6 +234,27 @@ describe('ConfigCenter contract guards', () => {
     expect(Object.keys(normalized.config.provider.providers)).toEqual(['openai_main', 'backup_1']);
   });
 
+  it('canonicalizes provider order with active and fallback first', () => {
+    const envelope = createConfigViewEnvelope() as any;
+    envelope.config.provider.providers = {
+      archive: envelope.config.provider.providers.qwen,
+      qwen: envelope.config.provider.providers.qwen,
+      deepseek: envelope.config.provider.providers.qwen,
+    };
+    envelope.config.provider.activeProvider = 'deepseek';
+    envelope.config.provider.fallbackProvider = 'qwen';
+    envelope.secrets.providers = {
+      archive: envelope.secrets.providers.qwen,
+      qwen: envelope.secrets.providers.qwen,
+      deepseek: envelope.secrets.providers.qwen,
+    };
+
+    const normalized = normalizeAdminAiConfigView(envelope);
+
+    expect(Object.keys(normalized.config.provider.providers)).toEqual(['deepseek', 'qwen', 'archive']);
+    expect(Object.keys(normalized.secrets.providers)).toEqual(['deepseek', 'qwen', 'archive']);
+  });
+
   it('includes providerOrigins for renamed providers when building save payload', () => {
     const normalized = normalizeAdminAiConfigView(createConfigViewEnvelope());
     normalized.config.provider.providers = {
@@ -258,6 +279,44 @@ describe('ConfigCenter contract guards', () => {
     );
 
     expect(payload.providerOrigins).toEqual({ primary_openai: 'qwen' });
+  });
+
+  it('canonicalizes provider order when building save payload', () => {
+    const normalized = normalizeAdminAiConfigView(createConfigViewEnvelope());
+    normalized.config.provider.providers = {
+      archive: normalized.config.provider.providers.qwen,
+      qwen: normalized.config.provider.providers.qwen,
+      deepseek: normalized.config.provider.providers.qwen,
+    };
+    normalized.config.provider.activeProvider = 'deepseek';
+    normalized.config.provider.fallbackProvider = 'qwen';
+    const payload = buildSavePayload(
+      normalized.config,
+      {
+        providers: {
+          archive: {
+            chatApiKey: { retainExisting: true, value: '' },
+            embeddingApiKey: { retainExisting: true, value: '' },
+            rerankApiKey: { retainExisting: true, value: '' },
+          },
+          qwen: {
+            chatApiKey: { retainExisting: true, value: '' },
+            embeddingApiKey: { retainExisting: true, value: '' },
+            rerankApiKey: { retainExisting: true, value: '' },
+          },
+          deepseek: {
+            chatApiKey: { retainExisting: true, value: '' },
+            embeddingApiKey: { retainExisting: true, value: '' },
+            rerankApiKey: { retainExisting: true, value: '' },
+          },
+        },
+        appServerInternalToken: { retainExisting: true, value: '' },
+      },
+      9
+    );
+
+    expect(Object.keys(payload.config.provider.providers)).toEqual(['deepseek', 'qwen', 'archive']);
+    expect(Object.keys(payload.secrets.providers || {})).toEqual(['deepseek', 'qwen', 'archive']);
   });
 
   it('keeps nullable config leaves when building save payload', () => {

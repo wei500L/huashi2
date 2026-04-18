@@ -53,6 +53,9 @@ public class AiRuntimeConfigService {
     private static final int MAX_STAGED_BUNDLES = 16;
     private static final String NOTICE_SEVERITY_INFO = "info";
     private static final String NOTICE_SEVERITY_WARNING = "warning";
+    public static final String STORED_SYNC_STATUS_IN_SYNC = "IN_SYNC";
+    public static final String STORED_SYNC_STATUS_NO_STORED_CONFIG = "NO_STORED_CONFIG";
+    public static final String STORED_SYNC_STATUS_SYNC_FAILED = "SYNC_FAILED";
 
     private final AiProviderProperties providerProperties;
     private final AiResilienceProperties resilienceProperties;
@@ -60,6 +63,7 @@ public class AiRuntimeConfigService {
     private final AiRuntimeBundleFactory bundleFactory;
     private final Validator validator;
     private final AtomicReference<AiRuntimeBundle> currentBundle = new AtomicReference<>();
+    private final AtomicReference<String> storedSyncStatus = new AtomicReference<>(STORED_SYNC_STATUS_NO_STORED_CONFIG);
     private final AtomicLong versionCounter = new AtomicLong();
     private final ConcurrentMap<String, StagedRuntimeBundle> stagedBundles = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, CommittedRuntimeStage> committedStages = new ConcurrentHashMap<>();
@@ -100,16 +104,20 @@ public class AiRuntimeConfigService {
                     .body(EFFECTIVE_TYPE);
 
             if (response == null || !response.success() || response.data() == null || response.data().config() == null) {
+                storedSyncStatus.set(STORED_SYNC_STATUS_NO_STORED_CONFIG);
                 log.info("event=ai_runtime_sync_skipped reason=no_stored_config");
                 return;
             }
             apply(response.data().config(), "APP_SERVER_SYNC", response.data().version());
             log.info("event=ai_runtime_sync_applied source=app-server version={}", response.data().version());
         } catch (RestClientResponseException ex) {
+            storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
             log.warn("event=ai_runtime_sync_failed status={} message={}", ex.getStatusCode().value(), ex.getMessage());
         } catch (RestClientException ex) {
+            storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
             log.warn("event=ai_runtime_sync_failed message={}", ex.getMessage());
         } catch (Exception ex) {
+            storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
             log.warn("event=ai_runtime_sync_failed message={}", ex.getMessage());
         }
     }
@@ -127,6 +135,10 @@ public class AiRuntimeConfigService {
                 bundle.appliedAt(),
                 validationNotices(bundle.config())
         );
+    }
+
+    public String storedSyncStatus() {
+        return storedSyncStatus.get();
     }
 
     public AiOpsConfigValidationResponse validate(AiOpsConfigPayload payload) {
@@ -179,6 +191,7 @@ public class AiRuntimeConfigService {
 
         AiRuntimeBundle activatedBundle = activate(stagedBundle.bundle());
         currentBundle.set(activatedBundle);
+        storedSyncStatus.set(STORED_SYNC_STATUS_IN_SYNC);
         if (activatedBundle.version() != null) {
             versionCounter.updateAndGet(previous -> Math.max(previous, activatedBundle.version()));
         }

@@ -74,13 +74,18 @@ public class AiRuntimeBundleFactory {
         }
         ensureProviderDefinition(providerDefinitions, providerProperties, providerProperties.getActiveProvider());
         ensureProviderDefinition(providerDefinitions, providerProperties, providerProperties.getFallbackProvider());
+        Map<String, AiOpsProviderDefinition> orderedProviderDefinitions = orderProviderDefinitions(
+                providerDefinitions,
+                providerProperties.getActiveProvider(),
+                providerProperties.getFallbackProvider()
+        );
 
         return build(
                 new AiOpsConfigPayload(
                         new AiOpsProviderConfig(
                                 providerProperties.getActiveProvider(),
                                 providerProperties.getFallbackProvider(),
-                                providerDefinitions
+                                orderedProviderDefinitions
                         ),
                         new AiOpsResilienceConfig(
                                 resilienceProperties.getMaxAttempts(),
@@ -115,21 +120,42 @@ public class AiRuntimeBundleFactory {
     }
 
     public AiRuntimeBundle build(AiOpsConfigPayload payload, String source, Long version) {
+        AiOpsConfigPayload canonicalPayload = canonicalizePayload(payload);
         Map<String, AiProviderRuntime> providerRuntimes = new LinkedHashMap<>();
-        for (Map.Entry<String, AiOpsProviderDefinition> entry : payload.provider().providers().entrySet()) {
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : canonicalPayload.provider().providers().entrySet()) {
             if (entry.getValue() == null) {
                 continue;
             }
-            providerRuntimes.put(entry.getKey(), buildProviderRuntime(entry.getKey(), entry.getValue(), payload.resilience()));
+            providerRuntimes.put(entry.getKey(), buildProviderRuntime(entry.getKey(), entry.getValue(), canonicalPayload.resilience()));
         }
 
         return new AiRuntimeBundle(
-                payload,
+                canonicalPayload,
                 providerRuntimes,
-                appServerRestClient(payload.rag().appServer()),
+                appServerRestClient(canonicalPayload.rag().appServer()),
                 source,
                 version,
                 OffsetDateTime.now()
+        );
+    }
+
+    private AiOpsConfigPayload canonicalizePayload(AiOpsConfigPayload payload) {
+        if (payload == null || payload.provider() == null || payload.provider().providers() == null) {
+            return payload;
+        }
+        Map<String, AiOpsProviderDefinition> orderedProviderDefinitions = orderProviderDefinitions(
+                payload.provider().providers(),
+                payload.provider().activeProvider(),
+                payload.provider().fallbackProvider()
+        );
+        return new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        payload.provider().activeProvider(),
+                        payload.provider().fallbackProvider(),
+                        orderedProviderDefinitions
+                ),
+                payload.resilience(),
+                payload.rag()
         );
     }
 
@@ -301,6 +327,31 @@ public class AiRuntimeBundleFactory {
         providerDefinitions.put(providerName, toProviderDefinition(
                 providerProperties == null ? new AiProviderProperties.ProviderProperties() : providerProperties
         ));
+    }
+
+    private Map<String, AiOpsProviderDefinition> orderProviderDefinitions(
+            Map<String, AiOpsProviderDefinition> providerDefinitions,
+            String activeProvider,
+            String fallbackProvider
+    ) {
+        Map<String, AiOpsProviderDefinition> ordered = new LinkedHashMap<>();
+        addProviderDefinition(ordered, providerDefinitions, activeProvider);
+        addProviderDefinition(ordered, providerDefinitions, fallbackProvider);
+        providerDefinitions.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> ordered.putIfAbsent(entry.getKey(), entry.getValue()));
+        return ordered;
+    }
+
+    private void addProviderDefinition(
+            Map<String, AiOpsProviderDefinition> ordered,
+            Map<String, AiOpsProviderDefinition> providerDefinitions,
+            String providerName
+    ) {
+        if (!StringUtils.hasText(providerName) || providerDefinitions == null || !providerDefinitions.containsKey(providerName)) {
+            return;
+        }
+        ordered.putIfAbsent(providerName, providerDefinitions.get(providerName));
     }
 
     private String normalizeOpenAiBaseUrl(String baseUrl) {

@@ -260,6 +260,63 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     }
 
     @Test
+    void saveCanonicalizesProviderOrderBeforeApplyAndPersist() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                samplePayload("chat-secret-001"),
+                "DEFAULTS",
+                1L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+
+        AiOpsConfigPayload basePayload = samplePayload(null);
+        LinkedHashMap<String, AiOpsProviderDefinition> providers = new LinkedHashMap<>();
+        providers.put("archive", basePayload.provider().providers().get("qwen"));
+        providers.put("qwen", basePayload.provider().providers().get("qwen"));
+        providers.put("deepseek", basePayload.provider().providers().get("deepseek"));
+        AiOpsConfigPayload reorderedPayload = new AiOpsConfigPayload(
+                new AiOpsProviderConfig("deepseek", "qwen", providers),
+                basePayload.resilience(),
+                basePayload.rag()
+        );
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", reorderedPayload,
+                                "expectedVersion", 1,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                ),
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", true),
+                                                        "embeddingApiKey", Map.of("retainExisting", true),
+                                                        "rerankApiKey", Map.of("retainExisting", true)
+                                                ),
+                                                "archive", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "archive-chat-secret"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "archive-embed-secret"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "archive-rerank-secret")
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", true)
+                                )
+                        ))))
+                .andExpect(status().isOk());
+
+        assertThat(List.copyOf(stubAiGatewayClient.lastAppliedConfig.provider().providers().keySet()))
+                .containsExactly("deepseek", "qwen", "archive");
+        assertThat(List.copyOf(storageService.load().orElseThrow().config().provider().providers().keySet()))
+                .containsExactly("deepseek", "qwen", "archive");
+    }
+
+    @Test
     void saveRejectsUnknownProviderOrigins() throws Exception {
         String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
         stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
@@ -810,6 +867,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
             return Optional.of(new AiGatewayHealthResponse(
                     "ai-gateway",
                     "UP",
+                    "IN_SYNC",
                     "qwen",
                     "deepseek",
                     "qwen-max",

@@ -59,6 +59,13 @@ public final class AiOpsConfigSemanticValidator {
             issues.add(issue("provider.providers", "provider_definitions_required", "at least one provider definition is required"));
             return;
         }
+        if (provider.providers().size() < 2) {
+            issues.add(issue(
+                    "provider.providers",
+                    "provider_count_requires_fallback",
+                    "fallbackProvider requires at least two provider definitions"
+            ));
+        }
         validateProviderReference("provider.activeProvider", provider.activeProvider(), provider.providers(), issues);
         validateProviderReference("provider.fallbackProvider", provider.fallbackProvider(), provider.providers(), issues);
         if (hasText(provider.activeProvider())

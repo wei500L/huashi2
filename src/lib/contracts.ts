@@ -1954,6 +1954,7 @@ export interface AdminOutboxRecordVO {
 export interface AiGatewayHealthResponse {
   service: string;
   status: string;
+  storedSyncStatus?: 'IN_SYNC' | 'NO_STORED_CONFIG' | 'SYNC_FAILED' | string | null;
   provider: string;
   fallbackProvider: string;
   chatModel: string;

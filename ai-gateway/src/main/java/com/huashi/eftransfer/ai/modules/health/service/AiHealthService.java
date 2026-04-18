@@ -43,6 +43,7 @@ public class AiHealthService {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         var provider = bundle.config().provider();
         AiOpsProviderDefinition activeProvider = provider.providers().get(provider.activeProvider());
+        String storedSyncStatus = runtimeConfigService.storedSyncStatus();
         boolean databaseReady = isDatabaseReady();
         String vectorVersion = fetchVectorExtensionVersion();
         boolean vectorStoreReady = !"UNAVAILABLE".equals(vectorVersion)
@@ -61,10 +62,18 @@ public class AiHealthService {
                 && configured(activeProvider.rerank().model());
         AppServerProbe appServerProbe = probeAppServer(bundle);
         List<String> profiles = Arrays.asList(environment.getActiveProfiles());
+        boolean storedSyncHealthy = !AiRuntimeConfigService.STORED_SYNC_STATUS_SYNC_FAILED.equals(storedSyncStatus);
+        boolean overallHealthy = databaseReady
+                && vectorStoreReady
+                && providerReady
+                && rerankReady
+                && appServerProbe.ready()
+                && storedSyncHealthy;
 
         return new AiGatewayHealthResponse(
                 "ai-gateway",
-                databaseReady && vectorStoreReady && providerReady && rerankReady && appServerProbe.ready() ? "UP" : "DEGRADED",
+                overallHealthy ? "UP" : "DEGRADED",
+                storedSyncStatus,
                 provider.activeProvider(),
                 provider.fallbackProvider(),
                 activeProvider == null ? null : activeProvider.chat().model(),

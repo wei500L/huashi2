@@ -6,6 +6,7 @@ import java.util.List;
 public record AiGatewayHealthResponse(
         String service,
         String status,
+        String storedSyncStatus,
         String provider,
         String fallbackProvider,
         String chatModel,

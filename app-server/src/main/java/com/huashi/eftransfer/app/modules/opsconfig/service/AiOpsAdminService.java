@@ -558,6 +558,11 @@ public class AiOpsAdminService {
                 providers.put(entry.getKey(), normalizeProviderDefinition(entry.getValue()));
             }
         }
+        Map<String, AiOpsProviderDefinition> orderedProviders = canonicalizeProviders(
+                providers,
+                provider.activeProvider(),
+                provider.fallbackProvider()
+        );
         AiOpsResilienceConfig resilience = payload.resilience() == null
                 ? new AiOpsResilienceConfig(null, null, null, null, null)
                 : payload.resilience();
@@ -576,7 +581,7 @@ public class AiOpsAdminService {
                 : rag.retrieval();
 
         return new AiOpsConfigPayload(
-                new AiOpsProviderConfig(provider.activeProvider(), provider.fallbackProvider(), providers),
+                new AiOpsProviderConfig(provider.activeProvider(), provider.fallbackProvider(), orderedProviders),
                 resilience,
                 new AiOpsRagConfig(appServer, ingestion, retrieval)
         );
@@ -663,22 +668,24 @@ public class AiOpsAdminService {
         Map<String, AiOpsProviderDefinition> requestProviders = normalizedRequest.provider().providers();
         Map<String, AiOpsProviderDefinition> baseProviders = normalizedBase.provider().providers();
         Map<String, String> safeProviderOrigins = validateProviderOrigins(providerOrigins, baseProviders, requestProviders);
-        return new AiOpsConfigPayload(
-                new AiOpsProviderConfig(
-                        normalizedRequest.provider().activeProvider(),
-                        normalizedRequest.provider().fallbackProvider(),
-                        mergeProviders(baseProviders, requestProviders, safeProviderOrigins, safeSecrets.providers())
-                ),
-                normalizedRequest.resilience(),
-                new AiOpsRagConfig(
-                        new AiOpsRagAppServerConfig(
-                                normalizedRequest.rag().appServer().baseUrl(),
-                                resolveSecret(normalizedBase.rag().appServer().internalToken(), safeSecrets.appServerInternalToken()),
-                                normalizedRequest.rag().appServer().connectTimeout(),
-                                normalizedRequest.rag().appServer().readTimeout()
+        return normalizePayload(
+                new AiOpsConfigPayload(
+                        new AiOpsProviderConfig(
+                                normalizedRequest.provider().activeProvider(),
+                                normalizedRequest.provider().fallbackProvider(),
+                                mergeProviders(baseProviders, requestProviders, safeProviderOrigins, safeSecrets.providers())
                         ),
-                        normalizedRequest.rag().ingestion(),
-                        normalizedRequest.rag().retrieval()
+                        normalizedRequest.resilience(),
+                        new AiOpsRagConfig(
+                                new AiOpsRagAppServerConfig(
+                                        normalizedRequest.rag().appServer().baseUrl(),
+                                        resolveSecret(normalizedBase.rag().appServer().internalToken(), safeSecrets.appServerInternalToken()),
+                                        normalizedRequest.rag().appServer().connectTimeout(),
+                                        normalizedRequest.rag().appServer().readTimeout()
+                                ),
+                                normalizedRequest.rag().ingestion(),
+                                normalizedRequest.rag().retrieval()
+                        )
                 )
         );
     }
@@ -718,6 +725,33 @@ public class AiOpsAdminService {
             ));
         }
         return sanitized;
+    }
+
+    private Map<String, AiOpsProviderDefinition> canonicalizeProviders(
+            Map<String, AiOpsProviderDefinition> providers,
+            String activeProvider,
+            String fallbackProvider
+    ) {
+        Map<String, AiOpsProviderDefinition> ordered = new LinkedHashMap<>();
+        addOrderedProvider(ordered, providers, activeProvider);
+        addOrderedProvider(ordered, providers, fallbackProvider);
+        if (providers != null) {
+            providers.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> ordered.putIfAbsent(entry.getKey(), entry.getValue()));
+        }
+        return ordered;
+    }
+
+    private void addOrderedProvider(
+            Map<String, AiOpsProviderDefinition> ordered,
+            Map<String, AiOpsProviderDefinition> providers,
+            String providerName
+    ) {
+        if (!StringUtils.hasText(providerName) || providers == null || !providers.containsKey(providerName)) {
+            return;
+        }
+        ordered.putIfAbsent(providerName, providers.get(providerName));
     }
 
     private Map<String, AdminAiProviderSecretFieldsVO> buildProviderSecrets(Map<String, AiOpsProviderDefinition> providers) {

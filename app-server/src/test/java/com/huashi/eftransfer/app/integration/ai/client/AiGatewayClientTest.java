@@ -88,6 +88,7 @@ class AiGatewayClientTest {
                   "data": {
                     "service": "ai-gateway",
                     "status": "UP",
+                    "storedSyncStatus": "IN_SYNC",
                     "provider": "qwen",
                     "fallbackProvider": "deepseek",
                     "chatModel": "qwen-max",
@@ -112,6 +113,7 @@ class AiGatewayClientTest {
 
         assertThat(response).isPresent();
         assertThat(response.orElseThrow().provider()).isEqualTo("qwen");
+        assertThat(response.orElseThrow().storedSyncStatus()).isEqualTo("IN_SYNC");
         assertThat(LAST_REQUEST.get().path()).isEqualTo("/internal/ai/health");
         assertThat(LAST_REQUEST.get().method()).isEqualTo("GET");
         assertThat(LAST_REQUEST.get().internalToken()).isEqualTo("test-internal-token");

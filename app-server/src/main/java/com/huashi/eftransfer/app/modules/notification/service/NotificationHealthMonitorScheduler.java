@@ -62,8 +62,8 @@ public class NotificationHealthMonitorScheduler {
         if (health == null) {
             return "ai-gateway unavailable";
         }
-        if (!"UP".equalsIgnoreCase(health.status())) {
-            return "status=" + health.status();
+        if ("SYNC_FAILED".equalsIgnoreCase(health.storedSyncStatus())) {
+            return "stored-sync-failed";
         }
         if (!health.providerReady()) {
             return "provider unavailable";
@@ -79,6 +79,9 @@ public class NotificationHealthMonitorScheduler {
         }
         if (!health.appServerReady()) {
             return health.appServerError() == null ? "app-server integration unavailable" : health.appServerError();
+        }
+        if (!"UP".equalsIgnoreCase(health.status())) {
+            return "status=" + health.status();
         }
         return "unknown";
     }

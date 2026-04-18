@@ -386,8 +386,52 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinitio
   };
 }
 
-function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsConfigPayload> | null): AiOpsConfigPayload {
+function sortProviderNames(providerNames: string[], activeProvider?: string | null, fallbackProvider?: string | null): string[] {
+  const uniqueNames = Array.from(new Set(providerNames));
+  const ordered: string[] = [];
+  const pushIfPresent = (providerName?: string | null) => {
+    if (!providerName || !uniqueNames.includes(providerName) || ordered.includes(providerName)) {
+      return;
+    }
+    ordered.push(providerName);
+  };
+
+  pushIfPresent(activeProvider);
+  pushIfPresent(fallbackProvider);
+  uniqueNames
+    .filter((providerName) => !ordered.includes(providerName))
+    .sort((left, right) => left.localeCompare(right))
+    .forEach((providerName) => ordered.push(providerName));
+  return ordered;
+}
+
+function canonicalizeProviderRecord<T>(
+  providers: Record<string, T>,
+  activeProvider?: string | null,
+  fallbackProvider?: string | null
+): Record<string, T> {
+  return Object.fromEntries(
+    sortProviderNames(Object.keys(providers || {}), activeProvider, fallbackProvider)
+      .map((providerName) => [providerName, providers[providerName]])
+  );
+}
+
+function canonicalizeConfigPayload(config: AiOpsConfigPayload): AiOpsConfigPayload {
   return {
+    ...config,
+    provider: {
+      ...config.provider,
+      providers: canonicalizeProviderRecord(
+        config.provider.providers || {},
+        config.provider.activeProvider,
+        config.provider.fallbackProvider
+      ),
+    },
+  };
+}
+
+function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsConfigPayload> | null): AiOpsConfigPayload {
+  return canonicalizeConfigPayload({
     provider: {
       activeProvider: payload?.provider?.activeProvider ?? null,
       fallbackProvider: payload?.provider?.fallbackProvider ?? null,
@@ -424,7 +468,7 @@ function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsConfigPayload> | nul
         finalTopK: payload?.rag?.retrieval?.finalTopK ?? null,
       },
     },
-  };
+  });
 }
 
 function normalizeSecretField(field?: Partial<AdminAiSecretFieldVO> | null): AdminAiSecretFieldVO {
@@ -455,18 +499,27 @@ function normalizeConfigNotice(notice?: Partial<AiOpsConfigNotice> | null): AiOp
 
 export function normalizeAdminAiConfigView(view: unknown): AdminAiConfigViewVO {
   assertAdminAiConfigViewEnvelope(view);
+  const normalizedConfig = normalizeAiOpsConfigPayload(view?.config);
+  const orderedProviderNames = sortProviderNames(
+    [...Object.keys(normalizedConfig.provider.providers || {}), ...Object.keys(view?.secrets?.providers || {})],
+    normalizedConfig.provider.activeProvider,
+    normalizedConfig.provider.fallbackProvider
+  );
   return {
-    config: normalizeAiOpsConfigPayload(view?.config),
+    config: normalizedConfig,
     secrets: {
       providers: Object.fromEntries(
-        Object.entries(view?.secrets?.providers || {}).map(([providerName, providerSecrets]) => [
+        orderedProviderNames.map((providerName) => {
+          const providerSecrets = view?.secrets?.providers?.[providerName];
+          return [
           providerName,
           {
             chatApiKey: normalizeSecretField(providerSecrets?.chatApiKey),
             embeddingApiKey: normalizeSecretField(providerSecrets?.embeddingApiKey),
             rerankApiKey: normalizeSecretField(providerSecrets?.rerankApiKey),
           },
-        ])
+          ];
+        })
       ),
       appServerInternalToken: normalizeSecretField(view?.secrets?.appServerInternalToken),
     },
@@ -511,10 +564,11 @@ function createProviderSecretEditors(view: AdminAiConfigViewVO, providerName: st
 }
 
 function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
-  const providerNames = Array.from(new Set([
-    ...Object.keys(view.config.provider.providers || {}),
-    ...Object.keys(view.secrets.providers || {}),
-  ]));
+  const providerNames = sortProviderNames(
+    [...Object.keys(view.config.provider.providers || {}), ...Object.keys(view.secrets.providers || {})],
+    view.config.provider.activeProvider,
+    view.config.provider.fallbackProvider
+  );
 
   return {
     providers: Object.fromEntries(providerNames.map((providerName) => [providerName, createProviderSecretEditors(view, providerName)])),
@@ -606,21 +660,30 @@ export function buildSavePayload(
   expectedVersion?: number | null,
   providerOrigins: ProviderOriginMap = {}
 ): AdminAiConfigSaveRequest {
-  const sanitizedProviderOrigins = sanitizeProviderOrigins(providerOrigins, Object.keys(config.provider.providers || {}));
+  const canonicalConfig = canonicalizeConfigPayload(config);
+  const orderedProviderNames = sortProviderNames(
+    Object.keys(canonicalConfig.provider.providers || {}),
+    canonicalConfig.provider.activeProvider,
+    canonicalConfig.provider.fallbackProvider
+  );
+  const sanitizedProviderOrigins = sanitizeProviderOrigins(providerOrigins, orderedProviderNames);
   return {
-    config,
+    config: canonicalConfig,
     expectedVersion: expectedVersion ?? null,
     providerOrigins: sanitizedProviderOrigins,
     secrets: {
       providers: Object.fromEntries(
-        Object.entries(secrets.providers).map(([providerName, providerSecrets]) => [
+        orderedProviderNames.map((providerName) => {
+          const providerSecrets = secrets.providers[providerName] || createEmptyProviderSecretEditors();
+          return [
           providerName,
           {
             chatApiKey: providerSecrets.chatApiKey,
             embeddingApiKey: providerSecrets.embeddingApiKey,
             rerankApiKey: providerSecrets.rerankApiKey,
           },
-        ])
+          ];
+        })
       ),
       appServerInternalToken: secrets.appServerInternalToken,
     },
@@ -811,6 +874,9 @@ function translateConfigMessage(message: string): string {
   if (trimmed.includes('provider key must contain only lowercase letters, numbers, hyphen, or underscore')) {
     return 'Provider key 仅支持小写字母、数字、连字符和下划线。';
   }
+  if (trimmed.includes('fallbackProvider requires at least two provider definitions')) {
+    return 'activeProvider 与 fallbackProvider 必须引用两个不同 provider，至少需要两组 provider 定义。';
+  }
   if (trimmed.includes('runtime is unavailable')) {
     return 'ai-gateway 运行态当前不可达，页面正在展示数据库权威快照。';
   }
@@ -870,7 +936,7 @@ function translateConfigIssue(issue: AiOpsConfigIssue): string {
     case 'provider_definitions_required':
       return '至少需要定义一组 provider。';
     case 'provider_count_requires_fallback':
-      return 'fallbackProvider 为必填，至少需要两组 provider 定义。';
+      return 'activeProvider 与 fallbackProvider 必须引用两个不同 provider，至少需要两组 provider 定义。';
     default:
       return translateConfigMessage(issue.defaultMessage);
   }
@@ -916,6 +982,24 @@ function formatSecretStatus(field?: AdminAiSecretFieldVO | null): string {
   }
   const lengthLabel = typeof field.valueLength === 'number' ? `已配置 · 长度 ${field.valueLength}` : '已配置';
   return field.maskedValue ? `${lengthLabel} · ${field.maskedValue}` : lengthLabel;
+}
+
+function describeStoredSyncStatus(status?: string | null): string {
+  const normalized = (status || '').toUpperCase();
+  if (normalized === 'IN_SYNC') {
+    return '启动期数据库快照同步成功';
+  }
+  if (normalized === 'NO_STORED_CONFIG') {
+    return '当前没有数据库快照可同步';
+  }
+  if (normalized === 'SYNC_FAILED') {
+    return '启动期数据库快照同步失败';
+  }
+  return normalized || '--';
+}
+
+function isStoredSyncHealthy(status?: string | null): boolean {
+  return (status || '').toUpperCase() !== 'SYNC_FAILED';
 }
 
 const requiredTextSchema = z.string().trim().min(1, 'value is required');
@@ -1017,7 +1101,7 @@ const aiOpsDraftSchema = z.object({
         ctx.addIssue({ code: 'custom', path: ['providers', providerName], message: 'provider key must contain only lowercase letters, numbers, hyphen, or underscore' });
       }
     });
-    if (providerNames.length < 2) {
+    if (providerNames.length > 0 && providerNames.length < 2) {
       ctx.addIssue({ code: 'custom', path: ['providers'], message: 'fallbackProvider requires at least two provider definitions' });
     }
     if (!providerNames.includes(provider.activeProvider)) {
@@ -1811,7 +1895,7 @@ const AdminConfigCenterPage: React.FC = () => {
 
   const updateConfig = React.useCallback((updater: (current: AiOpsConfigPayload) => AiOpsConfigPayload) => {
     clearProbeResults();
-    setConfig((current) => (current ? updater(current) : current));
+    setConfig((current) => (current ? canonicalizeConfigPayload(updater(current)) : current));
   }, [clearProbeResults]);
 
   const updateProviderDefinition = React.useCallback((
@@ -1957,7 +2041,7 @@ const AdminConfigCenterPage: React.FC = () => {
       return;
     }
     if (Object.keys(config.provider.providers || {}).length <= 2) {
-      setFeedback({ tone: 'error', message: 'fallbackProvider 为必填，至少需要保留两组 provider 定义。' });
+      setFeedback({ tone: 'error', message: 'activeProvider 与 fallbackProvider 必须引用两个不同 provider，至少需要保留两组 provider 定义。' });
       return;
     }
     updateConfig((current) => {
@@ -2494,7 +2578,7 @@ const AdminConfigCenterPage: React.FC = () => {
 
           {providerEntries.length > 0 && providerEntries.length < 2 && (
             <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500">
-              当前 provider 数量少于 2，而 fallbackProvider 为必填。请至少补齐两组 provider 定义后再保存。
+              当前 provider 数量少于 2。activeProvider 与 fallbackProvider 必须引用两个不同 provider，请至少补齐两组 provider 定义后再保存。
             </div>
           )}
 
@@ -2750,12 +2834,12 @@ const AdminConfigCenterPage: React.FC = () => {
                       options={providerProtocolOptions.rerank}
                     />
                   </FieldCard>
-                  <FieldCard label="Rerank 接口地址" hint="用于召回后的重排序。若关闭或异常，会明显影响最终检索质量；这里应填写服务真实端点，而不是依赖默认示例地址。">
+                  <FieldCard label="Rerank 接口地址" hint="用于召回后的重排序。若关闭或异常，会明显影响最终检索质量；这里必须填写完整 rerank endpoint URL，而不是 provider 根路径。">
                     <TextInput
                       value={definition.rerank.baseUrl}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, baseUrl: value } }))}
                       disabled={!editing}
-                      placeholder="https://provider.example.com/rerank"
+                      placeholder="https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
                     />
                   </FieldCard>
                   <FieldCard label={providerSecretMeta.rerankApiKey.label} hint={providerSecretMeta.rerankApiKey.hint}>
@@ -3135,6 +3219,7 @@ const AdminConfigCenterPage: React.FC = () => {
               {healthState && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <HealthBadge healthy={healthState.status === 'UP'} label={`整体状态: ${healthState.status}`} />
+                  <HealthBadge healthy={isStoredSyncHealthy(healthState.storedSyncStatus)} label={`Stored Sync: ${healthState.storedSyncStatus || '--'}`} />
                   <HealthBadge healthy={healthState.databaseReady} label={`Database: ${healthState.databaseReady ? 'READY' : 'DOWN'}`} />
                   <HealthBadge healthy={healthState.vectorStoreReady} label={`Vector Store: ${healthState.vectorStoreReady ? 'READY' : 'DOWN'}`} />
                   <HealthBadge healthy={healthState.providerReady} label={`Provider: ${healthState.providerReady ? 'READY' : 'DEGRADED'}`} />
@@ -3150,6 +3235,7 @@ const AdminConfigCenterPage: React.FC = () => {
                     <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Environment</div>
                     <div>Provider: {healthState.provider}</div>
                     <div>Fallback: {healthState.fallbackProvider}</div>
+                    <div>Stored Sync: {describeStoredSyncStatus(healthState.storedSyncStatus)}</div>
                     <div>Vector Extension: {healthState.vectorExtensionVersion || '--'}</div>
                     <div>Profiles: {healthState.activeProfiles.join(', ') || '--'}</div>
                     <div>Checked At: {formatDateTime(healthState.timestamp)}</div>

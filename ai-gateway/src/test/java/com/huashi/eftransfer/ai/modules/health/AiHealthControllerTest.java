@@ -26,6 +26,7 @@ class AiHealthControllerTest {
         AiGatewayHealthResponse payload = new AiGatewayHealthResponse(
                 "ai-gateway",
                 "UP",
+                "IN_SYNC",
                 "qwen",
                 "deepseek",
                 "qwen-max",
@@ -52,6 +53,7 @@ class AiHealthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.service").value("ai-gateway"))
+                .andExpect(jsonPath("$.data.storedSyncStatus").value("IN_SYNC"))
                 .andExpect(jsonPath("$.data.provider").value("qwen"))
                 .andExpect(jsonPath("$.data.databaseReady").value(true));
     }
