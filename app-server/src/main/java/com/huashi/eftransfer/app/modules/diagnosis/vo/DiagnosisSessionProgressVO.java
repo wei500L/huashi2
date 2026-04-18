@@ -1,8 +1,10 @@
 package com.huashi.eftransfer.app.modules.diagnosis.vo;
 
+import com.huashi.eftransfer.shared.enums.DiagnosisSessionStatus;
+
 public record DiagnosisSessionProgressVO(
         Long sessionId,
-        String status,
+        DiagnosisSessionStatus status,
         Integer totalItems,
         Integer answeredItems,
         Integer currentItemOrder,

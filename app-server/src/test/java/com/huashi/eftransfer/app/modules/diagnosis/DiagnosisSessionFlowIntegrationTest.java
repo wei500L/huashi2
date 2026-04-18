@@ -5,6 +5,7 @@ import com.huashi.eftransfer.app.common.audit.entity.AuditLogEntity;
 import com.huashi.eftransfer.app.common.audit.mapper.AuditLogMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEvent;
 import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEventPublisher;
+import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSessionMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private AuditLogMapper auditLogMapper;
+
+    @Autowired
+    private DiagnosisSessionMapper diagnosisSessionMapper;
 
     @Test
     void shouldRunDiagnosisSessionWorkflowAndPersistSummary() throws Exception {
@@ -178,7 +182,9 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "templateId": %d
+                                  "templateId": %d,
+                                  "launchSource": "dashboard",
+                                  "sourceSummaryId": 88
                                 }
                                 """.formatted(templateId)))
                 .andExpect(status().isOk())
@@ -186,6 +192,9 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.totalItems").value(3))
                 .andReturn();
         long sessionId = readJson(sessionCreateResult).path("data").path("sessionId").asLong();
+        assertThat(diagnosisSessionMapper.selectById(sessionId).getLaunchContextJson())
+                .contains("\"launchSource\":\"dashboard\"")
+                .contains("\"sourceSummaryId\":88");
 
         mockMvc.perform(post("/api/diagnosis/sessions")
                         .with(bearer(studentToken))
@@ -320,9 +329,9 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                   }
                                 }
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data.completed").value(true));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value("Diagnosis session is already completed"));
 
         MvcResult followUpSessionResult = mockMvc.perform(post("/api/diagnosis/sessions")
                         .with(bearer(studentToken))

@@ -1,6 +1,6 @@
 import React from 'react';
-import { useBeforeUnload, useBlocker } from 'react-router';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
+import { useLeaveProtection } from './useLeaveProtection';
 
 type SessionRefetchResult<TNextItem> = {
   data?: TNextItem;
@@ -13,14 +13,14 @@ type SessionRuntimeMessages = {
   leaveConfirm: string;
 };
 
-type SessionRuntimeOptions<TNextItem> = {
+type SessionRuntimeOptions<TNextItem, TSnapshot> = {
   active: boolean;
   sessionId: number | null;
   nextItem?: TNextItem | null;
   refetchCurrent: () => Promise<SessionRefetchResult<TNextItem>>;
-  buildSnapshot: (sessionId: number, nextItem?: TNextItem | null) => Record<string, unknown>;
-  saveProgress: (sessionId: number, snapshot: Record<string, unknown>) => Promise<unknown>;
-  saveProgressKeepalive: (sessionId: number, snapshot: Record<string, unknown>) => Promise<unknown>;
+  buildSnapshot: (sessionId: number, nextItem?: TNextItem | null) => TSnapshot;
+  saveProgress: (sessionId: number, snapshot: TSnapshot) => Promise<unknown>;
+  saveProgressKeepalive: (sessionId: number, snapshot: TSnapshot) => Promise<unknown>;
   isCompleted: (nextItem?: TNextItem) => boolean;
   onCompleted: (nextItem: TNextItem) => void;
   messages?: Partial<SessionRuntimeMessages>;
@@ -33,7 +33,7 @@ const defaultMessages: SessionRuntimeMessages = {
   leaveConfirm: '当前会话仍在进行中，确认离开此页面吗？未保存的进度可能丢失。',
 };
 
-export function useSessionRuntime<TNextItem>({
+export function useSessionRuntime<TNextItem, TSnapshot>({
   active,
   sessionId,
   nextItem,
@@ -44,7 +44,7 @@ export function useSessionRuntime<TNextItem>({
   isCompleted,
   onCompleted,
   messages,
-}: SessionRuntimeOptions<TNextItem>) {
+}: SessionRuntimeOptions<TNextItem, TSnapshot>) {
   const resolvedMessages = React.useMemo(
     () => ({ ...defaultMessages, ...messages }),
     [messages]
@@ -52,7 +52,12 @@ export function useSessionRuntime<TNextItem>({
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
-  const allowNavigationRef = React.useRef(false);
+  const allowNavigationRef = React.useRef<(callback: () => void) => void>((callback) => {
+    callback();
+  });
+  const saveProgressManuallyRef = React.useRef<
+    (options?: { onSuccess?: () => void; exitAfterSave?: boolean }) => Promise<{ status: 'saved' | 'completed' | 'failed' }>
+  >(async () => ({ status: 'failed' }));
 
   const resetFeedback = React.useCallback(() => {
     setSaveMessage(null);
@@ -100,18 +105,25 @@ export function useSessionRuntime<TNextItem>({
       try {
         await saveProgress(sessionId, buildSnapshot(sessionId, nextItem));
         setSaveMessage(options?.exitAfterSave ? resolvedMessages.savedAndExit : resolvedMessages.saved);
-        if (options?.exitAfterSave) {
-          allowNavigationRef.current = true;
+        if (options?.onSuccess) {
+          if (options.exitAfterSave) {
+            allowNavigationRef.current(() => options.onSuccess?.());
+          } else {
+            options.onSuccess();
+          }
         }
-        options?.onSuccess?.();
         return { status: 'saved' as const };
       } catch (error) {
         const normalizedError = normalizeApiError(error);
         if (normalizedError.status === 409) {
           const completed = await resolveConflict();
           if (completed) {
-            if (options?.exitAfterSave) {
-              allowNavigationRef.current = true;
+            if (options?.onSuccess) {
+              if (options.exitAfterSave) {
+                allowNavigationRef.current(() => options.onSuccess?.());
+              } else {
+                options.onSuccess();
+              }
             }
             return { status: 'completed' as const };
           }
@@ -119,66 +131,24 @@ export function useSessionRuntime<TNextItem>({
         setSaveErrorMessage(getApiErrorMessage(error));
         return { status: 'failed' as const };
       } finally {
-        if (options?.exitAfterSave) {
-          window.setTimeout(() => {
-            allowNavigationRef.current = false;
-          }, 0);
-        }
         setIsSaving(false);
       }
     },
-    [active, buildSnapshot, nextItem, refetchCurrent, resolveConflict, resolvedMessages.saved, resolvedMessages.savedAndExit, saveProgress, sessionId]
+    [active, buildSnapshot, nextItem, resolveConflict, resolvedMessages.saved, resolvedMessages.savedAndExit, saveProgress, sessionId]
   );
 
-  const blocker = useBlocker(() => active && !!sessionId && !allowNavigationRef.current);
+  saveProgressManuallyRef.current = saveProgressManually;
 
-  React.useEffect(() => {
-    if (blocker.state !== 'blocked') {
-      return;
-    }
-    const shouldLeave = window.confirm(resolvedMessages.leaveConfirm);
-    if (shouldLeave) {
-      void (async () => {
-        const result = await saveProgressManually({ exitAfterSave: true });
-        if (result.status === 'saved' || result.status === 'completed') {
-          blocker.proceed();
-          return;
-        }
-        blocker.reset();
-      })();
-      return;
-    }
-    blocker.reset();
-  }, [blocker, resolvedMessages.leaveConfirm, saveProgressManually]);
-
-  useBeforeUnload(
-    React.useCallback(
-      (event) => {
-        if (!active || !sessionId || allowNavigationRef.current) {
-          return;
-        }
-        event.preventDefault();
-        event.returnValue = resolvedMessages.leaveConfirm;
-        void saveSnapshotKeepalive();
-      },
-      [active, resolvedMessages.leaveConfirm, saveSnapshotKeepalive, sessionId]
-    )
-  );
-
-  React.useEffect(() => {
-    if (!active || !sessionId) {
-      return;
-    }
-    const onVisibilityChange = () => {
-      if (document.hidden) {
-        void saveSnapshotKeepalive();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [active, saveSnapshotKeepalive, sessionId]);
+  const { allowNavigation } = useLeaveProtection({
+    active: active && !!sessionId,
+    leaveConfirm: resolvedMessages.leaveConfirm,
+    onRouteLeave: async () => {
+      const result = await saveProgressManuallyRef.current({ exitAfterSave: true });
+      return result.status === 'saved' || result.status === 'completed';
+    },
+    onBackgroundPersist: saveSnapshotKeepalive,
+  });
+  allowNavigationRef.current = allowNavigation;
 
   return {
     isSaving,

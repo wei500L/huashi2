@@ -8,6 +8,7 @@ import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/
 import { TrainingModeSummaryCard } from '@/components/common/TrainingModeSummaryCard';
 import { OnboardingTour, useOnboardingTour } from '@/features/onboarding';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
+import { buildDiagnosisHref } from '@/lib/diagnosis-launch';
 import type { AppChartOption } from '@/lib/echarts';
 import {
   assessmentAttemptStatusLabel,
@@ -320,7 +321,7 @@ const DashboardPage: React.FC = () => {
         subtitle={t('dashboard.subtitle')}
         actions={
           <div data-onboarding="student-dashboard-quick-start">
-            <button onClick={() => navigate('/diagnosis')} className="btn-liquid px-6 py-3 text-white">
+            <button onClick={() => navigate(buildDiagnosisHref({ source: 'dashboard' }))} className="btn-liquid px-6 py-3 text-white">
               {t('common.actions.startDiagnosis')}
             </button>
           </div>
@@ -713,7 +714,7 @@ const DashboardPage: React.FC = () => {
             <div className="space-y-3">
               <div className="text-lg font-black text-slate-900 dark:text-white">{t('ui.labels.noPlanTitle')}</div>
               <p className="text-sm leading-6 text-slate-500 dark:text-white/45">{t('ui.labels.noPlanDescription')}</p>
-              <button type="button" onClick={() => navigate('/diagnosis')} className="btn-liquid px-5 py-3 text-white">
+              <button type="button" onClick={() => navigate(buildDiagnosisHref({ source: 'dashboard-no-plan' }))} className="btn-liquid px-5 py-3 text-white">
                 {t('ui.actions.goDiagnosisNow')}
               </button>
             </div>

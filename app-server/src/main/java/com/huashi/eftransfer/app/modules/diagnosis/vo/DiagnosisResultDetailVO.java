@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.diagnosis.vo;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisChartPayload;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisDistributionItem;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisHighRiskLexicalPair;
+import com.huashi.eftransfer.shared.enums.DiagnosisSessionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -10,7 +11,7 @@ import java.util.List;
 public record DiagnosisResultDetailVO(
         Long summaryId,
         Long sessionId,
-        String status,
+        DiagnosisSessionStatus status,
         Long templateId,
         String templateName,
         Long ownerUserId,

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "gen:contracts": "node ./scripts/generate-session-contracts.mjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "build:analyze": "tsc --noEmit && vite build --mode analyze",

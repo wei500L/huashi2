@@ -26,6 +26,7 @@ import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisHighRiskLexi
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisJsonCodec;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisOptionPayload;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisScoringProfilePayload;
+import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisSessionLaunchContext;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisHistorySummaryVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisItemResultDetailVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisNextItemVO;
@@ -39,9 +40,11 @@ import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.DiagnosisAnswerState;
+import com.huashi.eftransfer.shared.enums.ContextSupportLevel;
 import com.huashi.eftransfer.shared.enums.DiagnosisErrorType;
 import com.huashi.eftransfer.shared.enums.DiagnosisSessionStatus;
 import com.huashi.eftransfer.shared.enums.DiagnosisTaskType;
+import com.huashi.eftransfer.shared.enums.LexicalPairType;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.page.PageQuery;
 import com.huashi.eftransfer.shared.page.PageResult;
@@ -131,6 +134,7 @@ public class DiagnosisSessionService {
         session.setTotalItems(orderedItems.size());
         session.setAnsweredItems(0);
         session.setCurrentItemOrder(orderedItems.isEmpty() ? null : 1);
+        session.setLaunchContextJson(diagnosisJsonCodec.write(resolveLaunchContext(request)));
         session.setStartedAt(LocalDateTime.now());
         session.setLastSavedAt(session.getStartedAt());
         try {
@@ -162,7 +166,7 @@ public class DiagnosisSessionService {
                 session.getId(),
                 template.getId(),
                 template.getTemplateName(),
-                session.getStatus(),
+                parseSessionStatus(session.getStatus()),
                 session.getTotalItems(),
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder(),
@@ -176,7 +180,7 @@ public class DiagnosisSessionService {
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             return new DiagnosisNextItemVO(
                     session.getId(),
-                    session.getStatus(),
+                    parseSessionStatus(session.getStatus()),
                     session.getTotalItems(),
                     session.getAnsweredItems(),
                     session.getCurrentItemOrder(),
@@ -192,7 +196,7 @@ public class DiagnosisSessionService {
             diagnosisSessionMapper.updateById(session);
             return new DiagnosisNextItemVO(
                     session.getId(),
-                    session.getStatus(),
+                    parseSessionStatus(session.getStatus()),
                     session.getTotalItems(),
                     session.getAnsweredItems(),
                     null,
@@ -219,20 +223,20 @@ public class DiagnosisSessionService {
         DiagnosisQuestionItemVO itemVO = new DiagnosisQuestionItemVO(
                 nextItemResult.getId(),
                 templateItem.getId(),
-                templateItem.getTaskType(),
+                DiagnosisTaskType.fromCode(templateItem.getTaskType()),
                 nextItemResult.getPresentationOrder(),
                 lexicalPair.getId(),
                 lexicalPair.getEnglishWord(),
                 lexicalPair.getFrenchWord(),
                 lexicalPair.getChineseGloss(),
-                lexicalPair.getLexicalPairType(),
-                templateItem.getContextSupportLevel(),
+                LexicalPairType.fromCode(lexicalPair.getLexicalPairType()),
+                ContextSupportLevel.fromCode(templateItem.getContextSupportLevel()),
                 diagnosisJsonCodec.readStimulus(templateItem.getStimulusPayloadJson()),
                 options
         );
         return new DiagnosisNextItemVO(
                 session.getId(),
-                session.getStatus(),
+                parseSessionStatus(session.getStatus()),
                 session.getTotalItems(),
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder(),
@@ -345,7 +349,7 @@ public class DiagnosisSessionService {
     public DiagnosisSessionProgressVO saveProgress(Long sessionId, SaveDiagnosisProgressRequest request) {
         DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
         if (DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus())) {
-            return progressVO(session);
+            throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is already completed", 409);
         }
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not in progress", 409);
@@ -413,7 +417,7 @@ public class DiagnosisSessionService {
         return new DiagnosisResultDetailVO(
                 summary.getId(),
                 session.getId(),
-                session.getStatus(),
+                parseSessionStatus(session.getStatus()),
                 template.getId(),
                 template.getTemplateName(),
                 session.getOwnerUserId(),
@@ -482,7 +486,7 @@ public class DiagnosisSessionService {
                             session.getTemplateId(),
                             template == null ? null : template.getTemplateName(),
                             session.getOwnerUserId(),
-                            session.getStatus(),
+                            parseSessionStatus(session.getStatus()),
                             session.getStartedAt(),
                             session.getLastSavedAt(),
                             session.getCompletedAt(),
@@ -537,13 +541,13 @@ public class DiagnosisSessionService {
                 itemResult.getId(),
                 templateItem.getId(),
                 itemResult.getPresentationOrder(),
-                templateItem.getTaskType(),
+                DiagnosisTaskType.fromCode(templateItem.getTaskType()),
                 lexicalPair.getId(),
                 lexicalPair.getEnglishWord(),
                 lexicalPair.getFrenchWord(),
                 lexicalPair.getChineseGloss(),
-                lexicalPair.getLexicalPairType(),
-                templateItem.getContextSupportLevel(),
+                LexicalPairType.fromCode(lexicalPair.getLexicalPairType()),
+                ContextSupportLevel.fromCode(templateItem.getContextSupportLevel()),
                 templateItem.getExpectedSemanticMatch(),
                 diagnosisJsonCodec.readStimulus(templateItem.getStimulusPayloadJson()),
                 options,
@@ -824,7 +828,7 @@ public class DiagnosisSessionService {
     private DiagnosisSessionProgressVO progressVO(DiagnosisSessionEntity session) {
         return new DiagnosisSessionProgressVO(
                 session.getId(),
-                session.getStatus(),
+                parseSessionStatus(session.getStatus()),
                 session.getTotalItems(),
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder(),
@@ -889,6 +893,14 @@ public class DiagnosisSessionService {
         return new BusinessException(ResultCode.CONFLICT, "Diagnosis item has already been answered", 409);
     }
 
+    private DiagnosisSessionLaunchContext resolveLaunchContext(CreateDiagnosisSessionRequest request) {
+        String launchSource = blankToNull(request.launchSource());
+        if (launchSource == null && request.sourceSummaryId() == null) {
+            return null;
+        }
+        return new DiagnosisSessionLaunchContext(launchSource, request.sourceSummaryId());
+    }
+
     private Long currentUserId() {
         return SecurityUtils.getCurrentUserId()
                 .orElseThrow(() -> new BusinessException(ResultCode.UNAUTHORIZED, "Authentication required", 401));
@@ -906,6 +918,10 @@ public class DiagnosisSessionService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String blankToNull(String value) {
+        return hasText(value) ? value.trim() : null;
     }
 
     private DiagnosisSessionStatus parseSessionStatus(String value) {

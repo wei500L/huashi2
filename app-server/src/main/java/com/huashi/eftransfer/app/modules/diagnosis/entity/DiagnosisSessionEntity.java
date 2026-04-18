@@ -35,6 +35,9 @@ public class DiagnosisSessionEntity extends BaseAuditEntity {
     @TableField("progress_snapshot_json")
     private String progressSnapshotJson;
 
+    @TableField("launch_context_json")
+    private String launchContextJson;
+
     @TableField("started_at")
     private LocalDateTime startedAt;
 
@@ -120,6 +123,14 @@ public class DiagnosisSessionEntity extends BaseAuditEntity {
 
     public void setProgressSnapshotJson(String progressSnapshotJson) {
         this.progressSnapshotJson = progressSnapshotJson;
+    }
+
+    public String getLaunchContextJson() {
+        return launchContextJson;
+    }
+
+    public void setLaunchContextJson(String launchContextJson) {
+        this.launchContextJson = launchContextJson;
     }
 
     public LocalDateTime getStartedAt() {

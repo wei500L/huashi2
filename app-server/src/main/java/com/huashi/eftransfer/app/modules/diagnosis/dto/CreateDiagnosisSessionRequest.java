@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotNull;
 
 public record CreateDiagnosisSessionRequest(
         @NotNull(message = "templateId must not be null")
-        Long templateId
+        Long templateId,
+        String launchSource,
+        Long sourceSummaryId
 ) {
 }

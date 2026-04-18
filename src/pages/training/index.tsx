@@ -5,6 +5,7 @@ import { AlertTriangle, Award, Brain, Clock3, Rocket } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, PanelSkeleton } from '@/components/common';
 import { TrainingModeSummaryCard } from '@/components/common/TrainingModeSummaryCard';
+import { buildDiagnosisHref } from '@/lib/diagnosis-launch';
 import { aiService, trainingService } from '@/lib/services';
 import { errorTypeLabel, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel, trainingModeLabel } from '@/lib/format';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
@@ -13,14 +14,29 @@ import type {
   SubmitTrainingAnswerRequest,
   TrainingHistorySummaryVO,
   TrainingItemResultDetailVO,
+  TrainingMode,
   TrainingOptionViewVO,
 } from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
+import { HESITATION_BASELINE_MS, NEXT_ITEM_RETRY_DELAY_MS, SLOW_NEXT_ITEM_NOTICE_DELAY_MS } from '@/features/session-runtime/constants';
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
 import { initialTrainingFlowState, trainingFlowReducer } from './flow';
 
 type SessionLaunchContext = Omit<TrainingLaunchParams, 'mode'>;
+const TRAINING_MODES: readonly TrainingMode[] = [
+  'COGNATE_BOOST',
+  'FALSE_FRIEND_DISCRIM',
+  'CONTEXT_FIX',
+  'SPEED_CHALLENGE',
+];
+
+function parseRequestedTrainingMode(value: string | null): TrainingMode | null {
+  if (!value) {
+    return null;
+  }
+  return TRAINING_MODES.includes(value as TrainingMode) ? (value as TrainingMode) : null;
+}
 
 function findTrainingOptionLabel(options: TrainingOptionViewVO[], answerKey?: string | null) {
   if (!answerKey) {
@@ -32,13 +48,16 @@ function findTrainingOptionLabel(options: TrainingOptionViewVO[], answerKey?: st
 function TrainingItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) {
   const selectedLabel = findTrainingOptionLabel(item.options, item.selectedAnswerKey);
   const correctLabel = findTrainingOptionLabel(item.options, item.correctAnswerKey);
+  const outcomeLabel = item.correct == null ? '未判定' : item.correct ? '答对' : '答错';
+  const englishWord = item.englishWord || '--';
+  const frenchWord = item.frenchWord || '--';
 
   return (
     <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="font-black text-slate-900 dark:text-white">
-            {item.englishWord} / {item.frenchWord}
+            {englishWord} / {frenchWord}
           </div>
           <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">
             {trainingModeLabel(item.mode)} · {item.cognitiveTag} · {item.detectedErrorType ? errorTypeLabel(item.detectedErrorType) : '已完成'}
@@ -50,7 +69,7 @@ function TrainingItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) 
           </div>
         </div>
         <div className="text-right text-sm text-slate-500 dark:text-white/45">
-          <div>{item.correct ? '答对' : '答错'}</div>
+          <div>{outcomeLabel}</div>
           <div>{formatMs(item.reactionTimeMs)}</div>
         </div>
       </div>
@@ -97,10 +116,11 @@ const TrainingPage: React.FC = () => {
   const autoStartKeyRef = React.useRef<string | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
+  const [loadInfoMessage, setLoadInfoMessage] = React.useState<string | null>(null);
   const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<TrainingHistorySummaryVO | null>(null);
 
-  const requestedMode = searchParams.get('mode');
+  const requestedMode = React.useMemo(() => parseRequestedTrainingMode(searchParams.get('mode')), [searchParams]);
   const requestedSource = searchParams.get('source');
   const requestedDiagnosisSummaryId = parseTrainingLaunchNumber(searchParams.get('diagnosisSummaryId'));
   const requestedLexicalPairId = parseTrainingLaunchNumber(searchParams.get('lexicalPairId'));
@@ -176,7 +196,7 @@ const TrainingPage: React.FC = () => {
   });
 
   const startMutation = useMutation({
-    mutationFn: (payload: { mode: string } & SessionLaunchContext) =>
+    mutationFn: (payload: { mode: TrainingMode } & SessionLaunchContext) =>
       trainingService.startSession({
         planId: recommendedPlanQuery.data!.planId,
         mode: payload.mode,
@@ -197,6 +217,8 @@ const TrainingPage: React.FC = () => {
     queryKey: ['training-next-item', state.sessionId],
     queryFn: ({ signal }) => trainingService.getNextItem(state.sessionId as number, { signal }),
     enabled: state.phase === 'running' && !!state.sessionId,
+    retry: 1,
+    retryDelay: NEXT_ITEM_RETRY_DELAY_MS,
   });
 
   const markCompleted = React.useCallback((sessionId: number) => {
@@ -319,7 +341,7 @@ const TrainingPage: React.FC = () => {
     setSearchParams(clearTrainingLaunchParams(searchParams), { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const startSessionForMode = React.useCallback(async (mode: string, overrides?: Partial<SessionLaunchContext>) => {
+  const startSessionForMode = React.useCallback(async (mode: TrainingMode, overrides?: Partial<SessionLaunchContext>) => {
     try {
       await startMutation.mutateAsync({
         mode,
@@ -409,10 +431,12 @@ const TrainingPage: React.FC = () => {
 
   React.useEffect(() => {
     if (!currentItem) {
+      setLoadInfoMessage(null);
       answerRequestRef.current = null;
       return;
     }
     runtime.resetFeedback();
+    setLoadInfoMessage(null);
     if (pendingNextItemId !== currentItem.itemResultId) {
       setPendingNextItemId(null);
       setSubmitInfoMessage(null);
@@ -422,6 +446,21 @@ const TrainingPage: React.FC = () => {
     }
     setSubmitErrorMessage(null);
   }, [currentItem?.itemResultId, pendingNextItemId, runtime.resetFeedback]);
+
+  React.useEffect(() => {
+    if (!pendingNextItemId || !nextItemQuery.isFetching || nextItemQuery.error) {
+      setLoadInfoMessage(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setLoadInfoMessage(
+        nextItemQuery.failureCount > 0 ? '网络波动，正在重试加载下一题…' : '答案已提交，正在同步下一题…'
+      );
+    }, SLOW_NEXT_ITEM_NOTICE_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [nextItemQuery.error, nextItemQuery.failureCount, nextItemQuery.isFetching, pendingNextItemId]);
 
   const submitAnswer = async (option: TrainingOptionViewVO) => {
     if (!currentItem) {
@@ -436,7 +475,7 @@ const TrainingPage: React.FC = () => {
       clientRequestId,
     };
     const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
-    const hesitationTimeMs = Math.max(0, reactionTimeMs - 1200);
+    const hesitationTimeMs = Math.max(0, reactionTimeMs - HESITATION_BASELINE_MS);
     shownAtRef.current = Date.now();
     await answerMutation.mutateAsync({
       itemResultId: currentItem.itemResultId,
@@ -515,6 +554,7 @@ const TrainingPage: React.FC = () => {
           saveErrorMessage={runtime.saveErrorMessage}
           submitErrorMessage={submitErrorMessage}
           submitInfoMessage={submitInfoMessage}
+          loadInfoMessage={loadInfoMessage}
           loadError={nextItemQuery.error}
           onRetryLoad={() => void nextItemQuery.refetch()}
         />
@@ -799,7 +839,7 @@ const TrainingPage: React.FC = () => {
               </p>
               <button
                 type="button"
-                onClick={() => navigate('/diagnosis')}
+                onClick={() => navigate(buildDiagnosisHref({ source: 'training-no-plan' }))}
                 className="mt-6 btn-liquid px-6 py-3 text-white"
               >
                 先去完成诊断

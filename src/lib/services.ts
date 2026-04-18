@@ -211,10 +211,7 @@ export const diagnosisTemplateService = {
 export const diagnosisSessionService = {
   listHistory: (params: { pageNo?: number; pageSize?: number; status?: string; templateId?: number }, options?: RequestOptions) =>
     apiGet<PageResult<DiagnosisHistorySummaryVO>>('/diagnosis/sessions', { ...options, params }),
-  create: (templateId: number) => {
-    const payload: CreateDiagnosisSessionRequest = { templateId };
-    return apiPost<DiagnosisSessionCreatedVO>('/diagnosis/sessions', payload);
-  },
+  create: (payload: CreateDiagnosisSessionRequest) => apiPost<DiagnosisSessionCreatedVO>('/diagnosis/sessions', payload),
   getNextItem: (sessionId: number, options?: RequestOptions) => apiGet<DiagnosisNextItemVO>(`/diagnosis/sessions/${sessionId}/next-item`, options),
   submitAnswer: (sessionId: number, payload: SubmitDiagnosisAnswerRequest) =>
     apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/answers`, payload),

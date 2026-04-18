@@ -1,3 +1,15 @@
+import type {
+  AssessmentAttemptStatus,
+  ContextSupportLevel,
+  DiagnosisSessionStatus,
+  DiagnosisTaskType,
+  LexicalPairType,
+  TrainingCognitiveTag,
+  TrainingItemType,
+  TrainingMode,
+  TrainingSessionStatus,
+} from './contracts/generated/session-domain';
+
 export type Role = 'STUDENT' | 'TEACHER' | 'ADMIN';
 export type Capability = 'STUDENT_WORKSPACE' | 'TEACHING_WORKSPACE' | 'ADMIN_CONSOLE';
 
@@ -525,7 +537,7 @@ export interface DiagnosisHistorySummaryVO {
   templateId: number;
   templateName: string;
   ownerUserId: number;
-  status: string;
+  status: DiagnosisSessionStatus;
   startedAt: string;
   lastSavedAt?: string | null;
   completedAt?: string | null;
@@ -538,7 +550,7 @@ export interface DiagnosisSessionCreatedVO {
   sessionId: number;
   templateId: number;
   templateName: string;
-  status: string;
+  status: DiagnosisSessionStatus;
   totalItems: number;
   answeredItems: number;
   currentItemOrder: number;
@@ -547,6 +559,8 @@ export interface DiagnosisSessionCreatedVO {
 
 export interface CreateDiagnosisSessionRequest {
   templateId: number;
+  launchSource?: string;
+  sourceSummaryId?: number | null;
 }
 
 export interface DiagnosisOptionViewVO {
@@ -558,21 +572,21 @@ export interface DiagnosisOptionViewVO {
 export interface DiagnosisQuestionItemVO {
   itemResultId: number;
   templateItemId: number;
-  taskType: string;
+  taskType: DiagnosisTaskType;
   presentationOrder: number;
   lexicalPairId: number;
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
-  contextSupportLevel: string;
+  lexicalPairType: LexicalPairType;
+  contextSupportLevel: ContextSupportLevel;
   stimulus: DiagnosisTemplateStimulus;
   options: DiagnosisOptionViewVO[];
 }
 
 export interface DiagnosisNextItemVO {
   sessionId: number;
-  sessionStatus: string;
+  sessionStatus: DiagnosisSessionStatus;
   totalItems: number;
   answeredItems: number;
   currentItemOrder: number;
@@ -583,7 +597,7 @@ export interface DiagnosisNextItemVO {
 
 export interface DiagnosisSessionProgressVO {
   sessionId: number;
-  status: string;
+  status: DiagnosisSessionStatus;
   totalItems: number;
   answeredItems: number;
   currentItemOrder: number;
@@ -624,7 +638,7 @@ export interface DiagnosisHighRiskLexicalPair {
   lexicalPairId: number;
   englishWord: string;
   frenchWord: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   riskScore: number;
   errorCount: number;
   averageReactionTime: number;
@@ -638,14 +652,14 @@ export interface DiagnosisRadarMetric {
 }
 
 export interface DiagnosisContextPerformance {
-  level: string;
+  level: ContextSupportLevel;
   accuracy: number;
   avgReactionTime: number;
   totalCount: number;
 }
 
 export interface DiagnosisLexicalTypePerformance {
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   accuracy: number;
   avgReactionTime: number;
   totalCount: number;
@@ -654,8 +668,8 @@ export interface DiagnosisLexicalTypePerformance {
 export interface DiagnosisResponseTimelinePoint {
   presentationOrder: number;
   itemResultId?: number | null;
-  taskType: string;
-  lexicalPairType: string;
+  taskType: DiagnosisTaskType;
+  lexicalPairType: LexicalPairType;
   reactionTime: number;
   correct: boolean;
   errorType?: string | null;
@@ -681,13 +695,13 @@ export interface DiagnosisItemResultDetailVO {
   itemResultId: number;
   templateItemId: number;
   presentationOrder: number;
-  taskType: string;
+  taskType: DiagnosisTaskType;
   lexicalPairId: number;
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
-  contextSupportLevel: string;
+  lexicalPairType: LexicalPairType;
+  contextSupportLevel: ContextSupportLevel;
   expectedSemanticMatch: boolean;
   stimulus: DiagnosisTemplateStimulus;
   options: DiagnosisOptionPayload[];
@@ -705,7 +719,7 @@ export interface DiagnosisItemResultDetailVO {
 export interface DiagnosisResultDetailVO {
   summaryId: number;
   sessionId: number;
-  status: string;
+  status: DiagnosisSessionStatus;
   templateId: number;
   templateName: string;
   ownerUserId: number;
@@ -721,7 +735,7 @@ export interface DiagnosisResultDetailVO {
 }
 
 export interface TrainingSuggestedSessionVO {
-  mode: string;
+  mode: TrainingMode;
   label: string;
   count: number;
 }
@@ -733,7 +747,7 @@ export interface RecommendedTrainingPairVO {
   frenchWord: string;
   chineseGloss: string;
   lexicalPairType: string;
-  recommendedMode: string;
+  recommendedMode: TrainingMode;
   recommendedDifficulty: number;
   riskLevel: string;
   priorityScore: number;
@@ -748,7 +762,7 @@ export interface RecommendedTrainingPlanVO {
   sourceDiagnosisSessionId: number;
   sourceDiagnosisSummaryId: number;
   status: string;
-  priorityMode: string;
+  priorityMode: TrainingMode;
   recommendedDifficulty: number;
   riskLevel: string;
   estimatedTrainingVolume: number;
@@ -766,7 +780,7 @@ export interface WrongBookItemVO {
   frenchWord: string;
   chineseGloss: string;
   lexicalPairType: string;
-  recommendedMode: string;
+  recommendedMode: TrainingMode;
   wrongCount: number;
   lastErrorType: string;
   masteryStatus: string;
@@ -787,7 +801,7 @@ export interface ReviewScheduleItemVO {
   intervalDays: number;
   dueAt: string;
   status: string;
-  reviewMode: string;
+  reviewMode: TrainingMode;
   triggerReason: string;
 }
 
@@ -822,17 +836,17 @@ export interface TrainingStimulusPayload {
 export interface TrainingQuestionItemVO {
   itemResultId: number;
   planItemId: number;
-  mode: string;
-  itemType: string;
+  mode: TrainingMode;
+  itemType: TrainingItemType;
   presentationOrder: number;
   lexicalPairId: number;
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   wordPair: TrainingWordPairVO;
   difficultyLevel: number;
-  cognitiveTag: string;
+  cognitiveTag: TrainingCognitiveTag;
   content: TrainingExerciseContentVO;
   stimulus: TrainingStimulusPayload;
   options: TrainingOptionViewVO[];
@@ -841,8 +855,8 @@ export interface TrainingQuestionItemVO {
 export interface TrainingSessionCreatedVO {
   sessionId: number;
   planId: number;
-  status: string;
-  mode: string;
+  status: TrainingSessionStatus;
+  mode: TrainingMode;
   totalItems: number;
   answeredItems: number;
   currentItemOrder: number;
@@ -850,7 +864,7 @@ export interface TrainingSessionCreatedVO {
 
 export interface StartTrainingSessionRequest {
   planId: number;
-  mode: string;
+  mode: TrainingMode;
   launchSource?: string;
   diagnosisSummaryId?: number | null;
   lexicalPairId?: number | null;
@@ -860,8 +874,8 @@ export interface StartTrainingSessionRequest {
 
 export interface TrainingNextItemVO {
   sessionId: number;
-  sessionStatus: string;
-  mode: string;
+  sessionStatus: TrainingSessionStatus;
+  mode: TrainingMode;
   totalItems: number;
   answeredItems: number;
   currentItemOrder: number;
@@ -872,7 +886,7 @@ export interface TrainingNextItemVO {
 
 export interface TrainingSessionProgressVO {
   sessionId: number;
-  status: string;
+  status: TrainingSessionStatus;
   totalItems: number;
   answeredItems: number;
   currentItemOrder: number;
@@ -896,8 +910,8 @@ export interface TrainingHistorySummaryVO {
   sessionId: number;
   planId: number;
   ownerUserId: number;
-  status: string;
-  mode: string;
+  status: TrainingSessionStatus;
+  mode: TrainingMode;
   totalItems: number;
   answeredItems: number;
   currentItemOrder: number;
@@ -911,7 +925,7 @@ export interface TrainingRiskWordVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   reason: string;
   riskLevel: string;
   dominantErrorType: string;
@@ -921,16 +935,16 @@ export interface TrainingItemResultDetailVO {
   itemResultId: number;
   planItemId?: number | null;
   presentationOrder: number;
-  mode: string;
-  itemType: string;
+  mode: TrainingMode;
+  itemType: TrainingItemType;
   lexicalPairId: number;
   englishWord?: string | null;
   frenchWord?: string | null;
   chineseGloss?: string | null;
-  lexicalPairType?: string | null;
+  lexicalPairType?: LexicalPairType | null;
   wordPair?: TrainingWordPairVO | null;
   difficultyLevel?: number | null;
-  cognitiveTag: string;
+  cognitiveTag: TrainingCognitiveTag;
   content: TrainingExerciseContentVO;
   stimulus: TrainingStimulusPayload;
   options: TrainingOptionViewVO[];
@@ -947,11 +961,11 @@ export interface TrainingItemResultDetailVO {
 
 export interface TrainingSessionSummaryVO {
   sessionId: number;
-  mode: string;
+  mode: TrainingMode;
   accuracy: number;
   averageReactionTime: number;
   improvementHint: string;
-  nextRecommendedMode: string;
+  nextRecommendedMode: TrainingMode;
   riskWordsToReview: TrainingRiskWordVO[];
   items: TrainingItemResultDetailVO[];
 }
@@ -1965,7 +1979,6 @@ export interface RagReindexJobResponse {
 
 export type AssessmentQuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'FILL_BLANK';
 export type AssessmentPaperStatus = 'DRAFT' | 'PUBLISHED';
-export type AssessmentAttemptStatus = 'IN_PROGRESS' | 'SUBMITTED';
 
 export interface AssessmentOptionRequest {
   key: string;
@@ -2134,7 +2147,7 @@ export interface AssessmentAttemptDetailVO {
   paperTitle: string;
   paperDescription?: string | null;
   className: string;
-  status: AssessmentAttemptStatus | string;
+  status: AssessmentAttemptStatus;
   instructionsText?: string | null;
   durationMinutes: number;
   questionCount: number;
@@ -2150,14 +2163,14 @@ export interface AssessmentAttemptDetailVO {
 
 export interface AssessmentAttemptProgressVO {
   attemptId: number;
-  status: AssessmentAttemptStatus | string;
+  status: AssessmentAttemptStatus;
   answeredCount: number;
   lastSavedAt?: string | null;
 }
 
 export interface AssessmentAttemptSubmitVO {
   attemptId: number;
-  status: AssessmentAttemptStatus | string;
+  status: AssessmentAttemptStatus;
   submittedAt?: string | null;
 }
 
@@ -2257,6 +2270,18 @@ export interface TeacherAssessmentAttemptResultVO {
   submittedAt: string;
   questions: AssessmentAttemptResultQuestionVO[];
 }
+
+export type {
+  AssessmentAttemptStatus,
+  ContextSupportLevel,
+  DiagnosisSessionStatus,
+  DiagnosisTaskType,
+  LexicalPairType,
+  TrainingCognitiveTag,
+  TrainingItemType,
+  TrainingMode,
+  TrainingSessionStatus,
+} from './contracts/generated/session-domain';
 
 export type {
   TeacherWorkspaceAssessmentPublishVO,

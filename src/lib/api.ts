@@ -39,6 +39,7 @@ const refreshClient = axios.create({
 });
 
 let refreshPromise: Promise<LoginResponse | null> | null = null;
+const KEEPALIVE_TOKEN_FRESHNESS_WINDOW_MS = 15_000;
 
 function withAuth(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
   const session = readStoredSession();
@@ -101,6 +102,37 @@ async function refreshSession(): Promise<LoginResponse | null> {
       });
   }
   return refreshPromise;
+}
+
+function isTokenExpiringSoon(expiresAt?: string | null, windowMs = KEEPALIVE_TOKEN_FRESHNESS_WINDOW_MS): boolean {
+  if (!expiresAt) {
+    return true;
+  }
+  const expiresAtMs = new Date(expiresAt).getTime();
+  if (!Number.isFinite(expiresAtMs)) {
+    return true;
+  }
+  return expiresAtMs - Date.now() <= windowMs;
+}
+
+async function ensureFreshSessionForKeepalive(): Promise<LoginResponse | null> {
+  const session = readStoredSession();
+  if (!session?.accessToken) {
+    return session;
+  }
+  if (!isTokenExpiringSoon(session.accessTokenExpiresAt)) {
+    return session;
+  }
+  if (!session.refreshToken || isTokenExpiringSoon(session.refreshTokenExpiresAt, 0)) {
+    clearStoredSession();
+    dispatchAuthExpired();
+    return null;
+  }
+  try {
+    return await refreshSession();
+  } catch {
+    return readStoredSession();
+  }
 }
 
 function unwrap<T>(response: AxiosResponse<ApiResponse<T>>): T {
@@ -182,7 +214,7 @@ export async function apiPost<T>(url: string, data?: unknown, config?: AxiosRequ
 }
 
 export async function apiPostKeepalive<T>(url: string, data?: unknown): Promise<T> {
-  const session = readStoredSession();
+  const session = await ensureFreshSessionForKeepalive();
   const response = await fetch(resolveRequestUrl(url), {
     method: 'POST',
     keepalive: true,

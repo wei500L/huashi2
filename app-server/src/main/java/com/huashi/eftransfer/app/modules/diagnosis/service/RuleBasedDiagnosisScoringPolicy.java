@@ -338,7 +338,7 @@ public class RuleBasedDiagnosisScoringPolicy implements DiagnosisScoringPolicy {
                 sample.definition().lexicalPairId(),
                 sample.definition().englishWord(),
                 sample.definition().frenchWord(),
-                sample.definition().lexicalPairType(),
+                LexicalPairType.fromCode(sample.definition().lexicalPairType()),
                 round4(clamp(riskScore, 0, 1)),
                 wrongCount,
                 avgReactionTime,
@@ -373,7 +373,7 @@ public class RuleBasedDiagnosisScoringPolicy implements DiagnosisScoringPolicy {
                             .filter(item -> ContextSupportLevel.fromCode(item.definition().contextSupportLevel()) == level)
                             .toList();
                     return new DiagnosisContextPerformance(
-                            level.name(),
+                            level,
                             items.isEmpty() ? 0 : round4(items.stream().filter(AnsweredItem::correct).count() / (double) items.size()),
                             items.isEmpty() ? 0 : Math.round(items.stream().mapToInt(AnsweredItem::reactionTimeMs).average().orElse(0)),
                             items.size()
@@ -387,7 +387,7 @@ public class RuleBasedDiagnosisScoringPolicy implements DiagnosisScoringPolicy {
                             .filter(item -> LexicalPairType.fromCode(item.definition().lexicalPairType()) == type)
                             .toList();
                     return new DiagnosisLexicalTypePerformance(
-                            type.name(),
+                            type,
                             items.isEmpty() ? 0 : round4(items.stream().filter(AnsweredItem::correct).count() / (double) items.size()),
                             items.isEmpty() ? 0 : Math.round(items.stream().mapToInt(AnsweredItem::reactionTimeMs).average().orElse(0)),
                             items.size()
@@ -400,8 +400,8 @@ public class RuleBasedDiagnosisScoringPolicy implements DiagnosisScoringPolicy {
                 .map(item -> new DiagnosisResponseTimelinePoint(
                         item.presentationOrder(),
                         item.itemResultId(),
-                        item.definition().taskType(),
-                        item.definition().lexicalPairType(),
+                        DiagnosisTaskType.fromCode(item.definition().taskType()),
+                        LexicalPairType.fromCode(item.definition().lexicalPairType()),
                         item.reactionTimeMs(),
                         item.correct(),
                         item.errorType() == null ? null : item.errorType().code()

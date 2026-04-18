@@ -1,14 +1,16 @@
 package com.huashi.eftransfer.app.modules.training.vo;
 
+import com.huashi.eftransfer.shared.enums.TrainingMode;
+
 import java.util.List;
 
 public record TrainingSessionSummaryVO(
         Long sessionId,
-        String mode,
+        TrainingMode mode,
         double accuracy,
         long averageReactionTime,
         String improvementHint,
-        String nextRecommendedMode,
+        TrainingMode nextRecommendedMode,
         List<TrainingRiskWordVO> riskWordsToReview,
         List<TrainingItemResultDetailVO> items
 ) {

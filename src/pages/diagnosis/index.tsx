@@ -3,11 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Brain, CheckCircle2, ChevronRight, FileText, Timer } from 'lucide-react';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DiagnosisPdfReport } from '@/components/diagnosis/DiagnosisPdfReport';
 import { PageHeader, PanelSkeleton, SectionEyebrow } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
 import { getApiErrorMessage } from '@/lib/api';
+import { clearDiagnosisLaunchParams, parseDiagnosisLaunchNumber } from '@/lib/diagnosis-launch';
 import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
@@ -22,6 +23,7 @@ import type {
   SubmitDiagnosisAnswerRequest,
 } from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
+import { HESITATION_BASELINE_MS, NEXT_ITEM_RETRY_DELAY_MS, SLOW_NEXT_ITEM_NOTICE_DELAY_MS } from '@/features/session-runtime/constants';
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
 import { diagnosisFlowReducer, initialDiagnosisFlowState } from './flow';
@@ -131,18 +133,22 @@ function DiagnosisInsightCard({
 const DiagnosisPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(diagnosisFlowReducer, initialDiagnosisFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
   const answerRequestRef = React.useRef<{ itemResultId: number; clientRequestId: string } | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
+  const [loadInfoMessage, setLoadInfoMessage] = React.useState<string | null>(null);
   const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
   const [reportErrorMessage, setReportErrorMessage] = React.useState<string | null>(null);
   const [isPdfExporting, setIsPdfExporting] = React.useState(false);
   const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<DiagnosisHistorySummaryVO | null>(null);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
+  const requestedSource = searchParams.get('source');
+  const requestedSourceSummaryId = parseDiagnosisLaunchNumber(searchParams.get('sourceSummaryId'));
 
   const historyQuery = useQuery({
     queryKey: ['diagnosis-history', 'in-progress'],
@@ -177,9 +183,15 @@ const DiagnosisPage: React.FC = () => {
   });
 
   const createSessionMutation = useMutation({
-    mutationFn: (templateId: number) => diagnosisSessionService.create(templateId),
+    mutationFn: (templateId: number) =>
+      diagnosisSessionService.create({
+        templateId,
+        launchSource: requestedSource || undefined,
+        sourceSummaryId: requestedSourceSummaryId,
+      }),
     onSuccess: (created) => {
       shownAtRef.current = Date.now();
+      setSearchParams(clearDiagnosisLaunchParams(searchParams), { replace: true });
       dispatch({ type: 'startSession', sessionId: created.sessionId });
       void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
     },
@@ -189,6 +201,8 @@ const DiagnosisPage: React.FC = () => {
     queryKey: ['diagnosis-next-item', state.sessionId],
     queryFn: ({ signal }) => diagnosisSessionService.getNextItem(state.sessionId as number, { signal }),
     enabled: state.phase === 'running' && !!state.sessionId,
+    retry: 1,
+    retryDelay: NEXT_ITEM_RETRY_DELAY_MS,
   });
 
   const markCompleted = React.useCallback(() => {
@@ -367,10 +381,12 @@ const DiagnosisPage: React.FC = () => {
 
   React.useEffect(() => {
     if (!currentItem) {
+      setLoadInfoMessage(null);
       answerRequestRef.current = null;
       return;
     }
     runtime.resetFeedback();
+    setLoadInfoMessage(null);
     if (pendingNextItemId !== currentItem.itemResultId) {
       setPendingNextItemId(null);
       setSubmitInfoMessage(null);
@@ -380,6 +396,21 @@ const DiagnosisPage: React.FC = () => {
     }
     setSubmitErrorMessage(null);
   }, [currentItem?.itemResultId, pendingNextItemId, runtime.resetFeedback]);
+
+  React.useEffect(() => {
+    if (!pendingNextItemId || !nextItemQuery.isFetching || nextItemQuery.error) {
+      setLoadInfoMessage(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setLoadInfoMessage(
+        nextItemQuery.failureCount > 0 ? '网络波动，正在重试加载下一题…' : '答案已提交，正在同步下一题…'
+      );
+    }, SLOW_NEXT_ITEM_NOTICE_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [nextItemQuery.error, nextItemQuery.failureCount, nextItemQuery.isFetching, pendingNextItemId]);
 
   const submitAnswer = async (option: DiagnosisOptionViewVO) => {
     if (!currentItem) {
@@ -394,7 +425,7 @@ const DiagnosisPage: React.FC = () => {
       clientRequestId,
     };
     const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
-    const hesitationTimeMs = Math.max(0, reactionTimeMs - 1200);
+    const hesitationTimeMs = Math.max(0, reactionTimeMs - HESITATION_BASELINE_MS);
     shownAtRef.current = Date.now();
 
     if (currentItem.taskType === 'REACTION_TIME') {
@@ -601,6 +632,7 @@ const DiagnosisPage: React.FC = () => {
           saveErrorMessage={runtime.saveErrorMessage}
           submitErrorMessage={submitErrorMessage}
           submitInfoMessage={submitInfoMessage}
+          loadInfoMessage={loadInfoMessage}
           loadError={nextItemQuery.error}
           onRetryLoad={() => void nextItemQuery.refetch()}
         />

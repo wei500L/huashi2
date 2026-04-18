@@ -349,9 +349,9 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                   }
                                 }
                                 """.formatted(trainingSessionId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data.completed").value(true));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value("Training session is already completed"));
 
         mockMvc.perform(get("/api/training/sessions/{sessionId}/summary", trainingSessionId)
                         .with(bearer(studentToken)))

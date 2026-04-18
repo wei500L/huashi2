@@ -39,6 +39,7 @@ type SessionFeedbackBannersProps = {
   saveErrorMessage?: string | null;
   submitErrorMessage?: string | null;
   submitInfoMessage?: string | null;
+  loadInfoMessage?: string | null;
   loadError?: unknown;
   onRetryLoad?: () => void;
 };
@@ -48,6 +49,7 @@ export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
   saveErrorMessage,
   submitErrorMessage,
   submitInfoMessage,
+  loadInfoMessage,
   loadError,
   onRetryLoad,
 }) => (
@@ -65,6 +67,14 @@ export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
     {submitInfoMessage && (
       <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-600 dark:text-amber-400">
         {submitInfoMessage}
+      </div>
+    )}
+    {loadInfoMessage && (
+      <div className="rounded-[1.6rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
+        <div>{loadInfoMessage}</div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sky-500/10">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-sky-500/70" />
+        </div>
       </div>
     )}
     {submitErrorMessage && (

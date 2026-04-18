@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import { getProductizedErrorState } from '@/lib/async-state';
+import { buildDiagnosisHref } from '@/lib/diagnosis-launch';
 import {
   assessmentAttemptStatusLabel,
   assessmentAttemptStatusTone,
@@ -464,7 +465,7 @@ const HistoryPage: React.FC = () => {
                         {record.status === 'IN_PROGRESS' ? (
                           <button
                             type="button"
-                            onClick={() => navigate('/diagnosis')}
+                            onClick={() => navigate(buildDiagnosisHref({ source: 'history-diagnosis' }))}
                             className="btn-liquid px-5 py-3 text-white"
                           >
                             继续诊断

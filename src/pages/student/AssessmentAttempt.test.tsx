@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { AssessmentAttemptDetailVO } from '@/lib/contracts';
+import { writeAssessmentDraft } from '@/features/assessment/draftStorage';
 import { assessmentService } from '@/lib/services';
 import AssessmentAttempt from './AssessmentAttempt';
 
@@ -126,6 +127,7 @@ describe('AssessmentAttempt', () => {
     });
     mockedUseBlocker.mockClear();
     mockedUseBeforeUnload.mockClear();
+    window.localStorage.clear();
     vi.mocked(assessmentService.getStudentAttempt).mockResolvedValue(createAttemptDetail());
     vi.mocked(assessmentService.saveStudentResponses).mockResolvedValue({
       attemptId: 42,
@@ -150,6 +152,7 @@ describe('AssessmentAttempt', () => {
   afterEach(() => {
     cleanup();
     queryClients.splice(0).forEach((client) => client.clear());
+    window.localStorage.clear();
     vi.clearAllMocks();
     vi.useRealTimers();
   });
@@ -237,5 +240,27 @@ describe('AssessmentAttempt', () => {
     expect(await screen.findByText('你还有 1 题未作答，确认提交？')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '第 2 题' })).toBeInTheDocument();
     expect(assessmentService.submitStudentAttempt).not.toHaveBeenCalled();
+  });
+
+  it('restores the latest non-empty local draft when it is newer than the server save', async () => {
+    writeAssessmentDraft(42, { 1: ['本地草稿答案'] });
+
+    renderAttemptPage();
+
+    expect(await screen.findByText('已恢复本地草稿。')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('请输入答案')).toHaveValue('本地草稿答案');
+  });
+
+  it('clears the local draft after a successful submit', async () => {
+    writeAssessmentDraft(42, { 1: ['待提交答案'] });
+
+    renderAttemptPage();
+    expect(await screen.findByPlaceholderText('请输入答案')).toHaveValue('待提交答案');
+
+    fireEvent.click(screen.getByRole('button', { name: '交卷' }));
+    fireEvent.click(await screen.findByRole('button', { name: '确认交卷' }));
+
+    expect(await screen.findByText('assessment result')).toBeInTheDocument();
+    expect(window.localStorage.getItem('ef-transfer-assessment-draft:42')).toBeNull();
   });
 });

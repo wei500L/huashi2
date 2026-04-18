@@ -309,7 +309,7 @@ public class AssessmentService {
                             publish.getPaperTitleSnapshot(),
                             publish.getPaperDescriptionSnapshot(),
                             teachingClass == null ? "未知班级" : teachingClass.getClassName(),
-                            effectiveAttempt.getStatus(),
+                            AssessmentAttemptStatus.fromCode(effectiveAttempt.getStatus()),
                             publish.getQuestionCountSnapshot(),
                             effectiveAttempt.getAnsweredCount(),
                             effectiveAttempt.getObjectiveScore(),
@@ -390,7 +390,7 @@ public class AssessmentService {
             assessmentAttemptAnswerMapper.insert(answer);
         }
 
-        return new AssessmentAttemptStartVO(attempt.getId(), publishId, attempt.getStatus(), false);
+        return new AssessmentAttemptStartVO(attempt.getId(), publishId, AssessmentAttemptStatus.fromCode(attempt.getStatus()), false);
     }
 
     public AssessmentAttemptDetailVO getAttemptDetail(Long attemptId) {
@@ -406,7 +406,7 @@ public class AssessmentService {
                 bundle.publish().getPaperTitleSnapshot(),
                 bundle.publish().getPaperDescriptionSnapshot(),
                 bundle.teachingClass().getClassName(),
-                attempt.getStatus(),
+                AssessmentAttemptStatus.fromCode(attempt.getStatus()),
                 bundle.publish().getInstructionsText(),
                 bundle.publish().getDurationMinutes(),
                 bundle.publish().getQuestionCountSnapshot(),
@@ -452,7 +452,7 @@ public class AssessmentService {
 
         recomputeAttemptProgress(attempt, answers, now);
         assessmentAttemptMapper.updateById(attempt);
-        return new AssessmentAttemptProgressVO(attempt.getId(), attempt.getStatus(), attempt.getAnsweredCount(), attempt.getLastSavedAt());
+        return new AssessmentAttemptProgressVO(attempt.getId(), AssessmentAttemptStatus.fromCode(attempt.getStatus()), attempt.getAnsweredCount(), attempt.getLastSavedAt());
     }
 
     @Transactional
@@ -461,11 +461,11 @@ public class AssessmentService {
         LocalDateTime now = LocalDateTime.now();
         AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
-            return new AssessmentAttemptSubmitVO(attempt.getId(), attempt.getStatus(), attempt.getSubmittedAt());
+            return new AssessmentAttemptSubmitVO(attempt.getId(), AssessmentAttemptStatus.fromCode(attempt.getStatus()), attempt.getSubmittedAt());
         }
         AssessmentAttemptEntity submitted = submitAttemptInternal(attempt, now);
         notificationScenarioService.notifyAssessmentSubmitted(submitted, bundle.publish(), bundle.teachingClass());
-        return new AssessmentAttemptSubmitVO(submitted.getId(), submitted.getStatus(), submitted.getSubmittedAt());
+        return new AssessmentAttemptSubmitVO(submitted.getId(), AssessmentAttemptStatus.fromCode(submitted.getStatus()), submitted.getSubmittedAt());
     }
 
     public AssessmentAttemptResultVO getAttemptResult(Long attemptId) {
@@ -485,7 +485,7 @@ public class AssessmentService {
                 bundle.publish().getPaperTitleSnapshot(),
                 bundle.publish().getPaperDescriptionSnapshot(),
                 bundle.teachingClass().getClassName(),
-                attempt.getStatus(),
+                AssessmentAttemptStatus.fromCode(attempt.getStatus()),
                 bundle.publish().getInstructionsText(),
                 bundle.publish().getQuestionCountSnapshot(),
                 attempt.getAnsweredCount(),
@@ -594,7 +594,7 @@ public class AssessmentService {
                 bundle.publish().getPaperTitleSnapshot(),
                 bundle.publish().getPaperDescriptionSnapshot(),
                 bundle.teachingClass().getClassName(),
-                attempt.getStatus(),
+                AssessmentAttemptStatus.fromCode(attempt.getStatus()),
                 bundle.publish().getInstructionsText(),
                 bundle.publish().getQuestionCountSnapshot(),
                 attempt.getAnsweredCount(),
@@ -1157,7 +1157,7 @@ public class AssessmentService {
         return new AssessmentAttemptStartVO(
                 effectiveAttempt.getId(),
                 publish.getId(),
-                effectiveAttempt.getStatus(),
+                AssessmentAttemptStatus.fromCode(effectiveAttempt.getStatus()),
                 true
         );
     }

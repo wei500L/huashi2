@@ -1,13 +1,14 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import type { DiagnosisResultDetailVO } from '@/lib/contracts';
 import { DiagnosisPdfReport } from './DiagnosisPdfReport';
 
 vi.mock('@/components/common/EChart', () => ({
   EChart: () => <div>chart</div>,
 }));
 
-function createResult(itemCount: number) {
+function createResult(itemCount: number): DiagnosisResultDetailVO {
   return {
     summaryId: 301,
     sessionId: 42,
@@ -47,7 +48,7 @@ function createResult(itemCount: number) {
       itemResultId: index + 1,
       templateItemId: index + 100,
       presentationOrder: index + 1,
-      taskType: 'MULTIPLE_CHOICE',
+      taskType: 'REACTION_TIME',
       lexicalPairId: index + 200,
       englishWord: `word-${index + 1}`,
       frenchWord: `mot-${index + 1}`,

@@ -1,7 +1,6 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Save, Send } from 'lucide-react';
-import { useBeforeUnload, useBlocker } from 'react-router';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
@@ -9,7 +8,9 @@ import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 import type { AssessmentAttemptDetailVO, AssessmentAttemptQuestionVO } from '@/lib/contracts';
+import { clearAssessmentDraft, readAssessmentDraft, writeAssessmentDraft } from '@/features/assessment/draftStorage';
 import { enqueueSerializedTask } from '@/features/assessment/saveQueue';
+import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
 
 function formatRemaining(remainingMs: number) {
   if (remainingMs <= 0) {
@@ -43,6 +44,34 @@ function hasResponses(responses?: string[]) {
   return !!responses?.map((item) => item.trim()).filter(Boolean).length;
 }
 
+function mergeDraftResponses(detail: AssessmentAttemptDetailVO) {
+  const serverResponses = buildInitialResponses(detail);
+  const draft = readAssessmentDraft(detail.attemptId);
+  if (!draft) {
+    return { responsesByOrder: serverResponses, restored: false };
+  }
+  const draftUpdatedAt = new Date(draft.updatedAt).getTime();
+  const serverSavedAt = detail.lastSavedAt ? new Date(detail.lastSavedAt).getTime() : Number.NEGATIVE_INFINITY;
+  if (!Number.isFinite(draftUpdatedAt) || draftUpdatedAt <= serverSavedAt) {
+    return { responsesByOrder: serverResponses, restored: false };
+  }
+  let restored = false;
+  const merged = { ...serverResponses };
+  detail.questions.forEach((question) => {
+    const localResponses = draft.responsesByOrder[question.questionOrder] || [];
+    if (!hasResponses(localResponses)) {
+      return;
+    }
+    const serverQuestionResponses = serverResponses[question.questionOrder] || [];
+    if (serverQuestionResponses.join('\u0000') === localResponses.join('\u0000')) {
+      return;
+    }
+    merged[question.questionOrder] = localResponses;
+    restored = true;
+  });
+  return { responsesByOrder: merged, restored };
+}
+
 type PersistMode = 'manual' | 'auto' | 'background';
 
 const StudentAssessmentAttemptPage: React.FC = () => {
@@ -64,7 +93,9 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const [submitLocked, setSubmitLocked] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const hydratedAttemptIdRef = React.useRef<number | null>(null);
-  const allowNavigationRef = React.useRef(false);
+  const allowNavigationRef = React.useRef<(callback: () => void) => void>((callback) => {
+    callback();
+  });
   const autoSubmitTriggeredRef = React.useRef(false);
   const autoSaveTimerRef = React.useRef<number | null>(null);
   const skipAutosaveRef = React.useRef(true);
@@ -86,15 +117,19 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       return;
     }
     setServerOffsetMs(new Date(detailQuery.data.serverTime).getTime() - Date.now());
+    if (detailQuery.data.status === 'SUBMITTED') {
+      clearAssessmentDraft(detailQuery.data.attemptId);
+    }
     if (hydratedAttemptIdRef.current === detailQuery.data.attemptId) {
       return;
     }
     hydratedAttemptIdRef.current = detailQuery.data.attemptId;
-    setResponsesByOrder(buildInitialResponses(detailQuery.data));
+    const hydratedResponses = mergeDraftResponses(detailQuery.data);
+    setResponsesByOrder(hydratedResponses.responsesByOrder);
     setAnsweredCount(detailQuery.data.answeredCount);
     setLastSavedAt(detailQuery.data.lastSavedAt || null);
     setSelectedQuestionOrder(detailQuery.data.questions.find((question) => !question.answered)?.questionOrder || detailQuery.data.questions[0]?.questionOrder || 1);
-    setSaveNotice(null);
+    setSaveNotice(hydratedResponses.restored ? '已恢复本地草稿。' : null);
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
     setIsSubmitting(false);
@@ -142,8 +177,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
 
   const navigateToResult = React.useCallback(
     (nextAttemptId: number) => {
-      allowNavigationRef.current = true;
-      navigate(`/assessments/attempts/${nextAttemptId}/result`, { replace: true });
+      clearAssessmentDraft(nextAttemptId);
+      allowNavigationRef.current(() => navigate(`/assessments/attempts/${nextAttemptId}/result`, { replace: true }));
     },
     [navigate]
   );
@@ -226,6 +261,27 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     [attemptId, detail, queryClient, submitLocked]
   );
 
+  const { allowNavigation } = useLeaveProtection({
+    active: shouldWarnBeforeLeave,
+    leaveConfirm: '当前测评仍在进行中。离开页面前会尝试自动保存，确认离开吗？',
+    onRouteLeave: async () => {
+      try {
+        await persistResponses('background', responsesByOrder, { silentSuccess: true });
+        return true;
+      } catch (error) {
+        const submittedAttempt = normalizeApiError(error).status === 409 ? await resolveSubmittedAttempt() : null;
+        if (submittedAttempt) {
+          clearAssessmentDraft(attemptId);
+        }
+        return !!submittedAttempt;
+      }
+    },
+    onBackgroundPersist: async () => {
+      await persistResponses('background', responsesByOrder, { keepalive: true, silentSuccess: true });
+    },
+  });
+  allowNavigationRef.current = allowNavigation;
+
   const handleSubmit = React.useCallback(
     async (reason: 'manual' | 'timeout' = 'manual') => {
       if (!detail || detail.status !== 'IN_PROGRESS') {
@@ -245,6 +301,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       try {
         await persistResponses('manual', responsesByOrder, { ignoreLock: true, silentSuccess: true });
         const result = await assessmentService.submitStudentAttempt(attemptId);
+        clearAssessmentDraft(attemptId);
         await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
         await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
         await queryClient.invalidateQueries({ queryKey: ['student-assessment-attempt', attemptId] });
@@ -275,6 +332,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     if (detail?.status !== 'SUBMITTED') {
       return;
     }
+    clearAssessmentDraft(detail.attemptId);
     navigateToResult(detail.attemptId);
   }, [detail?.attemptId, detail?.status, navigateToResult]);
 
@@ -307,91 +365,40 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     void handleSubmit('timeout');
   }, [detail, handleSubmit, remainingMs]);
 
-  const blocker = useBlocker(() => shouldWarnBeforeLeave && !allowNavigationRef.current);
-
-  React.useEffect(() => {
-    if (blocker.state !== 'blocked') {
-      return;
-    }
-    const shouldLeave = window.confirm('当前测评仍在进行中。离开页面前会尝试自动保存，确认离开吗？');
-    if (shouldLeave) {
-      void (async () => {
-        try {
-          await persistResponses('background', responsesByOrder, { silentSuccess: true });
-          allowNavigationRef.current = true;
-          blocker.proceed();
-          window.setTimeout(() => {
-            allowNavigationRef.current = false;
-          }, 0);
-        } catch (error) {
-          const submittedAttempt = normalizeApiError(error).status === 409 ? await resolveSubmittedAttempt() : null;
-          if (submittedAttempt) {
-            allowNavigationRef.current = true;
-            blocker.proceed();
-            window.setTimeout(() => {
-              allowNavigationRef.current = false;
-            }, 0);
-            return;
-          }
-          blocker.reset();
-        }
-      })();
-      return;
-    }
-    blocker.reset();
-  }, [blocker, persistResponses, resolveSubmittedAttempt, responsesByOrder]);
-
-  useBeforeUnload(
-    React.useCallback(
-      (event) => {
-        if (!shouldWarnBeforeLeave || allowNavigationRef.current || !detail) {
-          return;
-        }
-        event.preventDefault();
-        event.returnValue = '当前测评仍在进行中。';
-        void persistResponses('background', responsesByOrder, { keepalive: true, silentSuccess: true }).catch(() => undefined);
-      },
-      [detail, persistResponses, responsesByOrder, shouldWarnBeforeLeave]
-    )
-  );
-
-  React.useEffect(() => {
-    if (!shouldWarnBeforeLeave || !detail) {
-      return;
-    }
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        void persistResponses('background', responsesByOrder, { keepalive: true, silentSuccess: true }).catch(() => undefined);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [detail, persistResponses, responsesByOrder, shouldWarnBeforeLeave]);
-
   const updateSingleResponse = React.useCallback((questionOrder: number, value: string) => {
-    setResponsesByOrder((current) => ({ ...current, [questionOrder]: value ? [value] : [] }));
+    setResponsesByOrder((current) => {
+      const next = { ...current, [questionOrder]: value ? [value] : [] };
+      writeAssessmentDraft(attemptId, next);
+      return next;
+    });
     setSaveNotice(null);
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
-  }, []);
+  }, [attemptId]);
 
   const toggleMultipleResponse = React.useCallback((questionOrder: number, value: string) => {
     setResponsesByOrder((current) => {
       const existing = current[questionOrder] || [];
       const next = existing.includes(value) ? existing.filter((item) => item !== value) : [...existing, value];
-      return { ...current, [questionOrder]: next };
+      const merged = { ...current, [questionOrder]: next };
+      writeAssessmentDraft(attemptId, merged);
+      return merged;
     });
     setSaveNotice(null);
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
-  }, []);
+  }, [attemptId]);
 
   const updateFillBlankResponse = React.useCallback((questionOrder: number, value: string) => {
-    setResponsesByOrder((current) => ({ ...current, [questionOrder]: value.trim() ? [value] : [] }));
+    setResponsesByOrder((current) => {
+      const next = { ...current, [questionOrder]: value.trim() ? [value] : [] };
+      writeAssessmentDraft(attemptId, next);
+      return next;
+    });
     setSaveNotice(null);
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
-  }, []);
+  }, [attemptId]);
 
   const renderQuestionBody = (question: AssessmentAttemptQuestionVO) => {
     const responses = responsesByOrder[question.questionOrder] || [];

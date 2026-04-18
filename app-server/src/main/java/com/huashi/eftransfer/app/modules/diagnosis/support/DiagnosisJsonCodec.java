@@ -60,6 +60,13 @@ public class DiagnosisJsonCodec {
         return read(json, DiagnosisChartPayload.class);
     }
 
+    public DiagnosisSessionLaunchContext readLaunchContext(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        return read(json, DiagnosisSessionLaunchContext.class);
+    }
+
     private <T> T read(String json, Class<T> targetType) {
         try {
             return objectMapper.readValue(json, targetType);

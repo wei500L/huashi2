@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.app.modules.assessment.vo;
 
+import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -10,7 +12,7 @@ public record AssessmentAttemptResultVO(
         String paperTitle,
         String paperDescription,
         String className,
-        String status,
+        AssessmentAttemptStatus status,
         String instructionsText,
         Integer questionCount,
         Integer answeredCount,

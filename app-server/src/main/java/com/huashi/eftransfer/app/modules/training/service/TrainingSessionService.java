@@ -55,6 +55,7 @@ import com.huashi.eftransfer.shared.enums.ReviewScheduleStatus;
 import com.huashi.eftransfer.shared.enums.RiskLevel;
 import com.huashi.eftransfer.shared.enums.TrainingAnswerState;
 import com.huashi.eftransfer.shared.enums.TrainingCognitiveTag;
+import com.huashi.eftransfer.shared.enums.TrainingItemType;
 import com.huashi.eftransfer.shared.enums.TrainingMode;
 import com.huashi.eftransfer.shared.enums.TrainingPlanStatus;
 import com.huashi.eftransfer.shared.enums.TrainingSessionStatus;
@@ -231,8 +232,8 @@ public class TrainingSessionService {
         return new TrainingSessionCreatedVO(
                 session.getId(),
                 session.getPlanId(),
-                session.getStatus(),
-                session.getMode(),
+                parseSessionStatus(session.getStatus()),
+                TrainingMode.fromCode(session.getMode()),
                 session.getTotalItems(),
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder()
@@ -266,8 +267,8 @@ public class TrainingSessionService {
                         session.getId(),
                         session.getPlanId(),
                         session.getOwnerUserId(),
-                        session.getStatus(),
-                        session.getMode(),
+                        parseSessionStatus(session.getStatus()),
+                        TrainingMode.fromCode(session.getMode()),
                         session.getTotalItems(),
                         session.getAnsweredItems(),
                         session.getCurrentItemOrder(),
@@ -286,8 +287,8 @@ public class TrainingSessionService {
         if (!TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             return new TrainingNextItemVO(
                     session.getId(),
-                    session.getStatus(),
-                    session.getMode(),
+                    parseSessionStatus(session.getStatus()),
+                    TrainingMode.fromCode(session.getMode()),
                     session.getTotalItems(),
                     session.getAnsweredItems(),
                     session.getCurrentItemOrder(),
@@ -308,8 +309,8 @@ public class TrainingSessionService {
             trainingSessionMapper.updateById(session);
             return new TrainingNextItemVO(
                     session.getId(),
-                    session.getStatus(),
-                    session.getMode(),
+                    parseSessionStatus(session.getStatus()),
+                    TrainingMode.fromCode(session.getMode()),
                     session.getTotalItems(),
                     session.getAnsweredItems(),
                     null,
@@ -327,8 +328,8 @@ public class TrainingSessionService {
 
         return new TrainingNextItemVO(
                 session.getId(),
-                session.getStatus(),
-                session.getMode(),
+                parseSessionStatus(session.getStatus()),
+                TrainingMode.fromCode(session.getMode()),
                 session.getTotalItems(),
                 session.getAnsweredItems(),
                 itemResult.getPresentationOrder(),
@@ -342,7 +343,7 @@ public class TrainingSessionService {
     public TrainingSessionProgressVO saveProgress(Long sessionId, SaveTrainingProgressRequest request) {
         TrainingSessionEntity session = requireAccessibleSession(sessionId);
         if (TrainingSessionStatus.COMPLETED.name().equals(session.getStatus())) {
-            return progressVO(session);
+            throw new BusinessException(ResultCode.CONFLICT, "Training session is already completed", 409);
         }
         if (!TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Training session is not in progress", 409);
@@ -475,11 +476,11 @@ public class TrainingSessionService {
         Map<Long, LexicalPairEntity> pairMap = loadLexicalPairMap(itemResults.stream().map(TrainingItemResultEntity::getLexicalPairId).toList());
         return new TrainingSessionSummaryVO(
                 session.getId(),
-                session.getMode(),
+                TrainingMode.fromCode(session.getMode()),
                 summarySnapshot.accuracy(),
                 summarySnapshot.averageReactionTime(),
                 summarySnapshot.improvementHint(),
-                summarySnapshot.nextRecommendedMode(),
+                TrainingMode.fromCode(summarySnapshot.nextRecommendedMode()),
                 summarySnapshot.riskWordsToReview().stream()
                         .map(this::toRiskWordVO)
                         .toList(),
@@ -928,7 +929,7 @@ public class TrainingSessionService {
                 snapshot.englishWord(),
                 snapshot.frenchWord(),
                 snapshot.chineseGloss(),
-                snapshot.lexicalPairType(),
+                LexicalPairType.fromCode(snapshot.lexicalPairType()),
                 snapshot.reason(),
                 snapshot.riskLevel(),
                 snapshot.dominantErrorType()
@@ -947,14 +948,14 @@ public class TrainingSessionService {
         return new TrainingQuestionItemVO(
                 itemResult.getId(),
                 itemResult.getPlanItemId(),
-                itemResult.getMode(),
-                itemResult.getItemType(),
+                TrainingMode.fromCode(itemResult.getMode()),
+                TrainingItemType.fromCode(itemResult.getItemType()),
                 itemResult.getPresentationOrder(),
                 itemResult.getLexicalPairId(),
                 pair == null ? null : pair.getEnglishWord(),
                 pair == null ? null : pair.getFrenchWord(),
                 pair == null ? null : pair.getChineseGloss(),
-                pair == null ? null : pair.getLexicalPairType(),
+                pair == null ? null : LexicalPairType.fromCode(pair.getLexicalPairType()),
                 pair == null ? null : new TrainingWordPairVO(
                         pair.getEnglishWord(),
                         pair.getFrenchWord(),
@@ -962,7 +963,7 @@ public class TrainingSessionService {
                         frontendPairType(pair.getLexicalPairType())
                 ),
                 planItem == null ? null : planItem.getRecommendedDifficulty(),
-                itemResult.getCognitiveTag(),
+                TrainingCognitiveTag.fromCode(itemResult.getCognitiveTag()),
                 new TrainingExerciseContentVO(
                         stimulus.questionText(),
                         options.stream().map(TrainingOptionViewVO::label).toList(),
@@ -1436,7 +1437,7 @@ public class TrainingSessionService {
     private TrainingSessionProgressVO progressVO(TrainingSessionEntity session) {
         return new TrainingSessionProgressVO(
                 session.getId(),
-                session.getStatus(),
+                parseSessionStatus(session.getStatus()),
                 session.getTotalItems(),
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder(),
