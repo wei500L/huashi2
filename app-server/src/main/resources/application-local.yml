@@ -6,9 +6,12 @@ spring:
     baseline-on-migrate: true
 
 management:
+  tracing:
+    sampling:
+      probability: 1.0
   endpoint:
     health:
-      show-details: always
+      show-details: when_authorized
 
 logging:
   level:

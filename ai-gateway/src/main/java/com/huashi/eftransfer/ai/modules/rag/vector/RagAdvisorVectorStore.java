@@ -44,7 +44,7 @@ public class RagAdvisorVectorStore implements VectorStore {
 
     @Override
     public List<Document> similaritySearch(SearchRequest request) {
-        RagRetrievalResult retrievalResult = knowledgeSearchService.search(request.getQuery(), ragSearchFilter);
+        RagRetrievalResult retrievalResult = knowledgeSearchService.search(request.getQuery(), ragSearchFilter, request);
         ragRetrievalCapture.store(retrievalResult);
         return retrievalResult.documents();
     }

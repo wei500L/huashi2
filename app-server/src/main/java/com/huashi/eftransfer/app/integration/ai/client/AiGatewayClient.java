@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.integration.ai.client;
 
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
+import com.huashi.eftransfer.app.common.trace.TraceIdSupport;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
@@ -38,7 +39,9 @@ import io.github.resilience4j.retry.RetryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -121,7 +124,7 @@ public class AiGatewayClient {
         try {
             ApiResponse<AiGatewayHealthResponse> response = aiGatewayRestClient.get()
                     .uri("/internal/ai/health")
-                    .headers(headers -> headers.set(InternalApiHeaders.INTERNAL_TOKEN, properties.getInternalToken()))
+                    .headers(this::applyInternalHeaders)
                     .retrieve()
                     .body(HEALTH_TYPE);
 
@@ -249,7 +252,7 @@ public class AiGatewayClient {
             try {
                 ApiResponse<R> response = aiGatewayRestClient.post()
                         .uri(uri)
-                        .headers(headers -> headers.set(InternalApiHeaders.INTERNAL_TOKEN, properties.getInternalToken()))
+                        .headers(this::applyInternalHeaders)
                         .body(request)
                         .retrieve()
                         .body(responseType);
@@ -296,7 +299,7 @@ public class AiGatewayClient {
         try {
             ApiResponse<R> response = aiGatewayRestClient.get()
                     .uri(uri)
-                    .headers(headers -> headers.set(InternalApiHeaders.INTERNAL_TOKEN, properties.getInternalToken()))
+                    .headers(this::applyInternalHeaders)
                     .retrieve()
                     .body(responseType);
 
@@ -361,6 +364,14 @@ public class AiGatewayClient {
 
     private long elapsedMillis(long startedAt) {
         return (System.nanoTime() - startedAt) / 1_000_000;
+    }
+
+    private void applyInternalHeaders(HttpHeaders headers) {
+        headers.set(InternalApiHeaders.INTERNAL_TOKEN, properties.getInternalToken());
+        String traceId = TraceIdSupport.currentTraceId();
+        if (StringUtils.hasText(traceId)) {
+            headers.set(TraceIdSupport.TRACE_ID_HEADER, traceId);
+        }
     }
 
     private static final class AiGatewayRequestFailure extends RuntimeException {

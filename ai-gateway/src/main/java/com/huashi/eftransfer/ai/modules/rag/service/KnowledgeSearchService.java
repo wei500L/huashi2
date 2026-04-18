@@ -13,6 +13,7 @@ import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -43,6 +43,10 @@ public class KnowledgeSearchService {
     }
 
     public RagRetrievalResult search(String query, RagSearchFilter filter) {
+        return search(query, filter, null);
+    }
+
+    public RagRetrievalResult search(String query, RagSearchFilter filter, SearchRequest searchRequest) {
         var retrieval = runtimeConfigService.current().config().rag().retrieval();
         EmbeddingResponse embeddingResponse = aiProviderRegistry.embed(new EmbeddingRequest(query, null, null));
         if (embeddingResponse.items() == null || embeddingResponse.items().isEmpty()) {
@@ -50,12 +54,15 @@ public class KnowledgeSearchService {
         }
 
         List<Double> queryEmbedding = embeddingResponse.items().getFirst().embedding();
+        int finalTopK = resolveFinalTopK(searchRequest, retrieval.finalTopK());
+        double recallThreshold = resolveRecallThreshold(searchRequest, retrieval.recallThreshold());
         List<KnowledgeSearchCandidate> recallCandidates = knowledgeStoreRepository.similaritySearch(
-                toVectorLiteral(queryEmbedding),
+                queryEmbedding,
                 filter,
-                retrieval.recallTopK()
+                retrieval.recallTopK(),
+                retrieval.hnswEfSearch()
         ).stream()
-                .filter(candidate -> candidate.similarityScore() >= retrieval.recallThreshold())
+                .filter(candidate -> candidate.similarityScore() >= recallThreshold)
                 .toList();
 
         if (recallCandidates.isEmpty()) {
@@ -78,12 +85,12 @@ public class KnowledgeSearchService {
         } catch (RuntimeException exception) {
             log.warn("event=knowledge_search_rerank_failed candidateCount={} message={}",
                     recallCandidates.size(), exception.getMessage());
-            return buildRetrievalResult(query, toRecallOrderedChunks(recallCandidates, retrieval.finalTopK()));
+            return buildRetrievalResult(query, toRecallOrderedChunks(recallCandidates, finalTopK));
         }
 
         if (rerankResponse == null || rerankResponse.items() == null || rerankResponse.items().isEmpty()) {
             log.warn("event=knowledge_search_rerank_unavailable candidateCount={} reason=empty_response", recallCandidates.size());
-            return buildRetrievalResult(query, toRecallOrderedChunks(recallCandidates, retrieval.finalTopK()));
+            return buildRetrievalResult(query, toRecallOrderedChunks(recallCandidates, finalTopK));
         }
 
         Map<Integer, KnowledgeSearchCandidate> candidateByIndex = new LinkedHashMap<>();
@@ -114,7 +121,7 @@ public class KnowledgeSearchService {
                         rerankItem.relevanceScore(),
                         candidate.metadata()
                 ));
-                if (finalChunks.size() >= retrieval.finalTopK()) {
+                if (finalChunks.size() >= finalTopK) {
                     break;
                 }
             }
@@ -196,14 +203,21 @@ public class KnowledgeSearchService {
         return normalized.length() <= 200 ? normalized : normalized.substring(0, 197) + "...";
     }
 
-    private String toVectorLiteral(List<Double> embedding) {
-        StringBuilder builder = new StringBuilder("[");
-        for (int index = 0; index < embedding.size(); index++) {
-            if (index > 0) {
-                builder.append(',');
-            }
-            builder.append(String.format(Locale.ROOT, "%.12f", embedding.get(index)));
+    private int resolveFinalTopK(SearchRequest searchRequest, int defaultFinalTopK) {
+        if (searchRequest == null || searchRequest.getTopK() <= 0) {
+            return defaultFinalTopK;
         }
-        return builder.append(']').toString();
+        return Math.min(searchRequest.getTopK(), defaultFinalTopK);
+    }
+
+    private double resolveRecallThreshold(SearchRequest searchRequest, double defaultThreshold) {
+        if (searchRequest == null) {
+            return defaultThreshold;
+        }
+        double threshold = searchRequest.getSimilarityThreshold();
+        if (threshold < 0 || threshold > 1) {
+            return defaultThreshold;
+        }
+        return threshold;
     }
 }

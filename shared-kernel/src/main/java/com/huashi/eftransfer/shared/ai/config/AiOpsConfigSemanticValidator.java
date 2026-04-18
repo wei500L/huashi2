@@ -80,6 +80,7 @@ public final class AiOpsConfigSemanticValidator {
             validateProviderKey(entry.getKey(), issues);
             validateProviderDefinition(entry.getKey(), entry.getValue(), issues);
         }
+        validateEmbeddingDimensions(provider.providers(), issues);
     }
 
     private static void validateResilience(AiOpsResilienceConfig resilience, List<AiOpsConfigIssue> issues) {
@@ -142,7 +143,8 @@ public final class AiOpsConfigSemanticValidator {
             validateProtocol(prefix + ".chat.protocol", definition.chat().protocol(), AiOpsProtocols.OPENAI_COMPAT, issues);
             validateUrl(prefix + ".chat.baseUrl", definition.chat().baseUrl(), issues);
             requireText(prefix + ".chat.apiKey", definition.chat().apiKey(), issues);
-            validateDuration(prefix + ".chat.timeout", definition.chat().timeout(), issues);
+            validateDuration(prefix + ".chat.connectTimeout", definition.chat().connectTimeout(), issues);
+            validateDuration(prefix + ".chat.readTimeout", definition.chat().readTimeout(), issues);
         }
         if (definition.embedding() == null) {
             issues.add(issue(prefix + ".embedding", "embedding_section_required", "embedding section is required"));
@@ -150,14 +152,8 @@ public final class AiOpsConfigSemanticValidator {
             validateProtocol(prefix + ".embedding.protocol", definition.embedding().protocol(), AiOpsProtocols.OPENAI_COMPAT, issues);
             validateUrl(prefix + ".embedding.baseUrl", definition.embedding().baseUrl(), issues);
             requireText(prefix + ".embedding.apiKey", definition.embedding().apiKey(), issues);
-            validateDuration(prefix + ".embedding.timeout", definition.embedding().timeout(), issues);
-            if (definition.embedding().dimension() != null && definition.embedding().dimension() != 1024) {
-                issues.add(issue(
-                        prefix + ".embedding.dimension",
-                        "embedding_dimension_fixed_1024",
-                        "Current pgvector schema is fixed at 1024 dimensions"
-                ));
-            }
+            validateDuration(prefix + ".embedding.connectTimeout", definition.embedding().connectTimeout(), issues);
+            validateDuration(prefix + ".embedding.readTimeout", definition.embedding().readTimeout(), issues);
         }
         if (definition.rerank() == null) {
             issues.add(issue(prefix + ".rerank", "rerank_section_required", "rerank section is required"));
@@ -165,7 +161,34 @@ public final class AiOpsConfigSemanticValidator {
             validateProtocol(prefix + ".rerank.protocol", definition.rerank().protocol(), AiOpsProtocols.QWEN_RERANK, issues);
             validateUrl(prefix + ".rerank.baseUrl", definition.rerank().baseUrl(), issues);
             requireText(prefix + ".rerank.apiKey", definition.rerank().apiKey(), issues);
-            validateDuration(prefix + ".rerank.timeout", definition.rerank().timeout(), issues);
+            validateDuration(prefix + ".rerank.connectTimeout", definition.rerank().connectTimeout(), issues);
+            validateDuration(prefix + ".rerank.readTimeout", definition.rerank().readTimeout(), issues);
+        }
+    }
+
+    private static void validateEmbeddingDimensions(
+            Map<String, AiOpsProviderDefinition> providers,
+            List<AiOpsConfigIssue> issues
+    ) {
+        Integer expectedDimension = null;
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : providers.entrySet()) {
+            AiOpsProviderDefinition definition = entry.getValue();
+            Integer dimension = definition == null || definition.embedding() == null ? null : definition.embedding().dimension();
+            if (dimension == null) {
+                continue;
+            }
+            if (expectedDimension == null) {
+                expectedDimension = dimension;
+                continue;
+            }
+            if (!expectedDimension.equals(dimension)) {
+                issues.add(issue(
+                        "provider.providers." + entry.getKey() + ".embedding.dimension",
+                        "embedding_dimension_mismatch",
+                        "All provider embedding dimensions must match",
+                        Map.of("expected", expectedDimension, "actual", dimension)
+                ));
+            }
         }
     }
 

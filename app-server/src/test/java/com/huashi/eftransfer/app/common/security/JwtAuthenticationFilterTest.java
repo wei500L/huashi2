@@ -1,9 +1,11 @@
 package com.huashi.eftransfer.app.common.security;
 
 import com.huashi.eftransfer.app.common.config.JwtProperties;
+import com.huashi.eftransfer.app.common.trace.TraceIdSupport;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.security.store.RegistrationContextSession;
 import com.huashi.eftransfer.app.common.security.store.RefreshTokenSession;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -26,6 +28,7 @@ class JwtAuthenticationFilterTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        MDC.clear();
     }
 
     @Test
@@ -48,6 +51,20 @@ class JwtAuthenticationFilterTest {
         filter.doFilterInternal(request, response, chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo("existing-user");
+    }
+
+    @Test
+    void shouldBindAuthenticatedUserIdIntoMdc() throws Exception {
+        AccessToken accessToken = jwtTokenProvider.generateAccessToken(42L, "teacher.zhang", "Teacher Zhang", java.util.Set.of("TEACHER"));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/teacher/dashboard");
+        request.addHeader("Authorization", "Bearer " + accessToken.token());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilterInternal(request, response, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+        assertThat(MDC.get(TraceIdSupport.USER_ID_MDC_KEY)).isEqualTo("42");
     }
 
     private static JwtTokenProvider createJwtTokenProvider() {

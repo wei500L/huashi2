@@ -62,8 +62,7 @@ public class SecurityConfig {
                             "/api/auth/account-actions/**",
                             "/ws/**",
                             "/internal/**",
-                            "/actuator/health",
-                            "/actuator/info"
+                            "/actuator/health"
                     ).permitAll();
                     if (hasActiveProfile(environment, "local")) {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll();

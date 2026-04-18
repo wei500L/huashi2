@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.training.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
 import com.huashi.eftransfer.app.common.idempotency.IdempotencyService;
+import com.huashi.eftransfer.app.common.observability.AppBusinessMetrics;
 import com.huashi.eftransfer.app.common.session.SessionCompletionHookStatus;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.common.util.TokenGenerator;
@@ -111,6 +112,7 @@ public class TrainingSessionService {
     private final TrainingCompletedEventPublisher trainingCompletedEventPublisher;
     private final AuditLogService auditLogService;
     private final IdempotencyService idempotencyService;
+    private final AppBusinessMetrics appBusinessMetrics;
 
     public TrainingSessionService(
             TrainingPlanMapper trainingPlanMapper,
@@ -128,7 +130,8 @@ public class TrainingSessionService {
             TrainingSessionCompletionService trainingSessionCompletionService,
             TrainingCompletedEventPublisher trainingCompletedEventPublisher,
             AuditLogService auditLogService,
-            IdempotencyService idempotencyService
+            IdempotencyService idempotencyService,
+            AppBusinessMetrics appBusinessMetrics
     ) {
         this.trainingPlanMapper = trainingPlanMapper;
         this.trainingPlanItemMapper = trainingPlanItemMapper;
@@ -146,6 +149,7 @@ public class TrainingSessionService {
         this.trainingCompletedEventPublisher = trainingCompletedEventPublisher;
         this.auditLogService = auditLogService;
         this.idempotencyService = idempotencyService;
+        this.appBusinessMetrics = appBusinessMetrics;
     }
 
     @Transactional
@@ -228,6 +232,7 @@ public class TrainingSessionService {
         trainingPlanMapper.updateById(plan);
 
         auditLogService.record("start_training_session", "training_session", String.valueOf(session.getId()), request, ResultCode.SUCCESS.code());
+        appBusinessMetrics.recordTrainingSessionStarted();
         log.info("event=training_session_started sessionId={} planId={} ownerUserId={} mode={} totalItems={}",
                 session.getId(), plan.getId(), plan.getOwnerUserId(), mode.name(), session.getTotalItems());
         return new TrainingSessionCreatedVO(

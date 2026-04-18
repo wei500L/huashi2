@@ -10,7 +10,9 @@ public record AiOpsRerankConfig(
         String apiKey,
         @NotBlank(message = "model is required")
         String model,
-        @NotBlank(message = "timeout is required")
-        String timeout
+        @NotBlank(message = "connectTimeout is required")
+        String connectTimeout,
+        @NotBlank(message = "readTimeout is required")
+        String readTimeout
 ) {
 }

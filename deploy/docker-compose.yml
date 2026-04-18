@@ -93,8 +93,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: local
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       AI_GATEWAY_PORT: 8090
+      AI_GATEWAY_MANAGEMENT_PORT: ${AI_GATEWAY_MANAGEMENT_PORT:-18090}
       AI_DB_HOST: postgres
       AI_DB_PORT: 5432
       AI_DB_NAME: ${AI_DB_NAME}
@@ -107,15 +108,36 @@ services:
       SPRING_AI_OPENAI_BASE_URL: ${AI_OPENAI_BASE_URL}
       SPRING_AI_OPENAI_API_KEY: ${AI_OPENAI_API_KEY}
       AI_CHAT_MODEL: ${AI_CHAT_MODEL}
-      AI_CHAT_TIMEOUT: ${AI_CHAT_TIMEOUT}
+      AI_CHAT_CONNECT_TIMEOUT: ${AI_CHAT_CONNECT_TIMEOUT}
+      AI_CHAT_READ_TIMEOUT: ${AI_CHAT_READ_TIMEOUT}
       AI_CHAT_TEMPERATURE: ${AI_CHAT_TEMPERATURE}
       AI_CHAT_MAX_TOKENS: ${AI_CHAT_MAX_TOKENS}
       AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL}
-      AI_EMBEDDING_TIMEOUT: ${AI_EMBEDDING_TIMEOUT}
+      AI_EMBEDDING_CONNECT_TIMEOUT: ${AI_EMBEDDING_CONNECT_TIMEOUT}
+      AI_EMBEDDING_READ_TIMEOUT: ${AI_EMBEDDING_READ_TIMEOUT}
       AI_EMBEDDING_DIMENSION: ${AI_EMBEDDING_DIMENSION}
       AI_RERANK_MODEL: ${AI_RERANK_MODEL}
       AI_RERANK_URL: ${AI_RERANK_URL}
-      AI_RERANK_TIMEOUT: ${AI_RERANK_TIMEOUT}
+      AI_RERANK_CONNECT_TIMEOUT: ${AI_RERANK_CONNECT_TIMEOUT}
+      AI_RERANK_READ_TIMEOUT: ${AI_RERANK_READ_TIMEOUT}
+      AI_FALLBACK_CHAT_BASE_URL: ${AI_FALLBACK_CHAT_BASE_URL}
+      AI_FALLBACK_CHAT_API_KEY: ${AI_FALLBACK_CHAT_API_KEY}
+      AI_FALLBACK_CHAT_MODEL: ${AI_FALLBACK_CHAT_MODEL}
+      AI_FALLBACK_CHAT_CONNECT_TIMEOUT: ${AI_FALLBACK_CHAT_CONNECT_TIMEOUT}
+      AI_FALLBACK_CHAT_READ_TIMEOUT: ${AI_FALLBACK_CHAT_READ_TIMEOUT}
+      AI_FALLBACK_CHAT_TEMPERATURE: ${AI_FALLBACK_CHAT_TEMPERATURE}
+      AI_FALLBACK_CHAT_MAX_TOKENS: ${AI_FALLBACK_CHAT_MAX_TOKENS}
+      AI_FALLBACK_EMBEDDING_BASE_URL: ${AI_FALLBACK_EMBEDDING_BASE_URL}
+      AI_FALLBACK_EMBEDDING_API_KEY: ${AI_FALLBACK_EMBEDDING_API_KEY}
+      AI_FALLBACK_EMBEDDING_MODEL: ${AI_FALLBACK_EMBEDDING_MODEL}
+      AI_FALLBACK_EMBEDDING_CONNECT_TIMEOUT: ${AI_FALLBACK_EMBEDDING_CONNECT_TIMEOUT}
+      AI_FALLBACK_EMBEDDING_READ_TIMEOUT: ${AI_FALLBACK_EMBEDDING_READ_TIMEOUT}
+      AI_FALLBACK_EMBEDDING_DIMENSION: ${AI_FALLBACK_EMBEDDING_DIMENSION}
+      AI_FALLBACK_RERANK_URL: ${AI_FALLBACK_RERANK_URL}
+      AI_FALLBACK_RERANK_API_KEY: ${AI_FALLBACK_RERANK_API_KEY}
+      AI_FALLBACK_RERANK_MODEL: ${AI_FALLBACK_RERANK_MODEL}
+      AI_FALLBACK_RERANK_CONNECT_TIMEOUT: ${AI_FALLBACK_RERANK_CONNECT_TIMEOUT}
+      AI_FALLBACK_RERANK_READ_TIMEOUT: ${AI_FALLBACK_RERANK_READ_TIMEOUT}
       AI_RETRY_MAX_ATTEMPTS: ${AI_RETRY_MAX_ATTEMPTS}
       AI_RETRY_WAIT_DURATION: ${AI_RETRY_WAIT_DURATION}
       AI_CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD: ${AI_CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD}
@@ -131,6 +153,9 @@ services:
       RAG_RERANK_TOP_N: ${RAG_RERANK_TOP_N:-8}
       RAG_RERANK_THRESHOLD: ${RAG_RERANK_THRESHOLD:-0.2}
       RAG_FINAL_TOP_K: ${RAG_FINAL_TOP_K:-6}
+      AI_HNSW_EF_SEARCH: ${AI_HNSW_EF_SEARCH:-64}
+      AI_HNSW_M: ${AI_HNSW_M:-16}
+      AI_HNSW_EF_CONSTRUCTION: ${AI_HNSW_EF_CONSTRUCTION:-128}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
@@ -138,10 +163,18 @@ services:
       RABBITMQ_VHOST: ${RABBITMQ_VHOST}
       PLATFORM_INTERNAL_API_ENABLED: true
       PLATFORM_INTERNAL_API_TOKEN: ${PLATFORM_INTERNAL_API_TOKEN}
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      OTEL_EXPORTER_ENABLED: ${OTEL_EXPORTER_ENABLED:-false}
+      LOG_DIR: ${LOG_DIR:-/app/logs}
+      LOG_MAX_FILE_SIZE: ${LOG_MAX_FILE_SIZE:-100MB}
+      LOG_MAX_HISTORY: ${LOG_MAX_HISTORY:-7}
+      LOG_TOTAL_SIZE_CAP: ${LOG_TOTAL_SIZE_CAP:-1GB}
     ports:
       - "${AI_GATEWAY_PORT}:8090"
+    volumes:
+      - ai-gateway-logs:/app/logs
     healthcheck:
-      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8090 && printf \"GET /actuator/health HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && response=\"\" && while IFS= read -r line <&3 || [ -n \"$$line\" ]; do response=\"$$response$$line\"; done && [[ \"$$response\" == *\"\\\"status\\\":\\\"UP\\\"\"* ]]'"]
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/${AI_GATEWAY_MANAGEMENT_PORT:-18090} && printf \"GET /actuator/health HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && response=\"\" && while IFS= read -r line <&3 || [ -n \"$$line\" ]; do response=\"$$response$$line\"; done && [[ \"$$response\" == *\"\\\"status\\\":\\\"UP\\\"\"* ]]'"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -163,7 +196,7 @@ services:
       ai-gateway:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: local
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       APP_SERVER_PORT: 8080
       APP_DB_HOST: mysql
       APP_DB_PORT: 3306
@@ -200,8 +233,16 @@ services:
       AI_GATEWAY_BASE_URL: http://ai-gateway:8090
       AI_GATEWAY_CONNECT_TIMEOUT: ${AI_GATEWAY_CONNECT_TIMEOUT}
       AI_GATEWAY_READ_TIMEOUT: ${AI_GATEWAY_READ_TIMEOUT}
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      OTEL_EXPORTER_ENABLED: ${OTEL_EXPORTER_ENABLED:-false}
+      LOG_DIR: ${LOG_DIR:-/app/logs}
+      LOG_MAX_FILE_SIZE: ${LOG_MAX_FILE_SIZE:-100MB}
+      LOG_MAX_HISTORY: ${LOG_MAX_HISTORY:-7}
+      LOG_TOTAL_SIZE_CAP: ${LOG_TOTAL_SIZE_CAP:-1GB}
     ports:
       - "${APP_SERVER_PORT}:8080"
+    volumes:
+      - app-server-logs:/app/logs
     healthcheck:
       test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /actuator/health HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && response=\"\" && while IFS= read -r line <&3 || [ -n \"$$line\" ]; do response=\"$$response$$line\"; done && [[ \"$$response\" == *\"\\\"status\\\":\\\"UP\\\"\"* ]]'"]
       interval: 10s
@@ -237,6 +278,8 @@ services:
       start_period: 20s
 
 volumes:
+  app-server-logs:
+  ai-gateway-logs:
   mysql-data:
   redis-data:
   rabbitmq-data:

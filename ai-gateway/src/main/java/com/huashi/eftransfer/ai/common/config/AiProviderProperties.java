@@ -95,7 +95,9 @@ public class AiProviderProperties {
 
         private String model;
 
-        private Duration timeout = Duration.ofSeconds(30);
+        private Duration connectTimeout = Duration.ofSeconds(3);
+
+        private Duration readTimeout = Duration.ofSeconds(30);
 
         public String getProtocol() {
             return protocol;
@@ -129,12 +131,20 @@ public class AiProviderProperties {
             this.model = model;
         }
 
-        public Duration getTimeout() {
-            return timeout;
+        public Duration getConnectTimeout() {
+            return connectTimeout;
         }
 
-        public void setTimeout(Duration timeout) {
-            this.timeout = timeout;
+        public void setConnectTimeout(Duration connectTimeout) {
+            this.connectTimeout = connectTimeout;
+        }
+
+        public Duration getReadTimeout() {
+            return readTimeout;
+        }
+
+        public void setReadTimeout(Duration readTimeout) {
+            this.readTimeout = readTimeout;
         }
     }
 

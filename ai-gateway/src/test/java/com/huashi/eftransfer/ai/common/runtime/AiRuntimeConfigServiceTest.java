@@ -6,6 +6,7 @@ import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
 import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
 import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
+import com.huashi.eftransfer.ai.modules.rag.service.RagSchemaDimensionGuard;
 import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
@@ -42,6 +43,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
 class AiRuntimeConfigServiceTest {
 
@@ -405,11 +408,14 @@ class AiRuntimeConfigServiceTest {
                 (request, body, execution) -> execution.execute(request, body),
                 new ProviderErrorSupport(objectMapper, new SensitiveDataRedactor())
         );
+        RagSchemaDimensionGuard ragSchemaDimensionGuard = mock(RagSchemaDimensionGuard.class);
+        doNothing().when(ragSchemaDimensionGuard).verifyConfig(org.mockito.ArgumentMatchers.any());
         AiRuntimeConfigService service = new AiRuntimeConfigService(
                 providerProperties,
                 resilienceProperties,
                 ragProperties,
                 bundleFactory,
+                ragSchemaDimensionGuard,
                 new SensitiveDataRedactor(),
                 VALIDATOR
         );
@@ -447,15 +453,15 @@ class AiRuntimeConfigServiceTest {
                         Map.of(
                                 "qwen",
                                 new AiOpsProviderDefinition(
-                                        new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, qwenChatBaseUrl, "chat-key", qwenChatModel, "PT30S", 0.2d, 1024),
-                                        new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, qwenEmbeddingBaseUrl, "embed-key", qwenEmbeddingModel, "PT30S", 1024),
-                                        new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, qwenRerankBaseUrl, "rerank-key", qwenRerankModel, "PT30S")
+                                        new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, qwenChatBaseUrl, "chat-key", qwenChatModel, "PT3S", "PT30S", 0.2d, 1024),
+                                        new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, qwenEmbeddingBaseUrl, "embed-key", qwenEmbeddingModel, "PT3S", "PT30S", 1024),
+                                        new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, qwenRerankBaseUrl, "rerank-key", qwenRerankModel, "PT3S", "PT30S")
                                 ),
                                 "deepseek",
                                 new AiOpsProviderDefinition(
-                                        new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT30S", 0.2d, 1024),
-                                        new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT30S", 1024),
-                                        new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT30S")
+                                        new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT3S", "PT30S", 0.2d, 1024),
+                                        new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
+                                        new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT3S", "PT30S")
                                 )
                         )
                 ),
@@ -463,7 +469,7 @@ class AiRuntimeConfigServiceTest {
                 new AiOpsRagConfig(
                         new AiOpsRagAppServerConfig(appServerBaseUrl, internalToken, "PT3S", "PT5S"),
                         new AiOpsRagIngestionConfig(100, 32),
-                        new AiOpsRagRetrievalConfig(20, 0.55d, 8, 0.2d, 6)
+                        new AiOpsRagRetrievalConfig(20, 0.55d, 8, 0.2d, 6, 64)
                 )
         );
     }

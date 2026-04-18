@@ -14,8 +14,10 @@ public record AiOpsChatConfig(
         String apiKey,
         @NotBlank(message = "model is required")
         String model,
-        @NotBlank(message = "timeout is required")
-        String timeout,
+        @NotBlank(message = "connectTimeout is required")
+        String connectTimeout,
+        @NotBlank(message = "readTimeout is required")
+        String readTimeout,
         @NotNull(message = "temperature is required")
         @DecimalMin(value = "0.0", message = "temperature must be between 0 and 2")
         @DecimalMax(value = "2.0", message = "temperature must be between 0 and 2")

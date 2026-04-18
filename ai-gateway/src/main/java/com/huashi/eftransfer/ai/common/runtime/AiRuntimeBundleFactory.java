@@ -120,7 +120,8 @@ public class AiRuntimeBundleFactory {
                                         ragProperties.getRetrieval().getRecallThreshold(),
                                         ragProperties.getRetrieval().getRerankTopN(),
                                         ragProperties.getRetrieval().getRerankThreshold(),
-                                        ragProperties.getRetrieval().getFinalTopK()
+                                        ragProperties.getRetrieval().getFinalTopK(),
+                                        ragProperties.getRetrieval().getHnswEfSearch()
                                 )
                         )
                 ),
@@ -188,7 +189,8 @@ public class AiRuntimeBundleFactory {
                 .restClientBuilder(providerRestClientBuilder(
                         chatConfig.baseUrl(),
                         chatConfig.apiKey(),
-                        parseDuration(chatConfig.timeout())
+                        parseDuration(chatConfig.connectTimeout()),
+                        parseDuration(chatConfig.readTimeout())
                 ))
                 .build();
         OpenAiChatModel chatModel = OpenAiChatModel.builder()
@@ -207,7 +209,8 @@ public class AiRuntimeBundleFactory {
                 .restClientBuilder(providerRestClientBuilder(
                         embeddingConfig.baseUrl(),
                         embeddingConfig.apiKey(),
-                        parseDuration(embeddingConfig.timeout())
+                        parseDuration(embeddingConfig.connectTimeout()),
+                        parseDuration(embeddingConfig.readTimeout())
                 ))
                 .build();
         EmbeddingModel embeddingModel = new OpenAiEmbeddingModel(
@@ -223,7 +226,8 @@ public class AiRuntimeBundleFactory {
         RestClient.Builder rerankBuilder = providerRestClientBuilder(
                 rerankConfig.baseUrl(),
                 rerankConfig.apiKey(),
-                parseDuration(rerankConfig.timeout())
+                parseDuration(rerankConfig.connectTimeout()),
+                parseDuration(rerankConfig.readTimeout())
         );
         if (StringUtils.hasText(rerankConfig.baseUrl())) {
             rerankBuilder.baseUrl(rerankConfig.baseUrl());
@@ -265,14 +269,19 @@ public class AiRuntimeBundleFactory {
                 .build();
     }
 
-    private RestClient.Builder providerRestClientBuilder(String baseUrl, String apiKey, Duration timeout) {
+    private RestClient.Builder providerRestClientBuilder(
+            String baseUrl,
+            String apiKey,
+            Duration connectTimeout,
+            Duration readTimeout
+    ) {
         HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(timeout)
+                .connectTimeout(connectTimeout)
                 .version(HttpClient.Version.HTTP_1_1)
                 .build();
 
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(timeout);
+        requestFactory.setReadTimeout(readTimeout);
 
         RestClient.Builder builder = restClientBuilder.clone()
                 .requestFactory(requestFactory)
@@ -296,7 +305,8 @@ public class AiRuntimeBundleFactory {
                         providerProperties.getChat().getBaseUrl(),
                         providerProperties.getChat().getApiKey(),
                         providerProperties.getChat().getModel(),
-                        formatDuration(providerProperties.getChat().getTimeout()),
+                        formatDuration(providerProperties.getChat().getConnectTimeout()),
+                        formatDuration(providerProperties.getChat().getReadTimeout()),
                         providerProperties.getChat().getTemperature(),
                         providerProperties.getChat().getMaxTokens()
                 ),
@@ -305,7 +315,8 @@ public class AiRuntimeBundleFactory {
                         providerProperties.getEmbedding().getBaseUrl(),
                         providerProperties.getEmbedding().getApiKey(),
                         providerProperties.getEmbedding().getModel(),
-                        formatDuration(providerProperties.getEmbedding().getTimeout()),
+                        formatDuration(providerProperties.getEmbedding().getConnectTimeout()),
+                        formatDuration(providerProperties.getEmbedding().getReadTimeout()),
                         providerProperties.getEmbedding().getDimension()
                 ),
                 new AiOpsRerankConfig(
@@ -313,7 +324,8 @@ public class AiRuntimeBundleFactory {
                         providerProperties.getRerank().getBaseUrl(),
                         providerProperties.getRerank().getApiKey(),
                         providerProperties.getRerank().getModel(),
-                        formatDuration(providerProperties.getRerank().getTimeout())
+                        formatDuration(providerProperties.getRerank().getConnectTimeout()),
+                        formatDuration(providerProperties.getRerank().getReadTimeout())
                 )
         );
     }

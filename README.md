@@ -125,10 +125,10 @@ npm run build:analyze
 - Actuator：`http://localhost:8080/actuator/health`
 - OpenAPI：`http://localhost:8080/swagger-ui.html`
 - OpenAPI：`http://localhost:8080/v3/api-docs`
-- Actuator：`http://localhost:8090/actuator/health`
+- AI Gateway Actuator（直启服务时）：`http://127.0.0.1:18090/actuator/health`
 - `http://localhost:8090/internal/ai/health` 为内部接口，需要 `X-Internal-Token`
 
-Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健康检查，并以非 root 用户运行镜像。
+Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健康检查，并以非 root 用户运行镜像。`ai-gateway` 的 management 端口仅绑定到容器内 loopback，不映射到宿主机。
 
 ## 备份脚本
 

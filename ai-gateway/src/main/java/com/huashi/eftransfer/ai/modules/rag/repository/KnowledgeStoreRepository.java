@@ -14,8 +14,11 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -23,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -171,8 +173,25 @@ public class KnowledgeStoreRepository {
     }
 
     public void replaceChunkEmbedding(Long chunkId, String model, int dimension, String contentHash, List<Double> embedding) {
-        jdbcTemplate.update("UPDATE chunk_embedding SET is_current = FALSE WHERE chunk_id = ? AND is_current = TRUE", chunkId);
+        replaceChunkEmbeddings(List.of(new ChunkEmbeddingWrite(chunkId, model, dimension, contentHash, embedding)));
+    }
+
+    public void replaceChunkEmbeddings(List<ChunkEmbeddingWrite> writes) {
+        if (writes == null || writes.isEmpty()) {
+            return;
+        }
+
+        List<Long> chunkIds = writes.stream()
+                .map(ChunkEmbeddingWrite::chunkId)
+                .distinct()
+                .toList();
+        String placeholders = String.join(", ", java.util.Collections.nCopies(chunkIds.size(), "?"));
         jdbcTemplate.update(
+                "UPDATE chunk_embedding SET is_current = FALSE WHERE is_current = TRUE AND chunk_id IN (" + placeholders + ")",
+                chunkIds.toArray()
+        );
+
+        jdbcTemplate.batchUpdate(
                 """
                         INSERT INTO chunk_embedding (
                             chunk_id,
@@ -185,16 +204,25 @@ public class KnowledgeStoreRepository {
                         )
                         VALUES (?, ?, ?, CAST(? AS vector), ?, TRUE, CURRENT_TIMESTAMP)
                         """,
-                chunkId,
-                model,
-                dimension,
-                toVectorLiteral(embedding),
-                contentHash
+                writes,
+                writes.size(),
+                (ps, write) -> {
+                    ps.setLong(1, write.chunkId());
+                    ps.setString(2, write.model());
+                    ps.setInt(3, write.dimension());
+                    ps.setString(4, toVectorParameter(write.embedding()));
+                    ps.setString(5, write.contentHash());
+                }
         );
-        jdbcTemplate.update(
+
+        jdbcTemplate.batchUpdate(
                 "UPDATE knowledge_chunk SET embedding_status = ?, embedded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                EmbeddingStatus.EMBEDDED.name(),
-                chunkId
+                writes,
+                writes.size(),
+                (ps, write) -> {
+                    ps.setString(1, EmbeddingStatus.EMBEDDED.name());
+                    ps.setLong(2, write.chunkId());
+                }
         );
     }
 
@@ -206,7 +234,7 @@ public class KnowledgeStoreRepository {
         );
     }
 
-    public List<KnowledgeSearchCandidate> similaritySearch(String vectorLiteral, RagSearchFilter filter, int limit) {
+    public List<KnowledgeSearchCandidate> similaritySearch(List<Double> embedding, RagSearchFilter filter, int limit, int hnswEfSearch) {
         StringBuilder sql = new StringBuilder("""
                 SELECT kc.id,
                        kc.source_type,
@@ -222,7 +250,7 @@ public class KnowledgeStoreRepository {
                   AND kd.active = TRUE
                 """);
         List<Object> params = new ArrayList<>();
-        params.add(vectorLiteral);
+        params.add(toVectorParameter(embedding));
 
         appendInClause(sql, params, "kc.source_type", filter.sourceTypes());
         appendInClause(sql, params, "kc.source_id", filter.sourceIds());
@@ -231,10 +259,10 @@ public class KnowledgeStoreRepository {
                  ORDER BY ce.embedding <=> CAST(? AS vector), kc.id
                  LIMIT ?
                 """);
-        params.add(vectorLiteral);
+        params.add(toVectorParameter(embedding));
         params.add(limit);
 
-        return jdbcTemplate.query(sql.toString(), this::mapSearchCandidate, params.toArray());
+        return jdbcTemplate.execute((Connection connection) -> executeSimilaritySearch(connection, sql.toString(), params, hnswEfSearch));
     }
 
     public void deactivateDocumentsNotIn(String documentSourceType, Set<String> seenSourceIds) {
@@ -411,13 +439,65 @@ public class KnowledgeStoreRepository {
         return timestamp == null ? null : timestamp.toInstant().atOffset(ZoneOffset.UTC);
     }
 
-    private String toVectorLiteral(List<Double> embedding) {
+    private List<KnowledgeSearchCandidate> executeSimilaritySearch(
+            Connection connection,
+            String sql,
+            List<Object> params,
+            int hnswEfSearch
+    ) throws SQLException {
+        if (hnswEfSearch <= 0) {
+            throw new SQLException("hnsw.ef_search must be greater than 0");
+        }
+        SQLException primaryFailure = null;
+        try (Statement setEfSearch = connection.createStatement()) {
+            setEfSearch.execute("SET hnsw.ef_search = " + hnswEfSearch);
+        }
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindParams(statement, params);
+            try (ResultSet rs = statement.executeQuery()) {
+                List<KnowledgeSearchCandidate> results = new ArrayList<>();
+                int rowNum = 0;
+                while (rs.next()) {
+                    results.add(mapSearchCandidate(rs, rowNum++));
+                }
+                return results;
+            }
+        } catch (SQLException ex) {
+            primaryFailure = ex;
+            throw ex;
+        } finally {
+            try (Statement resetStatement = connection.createStatement()) {
+                resetStatement.execute("RESET hnsw.ef_search");
+            } catch (SQLException resetEx) {
+                if (primaryFailure != null) {
+                    primaryFailure.addSuppressed(resetEx);
+                } else {
+                    throw resetEx;
+                }
+            }
+        }
+    }
+
+    private void bindParams(PreparedStatement statement, List<Object> params) throws SQLException {
+        for (int index = 0; index < params.size(); index++) {
+            Object value = params.get(index);
+            if (value instanceof Integer intValue) {
+                statement.setInt(index + 1, intValue);
+            } else if (value instanceof Long longValue) {
+                statement.setLong(index + 1, longValue);
+            } else {
+                statement.setObject(index + 1, value);
+            }
+        }
+    }
+
+    private String toVectorParameter(List<Double> embedding) {
         StringBuilder builder = new StringBuilder("[");
         for (int index = 0; index < embedding.size(); index++) {
             if (index > 0) {
                 builder.append(',');
             }
-            builder.append(String.format(Locale.ROOT, "%.12f", embedding.get(index)));
+            builder.append(Double.toString(embedding.get(index)));
         }
         return builder.append(']').toString();
     }
@@ -437,6 +517,15 @@ public class KnowledgeStoreRepository {
     }
 
     private record ChunkRecord(Long id, String contentHash, String embeddingStatus, OffsetDateTime embeddedAt) {
+    }
+
+    public record ChunkEmbeddingWrite(
+            Long chunkId,
+            String model,
+            int dimension,
+            String contentHash,
+            List<Double> embedding
+    ) {
     }
 
     public record UpsertDocumentResult(Long documentId, List<PendingChunkEmbedding> pendingChunkEmbeddings) {

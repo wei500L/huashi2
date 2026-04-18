@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.auth.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.config.AuthRegistrationProperties;
 import com.huashi.eftransfer.app.common.config.JwtProperties;
+import com.huashi.eftransfer.app.common.observability.AppBusinessMetrics;
 import com.huashi.eftransfer.app.common.security.AccessToken;
 import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.security.JwtTokenProvider;
@@ -73,6 +74,7 @@ public class AuthService {
     private final AuthTokenStore authTokenStore;
     private final AuthLockoutService authLockoutService;
     private final AchievementService achievementService;
+    private final AppBusinessMetrics appBusinessMetrics;
 
     public AuthService(
             UserQueryService userQueryService,
@@ -87,7 +89,8 @@ public class AuthService {
             AuthRegistrationProperties authRegistrationProperties,
             AuthTokenStore authTokenStore,
             AuthLockoutService authLockoutService,
-            AchievementService achievementService
+            AchievementService achievementService,
+            AppBusinessMetrics appBusinessMetrics
     ) {
         this.userQueryService = userQueryService;
         this.userMapper = userMapper;
@@ -102,42 +105,49 @@ public class AuthService {
         this.authTokenStore = authTokenStore;
         this.authLockoutService = authLockoutService;
         this.achievementService = achievementService;
+        this.appBusinessMetrics = appBusinessMetrics;
     }
 
     @Transactional
     public LoginResponse login(LoginRequest request, AuthClientContext clientContext) {
-        String loginId = request.usernameOrEmail();
-        UserEntity user = userQueryService.findByUsernameOrEmail(loginId)
-                .orElseGet(() -> {
-                    authLockoutService.ensureNotLocked(null, loginId);
-                    authLockoutService.recordFailure(null, loginId);
-                    throw invalidCredentials();
-                });
+        try {
+            String loginId = request.usernameOrEmail();
+            UserEntity user = userQueryService.findByUsernameOrEmail(loginId)
+                    .orElseGet(() -> {
+                        authLockoutService.ensureNotLocked(null, loginId);
+                        authLockoutService.recordFailure(null, loginId);
+                        throw invalidCredentials();
+                    });
 
-        authLockoutService.ensureNotLocked(user, loginId);
+            authLockoutService.ensureNotLocked(user, loginId);
 
-        if (!Boolean.TRUE.equals(user.getEnabled())) {
-            throw new BusinessException(ResultCode.ACCOUNT_DISABLED, "User account is disabled", 403);
+            if (!Boolean.TRUE.equals(user.getEnabled())) {
+                throw new BusinessException(ResultCode.ACCOUNT_DISABLED, "User account is disabled", 403);
+            }
+            if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+                authLockoutService.recordFailure(user, loginId);
+                throw invalidCredentials();
+            }
+
+            Set<String> roles = userQueryService.getRoleCodes(user.getId());
+            requireAssignedRoles(roles);
+            authLockoutService.clearFailures(user, loginId);
+
+            revokeExistingSession(user.getId());
+            LocalDateTime previousLastLoginAt = user.getLastLoginAt();
+            LocalDateTime currentLoginAt = LocalDateTime.now();
+            user.setLastLoginAt(currentLoginAt);
+            userMapper.updateById(user);
+            achievementService.recordLogin(user.getId(), previousLastLoginAt, currentLoginAt);
+
+            LoginResponse response = issueTokens(user, roles, clientContext);
+            appBusinessMetrics.recordLoginAttempt("success", "success");
+            log.info("event=auth_login_success userId={} username={} roles={}", user.getId(), user.getUsername(), roles);
+            return response;
+        } catch (BusinessException exception) {
+            appBusinessMetrics.recordLoginAttempt("failure", exception.getResultCode().code());
+            throw exception;
         }
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            authLockoutService.recordFailure(user, loginId);
-            throw invalidCredentials();
-        }
-
-        Set<String> roles = userQueryService.getRoleCodes(user.getId());
-        requireAssignedRoles(roles);
-        authLockoutService.clearFailures(user, loginId);
-
-        revokeExistingSession(user.getId());
-        LocalDateTime previousLastLoginAt = user.getLastLoginAt();
-        LocalDateTime currentLoginAt = LocalDateTime.now();
-        user.setLastLoginAt(currentLoginAt);
-        userMapper.updateById(user);
-        achievementService.recordLogin(user.getId(), previousLastLoginAt, currentLoginAt);
-
-        LoginResponse response = issueTokens(user, roles, clientContext);
-        log.info("event=auth_login_success userId={} username={} roles={}", user.getId(), user.getUsername(), roles);
-        return response;
     }
 
     @Transactional

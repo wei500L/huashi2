@@ -112,6 +112,7 @@ public class RagProperties {
         private int rerankTopN = 8;
         private double rerankThreshold = 0.20d;
         private int finalTopK = 6;
+        private int hnswEfSearch = 64;
 
         public int getRecallTopK() {
             return recallTopK;
@@ -151,6 +152,14 @@ public class RagProperties {
 
         public void setFinalTopK(int finalTopK) {
             this.finalTopK = finalTopK;
+        }
+
+        public int getHnswEfSearch() {
+            return hnswEfSearch;
+        }
+
+        public void setHnswEfSearch(int hnswEfSearch) {
+            this.hnswEfSearch = hnswEfSearch;
         }
     }
 }

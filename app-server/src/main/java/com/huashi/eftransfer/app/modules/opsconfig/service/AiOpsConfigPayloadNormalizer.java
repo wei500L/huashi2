@@ -29,7 +29,7 @@ public class AiOpsConfigPayloadNormalizer {
                     new AiOpsRagConfig(
                             new AiOpsRagAppServerConfig(null, null, null, null),
                             new AiOpsRagIngestionConfig(null, null),
-                            new AiOpsRagRetrievalConfig(null, null, null, null, null)
+                            new AiOpsRagRetrievalConfig(null, null, null, null, null, null)
                     )
             );
         }
@@ -62,7 +62,7 @@ public class AiOpsConfigPayloadNormalizer {
                 ? new AiOpsRagIngestionConfig(null, null)
                 : rag.ingestion();
         AiOpsRagRetrievalConfig retrieval = rag.retrieval() == null
-                ? new AiOpsRagRetrievalConfig(null, null, null, null, null)
+                ? new AiOpsRagRetrievalConfig(null, null, null, null, null, null)
                 : rag.retrieval();
 
         return new AiOpsConfigPayload(
@@ -89,14 +89,15 @@ public class AiOpsConfigPayloadNormalizer {
 
     private AiOpsChatConfig normalizeChatConfig(AiOpsChatConfig config) {
         if (config == null) {
-            return new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null);
+            return new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null, null);
         }
         return new AiOpsChatConfig(
                 defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_COMPAT),
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),
-                config.timeout(),
+                config.connectTimeout(),
+                config.readTimeout(),
                 config.temperature(),
                 config.maxTokens()
         );
@@ -104,28 +105,30 @@ public class AiOpsConfigPayloadNormalizer {
 
     private AiOpsEmbeddingConfig normalizeEmbeddingConfig(AiOpsEmbeddingConfig config) {
         if (config == null) {
-            return new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null);
+            return new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null);
         }
         return new AiOpsEmbeddingConfig(
                 defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_COMPAT),
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),
-                config.timeout(),
+                config.connectTimeout(),
+                config.readTimeout(),
                 config.dimension()
         );
     }
 
     private AiOpsRerankConfig normalizeRerankConfig(AiOpsRerankConfig config) {
         if (config == null) {
-            return new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null);
+            return new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null, null);
         }
         return new AiOpsRerankConfig(
                 defaultProtocol(config.protocol(), AiOpsProtocols.QWEN_RERANK),
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),
-                config.timeout()
+                config.connectTimeout(),
+                config.readTimeout()
         );
     }
 

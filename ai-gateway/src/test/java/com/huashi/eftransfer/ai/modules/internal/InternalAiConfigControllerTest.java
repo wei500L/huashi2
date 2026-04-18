@@ -90,9 +90,9 @@ class InternalAiConfigControllerTest {
                                     "fallbackProvider": "deepseek",
                                     "providers": {
                                       "deepseek": {
-                                        "chat": {"baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "timeout": "PT30S", "temperature": 0.2, "maxTokens": 1024},
-                                        "embedding": {"baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "timeout": "PT30S", "dimension": 1024},
-                                        "rerank": {"baseUrl": "https://example.com", "apiKey": "x", "model": "m", "timeout": "PT30S"}
+                                        "chat": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "temperature": 0.2, "maxTokens": 1024},
+                                        "embedding": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "dimension": 1024},
+                                        "rerank": {"protocol": "qwen-rerank", "baseUrl": "https://example.com", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S"}
                                       }
                                     }
                                   },
@@ -106,7 +106,7 @@ class InternalAiConfigControllerTest {
                                   "rag": {
                                     "appServer": {"baseUrl": "http://localhost:8080", "internalToken": "t", "connectTimeout": "PT3S", "readTimeout": "PT5S"},
                                     "ingestion": {"exportPageSize": 100, "embeddingBatchSize": 32},
-                                    "retrieval": {"recallTopK": 20, "recallThreshold": 0.55, "rerankTopN": 8, "rerankThreshold": 0.2, "finalTopK": 6}
+                                    "retrieval": {"recallTopK": 20, "recallThreshold": 0.55, "rerankTopN": 8, "rerankThreshold": 0.2, "finalTopK": 6, "hnswEfSearch": 64}
                                   }
                                 }
                                 """))
@@ -136,9 +136,9 @@ class InternalAiConfigControllerTest {
                                       "fallbackProvider": "deepseek",
                                       "providers": {
                                         "deepseek": {
-                                          "chat": {"baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "timeout": "PT30S", "temperature": 0.2, "maxTokens": 1024},
-                                          "embedding": {"baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "timeout": "PT30S", "dimension": 1024},
-                                          "rerank": {"baseUrl": "https://example.com", "apiKey": "x", "model": "m", "timeout": "PT30S"}
+                                          "chat": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "temperature": 0.2, "maxTokens": 1024},
+                                          "embedding": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "dimension": 1024},
+                                          "rerank": {"protocol": "qwen-rerank", "baseUrl": "https://example.com", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S"}
                                         }
                                       }
                                     },
@@ -152,7 +152,7 @@ class InternalAiConfigControllerTest {
                                     "rag": {
                                       "appServer": {"baseUrl": "http://localhost:8080", "internalToken": "t", "connectTimeout": "PT3S", "readTimeout": "PT5S"},
                                       "ingestion": {"exportPageSize": 100, "embeddingBatchSize": 32},
-                                      "retrieval": {"recallTopK": 20, "recallThreshold": 0.55, "rerankTopN": 8, "rerankThreshold": 0.2, "finalTopK": 6}
+                                      "retrieval": {"recallTopK": 20, "recallThreshold": 0.55, "rerankTopN": 8, "rerankThreshold": 0.2, "finalTopK": 6, "hnswEfSearch": 64}
                                     }
                                   },
                                   "source": "DATABASE",

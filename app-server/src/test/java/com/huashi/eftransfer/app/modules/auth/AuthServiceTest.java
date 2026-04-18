@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.modules.auth;
 
 import com.huashi.eftransfer.app.common.config.JwtProperties;
 import com.huashi.eftransfer.app.common.config.AuthRegistrationProperties;
+import com.huashi.eftransfer.app.common.observability.AppBusinessMetrics;
 import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.security.JwtTokenProvider;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
@@ -80,6 +81,9 @@ class AuthServiceTest {
 
     @Mock
     private AuthLockoutService authLockoutService;
+
+    @Mock
+    private AppBusinessMetrics appBusinessMetrics;
 
     @InjectMocks
     private AuthService authService;

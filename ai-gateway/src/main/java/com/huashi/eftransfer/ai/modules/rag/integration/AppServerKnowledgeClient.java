@@ -4,7 +4,9 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
+import org.slf4j.MDC;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriBuilder;
@@ -34,6 +36,7 @@ public class AppServerKnowledgeClient {
     ) {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         ApiResponse<LexicalKnowledgeExportPageResponse> response = bundle.appServerRestClient().get()
+                .headers(this::applyTraceHeader)
                 .uri(uriBuilder -> buildExportUri(uriBuilder, updatedSince, cursor, limit, sourceIds))
                 .retrieve()
                 .body(EXPORT_TYPE);
@@ -63,5 +66,12 @@ public class AppServerKnowledgeClient {
             builder.queryParam("ids", sourceIds.toArray());
         }
         return builder.build();
+    }
+
+    private void applyTraceHeader(HttpHeaders headers) {
+        String traceId = MDC.get("traceId");
+        if (StringUtils.hasText(traceId)) {
+            headers.set("X-Trace-Id", traceId);
+        }
     }
 }

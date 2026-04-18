@@ -4,6 +4,7 @@ import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
 import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
+import com.huashi.eftransfer.ai.modules.rag.service.RagSchemaDimensionGuard;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
@@ -66,6 +67,7 @@ public class AiRuntimeConfigService {
     private final AiResilienceProperties resilienceProperties;
     private final RagProperties ragProperties;
     private final AiRuntimeBundleFactory bundleFactory;
+    private final RagSchemaDimensionGuard ragSchemaDimensionGuard;
     private final SensitiveDataRedactor sensitiveDataRedactor;
     private final Validator validator;
     private final AtomicReference<AiRuntimeBundle> currentBundle = new AtomicReference<>();
@@ -80,6 +82,7 @@ public class AiRuntimeConfigService {
             AiResilienceProperties resilienceProperties,
             RagProperties ragProperties,
             AiRuntimeBundleFactory bundleFactory,
+            RagSchemaDimensionGuard ragSchemaDimensionGuard,
             SensitiveDataRedactor sensitiveDataRedactor,
             Validator validator
     ) {
@@ -87,6 +90,7 @@ public class AiRuntimeConfigService {
         this.resilienceProperties = resilienceProperties;
         this.ragProperties = ragProperties;
         this.bundleFactory = bundleFactory;
+        this.ragSchemaDimensionGuard = ragSchemaDimensionGuard;
         this.sensitiveDataRedactor = sensitiveDataRedactor;
         this.validator = validator;
     }
@@ -100,6 +104,7 @@ public class AiRuntimeConfigService {
                 "DEFAULTS",
                 versionCounter.incrementAndGet()
         );
+        ragSchemaDimensionGuard.verifyConfig(bundle.config());
         currentBundle.set(bundle);
     }
 
@@ -260,10 +265,12 @@ public class AiRuntimeConfigService {
             return new ValidationOutcome(issues, notices, null);
         }
         try {
+            AiRuntimeBundle bundle = bundleFactory.build(payload, source, version);
+            ragSchemaDimensionGuard.verifyConfig(bundle.config());
             return new ValidationOutcome(
                     List.of(),
                     notices,
-                    bundleFactory.build(payload, source, version)
+                    bundle
             );
         } catch (RuntimeException ex) {
             List<AiOpsConfigIssue> buildIssues = List.of(new AiOpsConfigIssue("config", "runtime_build_failed", ex.getMessage()));
@@ -429,9 +436,12 @@ public class AiRuntimeConfigService {
             if (definition == null) {
                 continue;
             }
-            maxTimeout = max(maxTimeout, definition.chat() == null ? null : parseNoticeDuration(definition.chat().timeout()));
-            maxTimeout = max(maxTimeout, definition.embedding() == null ? null : parseNoticeDuration(definition.embedding().timeout()));
-            maxTimeout = max(maxTimeout, definition.rerank() == null ? null : parseNoticeDuration(definition.rerank().timeout()));
+            maxTimeout = max(maxTimeout, maxProviderTimeout(definition.chat() == null ? null : definition.chat().connectTimeout(),
+                    definition.chat() == null ? null : definition.chat().readTimeout()));
+            maxTimeout = max(maxTimeout, maxProviderTimeout(definition.embedding() == null ? null : definition.embedding().connectTimeout(),
+                    definition.embedding() == null ? null : definition.embedding().readTimeout()));
+            maxTimeout = max(maxTimeout, maxProviderTimeout(definition.rerank() == null ? null : definition.rerank().connectTimeout(),
+                    definition.rerank() == null ? null : definition.rerank().readTimeout()));
         }
         int attempts = payload.resilience().maxAttempts() == null ? 1 : Math.max(payload.resilience().maxAttempts(), 1);
         Duration waitDuration = parseNoticeDuration(payload.resilience().waitDuration());
@@ -448,6 +458,10 @@ public class AiRuntimeConfigService {
         } catch (Exception ex) {
             return Duration.ZERO;
         }
+    }
+
+    private Duration maxProviderTimeout(String connectTimeout, String readTimeout) {
+        return max(parseNoticeDuration(connectTimeout), parseNoticeDuration(readTimeout));
     }
 
     private Duration max(Duration left, Duration right) {

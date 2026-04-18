@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.integration.ai.client;
 
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
+import com.huashi.eftransfer.app.common.trace.TraceIdSupport;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
@@ -72,6 +74,7 @@ class AiGatewayClientTest {
         RESPONSES.clear();
         LAST_REQUEST.set(null);
         REQUEST_COUNT.set(0);
+        MDC.clear();
         aiGatewayClient = new AiGatewayClient(
                 RestClient.builder().baseUrl(baseUrl).build(),
                 defaultProperties()
@@ -158,6 +161,42 @@ class AiGatewayClientTest {
         assertThat(LAST_REQUEST.get().body()).contains("\"messages\"");
         assertThat(LAST_REQUEST.get().body()).contains("\"Say hello\"");
         assertThat(LAST_REQUEST.get().internalToken()).isEqualTo("test-internal-token");
+    }
+
+    @Test
+    void shouldForwardCompatibilityTraceHeader() {
+        enqueue(StubResponse.ok("""
+                {
+                  "success": true,
+                  "code": "SUCCESS",
+                  "message": "Request succeeded",
+                  "data": {
+                    "provider": "qwen",
+                    "model": "qwen-max",
+                    "content": "hello",
+                    "finishReason": "stop",
+                    "providerRequestId": "chat-trace",
+                    "usage": {
+                      "promptTokens": 1,
+                      "completionTokens": 1,
+                      "totalTokens": 2
+                    }
+                  },
+                  "timestamp": "2026-03-20T00:00:00Z",
+                  "traceId": "trace-chat-client"
+                }
+                """));
+        MDC.put(TraceIdSupport.TRACE_ID_MDC_KEY, "trace-app-client");
+
+        AiGatewayCallResult<ChatResponse> response = aiGatewayClient.chat(new ChatRequest(
+                List.of(new ChatMessage("user", "Say hello")),
+                null,
+                0.2D,
+                256
+        ));
+
+        assertThat(response.success()).isTrue();
+        assertThat(LAST_REQUEST.get().header(TraceIdSupport.TRACE_ID_HEADER)).isEqualTo("trace-app-client");
     }
 
     @Test
@@ -586,7 +625,8 @@ class AiGatewayClientTest {
                 exchange.getRequestMethod(),
                 exchange.getRequestURI().getPath(),
                 new String(requestBytes, StandardCharsets.UTF_8),
-                exchange.getRequestHeaders().getFirst(InternalApiHeaders.INTERNAL_TOKEN)
+                exchange.getRequestHeaders().getFirst(InternalApiHeaders.INTERNAL_TOKEN),
+                exchange.getRequestHeaders().getFirst(TraceIdSupport.TRACE_ID_HEADER)
         ));
 
         StubResponse response = Objects.requireNonNullElseGet(
@@ -611,6 +651,16 @@ class AiGatewayClientTest {
         }
     }
 
-    private record CapturedRequest(String method, String path, String body, String internalToken) {
+    private record CapturedRequest(String method, String path, String body, String internalToken, String traceId) {
+
+        private String header(String name) {
+            if (TraceIdSupport.TRACE_ID_HEADER.equals(name)) {
+                return traceId;
+            }
+            if (InternalApiHeaders.INTERNAL_TOKEN.equals(name)) {
+                return internalToken;
+            }
+            return null;
+        }
     }
 }

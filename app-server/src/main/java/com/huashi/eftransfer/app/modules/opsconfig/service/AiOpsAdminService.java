@@ -732,7 +732,8 @@ public class AiOpsAdminService {
                             definition.chat().baseUrl(),
                             null,
                             definition.chat().model(),
-                            definition.chat().timeout(),
+                            definition.chat().connectTimeout(),
+                            definition.chat().readTimeout(),
                             definition.chat().temperature(),
                             definition.chat().maxTokens()
                     ),
@@ -741,7 +742,8 @@ public class AiOpsAdminService {
                             definition.embedding().baseUrl(),
                             null,
                             definition.embedding().model(),
-                            definition.embedding().timeout(),
+                            definition.embedding().connectTimeout(),
+                            definition.embedding().readTimeout(),
                             definition.embedding().dimension()
                     ),
                     new AiOpsRerankConfig(
@@ -749,7 +751,8 @@ public class AiOpsAdminService {
                             definition.rerank().baseUrl(),
                             null,
                             definition.rerank().model(),
-                            definition.rerank().timeout()
+                            definition.rerank().connectTimeout(),
+                            definition.rerank().readTimeout()
                     )
             ));
         }
@@ -822,7 +825,8 @@ public class AiOpsAdminService {
                             resolveSecret(existing.chat().apiKey(),
                                     secretGroup == null ? null : secretGroup.chatApiKey()),
                             requested.chat().model(),
-                            requested.chat().timeout(),
+                            requested.chat().connectTimeout(),
+                            requested.chat().readTimeout(),
                             requested.chat().temperature(),
                             requested.chat().maxTokens()
                     ),
@@ -832,7 +836,8 @@ public class AiOpsAdminService {
                             resolveSecret(existing.embedding().apiKey(),
                                     secretGroup == null ? null : secretGroup.embeddingApiKey()),
                             requested.embedding().model(),
-                            requested.embedding().timeout(),
+                            requested.embedding().connectTimeout(),
+                            requested.embedding().readTimeout(),
                             requested.embedding().dimension()
                     ),
                     new AiOpsRerankConfig(
@@ -841,7 +846,8 @@ public class AiOpsAdminService {
                             resolveSecret(existing.rerank().apiKey(),
                                     secretGroup == null ? null : secretGroup.rerankApiKey()),
                             requested.rerank().model(),
-                            requested.rerank().timeout()
+                            requested.rerank().connectTimeout(),
+                            requested.rerank().readTimeout()
                     )
             ));
         }

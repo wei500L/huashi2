@@ -1804,7 +1804,8 @@ export interface AiOpsChatConfig {
   baseUrl: string;
   apiKey: string | null;
   model: string;
-  timeout: string;
+  connectTimeout: string;
+  readTimeout: string;
   temperature: number;
   maxTokens: number;
 }
@@ -1814,7 +1815,8 @@ export interface AiOpsEmbeddingConfig {
   baseUrl: string;
   apiKey: string | null;
   model: string;
-  timeout: string;
+  connectTimeout: string;
+  readTimeout: string;
   dimension: number;
 }
 
@@ -1823,7 +1825,8 @@ export interface AiOpsRerankConfig {
   baseUrl: string;
   apiKey: string | null;
   model: string;
-  timeout: string;
+  connectTimeout: string;
+  readTimeout: string;
 }
 
 export interface AiOpsProviderDefinition {
@@ -1864,6 +1867,7 @@ export interface AiOpsRagRetrievalConfig {
   rerankTopN: number;
   rerankThreshold: number;
   finalTopK: number;
+  hnswEfSearch: number;
 }
 
 export interface AiOpsRagConfig {
@@ -1883,7 +1887,8 @@ export interface AiOpsDraftChatConfig {
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
-  timeout?: string | null;
+  connectTimeout?: string | null;
+  readTimeout?: string | null;
   temperature?: number | null;
   maxTokens?: number | null;
 }
@@ -1893,7 +1898,8 @@ export interface AiOpsDraftEmbeddingConfig {
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
-  timeout?: string | null;
+  connectTimeout?: string | null;
+  readTimeout?: string | null;
   dimension?: number | null;
 }
 
@@ -1902,7 +1908,8 @@ export interface AiOpsDraftRerankConfig {
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
-  timeout?: string | null;
+  connectTimeout?: string | null;
+  readTimeout?: string | null;
 }
 
 export interface AiOpsDraftProviderDefinition {
@@ -1943,6 +1950,7 @@ export interface AiOpsDraftRagRetrievalConfig {
   rerankTopN?: number | null;
   rerankThreshold?: number | null;
   finalTopK?: number | null;
+  hnswEfSearch?: number | null;
 }
 
 export interface AiOpsDraftRagConfig {

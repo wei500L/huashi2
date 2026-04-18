@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
 import com.huashi.eftransfer.app.common.idempotency.IdempotencyService;
+import com.huashi.eftransfer.app.common.observability.AppBusinessMetrics;
 import com.huashi.eftransfer.app.common.session.SessionCompletionHookStatus;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.common.util.TokenGenerator;
@@ -88,6 +89,7 @@ public class DiagnosisSessionService {
     private final DiagnosisSessionCompletionService diagnosisSessionCompletionService;
     private final AuditLogService auditLogService;
     private final IdempotencyService idempotencyService;
+    private final AppBusinessMetrics appBusinessMetrics;
 
     public DiagnosisSessionService(
             DiagnosisTemplateService diagnosisTemplateService,
@@ -100,7 +102,8 @@ public class DiagnosisSessionService {
             DiagnosisScoringPolicy diagnosisScoringPolicy,
             DiagnosisSessionCompletionService diagnosisSessionCompletionService,
             AuditLogService auditLogService,
-            IdempotencyService idempotencyService
+            IdempotencyService idempotencyService,
+            AppBusinessMetrics appBusinessMetrics
     ) {
         this.diagnosisTemplateService = diagnosisTemplateService;
         this.diagnosisSessionMapper = diagnosisSessionMapper;
@@ -113,6 +116,7 @@ public class DiagnosisSessionService {
         this.diagnosisSessionCompletionService = diagnosisSessionCompletionService;
         this.auditLogService = auditLogService;
         this.idempotencyService = idempotencyService;
+        this.appBusinessMetrics = appBusinessMetrics;
     }
 
     @Transactional
@@ -161,6 +165,7 @@ public class DiagnosisSessionService {
         }
 
         auditLogService.record("create_session", "diagnosis_session", String.valueOf(session.getId()), request, ResultCode.SUCCESS.code());
+        appBusinessMetrics.recordDiagnosisSessionCreated();
         log.info("event=diagnosis_session_created sessionId={} templateId={} ownerUserId={} totalItems={}",
                 session.getId(), template.getId(), session.getOwnerUserId(), session.getTotalItems());
         return new DiagnosisSessionCreatedVO(

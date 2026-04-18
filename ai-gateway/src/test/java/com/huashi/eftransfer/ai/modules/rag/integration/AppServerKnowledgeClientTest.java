@@ -22,6 +22,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -43,6 +44,7 @@ class AppServerKnowledgeClientTest {
     private static String baseUrl;
     private static final AtomicReference<String> lastInternalToken = new AtomicReference<>();
     private static final AtomicReference<String> lastPath = new AtomicReference<>();
+    private static final AtomicReference<String> lastTraceId = new AtomicReference<>();
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
@@ -51,6 +53,7 @@ class AppServerKnowledgeClientTest {
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/internal/knowledge/lexical-pairs/export", exchange -> {
             lastInternalToken.set(exchange.getRequestHeaders().getFirst(InternalApiHeaders.INTERNAL_TOKEN));
+            lastTraceId.set(exchange.getRequestHeaders().getFirst("X-Trace-Id"));
             lastPath.set(exchange.getRequestURI().toString());
             byte[] body = new ObjectMapper().findAndRegisterModules().writeValueAsBytes(ApiResponse.success(
                     new LexicalKnowledgeExportPageResponse(List.of(), null, null),
@@ -76,6 +79,8 @@ class AppServerKnowledgeClientTest {
     void shouldExportLexicalPairsWithInternalTokenHeader() {
         lastInternalToken.set(null);
         lastPath.set(null);
+        lastTraceId.set(null);
+        MDC.put("traceId", "trace-ai-gateway");
 
         AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
         when(runtimeConfigService.current()).thenReturn(runtimeBundle());
@@ -89,6 +94,7 @@ class AppServerKnowledgeClientTest {
         );
 
         assertThat(lastInternalToken.get()).isEqualTo("test-internal-token");
+        assertThat(lastTraceId.get()).isEqualTo("trace-ai-gateway");
         var uriComponents = UriComponentsBuilder.fromUriString("http://localhost" + lastPath.get()).build();
         assertThat(uriComponents.getPath()).isEqualTo("/internal/knowledge/lexical-pairs/export");
         assertThat(uriComponents.getQueryParams().getFirst("updatedSince")).isEqualTo("2026-03-21T00:00Z");
@@ -106,15 +112,15 @@ class AppServerKnowledgeClientTest {
                                 Map.of(
                                         "qwen",
                                         new AiOpsProviderDefinition(
-                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
-                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
-                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
+                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "chat-key", "qwen-max", "PT3S", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "embed-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
+                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "rerank-key", "gte-rerank-v2", "PT3S", "PT30S")
                                         ),
                                         "deepseek",
                                         new AiOpsProviderDefinition(
-                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT30S", 0.2d, 1024),
-                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT30S", 1024),
-                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT30S")
+                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT3S", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
+                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT3S", "PT30S")
                                         )
                                 )
                         ),
@@ -122,7 +128,7 @@ class AppServerKnowledgeClientTest {
                         new AiOpsRagConfig(
                                 new AiOpsRagAppServerConfig(baseUrl, "test-internal-token", "PT3S", "PT5S"),
                                 new AiOpsRagIngestionConfig(100, 32),
-                                new AiOpsRagRetrievalConfig(20, 0.55d, 8, 0.2d, 6)
+                                new AiOpsRagRetrievalConfig(20, 0.55d, 8, 0.2d, 6, 64)
                         )
                 ),
                 Map.of(),

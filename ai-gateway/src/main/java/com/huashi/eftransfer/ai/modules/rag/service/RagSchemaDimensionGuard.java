@@ -1,13 +1,8 @@
 package com.huashi.eftransfer.ai.modules.rag.service;
 
-import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
-import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.event.EventListener;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +15,6 @@ import java.util.regex.Pattern;
 @Service
 public class RagSchemaDimensionGuard {
 
-    private static final int FIXED_VECTOR_DIMENSION = 1024;
     private static final Pattern VECTOR_TYPE_PATTERN = Pattern.compile("vector\\((\\d+)\\)");
     private static final String CHUNK_EMBEDDING_TYPE_SQL = """
             SELECT format_type(attribute.atttypid, attribute.atttypmod)
@@ -33,60 +27,70 @@ public class RagSchemaDimensionGuard {
               AND attribute.attnum > 0
               AND NOT attribute.attisdropped
             """;
+    private static final String SCHEMA_METADATA_SQL = """
+            SELECT embedding_dimension, hnsw_m, hnsw_ef_construction
+            FROM rag_schema_metadata
+            WHERE id = 1
+            """;
 
     private final JdbcTemplate jdbcTemplate;
-    private final AiRuntimeConfigService runtimeConfigService;
     private final int vectorStoreDimension;
 
     public RagSchemaDimensionGuard(
             JdbcTemplate jdbcTemplate,
-            AiRuntimeConfigService runtimeConfigService,
             @Value("${spring.ai.vectorstore.pgvector.dimensions:1024}") int vectorStoreDimension
     ) {
         this.jdbcTemplate = jdbcTemplate;
-        this.runtimeConfigService = runtimeConfigService;
         this.vectorStoreDimension = vectorStoreDimension;
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    @Order(Ordered.LOWEST_PRECEDENCE)
-    public void verifyOnStartup() {
-        verifyDimensions();
-    }
-
-    void verifyDimensions() {
-        int schemaDimension = readSchemaDimension();
-        verifyFixedDimension("chunk_embedding.embedding", schemaDimension);
-        verifyFixedDimension("spring.ai.vectorstore.pgvector.dimensions", vectorStoreDimension);
-
-        AiRuntimeBundle bundle = runtimeConfigService.current();
-        if (bundle == null || bundle.config() == null || bundle.config().provider() == null) {
+    public void verifyConfig(AiOpsConfigPayload payload) {
+        if (payload == null || payload.provider() == null || payload.provider().providers() == null) {
             throw new IllegalStateException("AI runtime configuration is unavailable during pgvector schema validation");
         }
 
+        RagSchemaMetadata metadata = readSchemaMetadata();
+        int schemaDimension = readSchemaDimension();
+        if (schemaDimension != metadata.embeddingDimension()) {
+            throw new IllegalStateException(
+                    "chunk_embedding.embedding is %d but rag_schema_metadata expects %d"
+                            .formatted(schemaDimension, metadata.embeddingDimension())
+            );
+        }
+        if (vectorStoreDimension != metadata.embeddingDimension()) {
+            throw new IllegalStateException(
+                    "spring.ai.vectorstore.pgvector.dimensions is %d but rag_schema_metadata expects %d"
+                            .formatted(vectorStoreDimension, metadata.embeddingDimension())
+            );
+        }
+
         List<String> mismatches = new ArrayList<>();
-        for (Map.Entry<String, AiOpsProviderDefinition> entry : bundle.config().provider().providers().entrySet()) {
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : payload.provider().providers().entrySet()) {
             AiOpsProviderDefinition definition = entry.getValue();
             Integer dimension = definition == null || definition.embedding() == null ? null : definition.embedding().dimension();
-            if (dimension == null || dimension != FIXED_VECTOR_DIMENSION) {
+            if (dimension == null || dimension != metadata.embeddingDimension()) {
                 mismatches.add(entry.getKey() + "=" + dimension);
             }
         }
         if (!mismatches.isEmpty()) {
             throw new IllegalStateException(
                     "Provider embedding dimensions must match pgvector schema dimension %d: %s"
-                            .formatted(FIXED_VECTOR_DIMENSION, String.join(", ", mismatches))
+                            .formatted(metadata.embeddingDimension(), String.join(", ", mismatches))
             );
         }
     }
 
-    private void verifyFixedDimension(String source, int actualDimension) {
-        if (actualDimension != FIXED_VECTOR_DIMENSION) {
-            throw new IllegalStateException(
-                    "%s is %d but the pgvector schema is fixed at %d dimensions"
-                            .formatted(source, actualDimension, FIXED_VECTOR_DIMENSION)
+    private RagSchemaMetadata readSchemaMetadata() {
+        return jdbcTemplate.query(SCHEMA_METADATA_SQL, rs -> {
+            if (!rs.next()) {
+                throw new IllegalStateException("rag_schema_metadata row was not found");
+            }
+            return new RagSchemaMetadata(
+                    rs.getInt("embedding_dimension"),
+                    rs.getInt("hnsw_m"),
+                    rs.getInt("hnsw_ef_construction")
             );
-        }
+        });
     }
 
     private int readSchemaDimension() {
@@ -99,5 +103,12 @@ public class RagSchemaDimensionGuard {
             throw new IllegalStateException("Unexpected chunk_embedding.embedding type: " + columnType);
         }
         return Integer.parseInt(matcher.group(1));
+    }
+
+    private record RagSchemaMetadata(
+            int embeddingDimension,
+            int hnswM,
+            int hnswEfConstruction
+    ) {
     }
 }

@@ -124,6 +124,7 @@ const fieldTokenLabels: Record<string, string> = {
   rerankTopN: '重排 Top N',
   rerankThreshold: '重排阈值',
   finalTopK: '最终返回 Top K',
+  hnswEfSearch: 'HNSW ef_search',
   mode: '执行模式',
   sourceTypes: '数据源类型',
   sourceIds: '数据源 ID',
@@ -240,7 +241,8 @@ function assertProviderDefinition(definition: unknown, path: string): void {
   requireNullableString(chat.baseUrl, `${path}.chat.baseUrl`);
   requireNullableString(chat.apiKey, `${path}.chat.apiKey`);
   requireNullableString(chat.model, `${path}.chat.model`);
-  requireNullableString(chat.timeout, `${path}.chat.timeout`);
+  requireNullableString(chat.connectTimeout, `${path}.chat.connectTimeout`);
+  requireNullableString(chat.readTimeout, `${path}.chat.readTimeout`);
   requireNullableNumber(chat.temperature, `${path}.chat.temperature`);
   requireNullableNumber(chat.maxTokens, `${path}.chat.maxTokens`);
 
@@ -249,7 +251,8 @@ function assertProviderDefinition(definition: unknown, path: string): void {
   requireNullableString(embedding.baseUrl, `${path}.embedding.baseUrl`);
   requireNullableString(embedding.apiKey, `${path}.embedding.apiKey`);
   requireNullableString(embedding.model, `${path}.embedding.model`);
-  requireNullableString(embedding.timeout, `${path}.embedding.timeout`);
+  requireNullableString(embedding.connectTimeout, `${path}.embedding.connectTimeout`);
+  requireNullableString(embedding.readTimeout, `${path}.embedding.readTimeout`);
   requireNullableNumber(embedding.dimension, `${path}.embedding.dimension`);
 
   const rerank = requireRecord(providerDefinition.rerank, `${path}.rerank`);
@@ -257,7 +260,8 @@ function assertProviderDefinition(definition: unknown, path: string): void {
   requireNullableString(rerank.baseUrl, `${path}.rerank.baseUrl`);
   requireNullableString(rerank.apiKey, `${path}.rerank.apiKey`);
   requireNullableString(rerank.model, `${path}.rerank.model`);
-  requireNullableString(rerank.timeout, `${path}.rerank.timeout`);
+  requireNullableString(rerank.connectTimeout, `${path}.rerank.connectTimeout`);
+  requireNullableString(rerank.readTimeout, `${path}.rerank.readTimeout`);
 }
 
 function assertProviderConfig(provider: unknown, path: string): string[] {
@@ -300,6 +304,7 @@ function assertAiOpsConfigPayload(payload: unknown, path: string): string[] {
   requireNullableNumber(retrieval.rerankTopN, `${path}.rag.retrieval.rerankTopN`);
   requireNullableNumber(retrieval.rerankThreshold, `${path}.rag.retrieval.rerankThreshold`);
   requireNullableNumber(retrieval.finalTopK, `${path}.rag.retrieval.finalTopK`);
+  requireNullableNumber(retrieval.hnswEfSearch, `${path}.rag.retrieval.hnswEfSearch`);
 
   return providerNames;
 }
@@ -368,7 +373,8 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsDraftProviderDefi
       baseUrl: definition?.chat?.baseUrl ?? null,
       apiKey: definition?.chat?.apiKey ?? null,
       model: definition?.chat?.model ?? null,
-      timeout: definition?.chat?.timeout ?? null,
+      connectTimeout: definition?.chat?.connectTimeout ?? null,
+      readTimeout: definition?.chat?.readTimeout ?? null,
       temperature: definition?.chat?.temperature ?? null,
       maxTokens: definition?.chat?.maxTokens ?? null,
     },
@@ -377,7 +383,8 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsDraftProviderDefi
       baseUrl: definition?.embedding?.baseUrl ?? null,
       apiKey: definition?.embedding?.apiKey ?? null,
       model: definition?.embedding?.model ?? null,
-      timeout: definition?.embedding?.timeout ?? null,
+      connectTimeout: definition?.embedding?.connectTimeout ?? null,
+      readTimeout: definition?.embedding?.readTimeout ?? null,
       dimension: definition?.embedding?.dimension ?? null,
     },
     rerank: {
@@ -385,7 +392,8 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsDraftProviderDefi
       baseUrl: definition?.rerank?.baseUrl ?? null,
       apiKey: definition?.rerank?.apiKey ?? null,
       model: definition?.rerank?.model ?? null,
-      timeout: definition?.rerank?.timeout ?? null,
+      connectTimeout: definition?.rerank?.connectTimeout ?? null,
+      readTimeout: definition?.rerank?.readTimeout ?? null,
     },
   };
 }
@@ -470,6 +478,7 @@ function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsDraftConfigPayload> 
         rerankTopN: payload?.rag?.retrieval?.rerankTopN ?? null,
         rerankThreshold: payload?.rag?.retrieval?.rerankThreshold ?? null,
         finalTopK: payload?.rag?.retrieval?.finalTopK ?? null,
+        hnswEfSearch: payload?.rag?.retrieval?.hnswEfSearch ?? null,
       },
     },
   });
@@ -601,7 +610,8 @@ function createEmptyProviderDefinition(): AiOpsDraftProviderDefinition {
       baseUrl: '',
       apiKey: null,
       model: '',
-      timeout: '',
+      connectTimeout: '',
+      readTimeout: '',
       temperature: null,
       maxTokens: null,
     },
@@ -610,7 +620,8 @@ function createEmptyProviderDefinition(): AiOpsDraftProviderDefinition {
       baseUrl: '',
       apiKey: null,
       model: '',
-      timeout: '',
+      connectTimeout: '',
+      readTimeout: '',
       dimension: 1024,
     },
     rerank: {
@@ -618,7 +629,8 @@ function createEmptyProviderDefinition(): AiOpsDraftProviderDefinition {
       baseUrl: '',
       apiKey: null,
       model: '',
-      timeout: '',
+      connectTimeout: '',
+      readTimeout: '',
     },
   };
 }
@@ -691,7 +703,8 @@ function materializeProviderDefinition(definition?: AiOpsDraftProviderDefinition
       baseUrl: materializeText(definition?.chat?.baseUrl),
       apiKey: definition?.chat?.apiKey ?? null,
       model: materializeText(definition?.chat?.model),
-      timeout: materializeText(definition?.chat?.timeout),
+      connectTimeout: materializeText(definition?.chat?.connectTimeout),
+      readTimeout: materializeText(definition?.chat?.readTimeout),
       temperature: materializeNumber(definition?.chat?.temperature),
       maxTokens: materializeNumber(definition?.chat?.maxTokens),
     },
@@ -700,7 +713,8 @@ function materializeProviderDefinition(definition?: AiOpsDraftProviderDefinition
       baseUrl: materializeText(definition?.embedding?.baseUrl),
       apiKey: definition?.embedding?.apiKey ?? null,
       model: materializeText(definition?.embedding?.model),
-      timeout: materializeText(definition?.embedding?.timeout),
+      connectTimeout: materializeText(definition?.embedding?.connectTimeout),
+      readTimeout: materializeText(definition?.embedding?.readTimeout),
       dimension: materializeNumber(definition?.embedding?.dimension),
     },
     rerank: {
@@ -708,7 +722,8 @@ function materializeProviderDefinition(definition?: AiOpsDraftProviderDefinition
       baseUrl: materializeText(definition?.rerank?.baseUrl),
       apiKey: definition?.rerank?.apiKey ?? null,
       model: materializeText(definition?.rerank?.model),
-      timeout: materializeText(definition?.rerank?.timeout),
+      connectTimeout: materializeText(definition?.rerank?.connectTimeout),
+      readTimeout: materializeText(definition?.rerank?.readTimeout),
     },
   };
 }
@@ -755,6 +770,7 @@ function materializeConfigPayload(config: AiOpsDraftConfigPayload): AiOpsConfigP
         rerankTopN: materializeNumber(config.rag.retrieval.rerankTopN),
         rerankThreshold: materializeNumber(config.rag.retrieval.rerankThreshold),
         finalTopK: materializeNumber(config.rag.retrieval.finalTopK),
+        hnswEfSearch: materializeNumber(config.rag.retrieval.hnswEfSearch),
       },
     },
   };
@@ -1002,8 +1018,14 @@ function translateConfigMessage(message: string): string {
   if (trimmed.includes('not in sync')) {
     return '数据库配置与 ai-gateway 当前运行态版本不一致。';
   }
-  if (trimmed.includes('Current pgvector schema is fixed at 1024 dimensions')) {
-    return '当前 pgvector schema 固定为 1024 维，如需切换必须先完成数据库迁移。';
+  if (trimmed.includes('rag_schema_metadata row was not found')) {
+    return '数据库缺少 RAG schema metadata，请先完成最新的 Flyway 迁移。';
+  }
+  if (trimmed.includes('rag_schema_metadata expects')) {
+    return '当前数据库中的 pgvector schema 维度与应用配置不一致。';
+  }
+  if (trimmed.includes('Provider embedding dimensions must match')) {
+    return '所有 provider 的 embedding 向量维度必须一致，并与数据库 schema 对齐。';
   }
   return trimmed;
 }
@@ -1030,8 +1052,8 @@ function translateConfigIssue(issue: AiOpsConfigIssue): string {
       const args = formatConfigArgs(issue.args);
       return `当前仅支持 ${args.expected || '--'}，收到 ${args.actual || '--'}。`;
     }
-    case 'embedding_dimension_fixed_1024':
-      return '当前 pgvector schema 固定为 1024 维，如需调整必须先做数据库迁移。';
+    case 'embedding_dimension_mismatch':
+      return '所有 provider 的 embedding 向量维度必须一致。';
     case 'rerank_top_n_exceeds_recall_top_k':
       return '重排 Top N 不能大于 Recall Top K。';
     case 'final_top_k_exceeds_rerank_top_n':
@@ -1191,7 +1213,8 @@ const providerDefinitionSchema = z.object({
     protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
     baseUrl: absoluteUrlSchema,
     model: requiredTextSchema,
-    timeout: durationSchema,
+    connectTimeout: durationSchema,
+    readTimeout: durationSchema,
     temperature: z.number().min(0, 'temperature must be between 0 and 2').max(2, 'temperature must be between 0 and 2'),
     maxTokens: z.number().int().positive('maxTokens must be greater than 0'),
   }),
@@ -1199,14 +1222,16 @@ const providerDefinitionSchema = z.object({
     protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
     baseUrl: absoluteUrlSchema,
     model: requiredTextSchema,
-    timeout: durationSchema,
+    connectTimeout: durationSchema,
+    readTimeout: durationSchema,
     dimension: z.number().int().positive('dimension must be greater than 0'),
   }),
   rerank: z.object({
     protocol: protocolSchema.refine((value) => value === 'qwen-rerank', 'Unsupported protocol \'qwen-rerank\''),
     baseUrl: absoluteUrlSchema,
     model: requiredTextSchema,
-    timeout: durationSchema,
+    connectTimeout: durationSchema,
+    readTimeout: durationSchema,
   }),
 });
 
@@ -1237,6 +1262,17 @@ const aiOpsDraftSchema = z.object({
     if (provider.activeProvider === provider.fallbackProvider) {
       ctx.addIssue({ code: 'custom', path: ['fallbackProvider'], message: 'fallbackProvider must be different from activeProvider' });
     }
+    const dimensions = providerNames
+      .map((providerName) => ({ providerName, dimension: provider.providers[providerName]?.embedding?.dimension }))
+      .filter((entry) => typeof entry.dimension === 'number');
+    if (dimensions.length > 1) {
+      const expectedDimension = dimensions[0].dimension;
+      dimensions.slice(1).forEach((entry) => {
+        if (entry.dimension !== expectedDimension) {
+          ctx.addIssue({ code: 'custom', path: ['providers', entry.providerName, 'embedding', 'dimension'], message: 'all provider embedding dimensions must match' });
+        }
+      });
+    }
   }),
   resilience: z.object({
     maxAttempts: z.number().int().positive('maxAttempts must be greater than 0'),
@@ -1261,6 +1297,7 @@ const aiOpsDraftSchema = z.object({
       rerankTopN: z.number().int().positive('rerankTopN must be greater than 0'),
       rerankThreshold: z.number().min(0).max(1),
       finalTopK: z.number().int().positive('finalTopK must be greater than 0'),
+      hnswEfSearch: z.number().int().positive('hnswEfSearch must be greater than 0'),
     }).superRefine((retrieval, ctx) => {
       if (retrieval.rerankTopN > retrieval.recallTopK) {
         ctx.addIssue({ code: 'custom', path: ['rerankTopN'], message: 'rerankTopN must be less than or equal to recallTopK' });
@@ -1303,6 +1340,9 @@ function mapLocalIssueCode(message: string): string {
   }
   if (message === 'finalTopK must be less than or equal to rerankTopN') {
     return 'final_top_k_exceeds_rerank_top_n';
+  }
+  if (message === 'all provider embedding dimensions must match') {
+    return 'embedding_dimension_mismatch';
   }
   if (message === 'at least one provider definition is required') {
     return 'provider_definitions_required';
@@ -1612,9 +1652,12 @@ function buildConfigRiskHints(view: AdminAiConfigViewVO, config: AiOpsDraftConfi
       return;
     }
     timeoutComparisons.push(
-      { label: `${providerName} Chat 超时`, before: baseline.chat.timeout, after: provider.chat.timeout },
-      { label: `${providerName} Embedding 超时`, before: baseline.embedding.timeout, after: provider.embedding.timeout },
-      { label: `${providerName} Rerank 超时`, before: baseline.rerank.timeout, after: provider.rerank.timeout }
+      { label: `${providerName} Chat 连接超时`, before: baseline.chat.connectTimeout, after: provider.chat.connectTimeout },
+      { label: `${providerName} Chat 读取超时`, before: baseline.chat.readTimeout, after: provider.chat.readTimeout },
+      { label: `${providerName} Embedding 连接超时`, before: baseline.embedding.connectTimeout, after: provider.embedding.connectTimeout },
+      { label: `${providerName} Embedding 读取超时`, before: baseline.embedding.readTimeout, after: provider.embedding.readTimeout },
+      { label: `${providerName} Rerank 连接超时`, before: baseline.rerank.connectTimeout, after: provider.rerank.connectTimeout },
+      { label: `${providerName} Rerank 读取超时`, before: baseline.rerank.readTimeout, after: provider.rerank.readTimeout }
     );
   });
 
@@ -1631,9 +1674,18 @@ function buildConfigRiskHints(view: AdminAiConfigViewVO, config: AiOpsDraftConfi
     view.config.rag.retrieval.recallThreshold !== config.rag.retrieval.recallThreshold ||
     view.config.rag.retrieval.rerankTopN !== config.rag.retrieval.rerankTopN ||
     view.config.rag.retrieval.rerankThreshold !== config.rag.retrieval.rerankThreshold ||
-    view.config.rag.retrieval.finalTopK !== config.rag.retrieval.finalTopK
+    view.config.rag.retrieval.finalTopK !== config.rag.retrieval.finalTopK ||
+    view.config.rag.retrieval.hnswEfSearch !== config.rag.retrieval.hnswEfSearch
   ) {
     hints.push('RAG 召回或重排参数已调整，建议保存后立刻抽样验证检索结果。');
+  }
+
+  const embeddingDimensionChanged = Object.entries(config.provider.providers || {}).some(([providerName, provider]) => {
+    const baseline = view.config.provider.providers?.[providerName];
+    return baseline && baseline.embedding.dimension !== provider.embedding.dimension;
+  });
+  if (embeddingDimensionChanged) {
+    hints.push('Embedding 向量维度已调整，数据库迁移完成后必须执行全量 reindex。');
   }
 
   collectSecretChanges(view, secrets).forEach((change) => {
@@ -1694,6 +1746,7 @@ const configPresets: ConfigPreset[] = [
           rerankTopN: 8,
           rerankThreshold: 0.18,
           finalTopK: 4,
+          hnswEfSearch: 32,
         },
       },
     }),
@@ -1734,6 +1787,7 @@ const configPresets: ConfigPreset[] = [
           rerankTopN: 12,
           rerankThreshold: 0.15,
           finalTopK: 6,
+          hnswEfSearch: 64,
         },
       },
     }),
@@ -1774,6 +1828,7 @@ const configPresets: ConfigPreset[] = [
           rerankTopN: 16,
           rerankThreshold: 0.12,
           finalTopK: 8,
+          hnswEfSearch: 96,
         },
       },
     }),
@@ -2524,7 +2579,7 @@ const AdminConfigCenterPage: React.FC = () => {
             <HealthBadge healthy={!view.stored.present || (view.runtime.available && view.runtime.inSync)} label={`stored sync: ${storedSyncLabel}`} />
             <HealthBadge healthy={Boolean(config.provider.activeProvider)} label={`activeProvider: ${config.provider.activeProvider || '--'}`} />
             <HealthBadge healthy={Boolean(config.provider.fallbackProvider) && config.provider.fallbackProvider !== config.provider.activeProvider} label={`fallbackProvider: ${config.provider.fallbackProvider || '--'}`} />
-            <HealthBadge healthy={(activeProviderDefinition?.embedding.dimension ?? 0) === 1024} label={`active embedding: ${activeProviderDefinition?.embedding.dimension ?? '--'} dim`} />
+            <HealthBadge healthy={(activeProviderDefinition?.embedding.dimension ?? 0) > 0} label={`active embedding: ${activeProviderDefinition?.embedding.dimension ?? '--'} dim`} />
             <HealthBadge healthy={providerEntries.length > 0} label={`providers: ${providerEntries.length}`} />
           </div>
         </div>
@@ -2671,7 +2726,7 @@ const AdminConfigCenterPage: React.FC = () => {
       </section>
 
       {activeTab === 'provider' && (
-        <SectionCard title="模型接入配置" description="此处草稿始终基于数据库权威快照。每个 provider 独立维护 chat、embedding、rerank 的 baseUrl、model、timeout 与密钥，provider key 本身不会锁定厂商地址。">
+        <SectionCard title="模型接入配置" description="此处草稿始终基于数据库权威快照。每个 provider 独立维护 chat、embedding、rerank 的 baseUrl、model、connect/read timeout 与密钥，provider key 本身不会锁定厂商地址。">
           <FieldGrid>
             <FieldCard label="当前 Provider" hint="只能从已定义 provider key 中选择。请求会先打到这个 provider，发生可重试故障时再尝试 fallback。">
               <SelectInput
@@ -2870,10 +2925,18 @@ const AdminConfigCenterPage: React.FC = () => {
                       placeholder="chat-model-id"
                     />
                   </FieldCard>
-                  <FieldCard label="Chat 超时" hint="支持 30s、500ms 或 PT30S 这类时长格式。过短会造成高峰期误判超时。">
+                  <FieldCard label="Chat 连接超时" hint="建立到 Chat 上游连接的超时时间。建议明显短于读取超时，避免把网络建连阻塞误判成模型慢响应。">
                     <TextInput
-                      value={definition.chat.timeout}
-                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, timeout: value } }))}
+                      value={definition.chat.connectTimeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, connectTimeout: value } }))}
+                      disabled={!editing}
+                      placeholder="PT3S"
+                    />
+                  </FieldCard>
+                  <FieldCard label="Chat 读取超时" hint="等待 Chat 模型完整返回的超时时间。支持 30s、500ms 或 PT30S。">
+                    <TextInput
+                      value={definition.chat.readTimeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, readTimeout: value } }))}
                       disabled={!editing}
                       placeholder="PT30S"
                     />
@@ -2957,20 +3020,31 @@ const AdminConfigCenterPage: React.FC = () => {
                       placeholder="embedding-model-id"
                     />
                   </FieldCard>
-                  <FieldCard label="Embedding 超时" hint="支持 30s、500ms 或 PT30S 这类时长格式。批量导入时建议适度放宽。">
+                  <FieldCard label="Embedding 连接超时" hint="建立到 Embedding 服务连接的超时时间。通常应比读取超时更短。">
                     <TextInput
-                      value={definition.embedding.timeout}
-                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, timeout: value } }))}
+                      value={definition.embedding.connectTimeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, connectTimeout: value } }))}
+                      disabled={!editing}
+                      placeholder="PT3S"
+                    />
+                  </FieldCard>
+                  <FieldCard label="Embedding 读取超时" hint="等待向量化返回的超时时间。批量导入时建议适度放宽。">
+                    <TextInput
+                      value={definition.embedding.readTimeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, readTimeout: value } }))}
                       disabled={!editing}
                       placeholder="PT30S"
                     />
                   </FieldCard>
-                  <FieldCard label="向量维度" hint="当前版本数据库 schema 固定为 1024。修改成其他值会被校验拒绝。">
+                  <FieldCard label="向量维度" hint="所有 provider 的 embedding 维度必须一致，并且需要先完成数据库迁移后才能切换。">
                     <TextInput
                       type="number"
                       value={definition.embedding.dimension}
-                      onChange={() => undefined}
-                      disabled
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
+                        ...current,
+                        embedding: { ...current.embedding, dimension: parseNullableInteger(value) },
+                      }))}
+                      disabled={!editing}
                     />
                   </FieldCard>
                 </FieldGrid>
@@ -3029,10 +3103,18 @@ const AdminConfigCenterPage: React.FC = () => {
                       placeholder="rerank-model-id"
                     />
                   </FieldCard>
-                  <FieldCard label="Rerank 超时" hint="支持 15s、500ms 或 PT30S 这类时长格式。阈值过低会影响召回后精排稳定性。">
+                  <FieldCard label="Rerank 连接超时" hint="建立到 Rerank 上游连接的超时时间。通常应比读取超时更短。">
                     <TextInput
-                      value={definition.rerank.timeout}
-                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, timeout: value } }))}
+                      value={definition.rerank.connectTimeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, connectTimeout: value } }))}
+                      disabled={!editing}
+                      placeholder="PT3S"
+                    />
+                  </FieldCard>
+                  <FieldCard label="Rerank 读取超时" hint="等待重排序结果返回的超时时间。阈值过低会影响召回后精排稳定性。">
+                    <TextInput
+                      value={definition.rerank.readTimeout}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, rerank: { ...current.rerank, readTimeout: value } }))}
                       disabled={!editing}
                       placeholder="PT30S"
                     />
@@ -3279,6 +3361,21 @@ const AdminConfigCenterPage: React.FC = () => {
                 onChange={(value) => updateConfig((current) => ({
                   ...current,
                   rag: { ...current.rag, retrieval: { ...current.rag.retrieval, finalTopK: parseNullableInteger(value) } },
+                }))}
+                disabled={!editing}
+              />
+            </FieldCard>
+            <FieldCard
+              label="HNSW ef_search"
+              hint="单次 ANN 查询访问的候选规模。值越高通常召回越稳，但延迟也会升高。"
+              detail="它直接影响 pgvector HNSW 查询阶段的搜索宽度。适合在召回质量和延迟之间做运行时折中。"
+            >
+              <TextInput
+                type="number"
+                value={config.rag.retrieval.hnswEfSearch}
+                onChange={(value) => updateConfig((current) => ({
+                  ...current,
+                  rag: { ...current.rag, retrieval: { ...current.rag.retrieval, hnswEfSearch: parseNullableInteger(value) } },
                 }))}
                 disabled={!editing}
               />
@@ -3838,7 +3935,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   <div className="mt-3 space-y-2">
                     <div>1. 先刷新运行态健康检查，确认 active/fallback provider 与模型信息一致。</div>
                     <div>2. 如果动了 RAG 参数，至少做一轮抽样检索验证。</div>
-                    <div>3. 如果更换了 embedding 或 timeout，必要时再执行 reindex。</div>
+                    <div>3. 如果更换了 embedding 维度或 provider 超时，必要时再执行 reindex。</div>
                   </div>
                 </div>
               </div>

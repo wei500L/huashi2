@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.common.security;
 
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
+import com.huashi.eftransfer.app.common.trace.TraceIdSupport;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -12,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -45,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            bindUserId(SecurityContextHolder.getContext().getAuthentication());
             filterChain.doFilter(request, response);
             return;
         }
@@ -67,6 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                bindUserId(authentication);
             } catch (ExpiredJwtException ex) {
                 log.warn("event=jwt_expired reason={}", ex.getMessage());
                 request.setAttribute(AUTH_ERROR_CODE, ResultCode.TOKEN_EXPIRED);
@@ -80,5 +84,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void bindUserId(Authentication authentication) {
+        if (authentication == null) {
+            return;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof JwtPrincipal jwtPrincipal) {
+            TraceIdSupport.bindUserId(jwtPrincipal.userId());
+        }
     }
 }

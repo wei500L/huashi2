@@ -51,6 +51,12 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+    export:
+      otlp:
+        enabled: ${OTEL_EXPORTER_ENABLED:false}
   endpoint:
     health:
       probes:
@@ -58,7 +64,7 @@ management:
       show-details: never
   info:
     env:
-      enabled: true
+      enabled: false
   metrics:
     tags:
       application: ${spring.application.name}
@@ -185,6 +191,7 @@ logging:
     org.springframework.security: INFO
   pattern:
     level: "%5p [traceId:%X{traceId:-}]"
+    correlation: "[%X{traceId:-}]"
 
 springdoc:
   swagger-ui:

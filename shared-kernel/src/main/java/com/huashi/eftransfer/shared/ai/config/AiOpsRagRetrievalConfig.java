@@ -22,6 +22,9 @@ public record AiOpsRagRetrievalConfig(
         Double rerankThreshold,
         @NotNull(message = "finalTopK is required")
         @Positive(message = "finalTopK must be greater than 0")
-        Integer finalTopK
+        Integer finalTopK,
+        @NotNull(message = "hnswEfSearch is required")
+        @Positive(message = "hnswEfSearch must be greater than 0")
+        Integer hnswEfSearch
 ) {
 }

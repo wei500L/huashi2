@@ -347,17 +347,19 @@ public class KnowledgeIngestionService {
         if (response.items() == null || response.items().size() != batch.size()) {
             throw new IllegalStateException("Unexpected embedding batch size");
         }
+        List<KnowledgeStoreRepository.ChunkEmbeddingWrite> writes = new ArrayList<>(batch.size());
         for (int index = 0; index < batch.size(); index++) {
             PendingChunkEmbedding chunk = batch.get(index);
-            knowledgeStoreRepository.replaceChunkEmbedding(
+            writes.add(new KnowledgeStoreRepository.ChunkEmbeddingWrite(
                     chunk.chunkId(),
                     response.model(),
                     response.dimension(),
                     chunk.contentHash(),
                     response.items().get(index).embedding()
-            );
-            stats.embeddedChunks++;
+            ));
         }
+        knowledgeStoreRepository.replaceChunkEmbeddings(writes);
+        stats.embeddedChunks += batch.size();
     }
 
     private KnowledgeDocumentPayload toLexicalDocument(LexicalKnowledgeExportItem item, Set<String> requestedSourceTypes) {

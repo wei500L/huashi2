@@ -123,9 +123,9 @@ class RagServiceTest {
 
     private AiRuntimeBundle runtimeBundle(ChatClient chatClient) {
         AiOpsProviderDefinition providerDefinition = new AiOpsProviderDefinition(
-                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
-                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
-                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "qwen-max", "PT3S", "PT30S", 0.2d, 1024),
+                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
+                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "test-api-key", "gte-rerank-v2", "PT3S", "PT30S")
         );
         AiProviderRuntime providerRuntime = new AiProviderRuntime(
                 "qwen",
@@ -145,7 +145,7 @@ class RagServiceTest {
                         new AiOpsRagConfig(
                                 new AiOpsRagAppServerConfig("http://localhost:8080", "test-internal-token", "PT3S", "PT5S"),
                                 new AiOpsRagIngestionConfig(100, 8),
-                                new AiOpsRagRetrievalConfig(8, 0.0d, 3, 0.2d, 3)
+                                new AiOpsRagRetrievalConfig(8, 0.0d, 3, 0.2d, 3, 64)
                         )
                 ),
                 Map.of("qwen", providerRuntime),

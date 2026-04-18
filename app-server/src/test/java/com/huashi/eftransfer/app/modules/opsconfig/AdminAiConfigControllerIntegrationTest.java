@@ -925,6 +925,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 qwenChatBaseUrl,
                                                 chatApiKey,
                                                 qwenChatModel,
+                                                "PT3S",
                                                 "PT30S",
                                                 0.2d,
                                                 2048
@@ -934,6 +935,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 qwenEmbeddingBaseUrl,
                                                 "embed-secret-001",
                                                 qwenEmbeddingModel,
+                                                "PT3S",
                                                 "PT30S",
                                                 1024
                                         ),
@@ -942,6 +944,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 qwenRerankBaseUrl,
                                                 "rerank-secret-001",
                                                 qwenRerankModel,
+                                                "PT3S",
                                                 "PT30S"
                                         )
                                 ),
@@ -952,6 +955,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 "https://api.deepseek.com/v1",
                                                 "chat-secret-002",
                                                 "deepseek-chat",
+                                                "PT3S",
                                                 "PT30S",
                                                 0.2d,
                                                 2048
@@ -961,6 +965,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                                                 "embed-secret-002",
                                                 "text-embedding-v4",
+                                                "PT3S",
                                                 "PT30S",
                                                 1024
                                         ),
@@ -969,6 +974,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
                                                 "rerank-secret-002",
                                                 "gte-rerank-v2",
+                                                "PT3S",
                                                 "PT30S"
                                         )
                                 )
@@ -983,7 +989,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                 "PT5S"
                         ),
                         new AiOpsRagIngestionConfig(100, 32),
-                        new AiOpsRagRetrievalConfig(20, 0.55d, 8, 0.2d, 6)
+                        new AiOpsRagRetrievalConfig(20, 0.55d, 8, 0.2d, 6, 64)
                 )
         );
     }
@@ -997,7 +1003,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         definition.chat().baseUrl(),
                         definition.chat().apiKey(),
                         definition.chat().model(),
-                        definition.chat().timeout(),
+                        definition.chat().connectTimeout(),
+                        definition.chat().readTimeout(),
                         definition.chat().temperature(),
                         definition.chat().maxTokens()
                 ),
@@ -1006,7 +1013,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         definition.embedding().baseUrl(),
                         definition.embedding().apiKey(),
                         definition.embedding().model(),
-                        definition.embedding().timeout(),
+                        definition.embedding().connectTimeout(),
+                        definition.embedding().readTimeout(),
                         definition.embedding().dimension()
                 ),
                 new AiOpsRerankConfig(
@@ -1014,7 +1022,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         definition.rerank().baseUrl(),
                         definition.rerank().apiKey(),
                         definition.rerank().model(),
-                        definition.rerank().timeout()
+                        definition.rerank().connectTimeout(),
+                        definition.rerank().readTimeout()
                 )
         )));
         return new AiOpsConfigPayload(

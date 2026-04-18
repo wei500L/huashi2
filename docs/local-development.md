@@ -164,11 +164,12 @@ npm run dev
 - `http://localhost:8080/actuator/health`
 - `http://localhost:8080/swagger-ui.html`
 - `http://localhost:8080/v3/api-docs`
-- `http://localhost:8090/actuator/health`
+- `http://127.0.0.1:18090/actuator/health`（仅直启 `ai-gateway` 时可访问）
 
 注意：
 
 - `http://localhost:8090/internal/ai/health` 是内部接口，需要携带 `X-Internal-Token`
+- Compose 不会把 `ai-gateway` 的 management 端口映射到宿主机；容器健康检查走容器内 `127.0.0.1:${AI_GATEWAY_MANAGEMENT_PORT:-18090}`
 - 本地排查内部接口时可以使用：
 
 ```bash

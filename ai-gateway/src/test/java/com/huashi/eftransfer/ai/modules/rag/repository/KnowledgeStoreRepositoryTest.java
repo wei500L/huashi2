@@ -224,15 +224,15 @@ class KnowledgeStoreRepositoryTest {
                                 Map.of(
                                         "qwen",
                                         new AiOpsProviderDefinition(
-                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "qwen-max", "PT30S", 0.2d, 1024),
-                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "text-embedding-v4", "PT30S", 1024),
-                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "test-api-key", "gte-rerank-v2", "PT30S")
+                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "qwen-max", "PT3S", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
+                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "test-api-key", "gte-rerank-v2", "PT3S", "PT30S")
                                         ),
                                         "deepseek",
                                         new AiOpsProviderDefinition(
-                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-api-key", "deepseek-chat", "PT30S", 0.2d, 1024),
-                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-api-key", "text-embedding-v4", "PT30S", 1024),
-                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-api-key", "gte-rerank-v2", "PT30S")
+                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-api-key", "deepseek-chat", "PT3S", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-api-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
+                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-api-key", "gte-rerank-v2", "PT3S", "PT30S")
                                         )
                                 )
                         ),
@@ -253,7 +253,8 @@ class KnowledgeStoreRepositoryTest {
                                         ragProperties.getRetrieval().getRecallThreshold(),
                                         ragProperties.getRetrieval().getRerankTopN(),
                                         ragProperties.getRetrieval().getRerankThreshold(),
-                                        ragProperties.getRetrieval().getFinalTopK()
+                                        ragProperties.getRetrieval().getFinalTopK(),
+                                        ragProperties.getRetrieval().getHnswEfSearch()
                                 )
                         )
                 ),
