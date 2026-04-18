@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.modules.opsconfig.controller;
 
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigDriftVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiRuntimeSyncRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
@@ -54,6 +55,11 @@ public class AdminAiConfigController {
     @GetMapping("/health")
     public ApiResponse<AiGatewayHealthResponse> health() {
         return ApiResponse.success(aiOpsAdminService.health(), MDC.get("traceId"));
+    }
+
+    @GetMapping("/drift")
+    public ApiResponse<AdminAiConfigDriftVO> drift() {
+        return ApiResponse.success(aiOpsAdminService.getRuntimeDrift(), MDC.get("traceId"));
     }
 
     @PostMapping("/probes/embedding")

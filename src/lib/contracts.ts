@@ -606,6 +606,14 @@ export interface DiagnosisSessionProgressVO {
   readyToComplete: boolean;
 }
 
+export interface DiagnosisSessionHeartbeatVO {
+  sessionId: number;
+  status: DiagnosisSessionStatus;
+  answeredItems: number;
+  currentItemOrder?: number | null;
+  lastSavedAt?: string | null;
+}
+
 export interface SubmitDiagnosisAnswerRequest {
   itemResultId: number;
   clientRequestId?: string;
@@ -895,6 +903,14 @@ export interface TrainingSessionProgressVO {
   completed: boolean;
   readyToComplete: boolean;
   completionHooksStatus?: SessionCompletionHookStatus | null;
+}
+
+export interface TrainingSessionHeartbeatVO {
+  sessionId: number;
+  status: TrainingSessionStatus;
+  answeredItems: number;
+  currentItemOrder?: number | null;
+  lastSavedAt?: string | null;
 }
 
 export interface SaveTrainingProgressRequest {
@@ -1909,6 +1925,16 @@ export interface AdminAiConfigViewVO {
   notices: AiOpsConfigNotice[];
   runtime: AdminAiRuntimeStateVO;
   stored: AdminAiStoredStateVO;
+}
+
+export interface AdminAiConfigDriftVO {
+  runtime: AdminAiRuntimeStateVO;
+  stored: AdminAiStoredStateVO;
+  driftDetected: boolean;
+  syncJobStatus: 'NONE' | 'PENDING' | 'FAILED_RETRYING' | 'DLQ' | string;
+  attemptCount?: number | null;
+  nextAttemptAt?: string | null;
+  notices: AiOpsConfigNotice[];
 }
 
 export interface AdminAiSecretValueUpdate {

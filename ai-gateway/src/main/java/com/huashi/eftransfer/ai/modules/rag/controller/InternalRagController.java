@@ -1,11 +1,14 @@
 package com.huashi.eftransfer.ai.modules.rag.controller;
 
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeIngestionService;
+import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeSyncDlqService;
 import com.huashi.eftransfer.ai.modules.rag.service.RagService;
 import com.huashi.eftransfer.shared.ai.RagAnswerRequest;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagKnowledgeSyncDlqReplayRequest;
+import com.huashi.eftransfer.shared.ai.RagKnowledgeSyncDlqReplayResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
@@ -27,10 +30,16 @@ public class InternalRagController {
 
     private final RagService ragService;
     private final KnowledgeIngestionService knowledgeIngestionService;
+    private final KnowledgeSyncDlqService knowledgeSyncDlqService;
 
-    public InternalRagController(RagService ragService, KnowledgeIngestionService knowledgeIngestionService) {
+    public InternalRagController(
+            RagService ragService,
+            KnowledgeIngestionService knowledgeIngestionService,
+            KnowledgeSyncDlqService knowledgeSyncDlqService
+    ) {
         this.ragService = ragService;
         this.knowledgeIngestionService = knowledgeIngestionService;
+        this.knowledgeSyncDlqService = knowledgeSyncDlqService;
     }
 
     @PostMapping("/answer")
@@ -51,6 +60,11 @@ public class InternalRagController {
     @PostMapping("/reindex")
     public ApiResponse<RagReindexResponse> reindex(@Valid @RequestBody RagReindexRequest request) {
         return ApiResponse.success(knowledgeIngestionService.submit(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/dlq/replay")
+    public ApiResponse<RagKnowledgeSyncDlqReplayResponse> replayDlq(@Valid @RequestBody RagKnowledgeSyncDlqReplayRequest request) {
+        return ApiResponse.success(knowledgeSyncDlqService.replay(request.limit()), MDC.get("traceId"));
     }
 
     @GetMapping("/reindex/jobs/{jobId}")

@@ -13,12 +13,16 @@ type SessionRuntimeMessages = {
   leaveConfirm: string;
 };
 
-type SessionRuntimeOptions<TNextItem, TSnapshot> = {
+type SessionRuntimeOptions<TNextItem, TSnapshot, THeartbeat> = {
   active: boolean;
   sessionId: number | null;
   nextItem?: TNextItem | null;
   refetchCurrent: () => Promise<SessionRefetchResult<TNextItem>>;
   buildSnapshot: (sessionId: number, nextItem?: TNextItem | null) => TSnapshot;
+  heartbeat?: (sessionId: number) => Promise<THeartbeat>;
+  heartbeatIntervalMs?: number;
+  shouldHeartbeat?: (nextItem?: TNextItem | null) => boolean;
+  isHeartbeatInProgress?: (heartbeat: THeartbeat) => boolean;
   saveProgress: (sessionId: number, snapshot: TSnapshot) => Promise<unknown>;
   saveProgressKeepalive: (sessionId: number, snapshot: TSnapshot) => Promise<unknown>;
   isCompleted: (nextItem?: TNextItem) => boolean;
@@ -33,18 +37,22 @@ const defaultMessages: SessionRuntimeMessages = {
   leaveConfirm: '当前会话仍在进行中，确认离开此页面吗？未保存的进度可能丢失。',
 };
 
-export function useSessionRuntime<TNextItem, TSnapshot>({
+export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
   active,
   sessionId,
   nextItem,
   refetchCurrent,
   buildSnapshot,
+  heartbeat,
+  heartbeatIntervalMs = 60000,
+  shouldHeartbeat,
+  isHeartbeatInProgress,
   saveProgress,
   saveProgressKeepalive,
   isCompleted,
   onCompleted,
   messages,
-}: SessionRuntimeOptions<TNextItem, TSnapshot>) {
+}: SessionRuntimeOptions<TNextItem, TSnapshot, THeartbeat>) {
   const resolvedMessages = React.useMemo(
     () => ({ ...defaultMessages, ...messages }),
     [messages]
@@ -52,6 +60,7 @@ export function useSessionRuntime<TNextItem, TSnapshot>({
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
+  const heartbeatInFlightRef = React.useRef(false);
   const allowNavigationRef = React.useRef<(callback: () => void) => void>((callback) => {
     callback();
   });
@@ -64,14 +73,50 @@ export function useSessionRuntime<TNextItem, TSnapshot>({
     setSaveErrorMessage(null);
   }, []);
 
-  const resolveConflict = React.useCallback(async () => {
+  const syncStateFromServer = React.useCallback(async () => {
     const refreshed = await refetchCurrent();
     if (refreshed.data && isCompleted(refreshed.data)) {
       onCompleted(refreshed.data);
-      return true;
     }
-    return false;
+    return refreshed.data;
   }, [isCompleted, onCompleted, refetchCurrent]);
+
+  const resolveConflict = React.useCallback(async () => {
+    const refreshed = await syncStateFromServer();
+    return !!(refreshed && isCompleted(refreshed));
+  }, [isCompleted, syncStateFromServer]);
+
+  const sendHeartbeat = React.useCallback(async () => {
+    if (!active || !sessionId || !heartbeat || heartbeatInFlightRef.current) {
+      return;
+    }
+    if (shouldHeartbeat && !shouldHeartbeat(nextItem)) {
+      return;
+    }
+    heartbeatInFlightRef.current = true;
+    try {
+      const response = await heartbeat(sessionId);
+      if (isHeartbeatInProgress && !isHeartbeatInProgress(response)) {
+        await syncStateFromServer();
+      }
+    } catch (error) {
+      const normalizedError = normalizeApiError(error);
+      if (normalizedError.status === 409) {
+        await resolveConflict();
+      }
+    } finally {
+      heartbeatInFlightRef.current = false;
+    }
+  }, [
+    active,
+    heartbeat,
+    isHeartbeatInProgress,
+    nextItem,
+    resolveConflict,
+    sessionId,
+    shouldHeartbeat,
+    syncStateFromServer,
+  ]);
 
   const saveSnapshotKeepalive = React.useCallback(async () => {
     if (!active || !sessionId) {
@@ -91,6 +136,21 @@ export function useSessionRuntime<TNextItem, TSnapshot>({
       setSaveErrorMessage(resolvedMessages.keepaliveFailed);
     }
   }, [active, buildSnapshot, nextItem, resolveConflict, resolvedMessages.keepaliveFailed, saveProgressKeepalive, sessionId]);
+
+  React.useEffect(() => {
+    if (!active || !sessionId || !heartbeat) {
+      return;
+    }
+    if (shouldHeartbeat && !shouldHeartbeat(nextItem)) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void sendHeartbeat();
+    }, heartbeatIntervalMs);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [active, heartbeat, heartbeatIntervalMs, nextItem, sendHeartbeat, sessionId, shouldHeartbeat]);
 
   const saveProgressManually = React.useCallback(
     async (options?: { onSuccess?: () => void; exitAfterSave?: boolean }) => {

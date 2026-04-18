@@ -14,6 +14,7 @@ import type {
   DiagnosisHistorySummaryVO,
   DiagnosisResultDetailVO,
   DiagnosisSessionCreatedVO,
+  DiagnosisSessionHeartbeatVO,
   DiagnosisSessionProgressVO,
   DiagnosisTemplateDeleteResultVO,
   DiagnosisTemplateDetailVO,
@@ -66,6 +67,7 @@ import type {
   TrainingHistorySummaryVO,
   TrainingNextItemVO,
   TrainingSessionCreatedVO,
+  TrainingSessionHeartbeatVO,
   TrainingSessionProgressVO,
   TrainingSessionSummaryVO,
   UpdateLexicalListRequest,
@@ -90,6 +92,7 @@ import type {
   AdminUserAccessUpdateRequest,
   AdminUserCreateRequest,
   AdminAiConfigViewVO,
+  AdminAiConfigDriftVO,
   AdminAiEmbeddingProbeVO,
   AdminAiRerankProbeVO,
   AdminUserProvisionResultVO,
@@ -223,6 +226,7 @@ export const diagnosisSessionService = {
     const payload: SaveDiagnosisProgressRequest = { progressSnapshot };
     return apiPost<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, payload);
   },
+  heartbeat: (sessionId: number) => apiPost<DiagnosisSessionHeartbeatVO>(`/diagnosis/sessions/${sessionId}/heartbeat`),
   saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) => {
     const payload: SaveDiagnosisProgressRequest = { progressSnapshot };
     return apiPostKeepalive<DiagnosisSessionProgressVO>(`/diagnosis/sessions/${sessionId}/progress`, payload);
@@ -246,6 +250,7 @@ export const trainingService = {
     const payload: SaveTrainingProgressRequest = { progressSnapshot };
     return apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, payload);
   },
+  heartbeat: (sessionId: number) => apiPost<TrainingSessionHeartbeatVO>(`/training/sessions/${sessionId}/heartbeat`),
   saveProgressKeepalive: (sessionId: number, progressSnapshot: Record<string, unknown>) => {
     const payload: SaveTrainingProgressRequest = { progressSnapshot };
     return apiPostKeepalive<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, payload);
@@ -439,6 +444,7 @@ export const adminService = {
   validateAiConfig: (payload: AdminAiConfigSaveRequest) => apiPost<AiOpsConfigValidationResponse>('/admin/ai-config/validate', payload),
   saveAiConfig: (payload: AdminAiConfigSaveRequest) => apiPut<AdminAiConfigViewVO>('/admin/ai-config', payload),
   syncAiRuntime: (payload: AdminAiRuntimeSyncRequest) => apiPost<AdminAiConfigViewVO>('/admin/ai-config/runtime/sync', payload),
+  getAiDrift: (options?: RequestOptions) => apiGet<AdminAiConfigDriftVO>('/admin/ai-config/drift', options),
   getOutboxRecords: (status?: string, limit?: number, options?: RequestOptions) =>
     apiGet<AdminOutboxRecordVO[]>('/admin/ai-config/outbox', { ...options, params: { status, limit } }),
   replayOutboxRecord: (id: number) => apiPost<AdminOutboxRecordVO>(`/admin/ai-config/outbox/${id}/replay`),

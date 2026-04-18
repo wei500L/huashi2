@@ -8,6 +8,7 @@ import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
@@ -68,7 +69,7 @@ class QwenRerankClientTest {
         ProviderRequestContextHolder contextHolder = configuration.providerRequestContextHolder();
         ClientHttpRequestInterceptor interceptor = configuration.providerRequestCaptureInterceptor(contextHolder);
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
-        ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(objectMapper);
+        ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(objectMapper, new SensitiveDataRedactor());
         AiResilienceProperties resilienceProperties = new AiResilienceProperties();
         resilienceProperties.setMaxAttempts(1);
         ResilientAiExecutor resilientAiExecutor = new ResilientAiExecutor();

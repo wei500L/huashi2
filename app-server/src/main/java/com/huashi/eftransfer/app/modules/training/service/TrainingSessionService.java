@@ -44,6 +44,7 @@ import com.huashi.eftransfer.app.modules.training.vo.TrainingOptionViewVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingQuestionItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingRiskWordVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionCreatedVO;
+import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionHeartbeatVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionProgressVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionSummaryVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingWordPairVO;
@@ -357,6 +358,21 @@ public class TrainingSessionService {
         auditLogService.record("save_training_progress", "training_session", String.valueOf(sessionId), request, ResultCode.SUCCESS.code());
         log.info("event=training_progress_saved sessionId={} answeredItems={}/{}", sessionId, session.getAnsweredItems(), session.getTotalItems());
         return progressVO(session);
+    }
+
+    @Transactional
+    public TrainingSessionHeartbeatVO heartbeatSession(Long sessionId) {
+        TrainingSessionEntity session = requireAccessibleSession(sessionId);
+        if (!TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
+            return heartbeatVO(session);
+        }
+        LocalDateTime heartbeatAt = LocalDateTime.now();
+        if (trainingSessionMapper.touchIfInProgress(sessionId, heartbeatAt) == 0) {
+            TrainingSessionEntity refreshedSession = trainingSessionMapper.selectById(sessionId);
+            return heartbeatVO(refreshedSession == null ? session : refreshedSession);
+        }
+        session.setLastSavedAt(heartbeatAt);
+        return heartbeatVO(session);
     }
 
     @Transactional
@@ -1455,6 +1471,16 @@ public class TrainingSessionService {
         );
     }
 
+    private TrainingSessionHeartbeatVO heartbeatVO(TrainingSessionEntity session) {
+        return new TrainingSessionHeartbeatVO(
+                session.getId(),
+                parseSessionStatus(session.getStatus()),
+                session.getAnsweredItems(),
+                session.getCurrentItemOrder(),
+                session.getLastSavedAt()
+        );
+    }
+
     private Long resolveHistoryOwnerFilter(TrainingSessionPageQuery query) {
         if (isAdmin()) {
             if (query.ownerUserId() != null) {
@@ -1466,19 +1492,25 @@ public class TrainingSessionService {
     }
 
     @Transactional
-    public int abandonTimedOutSessions(LocalDateTime cutoff, int limit) {
-        int abandoned = 0;
-        for (TrainingSessionEntity session : trainingSessionMapper.selectList(Wrappers.<TrainingSessionEntity>lambdaQuery()
-                .eq(TrainingSessionEntity::getStatus, TrainingSessionStatus.IN_PROGRESS.name())
-                .lt(TrainingSessionEntity::getLastSavedAt, cutoff)
-                .orderByAsc(TrainingSessionEntity::getLastSavedAt)
-                .orderByAsc(TrainingSessionEntity::getId)
-                .last("LIMIT " + limit))) {
-            if (abandonSession(session)) {
-                abandoned++;
+    public int completeTimedOutReadySessions(LocalDateTime cutoff, int limit) {
+        if (limit <= 0) {
+            return 0;
+        }
+        int completed = 0;
+        for (Long sessionId : trainingSessionMapper.selectTimedOutReadySessionIds(cutoff, limit)) {
+            if (completeTimedOutReadySession(sessionId, cutoff)) {
+                completed++;
             }
         }
-        return abandoned;
+        return completed;
+    }
+
+    @Transactional
+    public int abandonTimedOutSessions(LocalDateTime cutoff, int limit) {
+        if (limit <= 0) {
+            return 0;
+        }
+        return trainingSessionMapper.batchAbandonTimedOutSessions(cutoff, LocalDateTime.now(), limit);
     }
 
     private boolean abandonSession(TrainingSessionEntity session) {
@@ -1489,6 +1521,21 @@ public class TrainingSessionService {
         session.setStatus(TrainingSessionStatus.ABANDONED.name());
         session.setCurrentItemOrder(null);
         session.setLastSavedAt(abandonedAt);
+        return true;
+    }
+
+    private boolean completeTimedOutReadySession(Long sessionId, LocalDateTime cutoff) {
+        TrainingSessionEntity session = trainingSessionMapper.selectByIdForUpdate(sessionId);
+        if (session == null || !TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
+            return false;
+        }
+        if (session.getLastSavedAt() == null || !session.getLastSavedAt().isBefore(cutoff)) {
+            return false;
+        }
+        if (!isSessionReadyToComplete(session)) {
+            return false;
+        }
+        finalizeCompletedSession(session);
         return true;
     }
 

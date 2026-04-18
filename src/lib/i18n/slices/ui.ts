@@ -347,7 +347,7 @@ export const uiSlice: TranslationSlice = {
       pages: {
         settings: {
           title: '设置',
-          subtitle: '当前页汇总账号信息、组织关系、会话概览，并提供密码自助修改入口；资料编辑仍保持只读。',
+          subtitle: '当前页汇总账号信息、组织关系、会话概览，并提供密码自助修改入口；具备学生工作台能力的用户也可在此补齐学生资料。',
         },
         teacherAssessments: {
           title: '发布课堂测评',
@@ -726,7 +726,7 @@ export const uiSlice: TranslationSlice = {
       pages: {
         settings: {
           title: 'Settings',
-          subtitle: 'This page summarizes account information, organization links, and session details, and lets users change their password directly. Profile editing remains read-only.',
+          subtitle: 'This page summarizes account information, organization links, and session details, and lets users change their password directly. Users with the student workspace capability can also complete their student profile here.',
         },
         teacherAssessments: {
           title: 'Publish Class Assessments',

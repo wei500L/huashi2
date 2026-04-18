@@ -8,6 +8,7 @@ import com.huashi.eftransfer.app.modules.training.service.TrainingSessionService
 import com.huashi.eftransfer.app.modules.training.vo.TrainingHistorySummaryVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingNextItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionCreatedVO;
+import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionHeartbeatVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionProgressVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionSummaryVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
@@ -54,6 +55,11 @@ public class TrainingSessionController {
             @Valid @RequestBody SaveTrainingProgressRequest request
     ) {
         return ApiResponse.success(trainingSessionService.saveProgress(sessionId, request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/{sessionId}/heartbeat")
+    public ApiResponse<TrainingSessionHeartbeatVO> heartbeat(@PathVariable Long sessionId) {
+        return ApiResponse.success(trainingSessionService.heartbeatSession(sessionId), MDC.get("traceId"));
     }
 
     @PostMapping("/{sessionId}/answers")

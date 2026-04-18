@@ -166,6 +166,43 @@ class KnowledgeStoreRepositoryTest {
         assertThat(result.documents()).hasSize(2);
     }
 
+    @Test
+    void shouldFallbackToSimilarityOrderWhenRerankFails() {
+        seedChunk("pair:1001", "1001", KnowledgeSourceTypes.LEXICAL_PAIR, "coin / coin", "False friend pair guidance", vector(1));
+        seedChunk("sense:2001", "2001", KnowledgeSourceTypes.LEXICAL_SENSE, "coin / coin - Sense 1", "Money sense definition", vector(2));
+        seedChunk("error:false_friend_confusion", "false_friend_confusion", KnowledgeSourceTypes.ERROR_TYPE, "False Friend Confusion", "This explains false friend confusion in detail.", vector(3));
+
+        AiProviderRegistry providerRegistry = mock(AiProviderRegistry.class);
+        when(providerRegistry.embed(any())).thenReturn(new EmbeddingResponse(
+                "qwen",
+                "text-embedding-v4",
+                1024,
+                "embed-test",
+                null,
+                List.of(new EmbeddingItem(0, "query", vector(1)))
+        ));
+        when(providerRegistry.rerank(any())).thenThrow(new IllegalStateException("rerank unavailable"));
+
+        RagProperties ragProperties = new RagProperties();
+        ragProperties.getRetrieval().setRecallTopK(10);
+        ragProperties.getRetrieval().setRecallThreshold(0.0d);
+        ragProperties.getRetrieval().setRerankTopN(5);
+        ragProperties.getRetrieval().setRerankThreshold(0.2d);
+        ragProperties.getRetrieval().setFinalTopK(2);
+        ragProperties.getAppServer().setBaseUrl("http://localhost:8080");
+        ragProperties.getAppServer().setInternalToken("test-internal-token");
+
+        AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
+        when(runtimeConfigService.current()).thenReturn(runtimeBundle(ragProperties));
+
+        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(providerRegistry, knowledgeStoreRepository, runtimeConfigService);
+        RagRetrievalResult result = knowledgeSearchService.search("Why is coin/coin risky?", RagSearchFilter.empty());
+
+        assertThat(result.chunks()).hasSize(2);
+        assertThat(result.chunks().get(0).sourceType()).isEqualTo(KnowledgeSourceTypes.LEXICAL_PAIR);
+        assertThat(result.chunks().get(0).score()).isGreaterThan(result.chunks().get(1).score());
+    }
+
     private AiRuntimeBundle runtimeBundle(RagProperties ragProperties) {
         return new AiRuntimeBundle(
                 new AiOpsConfigPayload(

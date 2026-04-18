@@ -12,6 +12,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.util.concurrent.ThreadPoolExecutor;
+
 @Configuration
 @EnableConfigurationProperties(RagProperties.class)
 public class RagConfiguration {
@@ -22,7 +24,10 @@ public class RagConfiguration {
         executor.setThreadNamePrefix("rag-index-");
         executor.setCorePoolSize(1);
         executor.setMaxPoolSize(2);
-        executor.setQueueCapacity(8);
+        executor.setQueueCapacity(64);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
         executor.initialize();
         return executor;
     }

@@ -34,6 +34,7 @@ import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisOptionViewVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisQuestionItemVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisResultDetailVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisSessionCreatedVO;
+import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisSessionHeartbeatVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisSessionProgressVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisSummaryMetricsVO;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
@@ -360,6 +361,21 @@ public class DiagnosisSessionService {
         auditLogService.record("save_progress", "diagnosis_session", String.valueOf(sessionId), request, ResultCode.SUCCESS.code());
         log.info("event=diagnosis_progress_saved sessionId={} answeredItems={}/{}", sessionId, session.getAnsweredItems(), session.getTotalItems());
         return progressVO(session);
+    }
+
+    @Transactional
+    public DiagnosisSessionHeartbeatVO heartbeatSession(Long sessionId) {
+        DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
+        if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
+            return heartbeatVO(session);
+        }
+        LocalDateTime heartbeatAt = LocalDateTime.now();
+        if (diagnosisSessionMapper.touchIfInProgress(sessionId, heartbeatAt) == 0) {
+            DiagnosisSessionEntity refreshedSession = diagnosisSessionMapper.selectById(sessionId);
+            return heartbeatVO(refreshedSession == null ? session : refreshedSession);
+        }
+        session.setLastSavedAt(heartbeatAt);
+        return heartbeatVO(session);
     }
 
     @Transactional
@@ -842,6 +858,16 @@ public class DiagnosisSessionService {
         );
     }
 
+    private DiagnosisSessionHeartbeatVO heartbeatVO(DiagnosisSessionEntity session) {
+        return new DiagnosisSessionHeartbeatVO(
+                session.getId(),
+                parseSessionStatus(session.getStatus()),
+                session.getAnsweredItems(),
+                session.getCurrentItemOrder(),
+                session.getLastSavedAt()
+        );
+    }
+
     private Long resolveHistoryOwnerFilter(DiagnosisSessionPageQuery query) {
         if (isAdmin()) {
             if (query.ownerUserId() != null) {
@@ -853,19 +879,25 @@ public class DiagnosisSessionService {
     }
 
     @Transactional
-    public int abandonTimedOutSessions(LocalDateTime cutoff, int limit) {
-        int abandoned = 0;
-        for (DiagnosisSessionEntity session : diagnosisSessionMapper.selectList(Wrappers.<DiagnosisSessionEntity>lambdaQuery()
-                .eq(DiagnosisSessionEntity::getStatus, DiagnosisSessionStatus.IN_PROGRESS.name())
-                .lt(DiagnosisSessionEntity::getLastSavedAt, cutoff)
-                .orderByAsc(DiagnosisSessionEntity::getLastSavedAt)
-                .orderByAsc(DiagnosisSessionEntity::getId)
-                .last("LIMIT " + limit))) {
-            if (abandonSession(session)) {
-                abandoned++;
+    public int completeTimedOutReadySessions(LocalDateTime cutoff, int limit) {
+        if (limit <= 0) {
+            return 0;
+        }
+        int completed = 0;
+        for (Long sessionId : diagnosisSessionMapper.selectTimedOutReadySessionIds(cutoff, limit)) {
+            if (completeTimedOutReadySession(sessionId, cutoff)) {
+                completed++;
             }
         }
-        return abandoned;
+        return completed;
+    }
+
+    @Transactional
+    public int abandonTimedOutSessions(LocalDateTime cutoff, int limit) {
+        if (limit <= 0) {
+            return 0;
+        }
+        return diagnosisSessionMapper.batchAbandonTimedOutSessions(cutoff, LocalDateTime.now(), limit);
     }
 
     private boolean abandonSession(DiagnosisSessionEntity session) {
@@ -876,6 +908,21 @@ public class DiagnosisSessionService {
         session.setStatus(DiagnosisSessionStatus.ABANDONED.name());
         session.setCurrentItemOrder(null);
         session.setLastSavedAt(abandonedAt);
+        return true;
+    }
+
+    private boolean completeTimedOutReadySession(Long sessionId, LocalDateTime cutoff) {
+        DiagnosisSessionEntity session = diagnosisSessionMapper.selectByIdForUpdate(sessionId);
+        if (session == null || !DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
+            return false;
+        }
+        if (session.getLastSavedAt() == null || !session.getLastSavedAt().isBefore(cutoff)) {
+            return false;
+        }
+        if (!isSessionReadyToComplete(session)) {
+            return false;
+        }
+        finalizeCompletedSession(session);
         return true;
     }
 

@@ -4,7 +4,7 @@ import { AppLayout } from './components/layout';
 import { RouteSkeleton } from './components/common';
 import i18n from './lib/i18n';
 import { buildDocumentTitle } from './lib/page-title';
-import { isStudentProfileIncomplete } from './lib/student-profile';
+import { requiresStudentProfileCompletion } from './lib/student-profile';
 import { AUTH_EXPIRED_EVENT, SESSION_CHANGE_EVENT, hasPendingAuthExpired } from './lib/session';
 import { useAuthStore, useUIStore } from './store';
 import { userHasCapability } from './lib/format';
@@ -61,7 +61,7 @@ function resolveHomePath(
   activeWorkspace: WorkspaceId | null,
   preferredWorkspaceByUser: Record<string, WorkspaceId>
 ): string {
-  if (user?.primaryRole === 'STUDENT' && isStudentProfileIncomplete(user.studentProfile)) {
+  if (requiresStudentProfileCompletion(user)) {
     return '/settings';
   }
 

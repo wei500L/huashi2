@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { adminService } from '@/lib/services';
 import type {
+  AdminAiConfigDriftVO,
   AdminAiConfigSaveRequest,
   AdminAiRuntimeSyncRequest,
   AdminAiConfigViewVO,
@@ -357,6 +358,17 @@ function assertAdminAiConfigViewEnvelope(view: unknown): asserts view is Partial
   requireArray(root.notices, 'notices').forEach((notice, index) => assertConfigNotice(notice, `notices[${index}]`));
 }
 
+function assertAdminAiConfigDriftEnvelope(view: unknown): asserts view is Partial<AdminAiConfigDriftVO> {
+  const root = requireRecord(view, 'data');
+  assertRuntimeState(root.runtime, 'runtime');
+  assertStoredState(root.stored, 'stored');
+  requireBoolean(root.driftDetected, 'driftDetected');
+  requireString(root.syncJobStatus, 'syncJobStatus');
+  requireNullableNumber(root.attemptCount, 'attemptCount');
+  requireNullableString(root.nextAttemptAt, 'nextAttemptAt');
+  requireArray(root.notices, 'notices').forEach((notice, index) => assertConfigNotice(notice, `notices[${index}]`));
+}
+
 function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinition> | null): AiOpsProviderDefinition {
   return {
     chat: {
@@ -539,6 +551,29 @@ export function normalizeAdminAiConfigView(view: unknown): AdminAiConfigViewVO {
       version: view?.stored?.version ?? null,
       updatedAt: view?.stored?.updatedAt ?? null,
     },
+  };
+}
+
+function normalizeAdminAiConfigDrift(view: unknown): AdminAiConfigDriftVO {
+  assertAdminAiConfigDriftEnvelope(view);
+  return {
+    runtime: {
+      available: Boolean(view?.runtime?.available),
+      source: view?.runtime?.source ?? null,
+      version: view?.runtime?.version ?? null,
+      appliedAt: view?.runtime?.appliedAt ?? null,
+      inSync: Boolean(view?.runtime?.inSync),
+    },
+    stored: {
+      present: Boolean(view?.stored?.present),
+      version: view?.stored?.version ?? null,
+      updatedAt: view?.stored?.updatedAt ?? null,
+    },
+    driftDetected: Boolean(view?.driftDetected),
+    syncJobStatus: view?.syncJobStatus ?? 'NONE',
+    attemptCount: view?.attemptCount ?? null,
+    nextAttemptAt: view?.nextAttemptAt ?? null,
+    notices: Array.isArray(view?.notices) ? view.notices.map((notice) => normalizeConfigNotice(notice as Partial<AiOpsConfigNotice>)) : [],
   };
 }
 
@@ -959,12 +994,12 @@ function translateConfigNotice(notice: AiOpsConfigNotice): string {
       return `配置切换后约 ${args.stableWindowSeconds || '--'} 秒内，新旧 bundle 可能混用；建议在低峰时段操作。`;
     case 'runtime_validation_unavailable':
       return '本地结构校验已通过，但 ai-gateway 当前不可达，运行时构建确认将延后执行。';
-    case 'runtime_sync_pending_after_save':
-      return '配置已写入数据库，但 ai-gateway 运行态同步仍待完成。';
-    case 'runtime_sync_still_pending':
-      return '数据库快照已成为权威版本，但 ai-gateway 运行态仍待同步。';
-    case 'runtime_commit_ack_failed':
-      return 'ai-gateway 已完成运行态提交，但确认响应拉取失败。';
+    case 'runtime_sync_queued':
+      return '数据库权威快照已入队，后台正在把该版本同步到 ai-gateway 运行态。';
+    case 'runtime_sync_retry_scheduled':
+      return '数据库权威快照已保存，但运行态同步上次失败，后台会自动重试。';
+    case 'runtime_sync_dlq':
+      return '数据库权威快照已保存，但运行态同步已进入终态失败队列，需要人工重放。';
     case 'runtime_unavailable_showing_stored':
       return 'ai-gateway 运行态当前不可达，页面正在展示数据库权威快照。';
     case 'stored_runtime_out_of_sync':
@@ -1000,6 +1035,23 @@ function describeStoredSyncStatus(status?: string | null): string {
 
 function isStoredSyncHealthy(status?: string | null): boolean {
   return (status || '').toUpperCase() !== 'SYNC_FAILED';
+}
+
+function describeSyncJobStatus(status?: string | null): string {
+  const normalized = (status || '').toUpperCase();
+  if (normalized === 'PENDING') {
+    return '已入队，等待同步';
+  }
+  if (normalized === 'FAILED_RETRYING') {
+    return '失败后自动重试中';
+  }
+  if (normalized === 'DLQ') {
+    return '终态失败，等待人工重放';
+  }
+  if (normalized === 'NONE') {
+    return '无活动同步任务';
+  }
+  return normalized || '--';
 }
 
 const requiredTextSchema = z.string().trim().min(1, 'value is required');
@@ -1320,7 +1372,7 @@ function statusTone(status: string): 'success' | 'warning' | 'info' | 'neutral' 
   if (normalized === 'PUBLISHED') {
     return 'success';
   }
-  if (normalized === 'FAILED') {
+  if (normalized === 'FAILED' || normalized === 'DLQ') {
     return 'warning';
   }
   if (normalized === 'IN_PROGRESS' || normalized === 'PENDING') {
@@ -1679,6 +1731,7 @@ const AdminConfigCenterPage: React.FC = () => {
   const [renamingProviderName, setRenamingProviderName] = React.useState<string | null>(null);
   const [renameProviderDraft, setRenameProviderDraft] = React.useState('');
   const [healthState, setHealthState] = React.useState<AiGatewayHealthResponse | null>(null);
+  const [driftPollingActive, setDriftPollingActive] = React.useState(false);
   const [embeddingProbeResult, setEmbeddingProbeResult] = React.useState<AdminAiEmbeddingProbeVO | null>(null);
   const [rerankProbeResult, setRerankProbeResult] = React.useState<AdminAiRerankProbeVO | null>(null);
   const [reindexForm, setReindexForm] = React.useState<RagReindexRequest>({
@@ -1692,6 +1745,14 @@ const AdminConfigCenterPage: React.FC = () => {
   const [outboxStatus, setOutboxStatus] = React.useState('FAILED');
   const [outboxLimit, setOutboxLimit] = React.useState('20');
   const [replayingOutboxId, setReplayingOutboxId] = React.useState<number | null>(null);
+
+  const driftQuery = useQuery({
+    queryKey: ['admin-ai-drift'],
+    queryFn: async ({ signal }) => normalizeAdminAiConfigDrift(await adminService.getAiDrift({ signal })),
+    enabled: driftPollingActive,
+    refetchInterval: driftPollingActive ? 3_000 : false,
+    staleTime: 0,
+  });
 
   React.useEffect(() => {
     if (!configQuery.data) {
@@ -1736,6 +1797,7 @@ const AdminConfigCenterPage: React.FC = () => {
       setSaveReviewOpen(false);
       setValidation(null);
       setHealthState(null);
+      setDriftPollingActive(false);
       clearProbeResults();
       setConfig(cloneConfig(normalizedResponse.config));
       setSecrets(buildSecretEditors(normalizedResponse));
@@ -1748,8 +1810,12 @@ const AdminConfigCenterPage: React.FC = () => {
         message:
           normalizedResponse.runtime.available && normalizedResponse.runtime.inSync
             ? '配置已保存，数据库与 ai-gateway 运行态已同步到同一版本。'
-            : '配置已保存到数据库，但 ai-gateway 运行态仍待同步，请在运维操作页执行同步或待网关恢复后重试。',
+            : '配置已保存到数据库，后台正在同步 ai-gateway 运行态；如失败会自动重试。',
       });
+      if (!normalizedResponse.runtime.inSync) {
+        setDriftPollingActive(true);
+        void driftQuery.refetch();
+      }
     },
     onError: (error: Error, payload) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -1773,13 +1839,17 @@ const AdminConfigCenterPage: React.FC = () => {
       setConfig(cloneConfig(normalizedResponse.config));
       setSecrets(buildSecretEditors(normalizedResponse));
       setProviderOrigins({});
+      setDriftPollingActive(!normalizedResponse.runtime.inSync);
       setFeedback({
         tone: normalizedResponse.runtime.available && normalizedResponse.runtime.inSync ? 'success' : 'error',
         message:
           normalizedResponse.runtime.available && normalizedResponse.runtime.inSync
             ? '数据库权威快照已重新同步到 ai-gateway 运行态。'
-            : '已触发运行态同步，但 ai-gateway 仍未确认与数据库版本一致。',
+            : '已触发运行态同步；若本次未成功，后台会继续自动重试。',
       });
+      if (!normalizedResponse.runtime.inSync) {
+        void driftQuery.refetch();
+      }
     },
     onError: (error: Error) => {
       setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
@@ -1796,6 +1866,17 @@ const AdminConfigCenterPage: React.FC = () => {
       setFeedback({ tone: 'error', message: translateConfigMessage(error.message) });
     },
   });
+
+  React.useEffect(() => {
+    if (!driftPollingActive || !driftQuery.data) {
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: ['admin-ai-outbox'] });
+    if (!driftQuery.data.driftDetected || driftQuery.data.syncJobStatus === 'DLQ') {
+      setDriftPollingActive(false);
+      void queryClient.invalidateQueries({ queryKey: ['admin-ai-config'] });
+    }
+  }, [driftPollingActive, driftQuery.data, queryClient]);
 
   const embeddingProbeMutation = useMutation({
     mutationFn: (payload: AdminAiConfigSaveRequest) => adminService.probeAiEmbedding(payload),
@@ -3158,6 +3239,15 @@ const AdminConfigCenterPage: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => void driftQuery.refetch()}
+                  disabled={driftQuery.isFetching}
+                  className="rounded-2xl border border-slate-200 dark:border-white/10 px-5 py-3 text-sm font-bold text-slate-600 dark:text-white/70 bg-white/70 dark:bg-white/[0.04] inline-flex items-center gap-2"
+                >
+                  <AlertTriangle size={16} />
+                  {driftQuery.isFetching ? '诊断中...' : '刷新 Drift 诊断'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => syncRuntimeMutation.mutate({ expectedVersion: currentConfigVersion(view) })}
                   disabled={!view.stored.present || syncRuntimeMutation.isPending || saveMutation.isPending}
                   className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-3 text-sm font-bold text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-2 disabled:opacity-60"
@@ -3245,6 +3335,28 @@ const AdminConfigCenterPage: React.FC = () => {
                       app-server 探测失败: {translateConfigMessage(healthState.appServerError)}
                     </div>
                   )}
+                </div>
+              )}
+
+              {driftQuery.data && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <HealthBadge healthy={!driftQuery.data.driftDetected} label={`Runtime Drift: ${driftQuery.data.driftDetected ? 'DETECTED' : 'CLEAR'}`} />
+                  <HealthBadge healthy={driftQuery.data.syncJobStatus !== 'DLQ'} label={`Sync Job: ${describeSyncJobStatus(driftQuery.data.syncJobStatus)}`} />
+                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Drift State</div>
+                    <div>Stored Version: {driftQuery.data.stored.version ?? '--'}</div>
+                    <div>Runtime Version: {driftQuery.data.runtime.version ?? '--'}</div>
+                    <div>Attempts: {driftQuery.data.attemptCount ?? 0}</div>
+                    <div>Next Attempt: {formatDateTime(driftQuery.data.nextAttemptAt)}</div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Drift Notices</div>
+                    {driftQuery.data.notices.length ? (
+                      driftQuery.data.notices.map((notice) => <div key={notice.code}>{translateConfigNotice(notice)}</div>)
+                    ) : (
+                      <div>暂无 drift notice。</div>
+                    )}
+                  </div>
                 </div>
               )}
             </SectionCard>
@@ -3483,6 +3595,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   onChange={setOutboxStatus}
                   options={[
                     { value: '', label: '全部状态' },
+                    { value: 'DLQ', label: 'DLQ' },
                     { value: 'FAILED', label: 'FAILED' },
                     { value: 'PENDING', label: 'PENDING' },
                     { value: 'IN_PROGRESS', label: 'IN_PROGRESS' },
@@ -3532,7 +3645,7 @@ const AdminConfigCenterPage: React.FC = () => {
                           <div className="rounded-2xl border border-slate-200/70 bg-white/70 px-3 py-2 text-xs font-bold text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45">
                             attempts: {record.attemptCount}
                           </div>
-                          {(record.status === 'FAILED' || record.status === 'PENDING') && (
+                          {(record.status === 'FAILED' || record.status === 'PENDING' || record.status === 'DLQ') && (
                             <button
                               type="button"
                               onClick={() => replayOutboxMutation.mutate(record.id)}

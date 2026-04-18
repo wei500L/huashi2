@@ -2,6 +2,7 @@ package com.huashi.eftransfer.ai.common.runtime;
 
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
+import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
@@ -65,6 +66,7 @@ public class AiRuntimeConfigService {
     private final AiResilienceProperties resilienceProperties;
     private final RagProperties ragProperties;
     private final AiRuntimeBundleFactory bundleFactory;
+    private final SensitiveDataRedactor sensitiveDataRedactor;
     private final Validator validator;
     private final AtomicReference<AiRuntimeBundle> currentBundle = new AtomicReference<>();
     private final AtomicReference<String> storedSyncStatus = new AtomicReference<>(STORED_SYNC_STATUS_NO_STORED_CONFIG);
@@ -78,12 +80,14 @@ public class AiRuntimeConfigService {
             AiResilienceProperties resilienceProperties,
             RagProperties ragProperties,
             AiRuntimeBundleFactory bundleFactory,
+            SensitiveDataRedactor sensitiveDataRedactor,
             Validator validator
     ) {
         this.providerProperties = providerProperties;
         this.resilienceProperties = resilienceProperties;
         this.ragProperties = ragProperties;
         this.bundleFactory = bundleFactory;
+        this.sensitiveDataRedactor = sensitiveDataRedactor;
         this.validator = validator;
     }
 
@@ -134,16 +138,16 @@ public class AiRuntimeConfigService {
                     trigger);
         } catch (RestClientResponseException ex) {
             storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
-            log.warn("event=ai_runtime_sync_failed trigger={} status={} message={}",
+            log.warn("event=ai_runtime_sync_failed trigger={} status={} body={}",
                     trigger,
                     ex.getStatusCode().value(),
-                    ex.getMessage());
+                    sensitiveDataRedactor.redact(ex.getResponseBodyAsString()));
         } catch (RestClientException ex) {
             storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
-            log.warn("event=ai_runtime_sync_failed trigger={} message={}", trigger, ex.getMessage());
+            log.warn("event=ai_runtime_sync_failed trigger={} message={}", trigger, sensitiveDataRedactor.redact(ex.getMessage()));
         } catch (Exception ex) {
             storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
-            log.warn("event=ai_runtime_sync_failed trigger={} message={}", trigger, ex.getMessage());
+            log.warn("event=ai_runtime_sync_failed trigger={} message={}", trigger, sensitiveDataRedactor.redact(ex.getMessage()));
         } finally {
             storedConfigSyncInProgress.set(false);
         }

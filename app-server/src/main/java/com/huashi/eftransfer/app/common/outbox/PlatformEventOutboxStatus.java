@@ -4,5 +4,6 @@ public enum PlatformEventOutboxStatus {
     PENDING,
     IN_PROGRESS,
     FAILED,
-    PUBLISHED
+    PUBLISHED,
+    DLQ
 }

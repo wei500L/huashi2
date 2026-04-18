@@ -19,7 +19,6 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsFlexibleDurationParser;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
 import org.springframework.ai.document.MetadataMode;
@@ -50,15 +49,26 @@ public class AiRuntimeBundleFactory {
     private final RestClient.Builder restClientBuilder;
     private final ClientHttpRequestInterceptor providerRequestCaptureInterceptor;
     private final ProviderErrorSupport providerErrorSupport;
+    private final AiCircuitBreakerManager circuitBreakerManager;
+
+    public AiRuntimeBundleFactory(
+            RestClient.Builder restClientBuilder,
+            ClientHttpRequestInterceptor providerRequestCaptureInterceptor,
+            ProviderErrorSupport providerErrorSupport,
+            AiCircuitBreakerManager circuitBreakerManager
+    ) {
+        this.restClientBuilder = restClientBuilder;
+        this.providerRequestCaptureInterceptor = providerRequestCaptureInterceptor;
+        this.providerErrorSupport = providerErrorSupport;
+        this.circuitBreakerManager = circuitBreakerManager;
+    }
 
     public AiRuntimeBundleFactory(
             RestClient.Builder restClientBuilder,
             ClientHttpRequestInterceptor providerRequestCaptureInterceptor,
             ProviderErrorSupport providerErrorSupport
     ) {
-        this.restClientBuilder = restClientBuilder;
-        this.providerRequestCaptureInterceptor = providerRequestCaptureInterceptor;
-        this.providerErrorSupport = providerErrorSupport;
+        this(restClientBuilder, providerRequestCaptureInterceptor, providerErrorSupport, new AiCircuitBreakerManager(providerErrorSupport));
     }
 
     public AiRuntimeBundle fromProperties(
@@ -225,14 +235,6 @@ public class AiRuntimeBundleFactory {
                 .retryOnException(providerErrorSupport::isRetryable)
                 .failAfterMaxAttempts(true)
                 .build());
-        CircuitBreakerRegistry circuitBreakerRegistry = CircuitBreakerRegistry.of(CircuitBreakerConfig.custom()
-                .failureRateThreshold(resilience.failureRateThreshold())
-                .slidingWindowSize(resilience.slidingWindowSize())
-                .minimumNumberOfCalls(resilience.slidingWindowSize())
-                .waitDurationInOpenState(parseDuration(resilience.openStateDuration()))
-                .recordException(providerErrorSupport::shouldRecordForCircuitBreaker)
-                .build());
-
         return new AiProviderRuntime(
                 providerName,
                 definition,
@@ -240,8 +242,9 @@ public class AiRuntimeBundleFactory {
                 chatModel,
                 embeddingModel,
                 rerankBuilder.build(),
+                resilience,
                 retryRegistry,
-                circuitBreakerRegistry
+                circuitBreakerManager
         );
     }
 

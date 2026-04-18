@@ -21,6 +21,9 @@ public class PlatformEventOutboxProperties {
     @Positive
     private int batchSize = 20;
 
+    @Positive
+    private int maxAttempts = 8;
+
     @NotNull
     private Duration initialBackoff = Duration.ofSeconds(5);
 
@@ -55,6 +58,14 @@ public class PlatformEventOutboxProperties {
 
     public void setBatchSize(int batchSize) {
         this.batchSize = batchSize;
+    }
+
+    public int getMaxAttempts() {
+        return maxAttempts;
+    }
+
+    public void setMaxAttempts(int maxAttempts) {
+        this.maxAttempts = maxAttempts;
     }
 
     public Duration getInitialBackoff() {

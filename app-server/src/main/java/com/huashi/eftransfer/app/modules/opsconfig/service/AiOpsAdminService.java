@@ -9,6 +9,7 @@ import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
+import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigDriftVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigSaveRequest;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigViewVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiProviderSecretFieldsVO;
@@ -22,16 +23,16 @@ import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiSecretValueUpdate;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiStoredStateVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
 import com.huashi.eftransfer.app.modules.opsconfig.support.AiOpsConfigChangeSet;
+import com.huashi.eftransfer.app.modules.opsconfig.support.AiRuntimeSyncOutboxPayload;
+import com.huashi.eftransfer.app.modules.opsconfig.support.AiRuntimeSyncOutboxSupport;
 import com.huashi.eftransfer.app.modules.opsconfig.support.StoredAiOpsConfig;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
-import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigNotice;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
-import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
@@ -45,6 +46,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -69,6 +71,7 @@ public class AiOpsAdminService {
     private final AuditLogService auditLogService;
     private final AiOpsConfigChangeSummaryService changeSummaryService;
     private final AiOpsLocalValidationService localValidationService;
+    private final AiOpsConfigPayloadNormalizer payloadNormalizer;
     private final TransactionTemplate transactionTemplate;
 
     public AiOpsAdminService(
@@ -78,6 +81,7 @@ public class AiOpsAdminService {
             AuditLogService auditLogService,
             AiOpsConfigChangeSummaryService changeSummaryService,
             AiOpsLocalValidationService localValidationService,
+            AiOpsConfigPayloadNormalizer payloadNormalizer,
             PlatformTransactionManager transactionManager
     ) {
         this.storageService = storageService;
@@ -86,6 +90,7 @@ public class AiOpsAdminService {
         this.auditLogService = auditLogService;
         this.changeSummaryService = changeSummaryService;
         this.localValidationService = localValidationService;
+        this.payloadNormalizer = payloadNormalizer;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -94,12 +99,7 @@ public class AiOpsAdminService {
         AiOpsConfigEffectiveResponse runtime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
         StoredAiOpsConfig storedSnapshot = stored.orElse(null);
         AiOpsConfigPayload visiblePayload = authoritativePayloadOrDraft(runtime, storedSnapshot);
-        return toView(
-                visiblePayload,
-                buildNotices(runtime, storedSnapshot, runtime == null ? blankDraftNotices(storedSnapshot) : runtime.notices()),
-                runtime,
-                storedSnapshot
-        );
+        return toView(visiblePayload, runtime == null ? blankDraftNotices(storedSnapshot) : runtime.notices(), runtime, storedSnapshot);
     }
 
     public AiOpsConfigValidationResponse validate(AdminAiConfigSaveRequest request) {
@@ -152,7 +152,7 @@ public class AiOpsAdminService {
         if (!changeSet.hasChanges()) {
             return toView(
                     previousPayload,
-                    buildNotices(currentRuntime, storedConfig, currentRuntime == null ? blankDraftNotices(storedConfig) : currentRuntime.notices()),
+                    currentRuntime == null ? blankDraftNotices(storedConfig) : currentRuntime.notices(),
                     currentRuntime,
                     storedConfig
             );
@@ -161,7 +161,6 @@ public class AiOpsAdminService {
         localValidationService.requireValid(candidate);
 
         AiOpsConfigValidationResponse remoteValidation = null;
-        AiOpsConfigStageResponse stagedRuntime = null;
         List<AiOpsConfigNotice> notices = new ArrayList<>(validationNotices());
         try {
             remoteValidation = aiGatewayClient.validateConfig(candidate);
@@ -181,29 +180,17 @@ public class AiOpsAdminService {
 
         Long previousVersion = currentVersion(currentRuntime, storedConfig);
         Long nextVersion = nextVersion(currentRuntime == null ? null : currentRuntime.version(), storedSnapshot.map(StoredAiOpsConfig::version).orElse(null));
-        try {
-            stagedRuntime = aiGatewayClient.stageConfig(candidate, "DATABASE", nextVersion);
-        } catch (RuntimeException ex) {
-            notices.add(notice(
-                    "runtime_sync_pending_after_save",
-                    "warning",
-                    "Stored database config was saved locally, but ai-gateway runtime sync is pending."
-            ));
-        }
-
         Long actorUserId = SecurityUtils.getCurrentUserId().orElse(null);
-        StoredAiOpsConfig stored = persistStoredConfig(candidate, safeRequest.expectedVersion(), nextVersion, previousVersion, actorUserId, changeSet);
-
-        AiOpsConfigEffectiveResponse runtimeAfterSave = currentRuntime;
-        if (stagedRuntime != null) {
-            runtimeAfterSave = commitRuntime(stagedRuntime, candidate, currentRuntime, notices);
-        }
-        return toView(
+        StoredAiOpsConfig stored = persistStoredConfig(
                 candidate,
-                buildNotices(runtimeAfterSave, stored, mergeNotices(notices, runtimeAfterSave == null ? List.of() : runtimeAfterSave.notices())),
-                runtimeAfterSave,
-                stored
+                safeRequest.expectedVersion(),
+                nextVersion,
+                previousVersion,
+                actorUserId,
+                changeSet,
+                MDC.get("traceId")
         );
+        return toView(candidate, notices, currentRuntime, stored);
     }
 
     public AiGatewayHealthResponse health() {
@@ -329,21 +316,37 @@ public class AiOpsAdminService {
         AiOpsConfigEffectiveResponse currentRuntime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
         validateExpectedVersion(safeRequest.expectedVersion(), currentVersion(currentRuntime, stored));
         AiOpsConfigPayload normalizedStoredConfig = normalizePayload(stored.config());
-
-        AiOpsConfigStageResponse stagedRuntime;
-        try {
-            stagedRuntime = aiGatewayClient.stageConfig(normalizedStoredConfig, "DATABASE", stored.version());
-        } catch (RuntimeException ex) {
-            throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway runtime sync is unavailable", 503);
+        PlatformEventOutboxRecord syncRecord = ensureRuntimeSyncOutbox(stored.version(), SecurityUtils.getCurrentUserId().orElse(null), MDC.get("traceId"));
+        if (syncRecord.status() != com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxStatus.IN_PROGRESS
+                && syncRecord.status() != com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxStatus.PUBLISHED) {
+            outboxService.replay(syncRecord.id());
         }
+        AiOpsConfigEffectiveResponse runtimeAfterSync = aiGatewayClient.fetchEffectiveConfig().orElse(null);
+        return toView(normalizedStoredConfig, validationNotices(), runtimeAfterSync, stored);
+    }
 
-        List<AiOpsConfigNotice> notices = new ArrayList<>(validationNotices());
-        AiOpsConfigEffectiveResponse runtimeAfterSync = commitRuntime(stagedRuntime, normalizedStoredConfig, currentRuntime, notices);
-        return toView(
-                normalizedStoredConfig,
-                buildNotices(runtimeAfterSync, stored, mergeNotices(notices, runtimeAfterSync == null ? List.of() : runtimeAfterSync.notices())),
-                runtimeAfterSync,
-                stored
+    public AdminAiConfigDriftVO getRuntimeDrift() {
+        StoredAiOpsConfig stored = storageService.load().orElse(null);
+        AiOpsConfigEffectiveResponse runtime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
+        PlatformEventOutboxRecord syncRecord = resolveRuntimeSyncRecord(stored);
+        return new AdminAiConfigDriftVO(
+                new AdminAiRuntimeStateVO(
+                        runtime != null,
+                        runtime == null ? null : runtime.source(),
+                        runtime == null ? null : runtime.version(),
+                        runtime == null ? null : runtime.appliedAt(),
+                        runtime != null && (stored == null || Objects.equals(runtime.version(), stored.version()))
+                ),
+                new AdminAiStoredStateVO(
+                        stored != null,
+                        stored == null ? null : stored.version(),
+                        stored == null ? null : stored.updatedAt()
+                ),
+                stored != null && (runtime == null || !Objects.equals(runtime.version(), stored.version())),
+                syncJobStatus(syncRecord),
+                syncRecord == null ? null : syncRecord.attemptCount(),
+                syncRecord == null ? null : syncRecord.nextAttemptAt(),
+                buildNotices(runtime, stored, runtime == null ? blankDraftNotices(stored) : runtime.notices(), syncRecord)
         );
     }
 
@@ -427,47 +430,14 @@ public class AiOpsAdminService {
         return current + 1L;
     }
 
-    private AiOpsConfigEffectiveResponse commitRuntime(
-            AiOpsConfigStageResponse stagedRuntime,
-            AiOpsConfigPayload payload,
-            AiOpsConfigEffectiveResponse currentRuntime,
-            List<AiOpsConfigNotice> notices
-    ) {
-        try {
-            AiOpsConfigApplyResponse response = aiGatewayClient.commitConfig(stagedRuntime.stageId());
-            return new AiOpsConfigEffectiveResponse(
-                    payload,
-                    response.source(),
-                    response.version(),
-                    response.appliedAt(),
-                    response.notices()
-            );
-        } catch (RuntimeException ex) {
-            AiOpsConfigEffectiveResponse effective = aiGatewayClient.fetchEffectiveConfig().orElse(null);
-            if (effective != null && Objects.equals(effective.version(), stagedRuntime.version())) {
-                notices.add(notice(
-                        "runtime_commit_ack_failed",
-                        "warning",
-                        "ai-gateway runtime commit completed, but the acknowledgement request failed."
-                ));
-                return effective;
-            }
-            notices.add(notice(
-                    "runtime_sync_still_pending",
-                    "warning",
-                    "Stored database config is authoritative but ai-gateway runtime sync is still pending."
-            ));
-            return currentRuntime;
-        }
-    }
-
     private StoredAiOpsConfig persistStoredConfig(
             AiOpsConfigPayload candidate,
             Long expectedVersion,
             Long nextVersion,
             Long previousVersion,
             Long actorUserId,
-            AiOpsConfigChangeSet changeSet
+            AiOpsConfigChangeSet changeSet,
+            String traceId
     ) {
         return transactionTemplate.execute(status -> {
             StoredAiOpsConfig stored = storageService.save(candidate, expectedVersion, nextVersion, actorUserId);
@@ -485,14 +455,62 @@ public class AiOpsAdminService {
                     buildSaveAuditPayload(changeSet, previousVersion, nextVersion),
                     ResultCode.SUCCESS.code()
             );
+            outboxService.enqueue(
+                    AiRuntimeSyncOutboxSupport.eventId(nextVersion),
+                    AiRuntimeSyncOutboxSupport.EVENT_TYPE,
+                    AiRuntimeSyncOutboxSupport.EXCHANGE_NAME,
+                    AiRuntimeSyncOutboxSupport.ROUTING_KEY,
+                    new AiRuntimeSyncOutboxPayload(nextVersion, actorUserId, OffsetDateTime.now()),
+                    traceId
+            );
             return stored;
         });
+    }
+
+    private PlatformEventOutboxRecord ensureRuntimeSyncOutbox(Long targetVersion, Long actorUserId, String traceId) {
+        PlatformEventOutboxRecord existing = outboxService.findByEventId(AiRuntimeSyncOutboxSupport.eventId(targetVersion));
+        if (existing != null) {
+            return existing;
+        }
+        outboxService.enqueue(
+                AiRuntimeSyncOutboxSupport.eventId(targetVersion),
+                AiRuntimeSyncOutboxSupport.EVENT_TYPE,
+                AiRuntimeSyncOutboxSupport.EXCHANGE_NAME,
+                AiRuntimeSyncOutboxSupport.ROUTING_KEY,
+                new AiRuntimeSyncOutboxPayload(targetVersion, actorUserId, OffsetDateTime.now()),
+                traceId
+        );
+        PlatformEventOutboxRecord created = outboxService.findByEventId(AiRuntimeSyncOutboxSupport.eventId(targetVersion));
+        if (created == null) {
+            throw new IllegalStateException("Failed to create runtime sync outbox record");
+        }
+        return created;
+    }
+
+    private PlatformEventOutboxRecord resolveRuntimeSyncRecord(StoredAiOpsConfig stored) {
+        if (stored == null || stored.version() == null) {
+            return null;
+        }
+        return outboxService.findByEventId(AiRuntimeSyncOutboxSupport.eventId(stored.version()));
+    }
+
+    private String syncJobStatus(PlatformEventOutboxRecord syncRecord) {
+        if (syncRecord == null) {
+            return "NONE";
+        }
+        return switch (syncRecord.status()) {
+            case PENDING, IN_PROGRESS -> "PENDING";
+            case FAILED -> "FAILED_RETRYING";
+            case DLQ -> "DLQ";
+            case PUBLISHED -> "NONE";
+        };
     }
 
     private List<AiOpsConfigNotice> buildNotices(
             AiOpsConfigEffectiveResponse runtime,
             StoredAiOpsConfig stored,
-            List<AiOpsConfigNotice> runtimeNotices
+            List<AiOpsConfigNotice> runtimeNotices,
+            PlatformEventOutboxRecord syncRecord
     ) {
         List<AiOpsConfigNotice> notices = new ArrayList<>();
         notices = mergeNotices(notices, runtimeNotices);
@@ -510,12 +528,33 @@ public class AiOpsAdminService {
                     "ai-gateway runtime is unavailable. The page is showing the stored database snapshot instead."
             )));
         }
-        if (runtime != null && stored != null && !Objects.equals(runtime.version(), stored.version())) {
-            notices = mergeNotices(notices, List.of(notice(
-                    "stored_runtime_out_of_sync",
-                    "warning",
-                    "Stored database config is authoritative but not in sync with the current ai-gateway runtime version."
-            )));
+        if (stored != null && (runtime == null || !Objects.equals(runtime.version(), stored.version()))) {
+            String syncJobStatus = syncJobStatus(syncRecord);
+            if ("PENDING".equals(syncJobStatus)) {
+                notices = mergeNotices(notices, List.of(notice(
+                        "runtime_sync_queued",
+                        "warning",
+                        "Stored database config is authoritative. Runtime sync has been queued and is waiting to complete."
+                )));
+            } else if ("FAILED_RETRYING".equals(syncJobStatus)) {
+                notices = mergeNotices(notices, List.of(notice(
+                        "runtime_sync_retry_scheduled",
+                        "warning",
+                        "Stored database config is authoritative. Runtime sync previously failed and will be retried automatically."
+                )));
+            } else if ("DLQ".equals(syncJobStatus)) {
+                notices = mergeNotices(notices, List.of(notice(
+                        "runtime_sync_dlq",
+                        "error",
+                        "Stored database config is authoritative, but runtime sync entered the terminal failure queue and requires manual replay."
+                )));
+            } else {
+                notices = mergeNotices(notices, List.of(notice(
+                        "stored_runtime_out_of_sync",
+                        "warning",
+                        "Stored database config is authoritative but not in sync with the current ai-gateway runtime version."
+                )));
+            }
         }
         return notices;
     }
@@ -527,6 +566,7 @@ public class AiOpsAdminService {
             StoredAiOpsConfig stored
     ) {
         AiOpsConfigPayload normalized = normalizePayload(payload);
+        PlatformEventOutboxRecord syncRecord = resolveRuntimeSyncRecord(stored);
         String source = stored != null ? "DATABASE" : runtime == null ? null : runtime.source();
         Long version = stored != null ? stored.version() : runtime == null ? null : runtime.version();
         OffsetDateTime updatedAt = stored != null ? stored.updatedAt() : runtime == null ? null : runtime.appliedAt();
@@ -536,7 +576,12 @@ public class AiOpsAdminService {
                 source,
                 version,
                 updatedAt,
-                notices == null ? List.of() : notices,
+                buildNotices(
+                        runtime,
+                        stored,
+                        notices == null ? List.of() : mergeNotices(notices, runtime == null ? List.of() : runtime.notices()),
+                        syncRecord
+                ),
                 new AdminAiRuntimeStateVO(
                         runtime != null,
                         runtime == null ? null : runtime.source(),
@@ -563,115 +608,11 @@ public class AiOpsAdminService {
     }
 
     private AiOpsConfigPayload normalizePayload(AiOpsConfigPayload payload) {
-        if (payload == null) {
-            return new AiOpsConfigPayload(
-                    new AiOpsProviderConfig(null, null, Map.of()),
-                    new AiOpsResilienceConfig(null, null, null, null, null),
-                    new AiOpsRagConfig(
-                            new AiOpsRagAppServerConfig(null, null, null, null),
-                            new AiOpsRagIngestionConfig(null, null),
-                            new AiOpsRagRetrievalConfig(null, null, null, null, null)
-                    )
-            );
-        }
-
-        AiOpsProviderConfig provider = payload.provider() == null
-                ? new AiOpsProviderConfig(null, null, Map.of())
-                : payload.provider();
-        Map<String, AiOpsProviderDefinition> providers = new LinkedHashMap<>();
-        if (provider.providers() != null) {
-            for (Map.Entry<String, AiOpsProviderDefinition> entry : provider.providers().entrySet()) {
-                providers.put(entry.getKey(), normalizeProviderDefinition(entry.getValue()));
-            }
-        }
-        Map<String, AiOpsProviderDefinition> orderedProviders = canonicalizeProviders(
-                providers,
-                provider.activeProvider(),
-                provider.fallbackProvider()
-        );
-        AiOpsResilienceConfig resilience = payload.resilience() == null
-                ? new AiOpsResilienceConfig(null, null, null, null, null)
-                : payload.resilience();
-
-        AiOpsRagConfig rag = payload.rag() == null
-                ? new AiOpsRagConfig(null, null, null)
-                : payload.rag();
-        AiOpsRagAppServerConfig appServer = rag.appServer() == null
-                ? new AiOpsRagAppServerConfig(null, null, null, null)
-                : rag.appServer();
-        AiOpsRagIngestionConfig ingestion = rag.ingestion() == null
-                ? new AiOpsRagIngestionConfig(null, null)
-                : rag.ingestion();
-        AiOpsRagRetrievalConfig retrieval = rag.retrieval() == null
-                ? new AiOpsRagRetrievalConfig(null, null, null, null, null)
-                : rag.retrieval();
-
-        return new AiOpsConfigPayload(
-                new AiOpsProviderConfig(provider.activeProvider(), provider.fallbackProvider(), orderedProviders),
-                resilience,
-                new AiOpsRagConfig(appServer, ingestion, retrieval)
-        );
+        return payloadNormalizer.normalize(payload);
     }
 
     private AiOpsProviderDefinition normalizeProviderDefinition(AiOpsProviderDefinition definition) {
-        if (definition == null) {
-            return new AiOpsProviderDefinition(
-                    normalizeChatConfig(null),
-                    normalizeEmbeddingConfig(null),
-                    normalizeRerankConfig(null)
-            );
-        }
-        return new AiOpsProviderDefinition(
-                normalizeChatConfig(definition.chat()),
-                normalizeEmbeddingConfig(definition.embedding()),
-                normalizeRerankConfig(definition.rerank())
-        );
-    }
-
-    private AiOpsChatConfig normalizeChatConfig(AiOpsChatConfig config) {
-        if (config == null) {
-            return new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null);
-        }
-        return new AiOpsChatConfig(
-                defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_COMPAT),
-                config.baseUrl(),
-                config.apiKey(),
-                config.model(),
-                config.timeout(),
-                config.temperature(),
-                config.maxTokens()
-        );
-    }
-
-    private AiOpsEmbeddingConfig normalizeEmbeddingConfig(AiOpsEmbeddingConfig config) {
-        if (config == null) {
-            return new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null);
-        }
-        return new AiOpsEmbeddingConfig(
-                defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_COMPAT),
-                config.baseUrl(),
-                config.apiKey(),
-                config.model(),
-                config.timeout(),
-                config.dimension()
-        );
-    }
-
-    private AiOpsRerankConfig normalizeRerankConfig(AiOpsRerankConfig config) {
-        if (config == null) {
-            return new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null);
-        }
-        return new AiOpsRerankConfig(
-                defaultProtocol(config.protocol(), AiOpsProtocols.QWEN_RERANK),
-                config.baseUrl(),
-                config.apiKey(),
-                config.model(),
-                config.timeout()
-        );
-    }
-
-    private String defaultProtocol(String protocol, String defaultProtocol) {
-        return StringUtils.hasText(protocol) ? protocol : defaultProtocol;
+        return payloadNormalizer.normalizeProviderDefinition(definition);
     }
 
     private AiOpsConfigPayload sanitize(AiOpsConfigPayload payload) {

@@ -10,10 +10,12 @@ import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSummaryMapper
 import com.huashi.eftransfer.app.modules.notification.entity.NotificationEntity;
 import com.huashi.eftransfer.app.modules.notification.mapper.NotificationMapper;
 import com.huashi.eftransfer.app.modules.training.entity.TrainingItemResultEntity;
+import com.huashi.eftransfer.app.modules.training.entity.TrainingSessionEntity;
 import com.huashi.eftransfer.app.modules.training.mapper.ReviewScheduleMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.TrainingItemResultMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.TrainingSessionMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.WrongBookMapper;
+import com.huashi.eftransfer.app.modules.training.service.TrainingSessionService;
 import com.huashi.eftransfer.app.modules.user.entity.StudentProfileEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
@@ -40,6 +42,9 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private TrainingSessionMapper trainingSessionMapper;
+
+    @Autowired
+    private TrainingSessionService trainingSessionService;
 
     @Autowired
     private WrongBookMapper wrongBookMapper;
@@ -424,6 +429,168 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(studentProfile.getLearningProfileUpdatedAt()).isNotNull();
     }
 
+    @Test
+    void shouldHeartbeatActiveTrainingSessionsAndAutoCloseTimedOutSessions() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        long tablePairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "table",
+                  "frenchWord": "table",
+                  "chineseGloss": "桌子",
+                  "lexicalPairType": "cognate",
+                  "semanticOverlapScore": 0.95,
+                  "falseFriendRisk": 0.05,
+                  "defaultContextSupport": "low",
+                  "difficultyLevel": 1,
+                  "active": true,
+                  "knowledgeStatus": "ready",
+                  "embeddingStatus": "pending",
+                  "tags": ["basic"],
+                  "senses": [
+                    {
+                      "sortOrder": 1,
+                      "englishDefinition": "a piece of furniture",
+                      "frenchDefinition": "meuble avec une surface plane",
+                      "chineseDefinition": "桌子",
+                      "examples": [
+                        {
+                          "sortOrder": 1,
+                          "englishExample": "The books are on the table.",
+                          "frenchExample": "Les livres sont sur la table.",
+                          "chineseTranslation": "书在桌子上。",
+                          "contextSupportLevel": "medium",
+                          "source": "Teacher Curated"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
+        long coinPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "coin",
+                  "frenchWord": "coin",
+                  "chineseGloss": "硬币；角落",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.10,
+                  "falseFriendRisk": 0.92,
+                  "defaultContextSupport": "high",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "knowledgeStatus": "ready",
+                  "embeddingStatus": "pending",
+                  "tags": ["false-friend"],
+                  "senses": [
+                    {
+                      "sortOrder": 1,
+                      "englishDefinition": "a small piece of money",
+                      "frenchDefinition": "angle ou recoin",
+                      "chineseDefinition": "硬币；角落",
+                      "examples": [
+                        {
+                          "sortOrder": 1,
+                          "englishExample": "I found a coin on the floor.",
+                          "frenchExample": "Il attend dans le coin de la piece.",
+                          "chineseTranslation": "他站在房间的角落。",
+                          "contextSupportLevel": "high",
+                          "source": "Teacher Curated"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
+        long actuallyPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "actually",
+                  "frenchWord": "actuellement",
+                  "chineseGloss": "实际上；目前",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.20,
+                  "falseFriendRisk": 0.88,
+                  "defaultContextSupport": "high",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "knowledgeStatus": "ready",
+                  "embeddingStatus": "pending",
+                  "tags": ["false-friend", "context"],
+                  "senses": [
+                    {
+                      "sortOrder": 1,
+                      "englishDefinition": "in fact",
+                      "frenchDefinition": "en ce moment",
+                      "chineseDefinition": "实际上；目前",
+                      "examples": [
+                        {
+                          "sortOrder": 1,
+                          "englishExample": "I actually enjoyed it.",
+                          "frenchExample": "Il travaille actuellement a Paris.",
+                          "chineseTranslation": "他目前在巴黎工作。",
+                          "contextSupportLevel": "high",
+                          "source": "Teacher Curated"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """);
+        long templateId = createDiagnosisTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId);
+        long diagnosisSessionId = createDiagnosisSessionAndComplete(studentToken, templateId);
+        long diagnosisSummaryId = diagnosisSummaryMapper.selectOne(Wrappers.<DiagnosisSummaryEntity>lambdaQuery()
+                        .eq(DiagnosisSummaryEntity::getSessionId, diagnosisSessionId))
+                .getId();
+        long planId = createRecommendedTrainingPlan(studentToken, diagnosisSummaryId);
+
+        long heartbeatSessionId = startTrainingSession(studentToken, planId, "FALSE_FRIEND_DISCRIM");
+        TrainingSessionEntity heartbeatSession = trainingSessionMapper.selectById(heartbeatSessionId);
+        heartbeatSession.setLastSavedAt(LocalDateTime.now().minusHours(13));
+        trainingSessionMapper.updateById(heartbeatSession);
+
+        mockMvc.perform(post("/api/training/sessions/{sessionId}/heartbeat", heartbeatSessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.lastSavedAt").isNotEmpty());
+
+        TrainingSessionEntity touchedSession = trainingSessionMapper.selectById(heartbeatSessionId);
+        assertThat(touchedSession.getLastSavedAt()).isAfter(heartbeatSession.getLastSavedAt());
+        trainingSessionMapper.abandonIfInProgress(heartbeatSessionId, LocalDateTime.now());
+
+        long readySessionId = startTrainingSession(studentToken, planId, "FALSE_FRIEND_DISCRIM");
+        answerAllTrainingItems(studentToken, readySessionId);
+        TrainingSessionEntity readySession = trainingSessionMapper.selectById(readySessionId);
+        readySession.setLastSavedAt(LocalDateTime.now().minusHours(13));
+        trainingSessionMapper.updateById(readySession);
+
+        assertThat(trainingSessionService.completeTimedOutReadySessions(LocalDateTime.now().minusHours(12), 10)).isEqualTo(1);
+        assertThat(trainingSessionMapper.selectById(readySessionId).getStatus()).isEqualTo("COMPLETED");
+
+        mockMvc.perform(post("/api/training/sessions/{sessionId}/heartbeat", readySessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+
+        mockMvc.perform(get("/api/training/sessions/{sessionId}/summary", readySessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessionId").value((int) readySessionId));
+
+        long abandonedSessionId = startTrainingSession(studentToken, planId, "FALSE_FRIEND_DISCRIM");
+        TrainingSessionEntity abandonedSession = trainingSessionMapper.selectById(abandonedSessionId);
+        abandonedSession.setLastSavedAt(LocalDateTime.now().minusHours(13));
+        trainingSessionMapper.updateById(abandonedSession);
+
+        assertThat(trainingSessionService.abandonTimedOutSessions(LocalDateTime.now().minusHours(12), 10)).isEqualTo(1);
+        assertThat(trainingSessionMapper.selectById(abandonedSessionId).getStatus()).isEqualTo("ABANDONED");
+
+        mockMvc.perform(post("/api/training/sessions/{sessionId}/heartbeat", abandonedSessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ABANDONED"));
+    }
+
     private long createLexicalPair(String token, String body) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/lexical-pairs")
                         .with(bearer(token))
@@ -565,6 +732,61 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"));
         return sessionId;
+    }
+
+    private long createRecommendedTrainingPlan(String studentToken, long diagnosisSummaryId) throws Exception {
+        MvcResult planResult = mockMvc.perform(get("/api/training/plans/recommended")
+                        .with(bearer(studentToken))
+                        .param("diagnosisSummaryId", String.valueOf(diagnosisSummaryId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(planResult).path("data").path("planId").asLong();
+    }
+
+    private long startTrainingSession(String studentToken, long planId, String mode) throws Exception {
+        MvcResult sessionStart = mockMvc.perform(post("/api/training/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "planId": %d,
+                                  "mode": "%s"
+                                }
+                                """.formatted(planId, mode)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(sessionStart).path("data").path("sessionId").asLong();
+    }
+
+    private void answerAllTrainingItems(String studentToken, long sessionId) throws Exception {
+        List<TrainingItemResultEntity> itemResults = trainingItemResultMapper.selectList(Wrappers.<TrainingItemResultEntity>lambdaQuery()
+                .eq(TrainingItemResultEntity::getSessionId, sessionId)
+                .orderByAsc(TrainingItemResultEntity::getPresentationOrder)
+                .orderByAsc(TrainingItemResultEntity::getId));
+        for (int index = 0; index < itemResults.size(); index++) {
+            MvcResult nextItemResult = mockMvc.perform(get("/api/training/sessions/{sessionId}/next-item", sessionId)
+                            .with(bearer(studentToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.hasNextItem").value(true))
+                    .andReturn();
+            long itemResultId = readJson(nextItemResult).path("data").path("item").path("itemResultId").asLong();
+            TrainingItemResultEntity itemResult = trainingItemResultMapper.selectById(itemResultId);
+            String answerKey = index == 0 ? firstWrongOptionKey(itemResult) : itemResult.getCorrectAnswerKey();
+
+            mockMvc.perform(post("/api/training/sessions/{sessionId}/answers", sessionId)
+                            .with(bearer(studentToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "itemResultId": %d,
+                                      "clientRequestId": "auto-timeout-%d",
+                                      "selectedAnswerKey": "%s",
+                                      "reactionTimeMs": %d,
+                                      "hesitationTimeMs": %d
+                                    }
+                                    """.formatted(itemResultId, index + 1, answerKey, 720 + (index * 120), 120 + (index * 20))))
+                    .andExpect(status().isOk());
+        }
     }
 
     private void submitDiagnosisAnswer(String studentToken, long sessionId, long itemResultId, String body) throws Exception {

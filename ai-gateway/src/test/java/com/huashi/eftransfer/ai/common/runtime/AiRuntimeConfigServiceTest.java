@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
 import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
+import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
@@ -402,13 +403,14 @@ class AiRuntimeConfigServiceTest {
         AiRuntimeBundleFactory bundleFactory = new AiRuntimeBundleFactory(
                 RestClient.builder(),
                 (request, body, execution) -> execution.execute(request, body),
-                new ProviderErrorSupport(objectMapper)
+                new ProviderErrorSupport(objectMapper, new SensitiveDataRedactor())
         );
         AiRuntimeConfigService service = new AiRuntimeConfigService(
                 providerProperties,
                 resilienceProperties,
                 ragProperties,
                 bundleFactory,
+                new SensitiveDataRedactor(),
                 VALIDATOR
         );
         ReflectionTestUtils.invokeMethod(service, "initialize");

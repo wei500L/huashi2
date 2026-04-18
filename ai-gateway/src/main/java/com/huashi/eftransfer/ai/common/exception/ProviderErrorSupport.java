@@ -2,6 +2,7 @@ package com.huashi.eftransfer.ai.common.exception;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -27,9 +28,11 @@ public class ProviderErrorSupport {
     private static final Pattern STATUS_MESSAGE_PATTERN = Pattern.compile("^(\\d{3})\\s*-\\s*(.*)$", Pattern.DOTALL);
 
     private final ObjectMapper objectMapper;
+    private final SensitiveDataRedactor sensitiveDataRedactor;
 
-    public ProviderErrorSupport(ObjectMapper objectMapper) {
+    public ProviderErrorSupport(ObjectMapper objectMapper, SensitiveDataRedactor sensitiveDataRedactor) {
         this.objectMapper = objectMapper;
+        this.sensitiveDataRedactor = sensitiveDataRedactor;
     }
 
     public ProviderCallException map(
@@ -82,7 +85,7 @@ public class ProviderErrorSupport {
         if (cause instanceof RestClientResponseException ex) {
             return mapHttpStatus(
                     ex.getStatusCode().value(),
-                    ex.getResponseBodyAsString(),
+                    sensitiveDataRedactor.redact(ex.getResponseBodyAsString()),
                     operation,
                     provider,
                     model,
@@ -98,7 +101,7 @@ public class ProviderErrorSupport {
 
         return new ProviderCallException(
                 AI_PROVIDER_UNAVAILABLE,
-                "Provider call failed for " + operation + ": " + cause.getMessage(),
+                "Provider call failed for " + operation + ": " + sensitiveDataRedactor.redact(cause.getMessage()),
                 503,
                 operation,
                 provider,
@@ -184,7 +187,7 @@ public class ProviderErrorSupport {
             return null;
         }
 
-        Matcher matcher = STATUS_MESSAGE_PATTERN.matcher(message.trim());
+        Matcher matcher = STATUS_MESSAGE_PATTERN.matcher(sensitiveDataRedactor.redact(message).trim());
         if (!matcher.matches()) {
             return null;
         }
@@ -279,7 +282,7 @@ public class ProviderErrorSupport {
                     requestId != null ? requestId : fallbackRequestId
             );
         } catch (Exception ex) {
-            return new ProviderErrorBody(null, body, fallbackRequestId);
+            return new ProviderErrorBody(null, sensitiveDataRedactor.redact(body), fallbackRequestId);
         }
     }
 

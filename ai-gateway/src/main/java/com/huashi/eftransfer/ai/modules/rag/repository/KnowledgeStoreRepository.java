@@ -11,6 +11,8 @@ import com.huashi.eftransfer.ai.modules.rag.support.RagSearchFilter;
 import com.huashi.eftransfer.shared.enums.EmbeddingStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -40,6 +42,7 @@ public class KnowledgeStoreRepository {
         this.objectMapper = objectMapper;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UpsertDocumentResult upsertDocument(KnowledgeDocumentPayload documentPayload, boolean forceReembed, String contentHash) {
         Long documentId = jdbcTemplate.queryForObject(
                 """

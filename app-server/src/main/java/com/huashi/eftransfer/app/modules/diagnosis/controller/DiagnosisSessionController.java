@@ -9,6 +9,7 @@ import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisHistorySummaryVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisNextItemVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisResultDetailVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisSessionCreatedVO;
+import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisSessionHeartbeatVO;
 import com.huashi.eftransfer.app.modules.diagnosis.vo.DiagnosisSessionProgressVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.page.PageResult;
@@ -63,6 +64,11 @@ public class DiagnosisSessionController {
             @Valid @RequestBody SaveDiagnosisProgressRequest request
     ) {
         return ApiResponse.success(diagnosisSessionService.saveProgress(sessionId, request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/{sessionId}/heartbeat")
+    public ApiResponse<DiagnosisSessionHeartbeatVO> heartbeat(@PathVariable Long sessionId) {
+        return ApiResponse.success(diagnosisSessionService.heartbeatSession(sessionId), MDC.get("traceId"));
     }
 
     @PostMapping("/{sessionId}/complete")

@@ -43,12 +43,20 @@ public class SessionLifecycleScheduler {
         }
         LocalDateTime abandonBefore = LocalDateTime.now().minus(sessionLifecycleProperties.getAbandonTimeout());
         int batchSize = sessionLifecycleProperties.getBatchSize();
+        int diagnosisCompleted = diagnosisSessionService.completeTimedOutReadySessions(abandonBefore, batchSize);
+        int trainingCompleted = trainingSessionService.completeTimedOutReadySessions(abandonBefore, batchSize);
         int diagnosisAbandoned = diagnosisSessionService.abandonTimedOutSessions(abandonBefore, batchSize);
         int trainingAbandoned = trainingSessionService.abandonTimedOutSessions(abandonBefore, batchSize);
         diagnosisSessionCompletionService.retryPendingCompletions(batchSize);
         trainingSessionCompletionService.retryPendingCompletions(batchSize);
-        if (diagnosisAbandoned > 0 || trainingAbandoned > 0) {
-            log.info("event=session_lifecycle_abandoned diagnosisCount={} trainingCount={}", diagnosisAbandoned, trainingAbandoned);
+        if (diagnosisCompleted > 0 || trainingCompleted > 0 || diagnosisAbandoned > 0 || trainingAbandoned > 0) {
+            log.info(
+                    "event=session_lifecycle_processed diagnosisCompleted={} trainingCompleted={} diagnosisAbandoned={} trainingAbandoned={}",
+                    diagnosisCompleted,
+                    trainingCompleted,
+                    diagnosisAbandoned,
+                    trainingAbandoned
+            );
         }
     }
 }

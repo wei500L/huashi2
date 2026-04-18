@@ -2,20 +2,16 @@ package com.huashi.eftransfer.app.common.outbox;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.core.Message;
-import org.springframework.amqp.core.MessageBuilder;
-import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.rabbit.connection.CorrelationData;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Locale;
 
 @Service
 public class PlatformEventOutboxService {
@@ -24,18 +20,18 @@ public class PlatformEventOutboxService {
 
     private final PlatformEventOutboxRepository repository;
     private final PlatformEventOutboxProperties properties;
-    private final RabbitTemplate rabbitTemplate;
+    private final List<PlatformEventOutboxRelayHandler> relayHandlers;
     private final ObjectMapper objectMapper;
 
     public PlatformEventOutboxService(
             PlatformEventOutboxRepository repository,
             PlatformEventOutboxProperties properties,
-            RabbitTemplate rabbitTemplate,
+            List<PlatformEventOutboxRelayHandler> relayHandlers,
             ObjectMapper objectMapper
     ) {
         this.repository = repository;
         this.properties = properties;
-        this.rabbitTemplate = rabbitTemplate;
+        this.relayHandlers = relayHandlers == null ? List.of() : List.copyOf(relayHandlers);
         this.objectMapper = objectMapper;
     }
 
@@ -56,17 +52,33 @@ public class PlatformEventOutboxService {
     public int relayDueMessages() {
         List<PlatformEventOutboxRecord> claimed = repository.claimBatch(properties.getBatchSize(), properties.getStuckThreshold());
         for (PlatformEventOutboxRecord record : claimed) {
-            relay(record);
+            relay(record, false);
         }
         return claimed.size();
     }
 
     public List<PlatformEventOutboxRecord> list(String status, int limit) {
+        if (status == null || status.isBlank()) {
+            List<PlatformEventOutboxRecord> merged = new ArrayList<>(repository.list(null, limit));
+            merged.addAll(repository.listDlq(limit));
+            merged.sort(Comparator
+                    .comparing(PlatformEventOutboxRecord::updatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(PlatformEventOutboxRecord::id, Comparator.nullsLast(Comparator.reverseOrder())));
+            return merged.stream().limit(limit).toList();
+        }
+        if (PlatformEventOutboxStatus.DLQ.name().equalsIgnoreCase(status.trim())) {
+            return repository.listDlq(limit);
+        }
         return repository.list(status, limit);
     }
 
+    public PlatformEventOutboxRecord findByEventId(String eventId) {
+        PlatformEventOutboxRecord active = repository.findByEventId(eventId);
+        return active != null ? active : repository.findDlqByEventId(eventId);
+    }
+
     public PlatformEventOutboxRecord replay(Long id) {
-        PlatformEventOutboxRecord existing = repository.findById(id);
+        PlatformEventOutboxRecord existing = findAnyById(id);
         if (existing == null) {
             throw new IllegalStateException("Outbox record was not found: " + id);
         }
@@ -74,51 +86,68 @@ public class PlatformEventOutboxService {
             throw new IllegalStateException("Outbox record cannot be replayed from status: " + existing.status().name());
         }
 
-        PlatformEventOutboxRecord record = repository.replay(id);
+        boolean replayedFromDlq = existing.status() == PlatformEventOutboxStatus.DLQ;
+        PlatformEventOutboxRecord record = replayedFromDlq
+                ? repository.restoreDlqToPending(id)
+                : repository.replay(id);
         if (record == null) {
             throw new IllegalStateException("Outbox record was not found: " + id);
         }
-        relay(record);
-        PlatformEventOutboxRecord refreshed = repository.findById(id);
+        relay(record, replayedFromDlq);
+        PlatformEventOutboxRecord refreshed = findAnyById(id);
         log.info("event=platform_outbox_replayed id={} eventId={} eventType={}", record.id(), record.eventId(), record.eventType());
         return refreshed == null ? record : refreshed;
     }
 
-    private void relay(PlatformEventOutboxRecord record) {
+    private void relay(PlatformEventOutboxRecord record, boolean replayedFromDlq) {
+        PlatformEventOutboxRelayHandler handler = findHandler(record);
+        if (handler == null) {
+            int nextAttemptCount = record.attemptCount() + 1;
+            repository.moveToDlq(record.id(), nextAttemptCount, "No outbox relay handler for eventType " + record.eventType());
+            log.warn("event=platform_outbox_moved_to_dlq id={} eventId={} eventType={} attemptCount={} reason=no_handler",
+                    record.id(), record.eventId(), record.eventType(), nextAttemptCount);
+            return;
+        }
         try {
-            publish(record);
+            String detail = handler.relay(record);
             repository.markPublished(record.id());
-            log.info("event=platform_outbox_published id={} eventId={} eventType={} attemptCount={}",
-                    record.id(), record.eventId(), record.eventType(), record.attemptCount() + 1);
+            boolean recoveredFromFailure = replayedFromDlq || record.attemptCount() > 0;
+            handler.afterPublished(record, recoveredFromFailure, detail);
+            log.info("event=platform_outbox_published id={} eventId={} eventType={} attemptCount={} detail={}",
+                    record.id(), record.eventId(), record.eventType(), record.attemptCount() + 1, detail);
         } catch (Exception ex) {
-            OffsetDateTime nextAttemptAt = nextAttemptAt(record.attemptCount() + 1);
+            int nextAttemptCount = record.attemptCount() + 1;
+            if (!handler.isRetryableFailure(ex) || nextAttemptCount >= properties.getMaxAttempts()) {
+                repository.moveToDlq(record.id(), nextAttemptCount, ex.getMessage());
+                handler.afterMovedToDlq(record, nextAttemptCount, ex);
+                log.warn("event=platform_outbox_moved_to_dlq id={} eventId={} eventType={} attemptCount={} message={}",
+                        record.id(), record.eventId(), record.eventType(), nextAttemptCount, ex.getMessage());
+                return;
+            }
+
+            OffsetDateTime nextAttemptAt = nextAttemptAt(nextAttemptCount);
             repository.markFailed(record.id(), nextAttemptAt, ex.getMessage());
+            handler.afterRetryScheduled(record, nextAttemptCount, nextAttemptAt, ex);
             log.warn("event=platform_outbox_publish_failed id={} eventId={} eventType={} attemptCount={} nextAttemptAt={} message={}",
-                    record.id(), record.eventId(), record.eventType(), record.attemptCount() + 1, nextAttemptAt, ex.getMessage());
+                    record.id(), record.eventId(), record.eventType(), nextAttemptCount, nextAttemptAt, ex.getMessage());
         }
     }
 
-    private void publish(PlatformEventOutboxRecord record) throws Exception {
-        CorrelationData correlationData = new CorrelationData(record.eventId());
-        rabbitTemplate.send(record.exchangeName(), record.routingKey(), buildMessage(record), correlationData);
-        CorrelationData.Confirm confirm = correlationData.getFuture().get(properties.getConfirmTimeout().toMillis(), TimeUnit.MILLISECONDS);
-        if (confirm == null || !confirm.isAck()) {
-            throw new IllegalStateException(confirm == null ? "Rabbit publisher confirm timed out" : confirm.getReason());
+    private PlatformEventOutboxRecord findAnyById(Long id) {
+        PlatformEventOutboxRecord active = repository.findById(id);
+        if (active != null) {
+            return active;
         }
-        if (correlationData.getReturned() != null) {
-            throw new IllegalStateException("Rabbit message was returned: " + correlationData.getReturned().getReplyText());
-        }
+        return repository.findDlqById(id);
     }
 
-    private Message buildMessage(PlatformEventOutboxRecord record) {
-        var builder = MessageBuilder.withBody(record.payloadJson().getBytes(StandardCharsets.UTF_8))
-                .setContentType(MessageProperties.CONTENT_TYPE_JSON)
-                .setMessageId(record.eventId())
-                .setHeader("eventType", record.eventType());
-        if (record.traceId() != null && !record.traceId().isBlank()) {
-            builder.setHeader("traceId", record.traceId());
+    private PlatformEventOutboxRelayHandler findHandler(PlatformEventOutboxRecord record) {
+        for (PlatformEventOutboxRelayHandler handler : relayHandlers) {
+            if (handler.supports(record)) {
+                return handler;
+            }
         }
-        return builder.build();
+        return null;
     }
 
     private OffsetDateTime nextAttemptAt(int attemptCount) {

@@ -7,7 +7,9 @@ import com.huashi.eftransfer.app.modules.achievement.entity.AchievementEntity;
 import com.huashi.eftransfer.app.modules.achievement.mapper.AchievementMapper;
 import com.huashi.eftransfer.app.modules.analytics.entity.LearningProfileSnapshotEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.LearningProfileSnapshotMapper;
+import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisSessionEntity;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSessionMapper;
+import com.huashi.eftransfer.app.modules.diagnosis.service.DiagnosisSessionService;
 import com.huashi.eftransfer.app.modules.notification.entity.NotificationEntity;
 import com.huashi.eftransfer.app.modules.notification.mapper.NotificationMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
@@ -32,6 +34,9 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private DiagnosisSessionMapper diagnosisSessionMapper;
+
+    @Autowired
+    private DiagnosisSessionService diagnosisSessionService;
 
     @Autowired
     private LearningProfileSnapshotMapper learningProfileSnapshotMapper;
@@ -526,6 +531,103 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
         throw new AssertionError("Expected to encounter a reaction time item before session completion");
     }
 
+    @Test
+    void shouldHeartbeatActiveSessionsAndAutoCloseTimedOutSessions() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        long tablePairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "table",
+                  "frenchWord": "table",
+                  "chineseGloss": "桌子",
+                  "lexicalPairType": "cognate",
+                  "semanticOverlapScore": 0.95,
+                  "falseFriendRisk": 0.05,
+                  "defaultContextSupport": "low",
+                  "difficultyLevel": 1,
+                  "active": true,
+                  "tags": ["basic"]
+                }
+                """);
+        long coinPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "coin",
+                  "frenchWord": "coin",
+                  "chineseGloss": "硬币；角落",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.10,
+                  "falseFriendRisk": 0.92,
+                  "defaultContextSupport": "medium",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend"]
+                }
+                """);
+        long actuallyPairId = createLexicalPair(teacherToken, """
+                {
+                  "englishWord": "actually",
+                  "frenchWord": "actuellement",
+                  "chineseGloss": "实际上；目前",
+                  "lexicalPairType": "false_friend",
+                  "semanticOverlapScore": 0.20,
+                  "falseFriendRisk": 0.88,
+                  "defaultContextSupport": "high",
+                  "difficultyLevel": 4,
+                  "active": true,
+                  "tags": ["false-friend", "context"]
+                }
+                """);
+        long templateId = createPublishedTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId, "Heartbeat lifecycle template");
+
+        long heartbeatSessionId = createDiagnosisSession(studentToken, templateId);
+        DiagnosisSessionEntity heartbeatSession = diagnosisSessionMapper.selectById(heartbeatSessionId);
+        heartbeatSession.setLastSavedAt(LocalDateTime.now().minusHours(13));
+        diagnosisSessionMapper.updateById(heartbeatSession);
+
+        mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/heartbeat", heartbeatSessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.lastSavedAt").isNotEmpty());
+
+        DiagnosisSessionEntity touchedSession = diagnosisSessionMapper.selectById(heartbeatSessionId);
+        assertThat(touchedSession.getLastSavedAt()).isAfter(heartbeatSession.getLastSavedAt());
+        diagnosisSessionMapper.abandonIfInProgress(heartbeatSessionId, LocalDateTime.now());
+
+        long readySessionId = createDiagnosisSession(studentToken, templateId);
+        answerAllDiagnosisItems(studentToken, readySessionId);
+        DiagnosisSessionEntity readySession = diagnosisSessionMapper.selectById(readySessionId);
+        readySession.setLastSavedAt(LocalDateTime.now().minusHours(13));
+        diagnosisSessionMapper.updateById(readySession);
+
+        assertThat(diagnosisSessionService.completeTimedOutReadySessions(LocalDateTime.now().minusHours(12), 10)).isEqualTo(1);
+        assertThat(diagnosisSessionMapper.selectById(readySessionId).getStatus()).isEqualTo("COMPLETED");
+
+        mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/heartbeat", readySessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+
+        mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/result", readySessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessionId").value((int) readySessionId));
+
+        long abandonedSessionId = createDiagnosisSession(studentToken, templateId);
+        DiagnosisSessionEntity abandonedSession = diagnosisSessionMapper.selectById(abandonedSessionId);
+        abandonedSession.setLastSavedAt(LocalDateTime.now().minusHours(13));
+        diagnosisSessionMapper.updateById(abandonedSession);
+
+        assertThat(diagnosisSessionService.abandonTimedOutSessions(LocalDateTime.now().minusHours(12), 10)).isEqualTo(1);
+        assertThat(diagnosisSessionMapper.selectById(abandonedSessionId).getStatus()).isEqualTo("ABANDONED");
+
+        mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/heartbeat", abandonedSessionId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ABANDONED"));
+    }
+
     private long createLexicalPair(String token, String body) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/lexical-pairs")
                         .with(bearer(token))
@@ -534,6 +636,61 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         return readJson(result).path("data").asLong();
+    }
+
+    private long createDiagnosisSession(String studentToken, long templateId) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/diagnosis/sessions")
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "templateId": %d
+                                }
+                                """.formatted(templateId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(result).path("data").path("sessionId").asLong();
+    }
+
+    private void answerAllDiagnosisItems(String studentToken, long sessionId) throws Exception {
+        for (int index = 0; index < 3; index++) {
+            MvcResult nextItemResult = mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/next-item", sessionId)
+                            .with(bearer(studentToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.hasNextItem").value(true))
+                    .andReturn();
+            long itemResultId = readJson(nextItemResult).path("data").path("item").path("itemResultId").asLong();
+            String englishWord = readJson(nextItemResult).path("data").path("item").path("englishWord").asText();
+
+            if ("table".equals(englishWord)) {
+                submitDiagnosisAnswer(studentToken, sessionId, itemResultId, """
+                        {
+                          "itemResultId": %d,
+                          "selectedSemanticMatch": true,
+                          "reactionTimeMs": 620,
+                          "hesitationTimeMs": 90
+                        }
+                        """.formatted(itemResultId));
+            } else if ("coin".equals(englishWord)) {
+                submitDiagnosisAnswer(studentToken, sessionId, itemResultId, """
+                        {
+                          "itemResultId": %d,
+                          "selectedSemanticMatch": true,
+                          "reactionTimeMs": 1320,
+                          "hesitationTimeMs": 360
+                        }
+                        """.formatted(itemResultId));
+            } else {
+                submitDiagnosisAnswer(studentToken, sessionId, itemResultId, """
+                        {
+                          "itemResultId": %d,
+                          "selectedAnswerKey": "actually_trap",
+                          "reactionTimeMs": 1510,
+                          "hesitationTimeMs": 410
+                        }
+                        """.formatted(itemResultId));
+            }
+        }
     }
 
     private long createPublishedTemplate(String token, long tablePairId, long coinPairId, long actuallyPairId, String templateName) throws Exception {

@@ -17,6 +17,11 @@ import com.huashi.eftransfer.shared.ai.RagExplainRiskRequest;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
 import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
 import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.stereotype.Service;
@@ -67,25 +72,13 @@ public class RagService {
 
     public RagAnswerResponse answer(RagAnswerRequest request) {
         AiRuntimeBundle bundle = runtimeConfigService.current();
-        var retrieval = bundle.config().rag().retrieval();
         RagSearchFilter filter = new RagSearchFilter(normalizeSourceTypes(request.sourceTypes()), normalizeIds(request.sourceIds()));
-        QuestionAnswerAdvisor advisor = QuestionAnswerAdvisor.builder(
-                        new RagAdvisorVectorStore(knowledgeSearchService, ragRetrievalCapture, filter))
-                .searchRequest(SearchRequest.builder()
-                        .topK(retrieval.finalTopK())
-                        .similarityThreshold(retrieval.recallThreshold())
-                        .build())
-                .build();
-        String prompt = buildAnswerPrompt(request.query(), request.messageHistory());
+        String retrievalQuery = buildRetrievalQuery(request.query(), request.messageHistory());
+        RagRetrievalResult retrievalResult = knowledgeSearchService.search(retrievalQuery, filter);
 
-        String answer = bundle.chatClient().prompt()
-                .system(ANSWER_SYSTEM_PROMPT)
-                .advisors(advisor)
-                .user(prompt)
+        String answer = bundle.chatClient().prompt(buildAnswerPrompt(request.query(), request.messageHistory(), retrievalResult))
                 .call()
                 .content();
-
-        RagRetrievalResult retrievalResult = consumeResult(request.query());
         boolean grounded = !retrievalResult.chunks().isEmpty();
         String uncertaintyNote = grounded ? null : "No sufficiently relevant knowledge chunks were retrieved from the knowledge base.";
 
@@ -112,22 +105,12 @@ public class RagService {
         );
     }
 
-    private String buildAnswerPrompt(String query, List<ChatMessage> messageHistory) {
-        if (messageHistory == null || messageHistory.isEmpty()) {
-            return query;
-        }
-        StringBuilder builder = new StringBuilder();
-        builder.append("Conversation history for context only:\n");
-        for (ChatMessage message : messageHistory) {
-            if (message == null || message.content() == null || message.content().isBlank()) {
-                continue;
-            }
-            String label = "assistant".equals(message.role()) ? "Assistant" : "User";
-            builder.append(label).append(": ").append(message.content().trim()).append('\n');
-        }
-        builder.append("\nCurrent user question:\n").append(query).append("\n\n");
-        builder.append("Use retrieved knowledge as evidence. Do not treat the conversation history as a citation source.");
-        return builder.toString();
+    private Prompt buildAnswerPrompt(String query, List<ChatMessage> messageHistory, RagRetrievalResult retrievalResult) {
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(ANSWER_SYSTEM_PROMPT));
+        appendConversationHistory(messages, messageHistory);
+        messages.add(new UserMessage(buildAnswerUserMessage(query, retrievalResult)));
+        return new Prompt(messages);
     }
 
     private String buildRetrievalQuery(String query, List<ChatMessage> messageHistory) {
@@ -197,6 +180,42 @@ public class RagService {
     private RagRetrievalResult consumeResult(String query) {
         RagRetrievalResult retrievalResult = ragRetrievalCapture.consume();
         return retrievalResult == null ? RagRetrievalResult.empty(query) : retrievalResult;
+    }
+
+    private void appendConversationHistory(List<Message> messages, List<ChatMessage> messageHistory) {
+        if (messageHistory == null || messageHistory.isEmpty()) {
+            return;
+        }
+        for (ChatMessage message : messageHistory) {
+            if (message == null || message.content() == null || message.content().isBlank()) {
+                continue;
+            }
+            String content = message.content().trim();
+            if ("assistant".equals(message.role())) {
+                messages.add(new AssistantMessage(content));
+            } else {
+                messages.add(new UserMessage(content));
+            }
+        }
+    }
+
+    private String buildAnswerUserMessage(String query, RagRetrievalResult retrievalResult) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Retrieved knowledge:\n");
+        if (retrievalResult.chunks().isEmpty()) {
+            builder.append("No sufficiently relevant knowledge chunks were retrieved from the knowledge base.\n");
+        } else {
+            for (var chunk : retrievalResult.chunks()) {
+                builder.append('[').append(chunk.citationId()).append("]\n");
+                builder.append("Title: ").append(chunk.title()).append('\n');
+                builder.append("Source Type: ").append(chunk.sourceType()).append('\n');
+                builder.append("Source Id: ").append(chunk.sourceId()).append('\n');
+                builder.append("Content:\n").append(chunk.content()).append("\n\n");
+            }
+        }
+        builder.append("Current user question:\n").append(query).append("\n\n");
+        builder.append("Use retrieved knowledge as evidence. Do not treat prior conversation turns as citations.");
+        return builder.toString();
     }
 
     private List<RagCitation> toCitations(RagRetrievalResult retrievalResult) {

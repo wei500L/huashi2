@@ -13,6 +13,8 @@ import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
 import org.springframework.ai.document.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -23,6 +25,8 @@ import java.util.Map;
 
 @Service
 public class KnowledgeSearchService {
+
+    private static final Logger log = LoggerFactory.getLogger(KnowledgeSearchService.class);
 
     private final AiProviderRegistry aiProviderRegistry;
     private final KnowledgeStoreRepository knowledgeStoreRepository;
@@ -61,14 +65,26 @@ public class KnowledgeSearchService {
         List<String> rerankDocuments = recallCandidates.stream()
                 .map(this::toRerankDocument)
                 .toList();
-        RerankResponse rerankResponse = aiProviderRegistry.rerank(new RerankRequest(
-                null,
-                query,
-                rerankDocuments,
-                Math.min(retrieval.rerankTopN(), rerankDocuments.size()),
-                Boolean.TRUE,
-                "Rank lexical transfer knowledge by relevance to the user query."
-        ));
+        RerankResponse rerankResponse;
+        try {
+            rerankResponse = aiProviderRegistry.rerank(new RerankRequest(
+                    null,
+                    query,
+                    rerankDocuments,
+                    Math.min(retrieval.rerankTopN(), rerankDocuments.size()),
+                    Boolean.TRUE,
+                    "Rank lexical transfer knowledge by relevance to the user query."
+            ));
+        } catch (RuntimeException exception) {
+            log.warn("event=knowledge_search_rerank_failed candidateCount={} message={}",
+                    recallCandidates.size(), exception.getMessage());
+            return buildRetrievalResult(query, toRecallOrderedChunks(recallCandidates, retrieval.finalTopK()));
+        }
+
+        if (rerankResponse == null || rerankResponse.items() == null || rerankResponse.items().isEmpty()) {
+            log.warn("event=knowledge_search_rerank_unavailable candidateCount={} reason=empty_response", recallCandidates.size());
+            return buildRetrievalResult(query, toRecallOrderedChunks(recallCandidates, retrieval.finalTopK()));
+        }
 
         Map<Integer, KnowledgeSearchCandidate> candidateByIndex = new LinkedHashMap<>();
         for (int index = 0; index < recallCandidates.size(); index++) {
@@ -104,14 +120,7 @@ public class KnowledgeSearchService {
             }
         }
 
-        if (finalChunks.isEmpty()) {
-            return RagRetrievalResult.empty(query);
-        }
-
-        List<Document> documents = finalChunks.stream()
-                .map(this::toDocument)
-                .toList();
-        return new RagRetrievalResult(query, finalChunks, documents);
+        return buildRetrievalResult(query, finalChunks);
     }
 
     private String toRerankDocument(KnowledgeSearchCandidate candidate) {
@@ -145,6 +154,38 @@ public class KnowledgeSearchService {
                 chunk.sourceId(),
                 chunk.content()
         ), metadata);
+    }
+
+    private RagRetrievalResult buildRetrievalResult(String query, List<RagRetrievedChunk> chunks) {
+        if (chunks.isEmpty()) {
+            return RagRetrievalResult.empty(query);
+        }
+        List<Document> documents = chunks.stream()
+                .map(this::toDocument)
+                .toList();
+        return new RagRetrievalResult(query, chunks, documents);
+    }
+
+    private List<RagRetrievedChunk> toRecallOrderedChunks(List<KnowledgeSearchCandidate> recallCandidates, int finalTopK) {
+        List<RagRetrievedChunk> finalChunks = new ArrayList<>();
+        int citationIndex = 1;
+        for (KnowledgeSearchCandidate candidate : recallCandidates) {
+            finalChunks.add(new RagRetrievedChunk(
+                    candidate.chunkId(),
+                    "C" + citationIndex++,
+                    candidate.sourceType(),
+                    candidate.sourceId(),
+                    candidate.title(),
+                    candidate.content(),
+                    snippet(candidate.content()),
+                    candidate.similarityScore(),
+                    candidate.metadata()
+            ));
+            if (finalChunks.size() >= finalTopK) {
+                break;
+            }
+        }
+        return finalChunks;
     }
 
     private String snippet(String content) {

@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.ai.common.runtime;
 
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import io.github.resilience4j.retry.RetryRegistry;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -15,7 +15,8 @@ public record AiProviderRuntime(
         OpenAiChatModel chatModel,
         EmbeddingModel embeddingModel,
         RestClient rerankRestClient,
+        AiOpsResilienceConfig resilienceConfig,
         RetryRegistry retryRegistry,
-        CircuitBreakerRegistry circuitBreakerRegistry
+        AiCircuitBreakerManager circuitBreakerManager
 ) {
 }

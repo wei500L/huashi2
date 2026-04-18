@@ -142,4 +142,66 @@ describe('SettingsPage student profile editor', () => {
     expect(readStoredSession()?.userInfo.studentProfile?.gradeName).toBe('高一（2）班');
     expect(useAuthStore.getState().user?.studentProfile?.englishLevel).toBe('B1');
   });
+
+  it('shows the student profile editor for users with the student workspace capability', async () => {
+    const multiWorkspaceUser: CurrentUserVO = {
+      ...mockUser,
+      primaryRole: 'ADMIN',
+      roles: ['ADMIN', 'STUDENT'],
+      capabilities: ['ADMIN_CONSOLE', 'STUDENT_WORKSPACE'],
+    };
+    const multiWorkspaceSession: LoginResponse = {
+      ...mockSession,
+      userInfo: multiWorkspaceUser,
+    };
+
+    writeStoredSession(multiWorkspaceSession);
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      status: 'authenticated',
+      session: multiWorkspaceSession,
+      user: multiWorkspaceUser,
+      error: null,
+    });
+
+    renderSettingsPage();
+
+    expect(await screen.findByText('学生画像')).toBeInTheDocument();
+    expect(screen.getByText('待补齐')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存资料' })).toBeInTheDocument();
+  });
+
+  it('keeps the shared settings page accessible without rendering student profile editing for teacher-only users', async () => {
+    const teacherUser: CurrentUserVO = {
+      ...mockUser,
+      primaryRole: 'TEACHER',
+      roles: ['TEACHER'],
+      capabilities: ['TEACHING_WORKSPACE'],
+      studentProfile: null,
+      teacherProfile: {
+        employeeNo: 'T20260001',
+        department: 'French',
+        title: 'Lecturer',
+      },
+    };
+    const teacherSession: LoginResponse = {
+      ...mockSession,
+      userInfo: teacherUser,
+    };
+
+    writeStoredSession(teacherSession);
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      status: 'authenticated',
+      session: teacherSession,
+      user: teacherUser,
+      error: null,
+    });
+
+    renderSettingsPage();
+
+    expect(await screen.findByText('安全设置')).toBeInTheDocument();
+    expect(screen.queryByText('学生画像')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存资料' })).not.toBeInTheDocument();
+  });
 });

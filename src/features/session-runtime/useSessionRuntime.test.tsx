@@ -24,8 +24,12 @@ vi.mock('react-router', async () => {
 
 function RuntimeHarness({
   saveProgress,
+  heartbeat,
+  shouldHeartbeat,
 }: {
   saveProgress: (sessionId: number, snapshot: Record<string, unknown>) => Promise<unknown>;
+  heartbeat?: (sessionId: number) => Promise<{ status: string }>;
+  shouldHeartbeat?: (nextItem?: { id: number } | null) => boolean;
 }) {
   const runtime = useSessionRuntime({
     active: true,
@@ -33,6 +37,10 @@ function RuntimeHarness({
     nextItem: { id: 1 },
     refetchCurrent: vi.fn().mockResolvedValue({ data: { id: 1 } }),
     buildSnapshot: () => ({ currentItemId: 1 }),
+    heartbeat,
+    heartbeatIntervalMs: 60000,
+    shouldHeartbeat,
+    isHeartbeatInProgress: (response) => response.status === 'IN_PROGRESS',
     saveProgress,
     saveProgressKeepalive: vi.fn().mockResolvedValue({}),
     isCompleted: () => false,
@@ -70,5 +78,25 @@ describe('useSessionRuntime route leave protection', () => {
       expect(blockerProceed).not.toHaveBeenCalled();
       expect(blockerReset).toHaveBeenCalled();
     });
+  });
+
+  it('sends periodic heartbeats while the session remains active', async () => {
+    vi.useFakeTimers();
+    const heartbeat = vi.fn().mockResolvedValue({ status: 'IN_PROGRESS' });
+    render(<RuntimeHarness saveProgress={vi.fn().mockResolvedValue({})} heartbeat={heartbeat} shouldHeartbeat={() => true} />);
+
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(heartbeat).toHaveBeenCalledWith(7);
+    vi.useRealTimers();
+  });
+
+  it('does not send heartbeats after the session leaves the running-item state', async () => {
+    vi.useFakeTimers();
+    const heartbeat = vi.fn().mockResolvedValue({ status: 'IN_PROGRESS' });
+    render(<RuntimeHarness saveProgress={vi.fn().mockResolvedValue({})} heartbeat={heartbeat} shouldHeartbeat={() => false} />);
+
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(heartbeat).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

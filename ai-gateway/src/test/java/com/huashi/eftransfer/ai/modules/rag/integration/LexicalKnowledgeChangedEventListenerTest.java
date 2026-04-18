@@ -13,9 +13,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
+import org.springframework.retry.backoff.NoBackOffPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -47,7 +51,8 @@ class LexicalKnowledgeChangedEventListenerTest {
         listener = new LexicalKnowledgeChangedEventListener(
                 objectMapper,
                 knowledgeIngestionService,
-                integrationConsumeRecordRepository
+                integrationConsumeRecordRepository,
+                retryTemplate()
         );
     }
 
@@ -140,5 +145,12 @@ class LexicalKnowledgeChangedEventListenerTest {
                 OffsetDateTime.parse("2026-03-20T00:00:00Z"),
                 "trace-knowledge-sync"
         ));
+    }
+
+    private RetryTemplate retryTemplate() {
+        RetryTemplate retryTemplate = new RetryTemplate();
+        retryTemplate.setRetryPolicy(new SimpleRetryPolicy(3, Map.of(RuntimeException.class, true)));
+        retryTemplate.setBackOffPolicy(new NoBackOffPolicy());
+        return retryTemplate;
     }
 }

@@ -8,6 +8,9 @@ import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.backoff.ExponentialRandomBackOffPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
 
 import java.util.Map;
 
@@ -51,5 +54,17 @@ public class KnowledgeSyncRabbitConfig {
         return BindingBuilder.bind(knowledgeSyncDlq)
                 .to(platformEventsExchange)
                 .with(PlatformEventTopics.AI_GATEWAY_KNOWLEDGE_SYNC_DLQ);
+    }
+
+    @Bean
+    public RetryTemplate knowledgeSyncRetryTemplate() {
+        RetryTemplate retryTemplate = new RetryTemplate();
+        ExponentialRandomBackOffPolicy backOffPolicy = new ExponentialRandomBackOffPolicy();
+        backOffPolicy.setInitialInterval(500L);
+        backOffPolicy.setMultiplier(2.0d);
+        backOffPolicy.setMaxInterval(5_000L);
+        retryTemplate.setRetryPolicy(new SimpleRetryPolicy(3, Map.of(RuntimeException.class, true)));
+        retryTemplate.setBackOffPolicy(backOffPolicy);
+        return retryTemplate;
     }
 }

@@ -4,15 +4,21 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.entity.AuditLogEntity;
 import com.huashi.eftransfer.app.common.audit.mapper.AuditLogMapper;
 import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
+import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxRecord;
+import com.huashi.eftransfer.app.common.outbox.PlatformEventOutboxRepository;
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
+import com.huashi.eftransfer.app.integration.ai.client.AiGatewayFailureReason;
+import com.huashi.eftransfer.app.modules.notification.entity.NotificationEntity;
+import com.huashi.eftransfer.app.modules.notification.mapper.NotificationMapper;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.app.modules.opsconfig.entity.AiOpsConfigHistoryEntity;
 import com.huashi.eftransfer.app.modules.opsconfig.mapper.AiOpsConfigHistoryMapper;
 import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsConfigStorageService;
+import com.huashi.eftransfer.app.modules.opsconfig.support.AiRuntimeSyncOutboxSupport;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
@@ -43,6 +49,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
@@ -77,6 +84,15 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     @Autowired
     private StubAuditLogService stubAuditLogService;
 
+    @Autowired
+    private PlatformEventOutboxRepository outboxRepository;
+
+    @Autowired
+    private NotificationMapper notificationMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void resetGatewayStub() {
         stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
@@ -93,6 +109,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         stubAiGatewayClient.validationUnavailable = false;
         stubAiGatewayClient.stageUnavailable = false;
         stubAiGatewayClient.commitUnavailable = false;
+        stubAiGatewayClient.applyFailureMessage = null;
+        stubAiGatewayClient.applyFailureRetryable = true;
         stubAuditLogService.failOnSave = false;
     }
 
@@ -177,8 +195,9 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.secrets.providers.qwen.chatApiKey.maskedValue").value(org.hamcrest.Matchers.containsString("cha")));
 
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
         assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(outboxRepository.findByEventId(AiRuntimeSyncOutboxSupport.eventId(2L))).isNotNull();
         assertThat(saveAuditCount()).isEqualTo(initialAuditCount + 1);
         assertThat(historyCount()).isEqualTo(initialHistoryCount + 1);
     }
@@ -259,9 +278,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(jsonPath("$.data.config.provider.activeProvider").value("primary_openai"))
                 .andExpect(jsonPath("$.data.secrets.providers.primary_openai.chatApiKey.maskedValue").value(org.hamcrest.Matchers.containsString("cha")));
 
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers()).containsKey("primary_openai");
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers()).doesNotContainKey("qwen");
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("primary_openai").chat().apiKey()).isEqualTo("chat-secret-001");
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
+        assertThat(outboxRepository.findByEventId(AiRuntimeSyncOutboxSupport.eventId(3L))).isNotNull();
         assertThat(storageService.load().orElseThrow().config().provider().providers().get("primary_openai").chat().apiKey()).isEqualTo("chat-secret-001");
     }
 
@@ -316,8 +334,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         ))))
                 .andExpect(status().isOk());
 
-        assertThat(List.copyOf(stubAiGatewayClient.lastAppliedConfig.provider().providers().keySet()))
-                .containsExactly("deepseek", "qwen", "archive");
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
+        assertThat(outboxRepository.findByEventId(AiRuntimeSyncOutboxSupport.eventId(2L))).isNotNull();
         assertThat(List.copyOf(storageService.load().orElseThrow().config().provider().providers().keySet()))
                 .containsExactly("deepseek", "qwen", "archive");
     }
@@ -491,12 +509,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.baseUrl").value("https://stored-chat.example.com/v1"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.model").value("stored-chat-model"));
 
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey())
-                .isEqualTo("stored-chat-secret");
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().baseUrl())
-                .isEqualTo("https://stored-chat.example.com/v1");
-        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().model())
-                .isEqualTo("stored-chat-model");
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
+        assertThat(outboxRepository.findByEventId(AiRuntimeSyncOutboxSupport.eventId(6L))).isNotNull();
         assertThat(storageService.load().orElseThrow().config().provider().providers().get("qwen").chat().apiKey())
                 .isEqualTo("stored-chat-secret");
     }
@@ -513,7 +527,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(jsonPath("$.data.config.provider.providers").value(org.hamcrest.Matchers.anEmptyMap()))
                 .andExpect(jsonPath("$.data.config.rag.appServer").exists())
                 .andExpect(jsonPath("$.data.config.resilience").exists())
-                .andExpect(jsonPath("$.data.notices[0]").value(org.hamcrest.Matchers.containsString("No stored AI ops config exists yet")));
+                .andExpect(jsonPath("$.data.notices[0].code").value("no_stored_snapshot_yet"));
     }
 
     @Test
@@ -550,10 +564,125 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(jsonPath("$.data.runtime.available").value(false))
                 .andExpect(jsonPath("$.data.runtime.inSync").value(false))
                 .andExpect(jsonPath("$.data.stored.present").value(true))
-                .andExpect(jsonPath("$.data.notices[*]").value(org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.containsString("runtime sync is pending"))));
+                .andExpect(jsonPath("$.data.notices[*].code").value(org.hamcrest.Matchers.hasItem("runtime_sync_queued")));
 
         assertThat(storageService.load()).isPresent();
         assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
+        PlatformEventOutboxRecord outboxRecord = outboxRepository.findByEventId(AiRuntimeSyncOutboxSupport.eventId(1L));
+        assertThat(outboxRecord).isNotNull();
+        assertThat(outboxRecord.status().name()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void driftEndpointReportsQueuedRuntimeSyncForStoredSnapshot() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.currentEffective = null;
+        stubAiGatewayClient.validationUnavailable = true;
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", samplePayload(null),
+                                "expectedVersion", null,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
+                                )
+                        ))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/admin/ai-config/drift")
+                        .with(bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stored.present").value(true))
+                .andExpect(jsonPath("$.data.stored.version").value(1))
+                .andExpect(jsonPath("$.data.runtime.available").value(false))
+                .andExpect(jsonPath("$.data.driftDetected").value(true))
+                .andExpect(jsonPath("$.data.syncJobStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data.notices[*].code").value(org.hamcrest.Matchers.hasItem("runtime_sync_queued")));
+    }
+
+    @Test
+    void replayMovesRuntimeSyncOutboxToDlqAfterMaxAttemptsAndAllowsRecoveryReplay() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        stubAiGatewayClient.currentEffective = null;
+        stubAiGatewayClient.validationUnavailable = true;
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", samplePayload(null),
+                                "expectedVersion", null,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
+                                )
+                        ))))
+                .andExpect(status().isOk());
+
+        PlatformEventOutboxRecord queuedRecord = outboxRepository.findByEventId(AiRuntimeSyncOutboxSupport.eventId(1L));
+        assertThat(queuedRecord).isNotNull();
+        jdbcTemplate.update("UPDATE platform_event_outbox SET attempt_count = ? WHERE id = ?", 7, queuedRecord.id());
+        stubAiGatewayClient.applyFailureMessage = "ai-gateway apply failed";
+        stubAiGatewayClient.applyFailureRetryable = true;
+
+        mockMvc.perform(post("/api/admin/ai-config/outbox/{id}/replay", queuedRecord.id())
+                        .with(bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DLQ"))
+                .andExpect(jsonPath("$.data.attemptCount").value(8));
+
+        mockMvc.perform(get("/api/admin/ai-config/drift")
+                        .with(bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.syncJobStatus").value("DLQ"))
+                .andExpect(jsonPath("$.data.notices[*].code").value(org.hamcrest.Matchers.hasItem("runtime_sync_dlq")));
+
+        assertThat(notificationMapper.selectCount(Wrappers.<NotificationEntity>lambdaQuery()
+                .eq(NotificationEntity::getCategory, "AI_RUNTIME_SYNC_DLQ")
+                .like(NotificationEntity::getPayloadJson, "\"targetVersion\":1"))).isGreaterThanOrEqualTo(1);
+
+        stubAiGatewayClient.applyFailureMessage = null;
+
+        mockMvc.perform(post("/api/admin/ai-config/outbox/{id}/replay", queuedRecord.id())
+                        .with(bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
+
+        mockMvc.perform(get("/api/admin/ai-config/drift")
+                        .with(bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.driftDetected").value(false))
+                .andExpect(jsonPath("$.data.syncJobStatus").value("NONE"));
+
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNotNull();
+        assertThat(notificationMapper.selectCount(Wrappers.<NotificationEntity>lambdaQuery()
+                .eq(NotificationEntity::getCategory, "AI_RUNTIME_SYNC_RECOVERED")
+                .like(NotificationEntity::getPayloadJson, "\"targetVersion\":1"))).isGreaterThanOrEqualTo(1);
     }
 
     @Test
@@ -593,6 +722,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         assertThat(historyCount()).isEqualTo(initialHistoryCount);
         assertThat(saveAuditCount()).isEqualTo(initialAuditCount);
         assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
+        assertThat(outboxRepository.findByEventId(AiRuntimeSyncOutboxSupport.eventId(1L))).isNull();
     }
 
     @Test
@@ -933,6 +1063,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         private boolean validationUnavailable;
         private boolean stageUnavailable;
         private boolean commitUnavailable;
+        private String applyFailureMessage;
+        private boolean applyFailureRetryable = true;
         private AdminAiEmbeddingProbeVO embeddingProbeResponse = new AdminAiEmbeddingProbeVO(
                 true, "Embedding probe succeeded", "qwen", "text-embedding-v4", 32L, "probe-embedding", OffsetDateTime.now(), 1024, 1024, 1
         );
@@ -959,8 +1091,28 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
 
         @Override
         public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload, String source, Long version) {
+            AiGatewayCallResult<AiOpsConfigApplyResponse> result = applyConfigResult(payload, source, version);
+            if (!result.success() || result.data() == null) {
+                throw new IllegalStateException(result.failureMessage());
+            }
+            return result.data();
+        }
+
+        @Override
+        public AiGatewayCallResult<AiOpsConfigApplyResponse> applyConfigResult(AiOpsConfigPayload payload, String source, Long version) {
+            if (applyFailureMessage != null) {
+                return AiGatewayCallResult.failure(
+                        AiGatewayFailureReason.PROVIDER_UNAVAILABLE,
+                        applyFailureMessage,
+                        applyFailureRetryable,
+                        1,
+                        1L,
+                        "/internal/ai/config/apply"
+                );
+            }
             AiOpsConfigStageResponse staged = stageConfig(payload, source, version);
-            return commitConfig(staged.stageId());
+            AiOpsConfigApplyResponse applied = commitConfig(staged.stageId());
+            return AiGatewayCallResult.success(applied, 1, 1L, "/internal/ai/config/apply");
         }
 
         @Override

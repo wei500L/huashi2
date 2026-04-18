@@ -8,9 +8,13 @@ import { z } from 'zod';
 import { PageHeader, SectionEyebrow } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
 import type { StudentAnalyticsOverviewVO } from '@/lib/contracts';
-import { formatDateTime, roleLabel, sessionActivityLabel, workspaceLabels } from '@/lib/format';
+import { formatDateTime, roleLabel, sessionActivityLabel, userHasCapability, workspaceLabels } from '@/lib/format';
 import { authService, studentService } from '@/lib/services';
-import { isStudentProfileIncomplete, studentCourseStageOptions, studentLanguageLevelOptions } from '@/lib/student-profile';
+import {
+  requiresStudentProfileCompletion,
+  studentCourseStageOptions,
+  studentLanguageLevelOptions,
+} from '@/lib/student-profile';
 import { clearPendingAuthExpired, clearStoredSession, readStoredSession, writeStoredSession } from '@/lib/session';
 import { useAuthStore, useUIStore } from '@/store';
 
@@ -39,7 +43,8 @@ const SettingsPage: React.FC = () => {
   const [profileErrorMessage, setProfileErrorMessage] = React.useState<string | null>(null);
   const [profileSuccessMessage, setProfileSuccessMessage] = React.useState<string | null>(null);
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState<string | null>(null);
-  const studentProfileRequired = user?.primaryRole === 'STUDENT' && isStudentProfileIncomplete(user.studentProfile);
+  const canManageStudentProfile = userHasCapability(user, 'STUDENT_WORKSPACE');
+  const studentProfileRequired = requiresStudentProfileCompletion(user);
 
   const passwordSchema = React.useMemo(() => z.object({
     currentPassword: z.string().min(1, t('ui.validation.currentPasswordRequired')),
@@ -268,7 +273,7 @@ const SettingsPage: React.FC = () => {
           </div>
         </section>
 
-        {user?.primaryRole === 'STUDENT' ? (
+        {canManageStudentProfile ? (
           <section className="rounded-[2.4rem] liquid-glass-panel p-8 space-y-5 xl:col-span-3">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-3">

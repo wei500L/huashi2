@@ -87,6 +87,7 @@ app:
       enabled: ${APP_EVENTS_OUTBOX_ENABLED:true}
       poll-interval: ${APP_EVENTS_OUTBOX_POLL_INTERVAL:PT5S}
       batch-size: ${APP_EVENTS_OUTBOX_BATCH_SIZE:20}
+      max-attempts: ${APP_EVENTS_OUTBOX_MAX_ATTEMPTS:8}
       initial-backoff: ${APP_EVENTS_OUTBOX_INITIAL_BACKOFF:PT5S}
       max-backoff: ${APP_EVENTS_OUTBOX_MAX_BACKOFF:PT5M}
       stuck-threshold: ${APP_EVENTS_OUTBOX_STUCK_THRESHOLD:PT1M}

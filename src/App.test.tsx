@@ -71,6 +71,17 @@ const mockSession: LoginResponse = {
   userInfo: mockUser,
 };
 
+const completeStudentProfile = {
+  studentNo: 'S20260099',
+  gradeName: '高一（3）班',
+  englishLevel: 'B1',
+  frenchLevel: 'A2',
+  courseStage: 'INTERMEDIATE',
+  compositeScore: 0,
+  dailyTrainingTarget: null,
+  weeklyAccuracyTarget: null,
+} as const;
+
 const multiWorkspaceUser: CurrentUserVO = {
   ...mockUser,
   primaryRole: 'ADMIN',
@@ -210,8 +221,17 @@ describe('App auth-expired handling', () => {
     useAuthStore.setState({
       ...useAuthStore.getState(),
       status: 'authenticated',
-      session: multiWorkspaceSession,
-      user: multiWorkspaceUser,
+      session: {
+        ...multiWorkspaceSession,
+        userInfo: {
+          ...multiWorkspaceUser,
+          studentProfile: completeStudentProfile,
+        },
+      },
+      user: {
+        ...multiWorkspaceUser,
+        studentProfile: completeStudentProfile,
+      },
       error: null,
     });
     useUIStore.setState({
@@ -346,5 +366,79 @@ describe('App auth-expired handling', () => {
     });
 
     expect(await screen.findByText('settings-page')).toBeInTheDocument();
+  });
+
+  it('routes multi-workspace users with student capability and incomplete profiles to settings', async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      status: 'authenticated',
+      session: multiWorkspaceSession,
+      user: multiWorkspaceUser,
+      error: null,
+    });
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/']}>
+            <App />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    });
+
+    expect(await screen.findByText('settings-page')).toBeInTheDocument();
+  });
+
+  it('keeps multi-workspace users on their default workspace home after the student profile is complete', async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      status: 'authenticated',
+      session: {
+        ...multiWorkspaceSession,
+        userInfo: {
+          ...multiWorkspaceUser,
+          studentProfile: completeStudentProfile,
+        },
+      },
+      user: {
+        ...multiWorkspaceUser,
+        studentProfile: completeStudentProfile,
+      },
+      error: null,
+    });
+    useUIStore.setState({
+      ...useUIStore.getState(),
+      activeWorkspace: null,
+      preferredWorkspaceByUser: {},
+    });
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/']}>
+            <App />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    });
+
+    expect(await screen.findByText('admin-dashboard')).toBeInTheDocument();
   });
 });

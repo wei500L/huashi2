@@ -2,11 +2,13 @@ package com.huashi.eftransfer.ai.modules.rag.controller;
 
 import com.huashi.eftransfer.ai.common.config.InternalApiProperties;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeIngestionService;
+import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeSyncDlqService;
 import com.huashi.eftransfer.ai.modules.rag.service.RagService;
 import com.huashi.eftransfer.shared.ai.RagAnswerResponse;
 import com.huashi.eftransfer.shared.ai.RagCitation;
 import com.huashi.eftransfer.shared.ai.RagContextChunk;
 import com.huashi.eftransfer.shared.ai.RagExplainRiskResponse;
+import com.huashi.eftransfer.shared.ai.RagKnowledgeSyncDlqReplayResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
 import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
@@ -45,6 +47,9 @@ class InternalRagControllerTest {
 
     @MockBean
     private KnowledgeIngestionService knowledgeIngestionService;
+
+    @MockBean
+    private KnowledgeSyncDlqService knowledgeSyncDlqService;
 
     @Test
     void shouldReturnRagAnswerPayload() throws Exception {
@@ -191,6 +196,25 @@ class InternalRagControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.jobId").value(7))
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+
+    @Test
+    void shouldReplayKnowledgeSyncDlq() throws Exception {
+        when(knowledgeSyncDlqService.replay(20)).thenReturn(new RagKnowledgeSyncDlqReplayResponse(20, 3, false));
+
+        mockMvc.perform(post("/internal/ai/rag/dlq/replay")
+                        .header("X-Internal-Token", "test-internal-token")
+                        .header("X-Trace-Id", "trace-rag-dlq")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "limit": 20
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requestedLimit").value(20))
+                .andExpect(jsonPath("$.data.replayedCount").value(3))
+                .andExpect(jsonPath("$.data.drained").value(false));
     }
 
     @Test

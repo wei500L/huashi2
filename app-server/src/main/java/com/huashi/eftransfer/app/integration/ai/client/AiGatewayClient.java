@@ -200,15 +200,20 @@ public class AiGatewayClient {
     }
 
     public AiOpsConfigApplyResponse applyConfig(AiOpsConfigPayload payload, String source, Long version) {
+        AiGatewayCallResult<AiOpsConfigApplyResponse> result = applyConfigResult(payload, source, version);
+        if (!result.success() || result.data() == null) {
+            throw new IllegalStateException(result.failureMessage());
+        }
+        return result.data();
+    }
+
+    public AiGatewayCallResult<AiOpsConfigApplyResponse> applyConfigResult(AiOpsConfigPayload payload, String source, Long version) {
         AiGatewayCallResult<AiOpsConfigApplyResponse> result = post(
                 "/internal/ai/config/apply",
                 new AiOpsConfigApplyRequest(payload, source, version),
                 CONFIG_APPLY_TYPE
         );
-        if (!result.success() || result.data() == null) {
-            throw new IllegalStateException(result.failureMessage());
-        }
-        return result.data();
+        return result;
     }
 
     public AiOpsConfigStageResponse stageConfig(AiOpsConfigPayload payload, String source, Long version) {
@@ -276,7 +281,14 @@ public class AiGatewayClient {
         } catch (AiGatewayRequestFailure ex) {
             log.warn("event=ai_gateway_call_failed endpoint={} attempts={} reason={} message={}",
                     uri, attempts.get(), ex.reason(), ex.getMessage());
-            return AiGatewayCallResult.failure(ex.reason(), ex.getMessage(), attempts.get(), elapsedMillis(startedAt), uri);
+            return AiGatewayCallResult.failure(
+                    ex.reason(),
+                    ex.getMessage(),
+                    ex.retryable(),
+                    attempts.get(),
+                    elapsedMillis(startedAt),
+                    uri
+            );
         }
     }
 

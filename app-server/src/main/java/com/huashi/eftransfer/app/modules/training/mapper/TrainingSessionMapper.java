@@ -4,7 +4,11 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.huashi.eftransfer.app.modules.training.entity.TrainingSessionEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface TrainingSessionMapper extends BaseMapper<TrainingSessionEntity> {
@@ -27,6 +31,19 @@ public interface TrainingSessionMapper extends BaseMapper<TrainingSessionEntity>
 
     @Update("""
             UPDATE training_session
+            SET last_saved_at = #{heartbeatAt},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{sessionId}
+              AND status = 'IN_PROGRESS'
+              AND deleted = FALSE
+            """)
+    int touchIfInProgress(
+            @Param("sessionId") Long sessionId,
+            @Param("heartbeatAt") LocalDateTime heartbeatAt
+    );
+
+    @Update("""
+            UPDATE training_session
             SET status = 'ABANDONED',
                 current_item_order = NULL,
                 last_saved_at = #{abandonedAt},
@@ -37,7 +54,60 @@ public interface TrainingSessionMapper extends BaseMapper<TrainingSessionEntity>
             """)
     int abandonIfInProgress(
             @Param("sessionId") Long sessionId,
-            @Param("abandonedAt") java.time.LocalDateTime abandonedAt
+            @Param("abandonedAt") LocalDateTime abandonedAt
+    );
+
+    @Select("""
+            SELECT id
+            FROM training_session
+            WHERE deleted = FALSE
+              AND status = 'IN_PROGRESS'
+              AND answered_items >= total_items
+              AND last_saved_at < #{cutoff}
+            ORDER BY last_saved_at ASC, id ASC
+            LIMIT #{limit}
+            """)
+    List<Long> selectTimedOutReadySessionIds(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("limit") int limit
+    );
+
+    @Select("""
+            SELECT id, plan_id, owner_user_id, mode, status, total_items, answered_items, current_item_order,
+                   started_at, completed_at, summary_snapshot_json, progress_snapshot_json, launch_context_json,
+                   last_saved_at, completion_hooks_status, completion_hooks_updated_at, completion_hooks_error,
+                   created_at, created_by, updated_at, updated_by, deleted
+            FROM training_session
+            WHERE id = #{sessionId}
+              AND deleted = FALSE
+            FOR UPDATE
+            """)
+    TrainingSessionEntity selectByIdForUpdate(@Param("sessionId") Long sessionId);
+
+    @Update("""
+            UPDATE training_session
+            SET status = 'ABANDONED',
+                current_item_order = NULL,
+                last_saved_at = #{abandonedAt},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id IN (
+                SELECT id
+                FROM (
+                    SELECT id
+                    FROM training_session
+                    WHERE deleted = FALSE
+                      AND status = 'IN_PROGRESS'
+                      AND answered_items < total_items
+                      AND last_saved_at < #{cutoff}
+                    ORDER BY last_saved_at ASC, id ASC
+                    LIMIT #{limit}
+                ) timed_out_sessions
+            )
+            """)
+    int batchAbandonTimedOutSessions(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("abandonedAt") LocalDateTime abandonedAt,
+            @Param("limit") int limit
     );
 
     @Update("""
@@ -58,6 +128,6 @@ public interface TrainingSessionMapper extends BaseMapper<TrainingSessionEntity>
             """)
     int claimCompletionHooks(
             @Param("sessionId") Long sessionId,
-            @Param("staleBefore") java.time.LocalDateTime staleBefore
+            @Param("staleBefore") LocalDateTime staleBefore
     );
 }

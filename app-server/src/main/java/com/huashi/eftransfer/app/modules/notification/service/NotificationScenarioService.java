@@ -17,6 +17,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -186,6 +187,69 @@ public class NotificationScenarioService {
                 .toList());
     }
 
+    public void notifyAiRuntimeSyncRetrying(Long targetVersion, String reason, OffsetDateTime nextAttemptAt) {
+        List<Long> adminIds = listAdminUserIds();
+        if (adminIds.isEmpty() || targetVersion == null) {
+            return;
+        }
+        String nextAttemptLabel = formatDateTime(nextAttemptAt);
+        notificationService.createBatch(adminIds.stream()
+                .map(adminId -> new NotificationCreateCommand(
+                        adminId,
+                        "AI_RUNTIME_SYNC_RETRYING",
+                        "WARNING",
+                        "AI 配置运行态同步待重试",
+                        "AI 配置版本 v" + targetVersion + " 尚未同步到 ai-gateway 运行态。"
+                                + (reason == null || reason.isBlank() ? "" : " 原因：" + reason)
+                                + (nextAttemptLabel == null ? "" : " 下次重试：" + nextAttemptLabel)
+                                + "。",
+                        "/admin/config-center",
+                        "查看配置中心",
+                        "{\"targetVersion\":" + targetVersion + "}"
+                ))
+                .toList());
+    }
+
+    public void notifyAiRuntimeSyncDlq(Long targetVersion, String reason) {
+        List<Long> adminIds = listAdminUserIds();
+        if (adminIds.isEmpty() || targetVersion == null) {
+            return;
+        }
+        notificationService.createBatch(adminIds.stream()
+                .map(adminId -> new NotificationCreateCommand(
+                        adminId,
+                        "AI_RUNTIME_SYNC_DLQ",
+                        "ERROR",
+                        "AI 配置运行态同步失败",
+                        "AI 配置版本 v" + targetVersion + " 已进入终态失败队列。"
+                                + (reason == null || reason.isBlank() ? "" : " 原因：" + reason)
+                                + "，需要人工重放。",
+                        "/admin/config-center",
+                        "查看配置中心",
+                        "{\"targetVersion\":" + targetVersion + "}"
+                ))
+                .toList());
+    }
+
+    public void notifyAiRuntimeSyncRecovered(Long targetVersion) {
+        List<Long> adminIds = listAdminUserIds();
+        if (adminIds.isEmpty() || targetVersion == null) {
+            return;
+        }
+        notificationService.createBatch(adminIds.stream()
+                .map(adminId -> new NotificationCreateCommand(
+                        adminId,
+                        "AI_RUNTIME_SYNC_RECOVERED",
+                        "SUCCESS",
+                        "AI 配置运行态同步已恢复",
+                        "AI 配置版本 v" + targetVersion + " 已同步到 ai-gateway 运行态。",
+                        "/admin/config-center",
+                        "查看配置中心",
+                        "{\"targetVersion\":" + targetVersion + "}"
+                ))
+                .toList());
+    }
+
     private List<Long> listAdminUserIds() {
         return List.copyOf(userRoleMapper.selectList(Wrappers.<UserRoleEntity>lambdaQuery()
                         .eq(UserRoleEntity::getRoleCode, "ADMIN")
@@ -206,5 +270,9 @@ public class NotificationScenarioService {
 
     private String formatDateTime(LocalDateTime value) {
         return value == null ? null : DATE_TIME_FORMATTER.format(value);
+    }
+
+    private String formatDateTime(OffsetDateTime value) {
+        return value == null ? null : DATE_TIME_FORMATTER.format(value.toLocalDateTime());
     }
 }

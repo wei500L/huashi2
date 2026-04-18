@@ -141,6 +141,45 @@ public class PlatformEventOutboxRepository {
         return findById(id);
     }
 
+    @Transactional
+    public PlatformEventOutboxRecord restoreDlqToPending(Long id) {
+        PlatformEventOutboxRecord dlqRecord = findDlqById(id);
+        if (dlqRecord == null) {
+            return null;
+        }
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        jdbcTemplate.update(
+                """
+                INSERT INTO platform_event_outbox (
+                    id, event_id, event_type, exchange_name, routing_key, payload_json, headers_json, trace_id,
+                    status, attempt_count, next_attempt_at, last_error, processing_started_at, published_at,
+                    created_at, created_by, updated_at, updated_by, deleted
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                dlqRecord.id(),
+                dlqRecord.eventId(),
+                dlqRecord.eventType(),
+                dlqRecord.exchangeName(),
+                dlqRecord.routingKey(),
+                dlqRecord.payloadJson(),
+                dlqRecord.headersJson(),
+                dlqRecord.traceId(),
+                PlatformEventOutboxStatus.PENDING.name(),
+                0,
+                timestamp(now),
+                null,
+                null,
+                null,
+                dlqRecord.createdAt() == null ? timestamp(now) : timestamp(dlqRecord.createdAt()),
+                0L,
+                timestamp(now),
+                0L,
+                Boolean.FALSE
+        );
+        jdbcTemplate.update("DELETE FROM platform_event_outbox_dlq WHERE outbox_id = ?", id);
+        return findById(id);
+    }
+
     public List<PlatformEventOutboxRecord> list(String status, int limit) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
@@ -172,6 +211,108 @@ public class PlatformEventOutboxRepository {
                 id
         );
         return records.isEmpty() ? null : records.getFirst();
+    }
+
+    public PlatformEventOutboxRecord findByEventId(String eventId) {
+        List<PlatformEventOutboxRecord> records = jdbcTemplate.query(
+                """
+                SELECT id, event_id, event_type, exchange_name, routing_key, payload_json, headers_json, trace_id,
+                       status, attempt_count, next_attempt_at, last_error, processing_started_at, published_at, created_at, updated_at
+                FROM platform_event_outbox
+                WHERE deleted = FALSE
+                  AND event_id = ?
+                LIMIT 1
+                """,
+                this::mapRecord,
+                eventId
+        );
+        return records.isEmpty() ? null : records.getFirst();
+    }
+
+    public PlatformEventOutboxRecord findDlqById(Long id) {
+        List<PlatformEventOutboxRecord> records = jdbcTemplate.query(
+                """
+                SELECT outbox_id, event_id, event_type, exchange_name, routing_key, payload_json, headers_json, trace_id,
+                       attempt_count, next_attempt_at, last_error, processing_started_at, published_at, created_at, updated_at
+                FROM platform_event_outbox_dlq
+                WHERE outbox_id = ?
+                LIMIT 1
+                """,
+                this::mapDlqRecord,
+                id
+        );
+        return records.isEmpty() ? null : records.getFirst();
+    }
+
+    public PlatformEventOutboxRecord findDlqByEventId(String eventId) {
+        List<PlatformEventOutboxRecord> records = jdbcTemplate.query(
+                """
+                SELECT outbox_id, event_id, event_type, exchange_name, routing_key, payload_json, headers_json, trace_id,
+                       attempt_count, next_attempt_at, last_error, processing_started_at, published_at, created_at, updated_at
+                FROM platform_event_outbox_dlq
+                WHERE event_id = ?
+                LIMIT 1
+                """,
+                this::mapDlqRecord,
+                eventId
+        );
+        return records.isEmpty() ? null : records.getFirst();
+    }
+
+    public List<PlatformEventOutboxRecord> listDlq(int limit) {
+        return jdbcTemplate.query(
+                """
+                SELECT outbox_id, event_id, event_type, exchange_name, routing_key, payload_json, headers_json, trace_id,
+                       attempt_count, next_attempt_at, last_error, processing_started_at, published_at, created_at, updated_at
+                FROM platform_event_outbox_dlq
+                ORDER BY updated_at DESC, outbox_id DESC
+                LIMIT ?
+                """,
+                this::mapDlqRecord,
+                limit
+        );
+    }
+
+    @Transactional
+    public void moveToDlq(Long id, int attemptCount, String lastError) {
+        PlatformEventOutboxRecord existing = findById(id);
+        if (existing == null) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        jdbcTemplate.update(
+                """
+                INSERT INTO platform_event_outbox_dlq (
+                    outbox_id, event_id, event_type, exchange_name, routing_key, payload_json, headers_json, trace_id,
+                    attempt_count, next_attempt_at, last_error, processing_started_at, published_at, created_at, updated_at, exhausted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    attempt_count = VALUES(attempt_count),
+                    next_attempt_at = VALUES(next_attempt_at),
+                    last_error = VALUES(last_error),
+                    processing_started_at = VALUES(processing_started_at),
+                    published_at = VALUES(published_at),
+                    updated_at = VALUES(updated_at),
+                    exhausted_at = VALUES(exhausted_at)
+                """,
+                existing.id(),
+                existing.eventId(),
+                existing.eventType(),
+                existing.exchangeName(),
+                existing.routingKey(),
+                existing.payloadJson(),
+                existing.headersJson(),
+                existing.traceId(),
+                attemptCount,
+                null,
+                truncate(lastError),
+                existing.processingStartedAt() == null ? null : timestamp(existing.processingStartedAt()),
+                existing.publishedAt() == null ? null : timestamp(existing.publishedAt()),
+                existing.createdAt() == null ? timestamp(now) : timestamp(existing.createdAt()),
+                timestamp(now),
+                timestamp(now)
+        );
+        jdbcTemplate.update("DELETE FROM platform_event_outbox WHERE id = ?", id);
     }
 
     public int countPending() {
@@ -243,6 +384,27 @@ public class PlatformEventOutboxRepository {
                 rs.getString("headers_json"),
                 rs.getString("trace_id"),
                 PlatformEventOutboxStatus.valueOf(rs.getString("status")),
+                rs.getInt("attempt_count"),
+                offsetDateTime(rs, "next_attempt_at"),
+                rs.getString("last_error"),
+                offsetDateTime(rs, "processing_started_at"),
+                offsetDateTime(rs, "published_at"),
+                offsetDateTime(rs, "created_at"),
+                offsetDateTime(rs, "updated_at")
+        );
+    }
+
+    private PlatformEventOutboxRecord mapDlqRecord(ResultSet rs, int rowNum) throws SQLException {
+        return new PlatformEventOutboxRecord(
+                rs.getLong("outbox_id"),
+                rs.getString("event_id"),
+                rs.getString("event_type"),
+                rs.getString("exchange_name"),
+                rs.getString("routing_key"),
+                rs.getString("payload_json"),
+                rs.getString("headers_json"),
+                rs.getString("trace_id"),
+                PlatformEventOutboxStatus.DLQ,
                 rs.getInt("attempt_count"),
                 offsetDateTime(rs, "next_attempt_at"),
                 rs.getString("last_error"),
