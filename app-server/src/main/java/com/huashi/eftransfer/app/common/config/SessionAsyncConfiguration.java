@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.common.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
@@ -9,6 +10,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 public class SessionAsyncConfiguration {
 
     @Bean("sessionCompletionTaskExecutor")
+    @ConditionalOnMissingBean(name = "sessionCompletionTaskExecutor")
     public TaskExecutor sessionCompletionTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("session-completion-");

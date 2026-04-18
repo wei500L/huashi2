@@ -13,7 +13,7 @@ public class ResilientAiExecutor {
     public <T> T execute(AiProviderRuntime runtime, String operation, Supplier<T> supplier) {
         Retry retry = runtime.retryRegistry().retry(runtime.providerName() + "-" + operation);
         CircuitBreaker circuitBreaker = runtime.circuitBreakerManager()
-                .circuitBreaker(runtime.providerName(), operation, runtime.resilienceConfig());
+                .circuitBreaker(runtime, operation);
 
         Supplier<T> guardedSupplier = Retry.decorateSupplier(
                 retry,

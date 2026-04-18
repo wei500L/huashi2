@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.ai.modules.rag.service;
 
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.GetResponse;
 import com.huashi.eftransfer.shared.ai.RagKnowledgeSyncDlqReplayResponse;
 import com.huashi.eftransfer.shared.event.PlatformEventTopics;
 import org.slf4j.Logger;
@@ -7,7 +9,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.support.DefaultMessagePropertiesConverter;
 import org.springframework.stereotype.Service;
+
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class KnowledgeSyncDlqService {
@@ -16,6 +21,7 @@ public class KnowledgeSyncDlqService {
     private static final int DEFAULT_REPLAY_LIMIT = 50;
 
     private final RabbitTemplate rabbitTemplate;
+    private final DefaultMessagePropertiesConverter messagePropertiesConverter = new DefaultMessagePropertiesConverter();
 
     public KnowledgeSyncDlqService(RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
@@ -27,16 +33,43 @@ public class KnowledgeSyncDlqService {
         boolean drained = false;
 
         for (int index = 0; index < requestedLimit; index++) {
-            Message message = rabbitTemplate.receive(PlatformEventTopics.AI_GATEWAY_KNOWLEDGE_SYNC_DLQ);
-            if (message == null) {
+            Boolean replayed = rabbitTemplate.execute(channel -> {
+                GetResponse response = channel.basicGet(PlatformEventTopics.AI_GATEWAY_KNOWLEDGE_SYNC_DLQ, false);
+                if (response == null) {
+                    return null;
+                }
+                Message message = new Message(
+                        response.getBody(),
+                        messagePropertiesConverter.toMessageProperties(
+                                response.getProps(),
+                                response.getEnvelope(),
+                                StandardCharsets.UTF_8.name()
+                        )
+                );
+                Message replayMessage = toReplayMessage(message);
+                long deliveryTag = response.getEnvelope().getDeliveryTag();
+                try {
+                    AMQP.BasicProperties basicProperties = messagePropertiesConverter.fromMessageProperties(
+                            replayMessage.getMessageProperties(),
+                            StandardCharsets.UTF_8.name()
+                    );
+                    channel.basicPublish(
+                            PlatformEventTopics.PLATFORM_EVENTS_EXCHANGE,
+                            PlatformEventTopics.LEXICAL_KNOWLEDGE_CHANGED_ROUTING_KEY,
+                            basicProperties,
+                            replayMessage.getBody()
+                    );
+                    channel.basicAck(deliveryTag, false);
+                    return Boolean.TRUE;
+                } catch (Exception ex) {
+                    channel.basicNack(deliveryTag, false, true);
+                    throw ex;
+                }
+            });
+            if (replayed == null) {
                 drained = true;
                 break;
             }
-            rabbitTemplate.send(
-                    PlatformEventTopics.PLATFORM_EVENTS_EXCHANGE,
-                    PlatformEventTopics.LEXICAL_KNOWLEDGE_CHANGED_ROUTING_KEY,
-                    toReplayMessage(message)
-            );
             replayedCount++;
         }
 

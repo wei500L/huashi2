@@ -33,9 +33,20 @@ class RagSchemaDimensionGuardTest {
         mockSchema(jdbcTemplate, 1024, 16, 128);
         when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(String.class))).thenReturn("vector(1024)");
 
-        RagSchemaDimensionGuard guard = new RagSchemaDimensionGuard(jdbcTemplate, 1024);
+        RagSchemaDimensionGuard guard = new RagSchemaDimensionGuard(jdbcTemplate);
 
         assertThatCode(() -> guard.verifyConfig(payload(1024))).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldAllowSchemaDimensionWithoutStaticVectorStoreDimensionGate() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        mockSchema(jdbcTemplate, 1536, 16, 128);
+        when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(String.class))).thenReturn("vector(1536)");
+
+        RagSchemaDimensionGuard guard = new RagSchemaDimensionGuard(jdbcTemplate);
+
+        assertThatCode(() -> guard.verifyConfig(payload(1536))).doesNotThrowAnyException();
     }
 
     @Test
@@ -44,7 +55,7 @@ class RagSchemaDimensionGuardTest {
         mockSchema(jdbcTemplate, 1024, 16, 128);
         when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(String.class))).thenReturn("vector(1536)");
 
-        RagSchemaDimensionGuard guard = new RagSchemaDimensionGuard(jdbcTemplate, 1024);
+        RagSchemaDimensionGuard guard = new RagSchemaDimensionGuard(jdbcTemplate);
 
         assertThatThrownBy(() -> guard.verifyConfig(payload(1024)))
                 .isInstanceOf(IllegalStateException.class)
@@ -57,7 +68,7 @@ class RagSchemaDimensionGuardTest {
         mockSchema(jdbcTemplate, 1024, 16, 128);
         when(jdbcTemplate.queryForObject(anyString(), org.mockito.ArgumentMatchers.eq(String.class))).thenReturn("vector(1024)");
 
-        RagSchemaDimensionGuard guard = new RagSchemaDimensionGuard(jdbcTemplate, 1024);
+        RagSchemaDimensionGuard guard = new RagSchemaDimensionGuard(jdbcTemplate);
 
         assertThatThrownBy(() -> guard.verifyConfig(payload(1536)))
                 .isInstanceOf(IllegalStateException.class)

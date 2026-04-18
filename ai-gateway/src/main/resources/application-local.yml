@@ -2,8 +2,9 @@ spring:
   config:
     activate:
       on-profile: local
-  flyway:
-    baseline-on-migrate: true
+  sql:
+    init:
+      mode: always
 
 management:
   tracing:

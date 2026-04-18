@@ -26,7 +26,7 @@ class AdminAuditLogControllerIntegrationTest extends AbstractWebIntegrationTest 
     void shouldPageAuditLogsWithAdminFilters() throws Exception {
         String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
         UserEntity admin = userMapper.selectByUsernameOrEmail("admin");
-        UserEntity teacher = userMapper.selectByUsernameOrEmail("teacher");
+        UserEntity teacher = userMapper.selectByUsernameOrEmail("teacher.zhang");
 
         insertAuditLog(admin.getId(), "admin_access_update", "user", "2", "/api/admin/users/2/access", "PUT", "SUCCESS", LocalDateTime.of(2026, 4, 15, 12, 0));
         insertAuditLog(teacher.getId(), "template_create", "diagnosis_template", "18", "/api/teacher/diagnosis-templates", "POST", "SUCCESS", LocalDateTime.of(2026, 4, 15, 10, 0));
@@ -42,7 +42,7 @@ class AdminAuditLogControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.records[0].actorUserId").value(teacher.getId()))
-                .andExpect(jsonPath("$.data.records[0].actorUsername").value("teacher"))
+                .andExpect(jsonPath("$.data.records[0].actorUsername").value("teacher.zhang"))
                 .andExpect(jsonPath("$.data.records[0].actionType").value("template_create"))
                 .andExpect(jsonPath("$.data.records[0].requestPath").value("/api/teacher/diagnosis-templates"));
     }

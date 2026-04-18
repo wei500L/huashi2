@@ -36,8 +36,8 @@ public class AppServerKnowledgeClient {
     ) {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         ApiResponse<LexicalKnowledgeExportPageResponse> response = bundle.appServerRestClient().get()
-                .headers(this::applyTraceHeader)
                 .uri(uriBuilder -> buildExportUri(uriBuilder, updatedSince, cursor, limit, sourceIds))
+                .headers(this::applyTraceHeader)
                 .retrieve()
                 .body(EXPORT_TYPE);
 

@@ -96,8 +96,8 @@ public class AiOpsConfigPayloadNormalizer {
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),
-                config.connectTimeout(),
-                config.readTimeout(),
+                normalizeTimeout(config.connectTimeout(), config.readTimeout()),
+                normalizeTimeout(config.readTimeout(), config.connectTimeout()),
                 config.temperature(),
                 config.maxTokens()
         );
@@ -112,8 +112,8 @@ public class AiOpsConfigPayloadNormalizer {
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),
-                config.connectTimeout(),
-                config.readTimeout(),
+                normalizeTimeout(config.connectTimeout(), config.readTimeout()),
+                normalizeTimeout(config.readTimeout(), config.connectTimeout()),
                 config.dimension()
         );
     }
@@ -127,13 +127,20 @@ public class AiOpsConfigPayloadNormalizer {
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),
-                config.connectTimeout(),
-                config.readTimeout()
+                normalizeTimeout(config.connectTimeout(), config.readTimeout()),
+                normalizeTimeout(config.readTimeout(), config.connectTimeout())
         );
     }
 
     private String defaultProtocol(String protocol, String defaultProtocol) {
         return StringUtils.hasText(protocol) ? protocol : defaultProtocol;
+    }
+
+    private String normalizeTimeout(String preferredTimeout, String fallbackTimeout) {
+        if (StringUtils.hasText(preferredTimeout)) {
+            return preferredTimeout;
+        }
+        return StringUtils.hasText(fallbackTimeout) ? fallbackTimeout : null;
     }
 
     private Map<String, AiOpsProviderDefinition> canonicalizeProviders(

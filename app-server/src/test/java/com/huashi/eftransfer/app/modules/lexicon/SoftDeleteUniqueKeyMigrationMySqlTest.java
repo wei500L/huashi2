@@ -1,12 +1,13 @@
 package com.huashi.eftransfer.app.modules.lexicon;
 
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -34,11 +35,7 @@ class SoftDeleteUniqueKeyMigrationMySqlTest {
         dataSource.setUsername(MYSQL.getUsername());
         dataSource.setPassword(MYSQL.getPassword());
 
-        Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
+        new ResourceDatabasePopulator(new ClassPathResource("schema.sql")).execute(dataSource);
 
         jdbcTemplate = new JdbcTemplate(dataSource);
     }
@@ -80,23 +77,24 @@ class SoftDeleteUniqueKeyMigrationMySqlTest {
                 Integer.class,
                 "noun"
         );
-        String activeIndex = jdbcTemplate.queryForObject("""
-                SELECT index_name
-                FROM information_schema.statistics
-                WHERE table_schema = DATABASE()
-                  AND table_name = 'lexical_tag'
-                  AND index_name = 'uk_lexical_tag_name_active'
-                """, String.class);
-        Integer legacyIndexCount = jdbcTemplate.queryForObject("""
+        Integer activeTagIndexColumnCount = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM information_schema.statistics
                 WHERE table_schema = DATABASE()
                   AND table_name = 'lexical_tag'
                   AND index_name = 'uk_lexical_tag_name'
+                  AND column_name = 'active_tag_name'
+                """, Integer.class);
+        Integer activeTagColumnCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'lexical_tag'
+                  AND column_name = 'active_tag_name'
                 """, Integer.class);
 
         assertThat(rowCount).isEqualTo(3);
-        assertThat(activeIndex).isEqualTo("uk_lexical_tag_name_active");
-        assertThat(legacyIndexCount).isZero();
+        assertThat(activeTagColumnCount).isEqualTo(1);
+        assertThat(activeTagIndexColumnCount).isEqualTo(1);
     }
 }

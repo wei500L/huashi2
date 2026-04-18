@@ -2,8 +2,9 @@ spring:
   config:
     activate:
       on-profile: prod
-  flyway:
-    baseline-on-migrate: false
+  sql:
+    init:
+      mode: never
 
 server:
   forward-headers-strategy: framework

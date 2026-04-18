@@ -693,6 +693,14 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
         }
     }
 
+    private void submitDiagnosisAnswer(String studentToken, long sessionId, long itemResultId, String body) throws Exception {
+        mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
+                        .with(bearer(studentToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
     private long createPublishedTemplate(String token, long tablePairId, long coinPairId, long actuallyPairId, String templateName) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/teacher/diagnosis-templates")
                         .with(bearer(token))

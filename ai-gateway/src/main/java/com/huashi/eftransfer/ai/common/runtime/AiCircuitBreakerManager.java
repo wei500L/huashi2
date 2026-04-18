@@ -22,14 +22,15 @@ public class AiCircuitBreakerManager {
         this.providerErrorSupport = providerErrorSupport;
     }
 
-    public CircuitBreaker circuitBreaker(String providerName, String operation, AiOpsResilienceConfig resilienceConfig) {
-        String key = providerName + "-" + operation;
-        CircuitBreakerSpec spec = CircuitBreakerSpec.from(resilienceConfig);
+    public CircuitBreaker circuitBreaker(AiProviderRuntime runtime, String operation) {
+        String key = runtime.providerName() + "-" + operation;
+        CircuitBreakerSpec spec = CircuitBreakerSpec.from(runtime.resilienceConfig());
         CachedCircuitBreaker cached = breakers.compute(key, (ignored, existing) -> {
-            if (existing != null && existing.spec().equals(spec)) {
+            if (existing != null && existing.runtime() == runtime && existing.spec().equals(spec)) {
                 return existing;
             }
             return new CachedCircuitBreaker(
+                    runtime,
                     spec,
                     CircuitBreaker.of(key, CircuitBreakerConfig.custom()
                             .failureRateThreshold(spec.failureRateThreshold())
@@ -44,6 +45,7 @@ public class AiCircuitBreakerManager {
     }
 
     private record CachedCircuitBreaker(
+            AiProviderRuntime runtime,
             CircuitBreakerSpec spec,
             CircuitBreaker circuitBreaker
     ) {

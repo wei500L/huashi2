@@ -43,7 +43,7 @@ class PlatformEventOutboxServiceTest {
         service = new PlatformEventOutboxService(
                 repository,
                 properties,
-                rabbitTemplate,
+                List.of(new RabbitPlatformEventOutboxRelayHandler(rabbitTemplate, properties)),
                 new ObjectMapper()
         );
     }

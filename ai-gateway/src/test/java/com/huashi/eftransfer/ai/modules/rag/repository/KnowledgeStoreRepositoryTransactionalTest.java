@@ -4,17 +4,18 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeChunkPayload;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeDocumentPayload;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -54,11 +55,7 @@ class KnowledgeStoreRepositoryTransactionalTest {
         driverManagerDataSource.setPassword(POSTGRES.getPassword());
         testDataSource = driverManagerDataSource;
 
-        Flyway.configure()
-                .dataSource(testDataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
+        new ResourceDatabasePopulator(new ClassPathResource("schema.sql")).execute(testDataSource);
 
         context = new AnnotationConfigApplicationContext();
         context.register(TestConfig.class);

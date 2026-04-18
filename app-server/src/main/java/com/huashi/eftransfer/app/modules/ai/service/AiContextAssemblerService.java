@@ -300,7 +300,7 @@ public class AiContextAssemblerService {
                     pair.englishWord(),
                     pair.frenchWord(),
                     lexicalPair == null ? pair.englishWord() + " / " + pair.frenchWord() : lexicalPair.getChineseGloss(),
-                    pair.lexicalPairType(),
+                    pair.lexicalPairType().name(),
                     pair.riskScore(),
                     pair.dominantErrorType() == null ? "FALSE_FRIEND_CONFUSION" : pair.dominantErrorType(),
                     "最新诊断中该词对风险最高，需要优先纠偏。"

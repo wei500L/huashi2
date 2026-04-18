@@ -34,6 +34,7 @@ import com.huashi.eftransfer.app.modules.training.vo.TrainingSuggestedSessionVO;
 import com.huashi.eftransfer.app.modules.training.vo.WrongBookItemVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.ContextSupportLevel;
+import com.huashi.eftransfer.shared.enums.LexicalPairType;
 import com.huashi.eftransfer.shared.enums.ReviewScheduleStatus;
 import com.huashi.eftransfer.shared.enums.RiskLevel;
 import com.huashi.eftransfer.shared.enums.TrainingPlanStatus;

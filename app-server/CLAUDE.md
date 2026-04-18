@@ -1,160 +1,79 @@
-[根目录](../CLAUDE.md) > **app-server (业务后端)**
+[根目录](../CLAUDE.md) > **app-server**
 
-# app-server -- 主业务服务
+# app-server
 
 ## 模块职责
 
-平台核心业务后端，基于 Spring Boot 4.0，提供用户认证授权、词汇管理、智能诊断、个性化训练、学情分析、AI 洞察调度和运维配置中心等全部业务 API。
+业务主后端，负责认证授权、词汇管理、诊断、训练、学情分析、AI 洞察编排、运维配置与内部知识导出。
 
-## 入口与启动
+## 启动与配置
 
-- **Main class**: `com.huashi.eftransfer.app.AppServerApplication`
-- **端口**: 8080 (默认)
-- **启动命令**: `./mvnw -pl app-server -am spring-boot:run`
-- **Profile**: `local` / `dev` / `prod`
+- Main class: `com.huashi.eftransfer.app.AppServerApplication`
+- 默认端口: `8080`
+- 启动命令: `./mvnw -pl app-server -am spring-boot:run`
+- Profile: `local` / `dev` / `prod`
+- 配置文件:
+  - `src/main/resources/application.yml`
+  - `src/main/resources/application-local.yml`
+  - `src/main/resources/application-dev.yml`
+  - `src/main/resources/application-prod.yml`
 
-## 对外接口
+## 关键依赖
 
-### 公开 API (`/api/...`)
+- Spring Boot 4.0.3
+- MyBatis-Plus 3.5.16
+- MySQL Connector/J
+- Redisson
+- JJWT
+- RabbitMQ
+- `shared-kernel`
 
-| 模块 | Controller | 路径前缀 | 说明 |
-|------|-----------|---------|------|
-| auth | `AuthController` | `/api/auth` | 登录、刷新、注销、获取当前用户 |
-| user | `AdminUserController` | `/api/admin/users` | 用户管理（Admin） |
-| health | `HealthController` | `/api/health` | 健康检查 |
-| lexicon | `LexicalPairController` | `/api/lexical-pairs` | 词对 CRUD、CSV 导入导出 |
-| lexicon | `LexicalListController` | `/api/lexical-lists` | 词表管理 |
-| diagnosis | `StudentDiagnosisTemplateController` | `/api/student/diagnosis-templates` | 学生查看已发布诊断模板 |
-| diagnosis | `TeacherDiagnosisTemplateController` | `/api/teacher/diagnosis-templates` | 教师诊断模板 CRUD |
-| diagnosis | `DiagnosisSessionController` | `/api/diagnosis/sessions` | 诊断 session 生命周期 |
-| training | `TrainingPlanController` | `/api/training/plans` | 训练计划推荐 |
-| training | `TrainingSessionController` | `/api/training/sessions` | 训练 session + 错题本 + 复习计划 |
-| analytics | `StudentAnalyticsController` | `/api/student/analytics` | 学生学情分析 |
-| analytics | `TeacherAnalyticsController` | `/api/teacher/analytics` | 教师班级分析 |
-| analytics | `TeacherInterventionController` | `/api/teacher/interventions` | 教师干预记录 |
-| ai | `AiInsightController` | `/api/ai` | AI 诊断解释、训练推荐 |
-| ai | `TeacherAiController` | `/api/teacher` | 教师干预建议 |
-| ai | `LexicalRagController` | `/api/ai/lexical-rag` | 词汇 RAG 查询 |
-| opsconfig | `AdminAiConfigController` | `/api/admin/ai-config` | AI 运维配置管理 |
+## 数据库说明
 
-### 内部 API (`/internal/...`, 需 `X-Internal-Token`)
+- 数据库: MySQL
+- 建表快照: `src/main/resources/schema.sql`
+- 测试快照: `src/test/resources/schema-h2.sql`
+- 最终态约束仍保留：
+  - 软删除唯一键约束
+  - 诊断 / 训练 session 单用户并发唯一键
+  - outbox DLQ 与相关索引
 
-| Controller | 路径 | 说明 |
-|-----------|------|------|
-| `InternalKnowledgeController` | `/internal/knowledge` | 词汇知识导出（供 ai-gateway 拉取） |
-| `InternalAiConfigController` | `/internal/ai-config` | 内部配置查询 |
+## 测试
 
-## 关键依赖与配置
+- Spring Boot Test + JUnit 5
+- 默认集成测试使用 H2，并在启动时执行 schema 快照
+- 关键 MySQL 约束使用 Testcontainers MySQL 校验
 
-| 依赖 | 版本 | 用途 |
-|------|------|------|
-| Spring Boot | 4.0.3 | Web + Security + Validation + Actuator + AMQP + Data Redis + JDBC + Flyway |
-| MyBatis-Plus | 3.5.16 | ORM + 分页 |
-| Redisson | 3.50.0 | Redis 客户端（token 存储） |
-| JJWT | 0.12.6 | JWT 签发与验证 |
-| Commons CSV | 1.11.0 | CSV 导入导出 |
-| MySQL Connector | runtime | MySQL 驱动 |
-| shared-kernel | 内部 | 共享枚举、DTO、事件 |
+## FAQ
 
-配置文件：
-- `src/main/resources/application-local.yml` -- 本地开发配置
-- `src/main/resources/application-dev.yml` -- 开发环境
-- `src/main/resources/application-prod.yml` -- 生产环境
-- `src/main/resources/logback-spring.xml` -- 日志配置
+- Q: 如何新增业务模块？
+  A: 在 `modules/` 下补齐 `entity / mapper / service / controller / dto / vo`，并同步补充接口与测试。
 
-## 数据模型
+- Q: 开发期如何修改数据库结构？
+  A:
+  1. 改 `src/main/resources/schema.sql`
+  2. `docker compose down -v` 或手动 `DROP DATABASE`
+  3. 重启服务，Spring 自动执行 schema 建表
 
-数据库：MySQL (utf8mb4)，Flyway 迁移脚本 V1-V9。
+- Q: 事件机制如何工作？
+  A: 应用内事件继续走 Spring 事件，总线事件继续走 RabbitMQ。
 
-### 核心实体
+## 目录提示
 
-| 模块 | 实体 | 表 |
-|------|------|------|
-| user | `UserEntity`, `UserRoleEntity`, `TeacherProfileEntity` | 用户、角色、教师档案 |
-| auth | (无独立实体, 使用 Redis) | JWT Token + Redis refresh/blacklist |
-| lexicon | `LexicalPairEntity`, `LexicalPairSenseEntity`, `LexicalPairExampleEntity` | 词对、词义、例句 |
-| lexicon | `LexicalTagEntity`, `LexicalPairTagRelEntity` | 标签 + 关联 |
-| lexicon | `LexicalListEntity`, `LexicalListItemEntity` | 词表 + 条目 |
-| diagnosis | `DiagnosisTemplateEntity`, `DiagnosisTemplateItemEntity` | 诊断模板 + 题目 |
-| diagnosis | `DiagnosisSessionEntity`, `DiagnosisItemResultEntity`, `DiagnosisSummaryEntity` | 诊断会话 + 结果 + 摘要 |
-| training | (多个实体) | 训练计划、训练会话、训练条目、错题本、复习计划 |
-| analytics | (聚合表) | 学生/班级分析快照 |
-| audit | `AuditLogEntity` | 审计日志 |
-| opsconfig | (配置表) | AI 运维配置 |
-
-### 数据库迁移
-
-| 版本 | 脚本 | 说明 |
-|------|------|------|
-| V1-V9 | `V1__init_base.sql` → `V9__training_session_resume_support.sql` | 基础 schema、认证、词汇、诊断、训练、分析、AI 配置 |
-| V10-V18 | `V10__add_medium_review_indexes.sql` → `V18__diagnosis_template_target_class.sql` | 检索索引、outbox、导入批次、模板草稿、测评收件人回补 |
-| V19-V29 | `V19__init_notification_schema.sql` → `V29__diagnosis_launch_context.sql` | 通知、效果快照、成就、学习目标、RAG 会话、session 生命周期 |
-| V30-V34 | `V30__normalize_soft_delete_unique_keys_lexical_and_import.sql` → `V34__normalize_soft_delete_unique_keys_class_membership.sql` | 软删除唯一键归一化拆分迁移 |
-| V35-V36 | `V35__admin_ai_config_history_and_probe.sql`、`V36__platform_event_outbox_dlq.sql` | AI 运维历史、outbox DLQ |
-
-## 测试与质量
-
-测试框架：Spring Boot Test + JUnit 5 + H2 内存数据库 + Spring Security Test + Testcontainers MySQL
-
-| 类别 | 测试类 | 数量 |
-|------|--------|------|
-| 基础设施 | `TestAuthTokenStoreConfiguration`, `MockMvcTestSupport`, `AbstractWebIntegrationTest` | 3 |
-| 安全 | `JwtTokenProviderTest`, `JwtAuthenticationFilterTest` | 2 |
-| Auth | `AuthControllerIntegrationTest` | 1 |
-| User | `AuthorizationAccessIntegrationTest` | 1 |
-| Health | `HealthControllerTest` | 1 |
-| Lexicon | `LexicalPairControllerIntegrationTest`, `LexicalPermissionAndListIntegrationTest`, `LexicalPairImportIntegrationTest` | 3 |
-| Diagnosis | `RuleBasedDiagnosisScoringPolicyTest`, `DiagnosisErrorClassificationTest`, `DiagnosisSessionFlowIntegrationTest` | 3 |
-| Training | `RuleBasedTrainingRecommendationEngineTest`, `TrainingSessionFlowIntegrationTest`, `TrainingReviewScheduleIntegrationTest` | 3 |
-| Analytics | `AnalyticsIntegrationTest` | 1 |
-| AI | `AiInsightIntegrationTest`, `LexicalRagQueryIntegrationTest`, `AiGatewayClientTest` | 3 |
-| OpsConfig | `AdminAiConfigControllerIntegrationTest` | 1 |
-| Internal | `InternalKnowledgeControllerIntegrationTest` | 1 |
-
-## 常见问题 (FAQ)
-
-- **Q: 如何新增业务模块？**
-  A: 在 `modules/` 下创建子包（entity、mapper、service、controller、dto、vo），新增 Flyway 迁移脚本。
-
-- **Q: 如何修改数据库结构？**
-  A: 新增 `V{N}__description.sql` 迁移脚本，不修改已发布脚本。
-
-- **Q: 事件机制如何工作？**
-  A: 应用内事件（如 `DiagnosisCompletedEvent`）使用 Spring ApplicationEvent；跨服务事件（如 `LexicalKnowledgeChangedEvent`）走 RabbitMQ。
-
-## 相关文件清单
-
-```
+```text
 app-server/
-  pom.xml                                                    # Maven 配置
+  pom.xml
   src/main/java/com/huashi/eftransfer/app/
-    AppServerApplication.java                                # Spring Boot 入口
-    common/
-      config/                                                # 配置类（JWT、Redis、MyBatis、AI Gateway Client）
-      security/                                              # JWT 鉴权（Provider、Filter、Principal、Token Store）
-      audit/                                                 # 审计日志
-      util/                                                  # 工具类
-    modules/
-      auth/     controller/ dto/ vo/ service/                # 认证授权
-      user/     controller/ entity/ mapper/ vo/ service/     # 用户管理
-      health/   controller/ dto/ service/                    # 健康检查
-      lexicon/  controller/ entity/ mapper/ dto/ vo/ service/ support/ # 词汇管理
-      diagnosis/ controller/ entity/ mapper/ dto/ vo/ service/ support/ event/ # 诊断
-      training/ controller/ entity/ mapper/ dto/ vo/ service/ # 训练
-      analytics/ controller/ entity/ mapper/ vo/ service/    # 学情分析
-      ai/       controller/ service/ entity/ mapper/         # AI 洞察
-      opsconfig/ controller/ service/ entity/                # 运维配置
-      internal/ controller/ service/                         # 内部 API
   src/main/resources/
-    application-{local,dev,prod}.yml                         # 环境配置
-    logback-spring.xml                                       # 日志
-    db/migration/V1-V36                                      # Flyway 迁移脚本
-  src/test/java/                                             # 44 个测试类
+    application.yml
+    application-{local,dev,prod}.yml
+    schema.sql
+  src/test/
 ```
 
-## 变更记录 (Changelog)
+## 变更记录
 
 | 时间 | 操作 | 说明 |
 |------|------|------|
-| 2026-03-22 00:35:46 | 初始创建 | 全量扫描生成 |
-| 2026-04-18 | 迁移安全加固 | 迁移链扩展到 V36，拆分软删除唯一键迁移并补 MySQL Testcontainers 校验 |
+| 2026-03-22 | 初始创建 | 全量扫描生成 |
+| 2026-04-18 | 数据库初始化调整 | 移除版本化迁移体系，改为单文件 `schema.sql` |

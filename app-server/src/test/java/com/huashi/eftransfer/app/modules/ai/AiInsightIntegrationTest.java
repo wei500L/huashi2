@@ -657,6 +657,7 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                 return AiGatewayCallResult.failure(
                         AiGatewayFailureReason.PROVIDER_UNAVAILABLE,
                         "stub structured provider unavailable",
+                        true,
                         1,
                         9L,
                         "/internal/ai/chat/structured"

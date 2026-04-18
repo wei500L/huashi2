@@ -7,9 +7,6 @@ spring:
     name: app-server
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
-  jackson:
-    serialization:
-      write-dates-as-timestamps: false
   servlet:
     multipart:
       max-file-size: ${APP_MULTIPART_MAX_FILE_SIZE:50MB}
@@ -42,10 +39,6 @@ spring:
     publisher-returns: true
     template:
       mandatory: true
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-
 management:
   endpoints:
     web:

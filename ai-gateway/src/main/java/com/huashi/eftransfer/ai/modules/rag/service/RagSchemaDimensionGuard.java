@@ -2,7 +2,6 @@ package com.huashi.eftransfer.ai.modules.rag.service;
 
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -34,14 +33,9 @@ public class RagSchemaDimensionGuard {
             """;
 
     private final JdbcTemplate jdbcTemplate;
-    private final int vectorStoreDimension;
 
-    public RagSchemaDimensionGuard(
-            JdbcTemplate jdbcTemplate,
-            @Value("${spring.ai.vectorstore.pgvector.dimensions:1024}") int vectorStoreDimension
-    ) {
+    public RagSchemaDimensionGuard(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-        this.vectorStoreDimension = vectorStoreDimension;
     }
 
     public void verifyConfig(AiOpsConfigPayload payload) {
@@ -55,12 +49,6 @@ public class RagSchemaDimensionGuard {
             throw new IllegalStateException(
                     "chunk_embedding.embedding is %d but rag_schema_metadata expects %d"
                             .formatted(schemaDimension, metadata.embeddingDimension())
-            );
-        }
-        if (vectorStoreDimension != metadata.embeddingDimension()) {
-            throw new IllegalStateException(
-                    "spring.ai.vectorstore.pgvector.dimensions is %d but rag_schema_metadata expects %d"
-                            .formatted(vectorStoreDimension, metadata.embeddingDimension())
             );
         }
 

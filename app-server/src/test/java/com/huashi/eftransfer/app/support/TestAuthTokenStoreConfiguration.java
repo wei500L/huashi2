@@ -8,6 +8,8 @@ import com.huashi.eftransfer.app.common.security.store.RefreshTokenSession;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.task.SyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -29,6 +31,12 @@ public class TestAuthTokenStoreConfiguration {
     @Primary
     public AuthLockoutStore authLockoutStore() {
         return new LocalAuthLockoutStore();
+    }
+
+    @Bean("sessionCompletionTaskExecutor")
+    @Primary
+    public TaskExecutor sessionCompletionTaskExecutor() {
+        return new SyncTaskExecutor();
     }
 
     static class InMemoryAuthTokenStore implements AuthTokenStore {
