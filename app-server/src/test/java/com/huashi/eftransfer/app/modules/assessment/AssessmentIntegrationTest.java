@@ -5,6 +5,9 @@ import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.mapper.TeachingClassMapper;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptEntity;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptMapper;
+import com.huashi.eftransfer.app.modules.assessment.service.AssessmentService;
+import com.huashi.eftransfer.app.modules.notification.entity.NotificationEntity;
+import com.huashi.eftransfer.app.modules.notification.mapper.NotificationMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +38,12 @@ class AssessmentIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private AssessmentAttemptMapper assessmentAttemptMapper;
+
+    @Autowired
+    private AssessmentService assessmentService;
+
+    @Autowired
+    private NotificationMapper notificationMapper;
 
     @Test
     void shouldAcceptAnyOneFillBlankAlternativeAndRejectMultipleResponses() throws Exception {
@@ -208,6 +217,54 @@ class AssessmentIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.summary.pendingAssessmentSubmissionCount").value(2))
                 .andExpect(jsonPath("$.data.recentAssessmentPublishes.length()").value(1))
                 .andExpect(jsonPath("$.data.recentAssessmentPublishes[0].publishId").value((int) activePublishId));
+    }
+
+    @Test
+    void shouldAutoSubmitExpiredAttemptsFromBackendBatchAndExposeHeartbeatStatus() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        long paperId = createPaper(teacherToken, "超时自动交卷测评", """
+                {
+                  "questionType": "SINGLE_CHOICE",
+                  "stemText": "选择正确答案",
+                  "promptText": "请选择一项",
+                  "options": [
+                    {"key": "A", "label": "正确答案"},
+                    {"key": "B", "label": "错误答案"}
+                  ],
+                  "correctAnswers": ["A"],
+                  "explanationText": "A 是正确答案",
+                  "score": 10
+                }
+                """);
+        long publishId = publishPaper(
+                teacherToken,
+                paperId,
+                LocalDateTime.now().minusMinutes(5),
+                LocalDateTime.now().plusHours(1)
+        );
+        long attemptId = startAttempt(studentToken, publishId);
+
+        AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectById(attemptId);
+        attempt.setExpiresAt(LocalDateTime.now().minusSeconds(5));
+        assessmentAttemptMapper.updateById(attempt);
+
+        assertThat(assessmentService.submitExpiredAttemptsBatch(10)).isEqualTo(1);
+
+        AssessmentAttemptEntity submittedAttempt = assessmentAttemptMapper.selectById(attemptId);
+        assertThat(submittedAttempt.getStatus()).isEqualTo("SUBMITTED");
+        assertThat(submittedAttempt.getSubmittedAt()).isNotNull();
+
+        mockMvc.perform(get("/api/student/assessments/attempts/{attemptId}/heartbeat", attemptId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data.submittedAt").isNotEmpty());
+
+        assertThat(notificationMapper.selectCount(Wrappers.<NotificationEntity>lambdaQuery()
+                .eq(NotificationEntity::getCategory, "ASSESSMENT_TIMEOUT_SUBMITTED")
+                .like(NotificationEntity::getPayloadJson, "\"attemptId\":" + attemptId))).isEqualTo(1);
     }
 
     private long createPaper(String teacherToken, String title, String questionJson) throws Exception {

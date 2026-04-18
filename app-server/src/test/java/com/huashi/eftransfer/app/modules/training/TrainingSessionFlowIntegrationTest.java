@@ -1,8 +1,14 @@
 package com.huashi.eftransfer.app.modules.training;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEvent;
-import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEventPublisher;
+import com.huashi.eftransfer.app.modules.achievement.entity.AchievementEntity;
+import com.huashi.eftransfer.app.modules.achievement.mapper.AchievementMapper;
+import com.huashi.eftransfer.app.modules.analytics.entity.LearningProfileSnapshotEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.LearningProfileSnapshotMapper;
+import com.huashi.eftransfer.app.modules.diagnosis.entity.DiagnosisSummaryEntity;
+import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSummaryMapper;
+import com.huashi.eftransfer.app.modules.notification.entity.NotificationEntity;
+import com.huashi.eftransfer.app.modules.notification.mapper.NotificationMapper;
 import com.huashi.eftransfer.app.modules.training.entity.TrainingItemResultEntity;
 import com.huashi.eftransfer.app.modules.training.mapper.ReviewScheduleMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.TrainingItemResultMapper;
@@ -12,16 +18,11 @@ import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +31,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Import(TrainingSessionFlowIntegrationTest.TrainingTestConfiguration.class)
 class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
@@ -44,6 +44,18 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private StudentProfileMapper studentProfileMapper;
+
+    @Autowired
+    private DiagnosisSummaryMapper diagnosisSummaryMapper;
+
+    @Autowired
+    private LearningProfileSnapshotMapper learningProfileSnapshotMapper;
+
+    @Autowired
+    private AchievementMapper achievementMapper;
+
+    @Autowired
+    private NotificationMapper notificationMapper;
 
     @Test
     void shouldGenerateRecommendedPlanRunTrainingAndPersistSummaryArtifacts() throws Exception {
@@ -156,6 +168,21 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
 
         long templateId = createDiagnosisTemplate(teacherToken, tablePairId, coinPairId, actuallyPairId);
         long diagnosisSessionId = createDiagnosisSessionAndComplete(studentToken, templateId);
+        DiagnosisSummaryEntity diagnosisSummary = diagnosisSummaryMapper.selectOne(Wrappers.<DiagnosisSummaryEntity>lambdaQuery()
+                .eq(DiagnosisSummaryEntity::getSessionId, diagnosisSessionId)
+                .last("LIMIT 1"));
+        assertThat(diagnosisSummary).isNotNull();
+        assertThat(learningProfileSnapshotMapper.selectCount(Wrappers.<LearningProfileSnapshotEntity>lambdaQuery()
+                .eq(LearningProfileSnapshotEntity::getLastDiagnosisSummaryId, diagnosisSummary.getId()))).isGreaterThanOrEqualTo(1);
+        AchievementEntity diagnosisFinisher = achievementMapper.selectOne(Wrappers.<AchievementEntity>lambdaQuery()
+                .eq(AchievementEntity::getOwnerUserId, diagnosisSummary.getOwnerUserId())
+                .eq(AchievementEntity::getAchievementCode, "DIAGNOSIS_FINISHER")
+                .last("LIMIT 1"));
+        assertThat(diagnosisFinisher).isNotNull();
+        assertThat(diagnosisFinisher.getUnlocked()).isTrue();
+        assertThat(notificationMapper.selectCount(Wrappers.<NotificationEntity>lambdaQuery()
+                .eq(NotificationEntity::getCategory, "DIAGNOSIS_COMPLETED")
+                .like(NotificationEntity::getPayloadJson, "\"summaryId\":" + diagnosisSummary.getId()))).isGreaterThanOrEqualTo(1);
 
         MvcResult planResult = mockMvc.perform(get("/api/training/plans/recommended")
                         .with(bearer(studentToken)))
@@ -547,29 +574,5 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
             }
         }
         throw new IllegalStateException("No wrong option found for training item " + itemResult.getId());
-    }
-
-    @TestConfiguration
-    static class TrainingTestConfiguration {
-
-        @Bean
-        @Primary
-        RecordingDiagnosisCompletedEventPublisher recordingDiagnosisCompletedEventPublisher() {
-            return new RecordingDiagnosisCompletedEventPublisher();
-        }
-    }
-
-    static class RecordingDiagnosisCompletedEventPublisher implements DiagnosisCompletedEventPublisher {
-
-        private final List<DiagnosisCompletedEvent> events = new ArrayList<>();
-
-        @Override
-        public void publish(DiagnosisCompletedEvent event) {
-            events.add(event);
-        }
-
-        public List<DiagnosisCompletedEvent> events() {
-            return events;
-        }
     }
 }

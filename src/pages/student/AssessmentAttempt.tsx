@@ -109,7 +109,19 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     queryFn: ({ signal }) => assessmentService.getStudentAttempt(attemptId, { signal }),
     enabled: Number.isFinite(attemptId),
     retry: false,
-    refetchInterval: (query) => (query.state.data?.status === 'IN_PROGRESS' ? 30000 : false),
+  });
+
+  const heartbeatQuery = useQuery({
+    queryKey: ['student-assessment-attempt-heartbeat', attemptId],
+    queryFn: ({ signal }) => assessmentService.getStudentAttemptHeartbeat(attemptId, { signal }),
+    enabled: Number.isFinite(attemptId) && !!detailQuery.data,
+    retry: false,
+    refetchInterval: (query) => {
+      if (detailQuery.data?.status !== 'IN_PROGRESS') {
+        return false;
+      }
+      return query.state.data?.status === 'SUBMITTED' ? false : 15000;
+    },
   });
 
   React.useEffect(() => {
@@ -142,6 +154,30 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       autoSaveTimerRef.current = null;
     }
   }, [detailQuery.data]);
+
+  React.useEffect(() => {
+    if (!heartbeatQuery.data) {
+      return;
+    }
+    setServerOffsetMs(new Date(heartbeatQuery.data.serverTime).getTime() - Date.now());
+    setAnsweredCount(heartbeatQuery.data.answeredCount);
+    setLastSavedAt(heartbeatQuery.data.lastSavedAt || null);
+    queryClient.setQueryData<AssessmentAttemptDetailVO | undefined>(
+      ['student-assessment-attempt', attemptId],
+      (current) =>
+        current
+          ? {
+              ...current,
+              status: heartbeatQuery.data.status,
+              answeredCount: heartbeatQuery.data.answeredCount,
+              expiresAt: heartbeatQuery.data.expiresAt,
+              submittedAt: heartbeatQuery.data.submittedAt || null,
+              lastSavedAt: heartbeatQuery.data.lastSavedAt || null,
+              serverTime: heartbeatQuery.data.serverTime,
+            }
+          : current
+    );
+  }, [attemptId, heartbeatQuery.data, queryClient]);
 
   React.useEffect(() => {
     const timer = window.setInterval(() => setClientNow(Date.now()), 1000);
@@ -184,9 +220,27 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   );
 
   const resolveSubmittedAttempt = React.useCallback(async () => {
-    const refreshed = await detailQuery.refetch();
-    return refreshed.data?.status === 'SUBMITTED' ? refreshed.data : null;
-  }, [detailQuery]);
+    const refreshed = await assessmentService.getStudentAttemptHeartbeat(attemptId);
+    if (refreshed.status !== 'SUBMITTED') {
+      return null;
+    }
+    queryClient.setQueryData<AssessmentAttemptDetailVO | undefined>(
+      ['student-assessment-attempt', attemptId],
+      (current) =>
+        current
+          ? {
+              ...current,
+              status: refreshed.status,
+              answeredCount: refreshed.answeredCount,
+              expiresAt: refreshed.expiresAt,
+              submittedAt: refreshed.submittedAt || null,
+              lastSavedAt: refreshed.lastSavedAt || null,
+              serverTime: refreshed.serverTime,
+            }
+          : current
+    );
+    return refreshed;
+  }, [attemptId, queryClient]);
 
   const persistResponses = React.useCallback(
     async (
@@ -305,6 +359,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
         await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
         await queryClient.invalidateQueries({ queryKey: ['student-assessment-attempt', attemptId] });
+        await queryClient.invalidateQueries({ queryKey: ['student-assessment-attempt-heartbeat', attemptId] });
         navigateToResult(result.attemptId);
       } catch (error) {
         const submittedAttempt = normalizeApiError(error).status === 409 ? await resolveSubmittedAttempt() : null;
@@ -320,7 +375,9 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         setSubmitErrorMessage(
           getApiErrorMessage(
             error,
-            reason === 'timeout' ? '自动交卷失败，请点击“重新提交”确认最终状态。' : '交卷失败，请点击“重新提交”确认最终状态。'
+            reason === 'timeout'
+              ? '自动交卷请求失败，系统仍会继续确认最终状态；如未自动跳转，可点击“重新提交”。'
+              : '交卷失败，请点击“重新提交”确认最终状态。'
           )
         );
       }
@@ -612,7 +669,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             )}
             {remainingMs !== null && remainingMs <= 0 && (
               <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/10 px-4 py-4 text-sm text-rose-600 dark:text-rose-300">
-                测评已到时限。{submitErrorMessage ? '自动交卷未确认，请点击“重新提交”完成最终交卷。' : '系统正在自动交卷。'}
+                测评已到时限。{submitErrorMessage ? '自动交卷请求已失败，后台仍会继续补交；如未自动跳转，可点击“重新提交”。' : '系统正在自动交卷。'}
               </div>
             )}
             {answeredCountFromLocal === detail.questionCount && detail.questionCount > 0 && canEdit && (

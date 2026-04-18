@@ -387,15 +387,19 @@ const DiagnosisPage: React.FC = () => {
     }
     runtime.resetFeedback();
     setLoadInfoMessage(null);
-    if (pendingNextItemId !== currentItem.itemResultId) {
-      setPendingNextItemId(null);
-      setSubmitInfoMessage(null);
-    }
     if (answerRequestRef.current?.itemResultId !== currentItem.itemResultId) {
       answerRequestRef.current = null;
     }
     setSubmitErrorMessage(null);
-  }, [currentItem?.itemResultId, pendingNextItemId, runtime.resetFeedback]);
+  }, [currentItem?.itemResultId, runtime.resetFeedback]);
+
+  React.useEffect(() => {
+    if (!currentItem || pendingNextItemId === currentItem.itemResultId) {
+      return;
+    }
+    setPendingNextItemId(null);
+    setSubmitInfoMessage(null);
+  }, [currentItem?.itemResultId, pendingNextItemId]);
 
   React.useEffect(() => {
     if (!pendingNextItemId || !nextItemQuery.isFetching || nextItemQuery.error) {
@@ -484,6 +488,9 @@ const DiagnosisPage: React.FC = () => {
     return (
       <div className="space-y-8">
         <PageHeader title={t('diagnosis.selectTitle')} subtitle={t('diagnosis.selectSubtitle')} />
+        <SessionFeedbackBanners
+          submitErrorMessage={createSessionMutation.error ? getApiErrorMessage(createSessionMutation.error) : null}
+        />
         <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
           <div className="max-w-3xl">
             <div className="inline-flex rounded-3xl border border-primary/20 bg-primary/10 p-4">
@@ -501,12 +508,6 @@ const DiagnosisPage: React.FC = () => {
         {templatesQuery.error && (
           <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
             {getApiErrorMessage(templatesQuery.error)}
-          </div>
-        )}
-
-        {createSessionMutation.error && (
-          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            {getApiErrorMessage(createSessionMutation.error)}
           </div>
         )}
 

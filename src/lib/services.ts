@@ -93,6 +93,7 @@ import type {
   AccountActionLinkVO,
   AccountActionPreviewVO,
   AssessmentAttemptDetailVO,
+  AssessmentAttemptHeartbeatVO,
   AssessmentAttemptProgressVO,
   AssessmentAttemptResultVO,
   AssessmentAttemptStartVO,
@@ -277,6 +278,8 @@ export const assessmentService = {
     apiPost<AssessmentAttemptStartVO>(`/student/assessments/publishes/${publishId}/start`),
   getStudentAttempt: (attemptId: number, options?: RequestOptions) =>
     apiGet<AssessmentAttemptDetailVO>(`/student/assessments/attempts/${attemptId}`, options),
+  getStudentAttemptHeartbeat: (attemptId: number, options?: RequestOptions) =>
+    apiGet<AssessmentAttemptHeartbeatVO>(`/student/assessments/attempts/${attemptId}/heartbeat`, options),
   saveStudentResponses: (attemptId: number, payload: SaveAssessmentResponsesRequest) =>
     apiPost<AssessmentAttemptProgressVO>(`/student/assessments/attempts/${attemptId}/responses`, payload),
   saveStudentResponsesKeepalive: (attemptId: number, payload: SaveAssessmentResponsesRequest) =>

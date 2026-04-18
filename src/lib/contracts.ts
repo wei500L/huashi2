@@ -2161,6 +2161,16 @@ export interface AssessmentAttemptDetailVO {
   questions: AssessmentAttemptQuestionVO[];
 }
 
+export interface AssessmentAttemptHeartbeatVO {
+  attemptId: number;
+  status: AssessmentAttemptStatus;
+  answeredCount: number;
+  expiresAt: string;
+  submittedAt?: string | null;
+  lastSavedAt?: string | null;
+  serverTime: string;
+}
+
 export interface AssessmentAttemptProgressVO {
   attemptId: number;
   status: AssessmentAttemptStatus;

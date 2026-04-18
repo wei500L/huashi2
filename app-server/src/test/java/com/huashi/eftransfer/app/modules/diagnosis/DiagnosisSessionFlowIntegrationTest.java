@@ -3,40 +3,43 @@ package com.huashi.eftransfer.app.modules.diagnosis;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.entity.AuditLogEntity;
 import com.huashi.eftransfer.app.common.audit.mapper.AuditLogMapper;
-import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEvent;
-import com.huashi.eftransfer.app.modules.diagnosis.event.DiagnosisCompletedEventPublisher;
+import com.huashi.eftransfer.app.modules.achievement.entity.AchievementEntity;
+import com.huashi.eftransfer.app.modules.achievement.mapper.AchievementMapper;
+import com.huashi.eftransfer.app.modules.analytics.entity.LearningProfileSnapshotEntity;
+import com.huashi.eftransfer.app.modules.analytics.mapper.LearningProfileSnapshotMapper;
 import com.huashi.eftransfer.app.modules.diagnosis.mapper.DiagnosisSessionMapper;
+import com.huashi.eftransfer.app.modules.notification.entity.NotificationEntity;
+import com.huashi.eftransfer.app.modules.notification.mapper.NotificationMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Import(DiagnosisSessionFlowIntegrationTest.DiagnosisTestConfiguration.class)
 class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
-
-    @Autowired
-    private RecordingDiagnosisCompletedEventPublisher recordingDiagnosisCompletedEventPublisher;
 
     @Autowired
     private AuditLogMapper auditLogMapper;
 
     @Autowired
     private DiagnosisSessionMapper diagnosisSessionMapper;
+
+    @Autowired
+    private LearningProfileSnapshotMapper learningProfileSnapshotMapper;
+
+    @Autowired
+    private AchievementMapper achievementMapper;
+
+    @Autowired
+    private NotificationMapper notificationMapper;
 
     @Test
     void shouldRunDiagnosisSessionWorkflowAndPersistSummary() throws Exception {
@@ -353,7 +356,7 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.completed").value(true));
 
-        mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/result", sessionId)
+        MvcResult diagnosisResult = mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/result", sessionId)
                         .with(bearer(studentToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.metrics.positiveTransferScore").isNumber())
@@ -375,7 +378,10 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.chartPayload.responseTimeline[0].reactionTime").isNumber())
                 .andExpect(jsonPath("$.data.chartPayload.responseTimeline[0].hesitationTimeMs").doesNotExist())
                 .andExpect(jsonPath("$.data.chartPayload.topRiskPairs.length()").value(2))
-                .andExpect(jsonPath("$.data.items.length()").value(3));
+                .andExpect(jsonPath("$.data.items.length()").value(3))
+                .andReturn();
+        long summaryId = readJson(diagnosisResult).path("data").path("summaryId").asLong();
+        long ownerUserId = diagnosisSessionMapper.selectById(sessionId).getOwnerUserId();
 
         mockMvc.perform(get("/api/diagnosis/sessions")
                         .with(bearer(studentToken))
@@ -395,11 +401,17 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sessionId").value((int) sessionId));
 
-        assertThat(recordingDiagnosisCompletedEventPublisher.events()).hasSize(1);
-        DiagnosisCompletedEvent event = recordingDiagnosisCompletedEventPublisher.events().getFirst();
-        assertThat(event.sessionId()).isEqualTo(sessionId);
-        assertThat(event.summaryId()).isNotNull();
-        assertThat(event.highRiskLexicalPairs()).hasSize(2);
+        assertThat(learningProfileSnapshotMapper.selectCount(Wrappers.<LearningProfileSnapshotEntity>lambdaQuery()
+                .eq(LearningProfileSnapshotEntity::getLastDiagnosisSummaryId, summaryId))).isGreaterThanOrEqualTo(1);
+        AchievementEntity diagnosisFinisher = achievementMapper.selectOne(Wrappers.<AchievementEntity>lambdaQuery()
+                .eq(AchievementEntity::getOwnerUserId, ownerUserId)
+                .eq(AchievementEntity::getAchievementCode, "DIAGNOSIS_FINISHER")
+                .last("LIMIT 1"));
+        assertThat(diagnosisFinisher).isNotNull();
+        assertThat(diagnosisFinisher.getUnlocked()).isTrue();
+        assertThat(notificationMapper.selectCount(Wrappers.<NotificationEntity>lambdaQuery()
+                .eq(NotificationEntity::getCategory, "DIAGNOSIS_COMPLETED")
+                .like(NotificationEntity::getPayloadJson, "\"summaryId\":" + summaryId))).isGreaterThanOrEqualTo(1);
 
         long auditCount = auditLogMapper.selectCount(Wrappers.<AuditLogEntity>lambdaQuery()
                 .in(AuditLogEntity::getActionType, List.of("template_create", "create_session", "save_progress", "submit_answer", "complete_session")));
@@ -594,29 +606,5 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         return readJson(result).path("data").asLong();
-    }
-
-    @TestConfiguration
-    static class DiagnosisTestConfiguration {
-
-        @Bean
-        @Primary
-        RecordingDiagnosisCompletedEventPublisher recordingDiagnosisCompletedEventPublisher() {
-            return new RecordingDiagnosisCompletedEventPublisher();
-        }
-    }
-
-    static class RecordingDiagnosisCompletedEventPublisher implements DiagnosisCompletedEventPublisher {
-
-        private final List<DiagnosisCompletedEvent> events = new ArrayList<>();
-
-        @Override
-        public void publish(DiagnosisCompletedEvent event) {
-            events.add(event);
-        }
-
-        public List<DiagnosisCompletedEvent> events() {
-            return events;
-        }
     }
 }

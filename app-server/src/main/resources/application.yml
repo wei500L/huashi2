@@ -94,6 +94,11 @@ app:
   analytics:
     compensation:
       enabled: ${APP_ANALYTICS_COMPENSATION_ENABLED:true}
+  assessment:
+    timeout:
+      enabled: ${APP_ASSESSMENT_TIMEOUT_ENABLED:true}
+      poll-interval: ${APP_ASSESSMENT_TIMEOUT_POLL_INTERVAL:PT30S}
+      batch-size: ${APP_ASSESSMENT_TIMEOUT_BATCH_SIZE:200}
   notification:
     health-monitor:
       enabled: ${APP_NOTIFICATION_HEALTH_MONITOR_ENABLED:true}

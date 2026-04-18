@@ -119,7 +119,8 @@ public class NotificationScenarioService {
     public void notifyAssessmentSubmitted(
             AssessmentAttemptEntity attempt,
             AssessmentPublishEntity publish,
-            TeachingClassEntity teachingClass
+            TeachingClassEntity teachingClass,
+            boolean timeoutSubmitted
     ) {
         if (attempt == null || publish == null || teachingClass == null || teachingClass.getTeacherUserId() == null) {
             return;
@@ -130,14 +131,17 @@ public class NotificationScenarioService {
         }
         notificationService.create(new NotificationCreateCommand(
                 teachingClass.getTeacherUserId(),
-                "ASSESSMENT_SUBMITTED",
+                timeoutSubmitted ? "ASSESSMENT_TIMEOUT_SUBMITTED" : "ASSESSMENT_SUBMITTED",
                 "INFO",
-                "学生已提交课堂测评",
-                student.getDisplayName() + " 已提交《" + publish.getPaperTitleSnapshot() + "》，可查看作答结果。",
+                timeoutSubmitted ? "学生测评已超时自动交卷" : "学生已提交课堂测评",
+                timeoutSubmitted
+                        ? student.getDisplayName() + " 的《" + publish.getPaperTitleSnapshot() + "》已在截止后由系统自动交卷，可查看作答结果。"
+                        : student.getDisplayName() + " 已提交《" + publish.getPaperTitleSnapshot() + "》，可查看作答结果。",
                 "/teacher/assessments/attempts/" + attempt.getId() + "/result",
                 "查看结果",
                 "{\"attemptId\":" + attempt.getId() + ",\"publishId\":" + publish.getId()
-                        + ",\"studentUserId\":" + attempt.getStudentUserId() + "}"
+                        + ",\"studentUserId\":" + attempt.getStudentUserId()
+                        + ",\"timeoutSubmitted\":" + timeoutSubmitted + "}"
         ));
     }
 

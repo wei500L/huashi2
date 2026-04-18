@@ -437,15 +437,19 @@ const TrainingPage: React.FC = () => {
     }
     runtime.resetFeedback();
     setLoadInfoMessage(null);
-    if (pendingNextItemId !== currentItem.itemResultId) {
-      setPendingNextItemId(null);
-      setSubmitInfoMessage(null);
-    }
     if (answerRequestRef.current?.itemResultId !== currentItem.itemResultId) {
       answerRequestRef.current = null;
     }
     setSubmitErrorMessage(null);
-  }, [currentItem?.itemResultId, pendingNextItemId, runtime.resetFeedback]);
+  }, [currentItem?.itemResultId, runtime.resetFeedback]);
+
+  React.useEffect(() => {
+    if (!currentItem || pendingNextItemId === currentItem.itemResultId) {
+      return;
+    }
+    setPendingNextItemId(null);
+    setSubmitInfoMessage(null);
+  }, [currentItem?.itemResultId, pendingNextItemId]);
 
   React.useEffect(() => {
     if (!pendingNextItemId || !nextItemQuery.isFetching || nextItemQuery.error) {
@@ -803,6 +807,9 @@ const TrainingPage: React.FC = () => {
   return (
     <div className="space-y-8">
       <PageHeader title={t('training.homeTitle')} subtitle={t('training.homeSubtitle')} />
+      <SessionFeedbackBanners
+        submitErrorMessage={startMutation.error ? getApiErrorMessage(startMutation.error) : null}
+      />
 
       {historyQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 px-6 py-4 text-sm text-rose-500">
@@ -817,12 +824,6 @@ const TrainingPage: React.FC = () => {
       {recommendedPlanQuery.error && planError?.status !== 409 && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
           {getApiErrorMessage(recommendedPlanQuery.error)}
-        </div>
-      )}
-
-      {startMutation.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {getApiErrorMessage(startMutation.error)}
         </div>
       )}
 

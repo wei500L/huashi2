@@ -42,6 +42,7 @@ vi.mock('@/components/common', () => ({
 vi.mock('@/lib/services', () => ({
   assessmentService: {
     getStudentAttempt: vi.fn(),
+    getStudentAttemptHeartbeat: vi.fn(),
     saveStudentResponses: vi.fn(),
     saveStudentResponsesKeepalive: vi.fn(),
     submitStudentAttempt: vi.fn(),
@@ -129,6 +130,15 @@ describe('AssessmentAttempt', () => {
     mockedUseBeforeUnload.mockClear();
     window.localStorage.clear();
     vi.mocked(assessmentService.getStudentAttempt).mockResolvedValue(createAttemptDetail());
+    vi.mocked(assessmentService.getStudentAttemptHeartbeat).mockResolvedValue({
+      attemptId: 42,
+      status: 'IN_PROGRESS',
+      answeredCount: 0,
+      expiresAt: '2099-04-06T11:00:00',
+      submittedAt: null,
+      lastSavedAt: null,
+      serverTime: '2099-04-06T10:10:00',
+    });
     vi.mocked(assessmentService.saveStudentResponses).mockResolvedValue({
       attemptId: 42,
       status: 'IN_PROGRESS',

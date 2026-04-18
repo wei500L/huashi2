@@ -27,6 +27,7 @@ import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentQuestionMap
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentJsonCodec;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentOptionPayload;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptDetailVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptHeartbeatVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgressVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptQuestionVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultQuestionVO;
@@ -267,6 +268,7 @@ public class AssessmentService {
                 .toList();
     }
 
+    @Transactional
     public PageResult<StudentAssessmentHistorySummaryVO> pageStudentHistory(AssessmentHistoryPageQuery query) {
         PageQuery pageQuery = query.toPageQuery();
         Long studentUserId = currentUserId();
@@ -296,7 +298,11 @@ public class AssessmentService {
                     if (publish == null) {
                         return null;
                     }
-                    AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(attempt, publish, now);
+                    AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(
+                            attempt.getId(),
+                            new AttemptBundle(attempt, publish, classMap.get(publish.getTeachingClassId())),
+                            now
+                    );
                     if (query.status() != null && !query.status().isBlank()
                             && !query.status().equalsIgnoreCase(effectiveAttempt.getStatus())) {
                         return null;
@@ -393,10 +399,11 @@ public class AssessmentService {
         return new AssessmentAttemptStartVO(attempt.getId(), publishId, AssessmentAttemptStatus.fromCode(attempt.getStatus()), false);
     }
 
+    @Transactional
     public AssessmentAttemptDetailVO getAttemptDetail(Long attemptId) {
         AttemptBundle bundle = requireAccessibleAttempt(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
         List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
 
         return new AssessmentAttemptDetailVO(
@@ -422,10 +429,26 @@ public class AssessmentService {
     }
 
     @Transactional
-    public AssessmentAttemptProgressVO saveResponses(Long attemptId, SaveAssessmentResponsesRequest request) {
+    public AssessmentAttemptHeartbeatVO getAttemptHeartbeat(Long attemptId) {
         AttemptBundle bundle = requireAccessibleAttempt(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
+        return new AssessmentAttemptHeartbeatVO(
+                attempt.getId(),
+                AssessmentAttemptStatus.fromCode(attempt.getStatus()),
+                attempt.getAnsweredCount(),
+                attempt.getExpiresAt(),
+                attempt.getSubmittedAt(),
+                attempt.getLastSavedAt(),
+                now
+        );
+    }
+
+    @Transactional
+    public AssessmentAttemptProgressVO saveResponses(Long attemptId, SaveAssessmentResponsesRequest request) {
+        AttemptBundle bundle = requireAccessibleAttemptForUpdate(attemptId);
+        LocalDateTime now = LocalDateTime.now();
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt has already been submitted", 409);
         }
@@ -451,27 +474,36 @@ public class AssessmentService {
         }
 
         recomputeAttemptProgress(attempt, answers, now);
-        assessmentAttemptMapper.updateById(attempt);
+        if (assessmentAttemptMapper.updateProgressIfInProgress(attempt) == 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt has already been submitted", 409);
+        }
         return new AssessmentAttemptProgressVO(attempt.getId(), AssessmentAttemptStatus.fromCode(attempt.getStatus()), attempt.getAnsweredCount(), attempt.getLastSavedAt());
     }
 
     @Transactional
     public AssessmentAttemptSubmitVO submitAttempt(Long attemptId) {
-        AttemptBundle bundle = requireAccessibleAttempt(attemptId);
+        AttemptBundle bundle = requireAccessibleAttemptForUpdate(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             return new AssessmentAttemptSubmitVO(attempt.getId(), AssessmentAttemptStatus.fromCode(attempt.getStatus()), attempt.getSubmittedAt());
         }
-        AssessmentAttemptEntity submitted = submitAttemptInternal(attempt, now);
-        notificationScenarioService.notifyAssessmentSubmitted(submitted, bundle.publish(), bundle.teachingClass());
-        return new AssessmentAttemptSubmitVO(submitted.getId(), AssessmentAttemptStatus.fromCode(submitted.getStatus()), submitted.getSubmittedAt());
+        AttemptSubmissionOutcome submission = submitAttemptInternal(attempt, now);
+        if (submission.transitioned()) {
+            notificationScenarioService.notifyAssessmentSubmitted(submission.attempt(), bundle.publish(), bundle.teachingClass(), false);
+        }
+        return new AssessmentAttemptSubmitVO(
+                submission.attempt().getId(),
+                AssessmentAttemptStatus.fromCode(submission.attempt().getStatus()),
+                submission.attempt().getSubmittedAt()
+        );
     }
 
+    @Transactional
     public AssessmentAttemptResultVO getAttemptResult(Long attemptId) {
         AttemptBundle bundle = requireAccessibleAttempt(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
         if (!AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(attempt.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt is still in progress", 409);
         }
@@ -499,6 +531,7 @@ public class AssessmentService {
         );
     }
 
+    @Transactional
     public AssessmentPublishDetailVO getPublishDetail(Long publishId) {
         AssessmentPublishEntity publish = requireAccessiblePublishForTeacher(publishId);
         LocalDateTime now = LocalDateTime.now();
@@ -518,7 +551,11 @@ public class AssessmentService {
             AssessmentAttemptEntity attempt = attemptByStudentId.get(recipient.getStudentUserId());
             AssessmentAttemptEntity effectiveAttempt = attempt == null
                     ? null
-                    : finalizeExpiredAttemptIfNecessary(attempt, publish, now);
+                    : finalizeExpiredAttemptIfNecessary(
+                            attempt.getId(),
+                            new AttemptBundle(attempt, publish, teachingClass),
+                            now
+                    );
             String status = effectiveAttempt == null ? "NOT_STARTED" : effectiveAttempt.getStatus();
             if (AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(status)) {
                 submittedCount++;
@@ -573,10 +610,11 @@ public class AssessmentService {
         );
     }
 
+    @Transactional
     public TeacherAssessmentAttemptResultVO getTeacherAttemptResult(Long attemptId) {
         AttemptBundle bundle = requireAccessibleAttemptForTeacher(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(bundle.attempt(), bundle.publish(), now);
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
         if (!AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(attempt.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt is still in progress", 409);
         }
@@ -944,7 +982,26 @@ public class AssessmentService {
         attempt.setLastSavedAt(now);
     }
 
-    private AssessmentAttemptEntity submitAttemptInternal(AssessmentAttemptEntity attempt, LocalDateTime now) {
+    @Transactional
+    public int submitExpiredAttemptsBatch(int batchSize) {
+        if (batchSize <= 0) {
+            return 0;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        int submittedCount = 0;
+        for (Long attemptId : assessmentAttemptMapper.selectExpiredAttemptIds(now, batchSize)) {
+            AttemptBundle bundle = requireAttemptForUpdate(attemptId);
+            AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
+            if (AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(effectiveAttempt.getStatus())
+                    && effectiveAttempt.getSubmittedAt() != null
+                    && effectiveAttempt.getSubmittedAt().equals(now)) {
+                submittedCount++;
+            }
+        }
+        return submittedCount;
+    }
+
+    private AttemptSubmissionOutcome submitAttemptInternal(AssessmentAttemptEntity attempt, LocalDateTime now) {
         List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
         for (AssessmentAttemptAnswerEntity answer : answers) {
             List<String> responses = assessmentJsonCodec.readStringList(answer.getResponseJson());
@@ -954,22 +1011,37 @@ public class AssessmentService {
         recomputeAttemptProgress(attempt, answers, now);
         attempt.setStatus(AssessmentAttemptStatus.SUBMITTED.name());
         attempt.setSubmittedAt(now);
-        assessmentAttemptMapper.updateById(attempt);
-        return attempt;
+        if (assessmentAttemptMapper.submitIfInProgress(attempt) == 0) {
+            return new AttemptSubmissionOutcome(requireAttempt(attempt.getId()).attempt(), false);
+        }
+        return new AttemptSubmissionOutcome(attempt, true);
     }
 
     private AssessmentAttemptEntity finalizeExpiredAttemptIfNecessary(
-            AssessmentAttemptEntity attempt,
-            AssessmentPublishEntity publish,
+            Long attemptId,
+            AttemptBundle bundle,
             LocalDateTime now
     ) {
+        AssessmentAttemptEntity attempt = bundle.attempt();
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             return attempt;
         }
-        if (!isAttemptExpired(attempt, publish, now)) {
+        if (!isAttemptExpired(attempt, bundle.publish(), now)) {
             return attempt;
         }
-        return submitAttemptInternal(attempt, now);
+        AttemptBundle lockedBundle = lockAttemptBundle(attemptId, bundle.publish(), bundle.teachingClass());
+        AssessmentAttemptEntity lockedAttempt = lockedBundle.attempt();
+        if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(lockedAttempt.getStatus())) {
+            return lockedAttempt;
+        }
+        if (!isAttemptExpired(lockedAttempt, lockedBundle.publish(), now)) {
+            return lockedAttempt;
+        }
+        AttemptSubmissionOutcome submission = submitAttemptInternal(lockedAttempt, now);
+        if (submission.transitioned()) {
+            notificationScenarioService.notifyAssessmentSubmitted(submission.attempt(), lockedBundle.publish(), lockedBundle.teachingClass(), true);
+        }
+        return submission.attempt();
     }
 
     private boolean isAttemptExpired(AssessmentAttemptEntity attempt, AssessmentPublishEntity publish, LocalDateTime now) {
@@ -1153,7 +1225,11 @@ public class AssessmentService {
         if (existingAttempt == null) {
             return null;
         }
-        AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(existingAttempt, publish, now);
+        AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(
+                existingAttempt.getId(),
+                new AttemptBundle(existingAttempt, publish, requireTeachingClass(publish.getTeachingClassId())),
+                now
+        );
         return new AssessmentAttemptStartVO(
                 effectiveAttempt.getId(),
                 publish.getId(),
@@ -1163,23 +1239,23 @@ public class AssessmentService {
     }
 
     private AttemptBundle requireAccessibleAttempt(Long attemptId) {
-        AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectById(attemptId);
-        if (attempt == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment attempt was not found", 404);
-        }
+        AttemptBundle bundle = requireAttempt(attemptId);
+        AssessmentAttemptEntity attempt = bundle.attempt();
         Long currentUserId = currentUserId();
         if (!isAdmin() && !Objects.equals(attempt.getStudentUserId(), currentUserId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "You do not have access to this assessment attempt", 403);
         }
-        AssessmentPublishEntity publish = assessmentPublishMapper.selectById(attempt.getPublishId());
-        if (publish == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment publish was not found", 404);
+        return bundle;
+    }
+
+    private AttemptBundle requireAccessibleAttemptForUpdate(Long attemptId) {
+        AttemptBundle bundle = requireAttemptForUpdate(attemptId);
+        AssessmentAttemptEntity attempt = bundle.attempt();
+        Long currentUserId = currentUserId();
+        if (!isAdmin() && !Objects.equals(attempt.getStudentUserId(), currentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "You do not have access to this assessment attempt", 403);
         }
-        TeachingClassEntity teachingClass = teachingClassMapper.selectById(publish.getTeachingClassId());
-        if (teachingClass == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "Teaching class was not found", 404);
-        }
-        return new AttemptBundle(attempt, publish, teachingClass);
+        return bundle;
     }
 
     private AttemptBundle requireAccessibleAttemptForTeacher(Long attemptId) {
@@ -1193,6 +1269,52 @@ public class AssessmentService {
             throw new BusinessException(ResultCode.NOT_FOUND, "Teaching class was not found", 404);
         }
         return new AttemptBundle(attempt, publish, teachingClass);
+    }
+
+    private AttemptBundle requireAttempt(Long attemptId) {
+        AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectById(attemptId);
+        if (attempt == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment attempt was not found", 404);
+        }
+        AssessmentPublishEntity publish = assessmentPublishMapper.selectById(attempt.getPublishId());
+        if (publish == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment publish was not found", 404);
+        }
+        return new AttemptBundle(attempt, publish, requireTeachingClass(publish.getTeachingClassId()));
+    }
+
+    private AttemptBundle requireAttemptForUpdate(Long attemptId) {
+        AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectByIdForUpdate(attemptId);
+        if (attempt == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment attempt was not found", 404);
+        }
+        AssessmentPublishEntity publish = assessmentPublishMapper.selectById(attempt.getPublishId());
+        if (publish == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment publish was not found", 404);
+        }
+        return new AttemptBundle(attempt, publish, requireTeachingClass(publish.getTeachingClassId()));
+    }
+
+    private AttemptBundle lockAttemptBundle(
+            Long attemptId,
+            AssessmentPublishEntity publish,
+            TeachingClassEntity teachingClass
+    ) {
+        AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectByIdForUpdate(attemptId);
+        if (attempt == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment attempt was not found", 404);
+        }
+        AssessmentPublishEntity effectivePublish = publish == null
+                ? assessmentPublishMapper.selectById(attempt.getPublishId())
+                : publish;
+        if (effectivePublish == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment publish was not found", 404);
+        }
+        TeachingClassEntity effectiveTeachingClass = teachingClass;
+        if (effectiveTeachingClass == null || !Objects.equals(effectiveTeachingClass.getId(), effectivePublish.getTeachingClassId())) {
+            effectiveTeachingClass = requireTeachingClass(effectivePublish.getTeachingClassId());
+        }
+        return new AttemptBundle(attempt, effectivePublish, effectiveTeachingClass);
     }
 
     private AssessmentPublishEntity requireAccessiblePublishForStudent(Long publishId, Long studentUserId) {
@@ -1257,6 +1379,14 @@ public class AssessmentService {
                 .eq(AssessmentAttemptAnswerEntity::getAttemptId, attemptId)
                 .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder)
                 .orderByAsc(AssessmentAttemptAnswerEntity::getId));
+    }
+
+    private TeachingClassEntity requireTeachingClass(Long classId) {
+        TeachingClassEntity teachingClass = teachingClassMapper.selectById(classId);
+        if (teachingClass == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Teaching class was not found", 404);
+        }
+        return teachingClass;
     }
 
     private Map<Long, TeachingClassEntity> loadTeachingClassMap(Collection<Long> classIds) {
@@ -1346,6 +1476,12 @@ public class AssessmentService {
             AssessmentAttemptEntity attempt,
             AssessmentPublishEntity publish,
             TeachingClassEntity teachingClass
+    ) {
+    }
+
+    private record AttemptSubmissionOutcome(
+            AssessmentAttemptEntity attempt,
+            boolean transitioned
     ) {
     }
 
