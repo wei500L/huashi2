@@ -45,11 +45,11 @@ graph TD
 
 | 模块 | 路径 | 语言 | 职责 | 入口 | 测试 |
 |------|------|------|------|------|------|
-| 前端 SPA | `src/` | TypeScript/React | 学生/教师/管理员三端界面、路由鉴权、API 对接 | `src/main.tsx` | 无前端测试 |
-| 业务后端 | `app-server/` | Java | 认证授权、词汇管理、诊断、训练、分析、AI 调度、运维配置 | `AppServerApplication` | 23 测试类 |
-| AI 网关 | `ai-gateway/` | Java | AI Provider 集成、RAG 检索/Rerank、向量存储、知识同步 | `AiGatewayApplication` | 11 测试类 |
+| 前端 SPA | `src/` | TypeScript/React | 学生/教师/管理员三端界面、路由鉴权、API 对接 | `src/main.tsx` | 32 测试文件（Vitest） |
+| 业务后端 | `app-server/` | Java | 认证授权、词汇管理、诊断、训练、分析、AI 调度、运维配置 | `AppServerApplication` | 43 测试类 |
+| AI 网关 | `ai-gateway/` | Java | AI Provider 集成、RAG 检索/Rerank、向量存储、知识同步 | `AiGatewayApplication` | 12 测试类 |
 | 共享内核 | `shared-kernel/` | Java | 跨服务枚举、DTO 契约、事件定义、分页/响应结构 | 无独立入口（库） | 无 |
-| 部署编排 | `deploy/` | YAML/Docker | Docker Compose 编排 6 个服务 + 数据卷 | `docker-compose.yml` | N/A |
+| 部署编排 | `deploy/` | YAML/Docker | Docker Compose 编排 7 个服务（含 frontend）+ 5 个命名卷 | `docker-compose.yml` | N/A |
 
 ## 运行与开发
 
@@ -104,10 +104,10 @@ npm run build:analyze # 构建分析报告
 
 ## 测试策略
 
-- **app-server**: 集成测试为主（H2 内存数据库），覆盖 auth、lexicon、diagnosis、training、analytics、ai、opsconfig 模块，共 23 个测试类
-- **ai-gateway**: 集成测试（Testcontainers PostgreSQL）+ WireMock 外部服务模拟，覆盖 provider、rag、config、health 模块，共 11 个测试类
-- **前端**: 当前无自动化测试
-- **数据库迁移**: app-server 9 个 Flyway 迁移脚本（V1-V9），ai-gateway 4 个迁移脚本（V1-V4）
+- **app-server**: 集成测试为主（H2 内存数据库，`MODE=MySQL`），覆盖 auth、security、lexicon、diagnosis、training、analytics、ai、opsconfig、assessment、notification、achievement、user、internal、audit、health、support 等模块，共 43 个测试类
+- **ai-gateway**: 集成测试（Testcontainers PostgreSQL + pgvector）+ WireMock 外部服务模拟，覆盖 provider、rag、config、health、security 模块，共 12 个测试类
+- **前端**: Vitest + Testing Library + jsdom，当前共 32 个测试文件（routing、API、services、i18n、assessment、teacher-workspace、pages 级组件等）；入口 `src/test/setup.ts`
+- **数据库迁移**: app-server 31 个 Flyway 迁移脚本（V1-V31，MySQL），ai-gateway 5 个迁移脚本（V1-V5，PostgreSQL + pgvector）
 
 ## 编码规范
 
@@ -149,3 +149,4 @@ npm run build:analyze # 构建分析报告
 | 时间 | 操作 | 说明 |
 |------|------|------|
 | 2026-03-22 00:35:46 | 初始创建 | 全仓扫描生成，覆盖 5 个模块 |
+| 2026-04-18 | 文档同步 | 同步实际测试/迁移/服务计数（见 `docs/review-2026-04-18.md`）：前端 0→32、app-server 23→43、ai-gateway 11→12；Flyway app-server V1-V9→V1-V31、ai-gateway V1-V4→V1-V5；Compose 服务数 6→7（含 frontend） |
