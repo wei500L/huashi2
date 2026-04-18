@@ -12,6 +12,7 @@ import type {
 
 export type Role = 'STUDENT' | 'TEACHER' | 'ADMIN';
 export type Capability = 'STUDENT_WORKSPACE' | 'TEACHING_WORKSPACE' | 'ADMIN_CONSOLE';
+export type SessionCompletionHookStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'FAILED';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -881,6 +882,7 @@ export interface TrainingNextItemVO {
   currentItemOrder: number;
   hasNextItem: boolean;
   readyToComplete: boolean;
+  completionHooksStatus?: SessionCompletionHookStatus | null;
   item?: TrainingQuestionItemVO | null;
 }
 
@@ -892,6 +894,7 @@ export interface TrainingSessionProgressVO {
   currentItemOrder: number;
   completed: boolean;
   readyToComplete: boolean;
+  completionHooksStatus?: SessionCompletionHookStatus | null;
 }
 
 export interface SaveTrainingProgressRequest {

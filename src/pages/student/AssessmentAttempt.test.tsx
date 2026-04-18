@@ -261,6 +261,35 @@ describe('AssessmentAttempt', () => {
     expect(screen.getByPlaceholderText('请输入答案')).toHaveValue('本地草稿答案');
   });
 
+  it('restores cleared local draft answers when they are newer than the server save', async () => {
+    vi.mocked(assessmentService.getStudentAttempt).mockResolvedValue(
+      createAttemptDetail({
+        answeredCount: 1,
+        lastSavedAt: '2025-04-06T10:05:00',
+        questions: [
+          {
+            answerId: 501,
+            questionId: 601,
+            questionOrder: 1,
+            questionType: 'FILL_BLANK',
+            stemText: '请输入答案',
+            promptText: '任写一个即可',
+            options: [],
+            score: 10,
+            responses: ['服务端旧答案'],
+            answered: true,
+          },
+        ],
+      })
+    );
+    writeAssessmentDraft(42, { 1: [] });
+
+    renderAttemptPage();
+
+    expect(await screen.findByText('已恢复本地草稿。')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('请输入答案')).toHaveValue('');
+  });
+
   it('clears the local draft after a successful submit', async () => {
     writeAssessmentDraft(42, { 1: ['待提交答案'] });
 

@@ -267,6 +267,54 @@ class AssessmentIntegrationTest extends AbstractWebIntegrationTest {
                 .like(NotificationEntity::getPayloadJson, "\"attemptId\":" + attemptId))).isEqualTo(1);
     }
 
+    @Test
+    void shouldTreatLateManualSubmitAsManualNotification() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
+
+        long paperId = createPaper(teacherToken, "截止后手动交卷测评", """
+                {
+                  "questionType": "SINGLE_CHOICE",
+                  "stemText": "选择正确答案",
+                  "promptText": "请选择一项",
+                  "options": [
+                    {"key": "A", "label": "正确答案"},
+                    {"key": "B", "label": "错误答案"}
+                  ],
+                  "correctAnswers": ["A"],
+                  "explanationText": "A 是正确答案",
+                  "score": 10
+                }
+                """);
+        long publishId = publishPaper(
+                teacherToken,
+                paperId,
+                LocalDateTime.now().minusMinutes(5),
+                LocalDateTime.now().plusHours(1)
+        );
+        long attemptId = startAttempt(studentToken, publishId);
+
+        AssessmentAttemptEntity attempt = assessmentAttemptMapper.selectById(attemptId);
+        attempt.setExpiresAt(LocalDateTime.now().minusSeconds(5));
+        assessmentAttemptMapper.updateById(attempt);
+
+        mockMvc.perform(post("/api/student/assessments/attempts/{attemptId}/submit", attemptId)
+                        .with(bearer(studentToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
+
+        AssessmentAttemptEntity submittedAttempt = assessmentAttemptMapper.selectById(attemptId);
+        assertThat(submittedAttempt.getStatus()).isEqualTo("SUBMITTED");
+        assertThat(submittedAttempt.getSubmittedAt()).isNotNull();
+
+        assertThat(notificationMapper.selectCount(Wrappers.<NotificationEntity>lambdaQuery()
+                .eq(NotificationEntity::getCategory, "ASSESSMENT_SUBMITTED")
+                .like(NotificationEntity::getPayloadJson, "\"attemptId\":" + attemptId))).isEqualTo(1);
+        assertThat(notificationMapper.selectCount(Wrappers.<NotificationEntity>lambdaQuery()
+                .eq(NotificationEntity::getCategory, "ASSESSMENT_TIMEOUT_SUBMITTED")
+                .like(NotificationEntity::getPayloadJson, "\"attemptId\":" + attemptId))).isEqualTo(0);
+    }
+
     private long createPaper(String teacherToken, String title, String questionJson) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/teacher/assessments/papers")
                         .with(bearer(teacherToken))

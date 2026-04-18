@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.opsconfig;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.entity.AuditLogEntity;
 import com.huashi.eftransfer.app.common.audit.mapper.AuditLogMapper;
+import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
@@ -43,6 +44,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -72,6 +74,9 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     @Autowired
     private AiOpsConfigHistoryMapper aiOpsConfigHistoryMapper;
 
+    @Autowired
+    private StubAuditLogService stubAuditLogService;
+
     @BeforeEach
     void resetGatewayStub() {
         stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
@@ -88,6 +93,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         stubAiGatewayClient.validationUnavailable = false;
         stubAiGatewayClient.stageUnavailable = false;
         stubAiGatewayClient.commitUnavailable = false;
+        stubAuditLogService.failOnSave = false;
     }
 
     @Test
@@ -551,6 +557,45 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
     }
 
     @Test
+    void saveRollsBackSnapshotAndHistoryWhenAuditWriteFails() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        long initialAuditCount = saveAuditCount();
+        long initialHistoryCount = historyCount();
+        stubAiGatewayClient.currentEffective = null;
+        stubAiGatewayClient.validationUnavailable = true;
+        stubAuditLogService.failOnSave = true;
+
+        mockMvc.perform(put("/api/admin/ai-config")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "config", samplePayload(null),
+                                "expectedVersion", null,
+                                "secrets", Map.of(
+                                        "providers", Map.of(
+                                                "qwen", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-001"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-001"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-001")
+                                                ),
+                                                "deepseek", Map.of(
+                                                        "chatApiKey", Map.of("retainExisting", false, "value", "chat-secret-002"),
+                                                        "embeddingApiKey", Map.of("retainExisting", false, "value", "embed-secret-002"),
+                                                        "rerankApiKey", Map.of("retainExisting", false, "value", "rerank-secret-002")
+                                                )
+                                        ),
+                                        "appServerInternalToken", Map.of("retainExisting", false, "value", "internal-token-001")
+                                )
+                        ))))
+                .andExpect(status().is5xxServerError());
+
+        assertThat(storageService.load()).isEmpty();
+        assertThat(historyCount()).isEqualTo(initialHistoryCount);
+        assertThat(saveAuditCount()).isEqualTo(initialAuditCount);
+        assertThat(stubAiGatewayClient.lastAppliedConfig).isNull();
+    }
+
+    @Test
     void runtimeSyncEndpointAppliesStoredSnapshotToGateway() throws Exception {
         String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
         storageService.save(samplePayload("stored-chat-secret"), null, 5L, null);
@@ -579,6 +624,48 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         assertThat(stubAiGatewayClient.lastAppliedConfig).isNotNull();
         assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().apiKey())
                 .isEqualTo("stored-chat-secret");
+    }
+
+    @Test
+    void storedSyncBackfillsMissingProtocolsForLegacySnapshots() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        storageService.save(legacyPayloadWithoutProtocols("stored-chat-secret"), null, 5L, null);
+        stubAiGatewayClient.currentEffective = new AiOpsConfigEffectiveResponse(
+                samplePayload("runtime-chat-secret"),
+                "DEFAULTS",
+                4L,
+                OffsetDateTime.now(),
+                List.of()
+        );
+
+        mockMvc.perform(get("/internal/ops/ai-config")
+                        .header("X-Internal-Token", "test-internal-knowledge-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(5))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.QWEN_RERANK));
+
+        mockMvc.perform(post("/api/admin/ai-config/runtime/sync")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "expectedVersion": 5
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.runtime.version").value(5))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.QWEN_RERANK));
+
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().protocol())
+                .isEqualTo(AiOpsProtocols.OPENAI_COMPAT);
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").embedding().protocol())
+                .isEqualTo(AiOpsProtocols.OPENAI_COMPAT);
+        assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").rerank().protocol())
+                .isEqualTo(AiOpsProtocols.QWEN_RERANK);
     }
 
     @Test
@@ -771,6 +858,46 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         );
     }
 
+    private AiOpsConfigPayload legacyPayloadWithoutProtocols(String chatApiKey) {
+        AiOpsConfigPayload payload = samplePayload(chatApiKey);
+        Map<String, AiOpsProviderDefinition> providers = new LinkedHashMap<>();
+        payload.provider().providers().forEach((name, definition) -> providers.put(name, new AiOpsProviderDefinition(
+                new AiOpsChatConfig(
+                        null,
+                        definition.chat().baseUrl(),
+                        definition.chat().apiKey(),
+                        definition.chat().model(),
+                        definition.chat().timeout(),
+                        definition.chat().temperature(),
+                        definition.chat().maxTokens()
+                ),
+                new AiOpsEmbeddingConfig(
+                        null,
+                        definition.embedding().baseUrl(),
+                        definition.embedding().apiKey(),
+                        definition.embedding().model(),
+                        definition.embedding().timeout(),
+                        definition.embedding().dimension()
+                ),
+                new AiOpsRerankConfig(
+                        null,
+                        definition.rerank().baseUrl(),
+                        definition.rerank().apiKey(),
+                        definition.rerank().model(),
+                        definition.rerank().timeout()
+                )
+        )));
+        return new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        payload.provider().activeProvider(),
+                        payload.provider().fallbackProvider(),
+                        providers
+                ),
+                payload.resilience(),
+                payload.rag()
+        );
+    }
+
     @TestConfiguration
     static class StubConfig {
 
@@ -778,6 +905,12 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         @Primary
         StubAiGatewayClient stubAiGatewayClient(RestClient aiGatewayRestClient, AiGatewayClientProperties properties) {
             return new StubAiGatewayClient(aiGatewayRestClient, properties);
+        }
+
+        @Bean
+        @Primary
+        StubAuditLogService stubAuditLogService(AuditLogMapper auditLogMapper, ObjectMapper objectMapper) {
+            return new StubAuditLogService(auditLogMapper, objectMapper);
         }
     }
 
@@ -915,6 +1048,23 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                     Map.of("documentsProcessed", 0),
                     null
             ));
+        }
+    }
+
+    static class StubAuditLogService extends AuditLogService {
+
+        private boolean failOnSave;
+
+        StubAuditLogService(AuditLogMapper auditLogMapper, ObjectMapper objectMapper) {
+            super(auditLogMapper, objectMapper);
+        }
+
+        @Override
+        public void record(String actionType, String targetType, String targetId, Object requestPayload, String responseCode) {
+            if (failOnSave && "ai_ops_config_save".equals(actionType)) {
+                throw new IllegalStateException("audit insert failed");
+            }
+            super.record(actionType, targetType, targetId, requestPayload, responseCode);
         }
     }
 

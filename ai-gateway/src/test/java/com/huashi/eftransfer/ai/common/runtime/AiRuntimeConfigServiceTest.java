@@ -22,6 +22,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import com.huashi.eftransfer.shared.api.ApiResponse;
+import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.security.InternalApiHeaders;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AiRuntimeConfigServiceTest {
 
@@ -213,6 +215,40 @@ class AiRuntimeConfigServiceTest {
     }
 
     @Test
+    void shouldReturnValidationIssuesWhenFallbackProviderSectionIsMissing() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        AiOpsConfigPayload basePayload = payload(baseUrl, "test-internal-token");
+        AiOpsConfigPayload malformedPayload = new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        basePayload.provider().activeProvider(),
+                        basePayload.provider().fallbackProvider(),
+                        Map.of(
+                                "qwen",
+                                new AiOpsProviderDefinition(
+                                        null,
+                                        basePayload.provider().providers().get("qwen").embedding(),
+                                        basePayload.provider().providers().get("qwen").rerank()
+                                ),
+                                "deepseek",
+                                basePayload.provider().providers().get("deepseek")
+                        )
+                ),
+                basePayload.resilience(),
+                basePayload.rag()
+        );
+
+        var validation = service.validate(malformedPayload);
+
+        assertThat(validation.valid()).isFalse();
+        assertThat(validation.issues())
+                .extracting(AiOpsConfigIssue::code)
+                .contains("chat_section_required");
+        assertThat(validation.notices())
+                .extracting(notice -> notice.code())
+                .contains("automatic_failover_enabled");
+    }
+
+    @Test
     void shouldMarkStoredSyncFailedWhenStartupSyncFails() throws Exception {
         server.removeContext("/internal/ops/ai-config");
         try {
@@ -227,6 +263,56 @@ class AiRuntimeConfigServiceTest {
             service.syncStoredConfigAfterStartup();
 
             assertThat(service.storedSyncStatus()).isEqualTo(AiRuntimeConfigService.STORED_SYNC_STATUS_SYNC_FAILED);
+        } finally {
+            server.removeContext("/internal/ops/ai-config");
+            server.createContext("/internal/ops/ai-config", exchange -> {
+                lastInternalToken.set(exchange.getRequestHeaders().getFirst(InternalApiHeaders.INTERNAL_TOKEN));
+                byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+                exchange.close();
+            });
+        }
+    }
+
+    @Test
+    void shouldRecoverStoredSyncStatusWhenRetrySucceedsAfterStartupFailure() throws Exception {
+        AiOpsConfigPayload payload = payload(baseUrl, "test-internal-token");
+        server.removeContext("/internal/ops/ai-config");
+        try {
+            server.createContext("/internal/ops/ai-config", exchange -> {
+                byte[] body = "{\"success\":false}".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(503, body.length);
+                exchange.getResponseBody().write(body);
+                exchange.close();
+            });
+
+            AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+            service.syncStoredConfigAfterStartup();
+
+            assertThat(service.storedSyncStatus()).isEqualTo(AiRuntimeConfigService.STORED_SYNC_STATUS_SYNC_FAILED);
+
+            server.removeContext("/internal/ops/ai-config");
+            server.createContext("/internal/ops/ai-config", exchange -> {
+                AiOpsConfigEffectiveResponse effective = new AiOpsConfigEffectiveResponse(
+                        payload,
+                        "APP_SERVER_SYNC",
+                        5L,
+                        OffsetDateTime.parse("2026-03-21T00:00:00Z"),
+                        List.of()
+                );
+                byte[] body = objectMapper.writeValueAsBytes(ApiResponse.success(effective, "trace-ai-runtime-sync"));
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+                exchange.close();
+            });
+
+            service.retryStoredConfigSyncIfFailed();
+
+            assertThat(service.storedSyncStatus()).isEqualTo(AiRuntimeConfigService.STORED_SYNC_STATUS_IN_SYNC);
+            assertThat(service.current().version()).isEqualTo(5L);
+            assertThat(service.current().source()).isEqualTo("APP_SERVER_SYNC");
         } finally {
             server.removeContext("/internal/ops/ai-config");
             server.createContext("/internal/ops/ai-config", exchange -> {
@@ -264,6 +350,21 @@ class AiRuntimeConfigServiceTest {
 
         assertThat(secondCommit.version()).isEqualTo(firstCommit.version());
         assertThat(secondCommit.source()).isEqualTo(firstCommit.source());
+    }
+
+    @Test
+    void shouldRejectCommitForStaleStagedBundleVersion() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        AiOpsConfigPayload payload = payload(baseUrl, "test-internal-token");
+
+        var staleStage = service.stage(payload, "DATABASE", 7L);
+        var latestStage = service.stage(payload, "DATABASE", 8L);
+        service.commit(latestStage.stageId());
+
+        assertThatThrownBy(() -> service.commit(staleStage.stageId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("older than the active runtime version");
+        assertThat(service.current().version()).isEqualTo(8L);
     }
 
     private AiRuntimeConfigService runtimeConfigService(String appServerBaseUrl, String internalToken) {

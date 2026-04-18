@@ -11,6 +11,7 @@ import { errorTypeLabel, formatDateTime, formatMaybePercent, formatMs, lexicalPa
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { buildTrainingHref, clearTrainingLaunchParams, parseTrainingLaunchNumber, type TrainingLaunchParams } from '@/lib/training-launch';
 import type {
+  SessionCompletionHookStatus,
   SubmitTrainingAnswerRequest,
   TrainingHistorySummaryVO,
   TrainingItemResultDetailVO,
@@ -112,12 +113,13 @@ const TrainingPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(trainingFlowReducer, initialTrainingFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
-  const answerRequestRef = React.useRef<{ itemResultId: number; clientRequestId: string } | null>(null);
+  const answerRequestRef = React.useRef<SubmitTrainingAnswerRequest | null>(null);
   const autoStartKeyRef = React.useRef<string | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
   const [loadInfoMessage, setLoadInfoMessage] = React.useState<string | null>(null);
   const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
+  const [completionRefreshSessionId, setCompletionRefreshSessionId] = React.useState<number | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<TrainingHistorySummaryVO | null>(null);
 
   const requestedMode = React.useMemo(() => parseRequestedTrainingMode(searchParams.get('mode')), [searchParams]);
@@ -221,14 +223,55 @@ const TrainingPage: React.FC = () => {
     retryDelay: NEXT_ITEM_RETRY_DELAY_MS,
   });
 
-  const markCompleted = React.useCallback((sessionId: number) => {
+  const invalidateCompletionDependentQueries = React.useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['student-overview'] }),
+      queryClient.invalidateQueries({ queryKey: ['student-trends'] }),
+      queryClient.invalidateQueries({ queryKey: ['wrong-book'] }),
+      queryClient.invalidateQueries({ queryKey: ['review-schedule'] }),
+    ]);
+  }, [queryClient]);
+
+  const completionHooksQuery = useQuery({
+    queryKey: ['training-completion-hooks', completionRefreshSessionId],
+    queryFn: ({ signal }) => trainingService.getNextItem(completionRefreshSessionId as number, { signal }),
+    enabled: completionRefreshSessionId != null,
+    retry: 1,
+    refetchInterval: (query) => {
+      const status = query.state.data?.completionHooksStatus;
+      return status === 'DONE' || status === 'FAILED' ? false : 1500;
+    },
+  });
+
+  React.useEffect(() => {
+    if (!completionRefreshSessionId) {
+      return;
+    }
+    const status = completionHooksQuery.data?.completionHooksStatus;
+    if (status === 'DONE') {
+      setCompletionRefreshSessionId(null);
+      void invalidateCompletionDependentQueries();
+      return;
+    }
+    if (status === 'FAILED') {
+      setCompletionRefreshSessionId(null);
+    }
+  }, [completionHooksQuery.data?.completionHooksStatus, completionRefreshSessionId, invalidateCompletionDependentQueries]);
+
+  const markCompleted = React.useCallback((sessionId: number, completionHooksStatus?: SessionCompletionHookStatus | null) => {
     dispatch({ type: 'showSummary', sessionId });
     void queryClient.invalidateQueries({ queryKey: ['training-history'] });
-    void queryClient.invalidateQueries({ queryKey: ['student-overview'] });
-    void queryClient.invalidateQueries({ queryKey: ['student-trends'] });
-    void queryClient.invalidateQueries({ queryKey: ['wrong-book'] });
-    void queryClient.invalidateQueries({ queryKey: ['review-schedule'] });
-  }, [queryClient]);
+    if (!completionHooksStatus || completionHooksStatus === 'DONE') {
+      setCompletionRefreshSessionId(null);
+      void invalidateCompletionDependentQueries();
+      return;
+    }
+    if (completionHooksStatus === 'PENDING' || completionHooksStatus === 'IN_PROGRESS') {
+      setCompletionRefreshSessionId(sessionId);
+      return;
+    }
+    setCompletionRefreshSessionId(null);
+  }, [invalidateCompletionDependentQueries, queryClient]);
 
   const answerMutation = useMutation({
     mutationFn: (payload: SubmitTrainingAnswerRequest) =>
@@ -239,7 +282,7 @@ const TrainingPage: React.FC = () => {
         answerRequestRef.current = null;
         setPendingNextItemId(null);
         setSubmitInfoMessage(null);
-        markCompleted(progress.sessionId);
+        markCompleted(progress.sessionId, progress.completionHooksStatus);
         return;
       }
       shownAtRef.current = Date.now();
@@ -263,7 +306,7 @@ const TrainingPage: React.FC = () => {
         answerRequestRef.current = null;
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，系统已同步到最新总结。');
-        markCompleted(refreshed.data.sessionId);
+        markCompleted(refreshed.data.sessionId, refreshed.data.completionHooksStatus);
         return;
       }
       if (refreshed.data?.readyToComplete) {
@@ -298,12 +341,12 @@ const TrainingPage: React.FC = () => {
       setPendingNextItemId(null);
       setSubmitErrorMessage(null);
       setSubmitInfoMessage(null);
-      markCompleted(progress.sessionId);
+      markCompleted(progress.sessionId, progress.completionHooksStatus);
     },
     onError: async (error) => {
       const refreshed = await nextItemQuery.refetch();
       if (refreshed.data?.sessionStatus === 'COMPLETED') {
-        markCompleted(refreshed.data.sessionId);
+        markCompleted(refreshed.data.sessionId, refreshed.data.completionHooksStatus);
         return;
       }
       setSubmitErrorMessage(getApiErrorMessage(error));
@@ -318,6 +361,7 @@ const TrainingPage: React.FC = () => {
       setSubmitErrorMessage(null);
       setSubmitInfoMessage(null);
       setResumeCandidate(null);
+      setCompletionRefreshSessionId(null);
       dispatch({ type: 'resetHome' });
       await queryClient.invalidateQueries({ queryKey: ['training-history'] });
       await queryClient.invalidateQueries({ queryKey: ['recommended-training-plan'] });
@@ -359,7 +403,7 @@ const TrainingPage: React.FC = () => {
     }
     if (nextItemQuery.data.sessionStatus === 'COMPLETED') {
       answerRequestRef.current = null;
-      markCompleted(nextItemQuery.data.sessionId);
+      markCompleted(nextItemQuery.data.sessionId, nextItemQuery.data.completionHooksStatus);
       return;
     }
     if (nextItemQuery.data.sessionStatus === 'ABANDONED') {
@@ -379,7 +423,7 @@ const TrainingPage: React.FC = () => {
     saveProgress: trainingService.saveProgress,
     saveProgressKeepalive: trainingService.saveProgressKeepalive,
     isCompleted: (nextItem) => nextItem?.sessionStatus === 'COMPLETED',
-    onCompleted: (nextItem) => markCompleted(nextItem.sessionId),
+    onCompleted: (nextItem) => markCompleted(nextItem.sessionId, nextItem.completionHooksStatus),
   });
 
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
@@ -470,24 +514,21 @@ const TrainingPage: React.FC = () => {
     if (!currentItem) {
       return;
     }
-    const clientRequestId =
-      answerRequestRef.current?.itemResultId === currentItem.itemResultId
-        ? answerRequestRef.current.clientRequestId
-        : crypto.randomUUID();
-    answerRequestRef.current = {
-      itemResultId: currentItem.itemResultId,
-      clientRequestId,
-    };
-    const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
-    const hesitationTimeMs = Math.max(0, reactionTimeMs - HESITATION_BASELINE_MS);
+    const existingRequest =
+      answerRequestRef.current?.itemResultId === currentItem.itemResultId ? answerRequestRef.current : null;
+    const request = existingRequest ?? (() => {
+      const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
+      return {
+        itemResultId: currentItem.itemResultId,
+        clientRequestId: crypto.randomUUID(),
+        selectedAnswerKey: option.key,
+        reactionTimeMs,
+        hesitationTimeMs: Math.max(0, reactionTimeMs - HESITATION_BASELINE_MS),
+      } satisfies SubmitTrainingAnswerRequest;
+    })();
+    answerRequestRef.current = request;
     shownAtRef.current = Date.now();
-    await answerMutation.mutateAsync({
-      itemResultId: currentItem.itemResultId,
-      clientRequestId,
-      selectedAnswerKey: option.key,
-      reactionTimeMs,
-      hesitationTimeMs,
-    });
+    await answerMutation.mutateAsync(request);
   };
 
   const handleResumeContinue = () => {

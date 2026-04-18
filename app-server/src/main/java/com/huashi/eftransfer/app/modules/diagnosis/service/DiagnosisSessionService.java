@@ -390,8 +390,13 @@ public class DiagnosisSessionService {
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not in progress", 409);
         }
-        abandonSession(session);
-        auditLogService.record("abandon_session", "diagnosis_session", String.valueOf(sessionId), Map.of("sessionId", sessionId), ResultCode.SUCCESS.code());
+        boolean abandoned = abandonSession(session);
+        if (!abandoned) {
+            session = requireAccessibleSession(sessionId);
+        }
+        if (DiagnosisSessionStatus.ABANDONED.name().equals(session.getStatus())) {
+            auditLogService.record("abandon_session", "diagnosis_session", String.valueOf(sessionId), Map.of("sessionId", sessionId), ResultCode.SUCCESS.code());
+        }
         return progressVO(session);
     }
 
@@ -856,17 +861,22 @@ public class DiagnosisSessionService {
                 .orderByAsc(DiagnosisSessionEntity::getLastSavedAt)
                 .orderByAsc(DiagnosisSessionEntity::getId)
                 .last("LIMIT " + limit))) {
-            abandonSession(session);
-            abandoned++;
+            if (abandonSession(session)) {
+                abandoned++;
+            }
         }
         return abandoned;
     }
 
-    private void abandonSession(DiagnosisSessionEntity session) {
+    private boolean abandonSession(DiagnosisSessionEntity session) {
+        LocalDateTime abandonedAt = LocalDateTime.now();
+        if (diagnosisSessionMapper.abandonIfInProgress(session.getId(), abandonedAt) == 0) {
+            return false;
+        }
         session.setStatus(DiagnosisSessionStatus.ABANDONED.name());
         session.setCurrentItemOrder(null);
-        session.setLastSavedAt(LocalDateTime.now());
-        diagnosisSessionMapper.updateById(session);
+        session.setLastSavedAt(abandonedAt);
+        return true;
     }
 
     private IdempotencyService.IdempotencyClaimResult<DiagnosisSessionProgressVO> beginAnswerIdempotency(

@@ -115,6 +115,10 @@ function isTokenExpiringSoon(expiresAt?: string | null, windowMs = KEEPALIVE_TOK
   return expiresAtMs - Date.now() <= windowMs;
 }
 
+function isTokenExpired(expiresAt?: string | null): boolean {
+  return isTokenExpiringSoon(expiresAt, 0);
+}
+
 async function ensureFreshSessionForKeepalive(): Promise<LoginResponse | null> {
   const session = readStoredSession();
   if (!session?.accessToken) {
@@ -123,7 +127,10 @@ async function ensureFreshSessionForKeepalive(): Promise<LoginResponse | null> {
   if (!isTokenExpiringSoon(session.accessTokenExpiresAt)) {
     return session;
   }
-  if (!session.refreshToken || isTokenExpiringSoon(session.refreshTokenExpiresAt, 0)) {
+  if (!session.refreshToken || isTokenExpired(session.refreshTokenExpiresAt)) {
+    if (!isTokenExpired(session.accessTokenExpiresAt)) {
+      return session;
+    }
     clearStoredSession();
     dispatchAuthExpired();
     return null;
@@ -131,7 +138,14 @@ async function ensureFreshSessionForKeepalive(): Promise<LoginResponse | null> {
   try {
     return await refreshSession();
   } catch {
-    return readStoredSession();
+    const fallbackSession = readStoredSession();
+    if (fallbackSession?.accessToken && !isTokenExpired(fallbackSession.accessTokenExpiresAt)) {
+      return fallbackSession;
+    }
+    if (!isTokenExpired(session.accessTokenExpiresAt)) {
+      return session;
+    }
+    return fallbackSession;
   }
 }
 

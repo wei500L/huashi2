@@ -40,6 +40,7 @@ public class AiHealthService {
     }
 
     public AiGatewayHealthResponse getHealthPayload() {
+        runtimeConfigService.retryStoredConfigSyncIfFailed();
         AiRuntimeBundle bundle = runtimeConfigService.current();
         var provider = bundle.config().provider();
         AiOpsProviderDefinition activeProvider = provider.providers().get(provider.activeProvider());

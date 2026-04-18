@@ -484,7 +484,7 @@ public class AssessmentService {
     public AssessmentAttemptSubmitVO submitAttempt(Long attemptId) {
         AttemptBundle bundle = requireAccessibleAttemptForUpdate(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now, false);
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             return new AssessmentAttemptSubmitVO(attempt.getId(), AssessmentAttemptStatus.fromCode(attempt.getStatus()), attempt.getSubmittedAt());
         }
@@ -1022,6 +1022,15 @@ public class AssessmentService {
             AttemptBundle bundle,
             LocalDateTime now
     ) {
+        return finalizeExpiredAttemptIfNecessary(attemptId, bundle, now, true);
+    }
+
+    private AssessmentAttemptEntity finalizeExpiredAttemptIfNecessary(
+            Long attemptId,
+            AttemptBundle bundle,
+            LocalDateTime now,
+            boolean timeoutSubmitted
+    ) {
         AssessmentAttemptEntity attempt = bundle.attempt();
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             return attempt;
@@ -1039,7 +1048,12 @@ public class AssessmentService {
         }
         AttemptSubmissionOutcome submission = submitAttemptInternal(lockedAttempt, now);
         if (submission.transitioned()) {
-            notificationScenarioService.notifyAssessmentSubmitted(submission.attempt(), lockedBundle.publish(), lockedBundle.teachingClass(), true);
+            notificationScenarioService.notifyAssessmentSubmitted(
+                    submission.attempt(),
+                    lockedBundle.publish(),
+                    lockedBundle.teachingClass(),
+                    timeoutSubmitted
+            );
         }
         return submission.attempt();
     }

@@ -46,6 +46,8 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -67,6 +69,7 @@ public class AiOpsAdminService {
     private final AuditLogService auditLogService;
     private final AiOpsConfigChangeSummaryService changeSummaryService;
     private final AiOpsLocalValidationService localValidationService;
+    private final TransactionTemplate transactionTemplate;
 
     public AiOpsAdminService(
             AiOpsConfigStorageService storageService,
@@ -74,7 +77,8 @@ public class AiOpsAdminService {
             PlatformEventOutboxService outboxService,
             AuditLogService auditLogService,
             AiOpsConfigChangeSummaryService changeSummaryService,
-            AiOpsLocalValidationService localValidationService
+            AiOpsLocalValidationService localValidationService,
+            PlatformTransactionManager transactionManager
     ) {
         this.storageService = storageService;
         this.aiGatewayClient = aiGatewayClient;
@@ -82,6 +86,7 @@ public class AiOpsAdminService {
         this.auditLogService = auditLogService;
         this.changeSummaryService = changeSummaryService;
         this.localValidationService = localValidationService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     public AdminAiConfigViewVO getCurrentConfig() {
@@ -187,15 +192,7 @@ public class AiOpsAdminService {
         }
 
         Long actorUserId = SecurityUtils.getCurrentUserId().orElse(null);
-        StoredAiOpsConfig stored = storageService.save(candidate, safeRequest.expectedVersion(), nextVersion, actorUserId);
-        storageService.saveHistory(candidate, nextVersion, previousVersion, actorUserId, buildChangeAuditPayload(changeSet, previousVersion, nextVersion));
-        auditLogService.record(
-                "ai_ops_config_save",
-                "admin_ai_config",
-                AiOpsConfigStorageService.CONFIG_KEY,
-                buildSaveAuditPayload(changeSet, previousVersion, nextVersion),
-                ResultCode.SUCCESS.code()
-        );
+        StoredAiOpsConfig stored = persistStoredConfig(candidate, safeRequest.expectedVersion(), nextVersion, previousVersion, actorUserId, changeSet);
 
         AiOpsConfigEffectiveResponse runtimeAfterSave = currentRuntime;
         if (stagedRuntime != null) {
@@ -331,18 +328,19 @@ public class AiOpsAdminService {
                 ));
         AiOpsConfigEffectiveResponse currentRuntime = aiGatewayClient.fetchEffectiveConfig().orElse(null);
         validateExpectedVersion(safeRequest.expectedVersion(), currentVersion(currentRuntime, stored));
+        AiOpsConfigPayload normalizedStoredConfig = normalizePayload(stored.config());
 
         AiOpsConfigStageResponse stagedRuntime;
         try {
-            stagedRuntime = aiGatewayClient.stageConfig(stored.config(), "DATABASE", stored.version());
+            stagedRuntime = aiGatewayClient.stageConfig(normalizedStoredConfig, "DATABASE", stored.version());
         } catch (RuntimeException ex) {
             throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway runtime sync is unavailable", 503);
         }
 
         List<AiOpsConfigNotice> notices = new ArrayList<>(validationNotices());
-        AiOpsConfigEffectiveResponse runtimeAfterSync = commitRuntime(stagedRuntime, stored.config(), currentRuntime, notices);
+        AiOpsConfigEffectiveResponse runtimeAfterSync = commitRuntime(stagedRuntime, normalizedStoredConfig, currentRuntime, notices);
         return toView(
-                stored.config(),
+                normalizedStoredConfig,
                 buildNotices(runtimeAfterSync, stored, mergeNotices(notices, runtimeAfterSync == null ? List.of() : runtimeAfterSync.notices())),
                 runtimeAfterSync,
                 stored
@@ -352,7 +350,7 @@ public class AiOpsAdminService {
     public AiOpsConfigEffectiveResponse getStoredConfigForInternalSync() {
         return storageService.load()
                 .map(stored -> new AiOpsConfigEffectiveResponse(
-                        stored.config(),
+                        normalizePayload(stored.config()),
                         "DATABASE",
                         stored.version(),
                         stored.updatedAt(),
@@ -461,6 +459,34 @@ public class AiOpsAdminService {
             ));
             return currentRuntime;
         }
+    }
+
+    private StoredAiOpsConfig persistStoredConfig(
+            AiOpsConfigPayload candidate,
+            Long expectedVersion,
+            Long nextVersion,
+            Long previousVersion,
+            Long actorUserId,
+            AiOpsConfigChangeSet changeSet
+    ) {
+        return transactionTemplate.execute(status -> {
+            StoredAiOpsConfig stored = storageService.save(candidate, expectedVersion, nextVersion, actorUserId);
+            storageService.saveHistory(
+                    candidate,
+                    nextVersion,
+                    previousVersion,
+                    actorUserId,
+                    buildChangeAuditPayload(changeSet, previousVersion, nextVersion)
+            );
+            auditLogService.record(
+                    "ai_ops_config_save",
+                    "admin_ai_config",
+                    AiOpsConfigStorageService.CONFIG_KEY,
+                    buildSaveAuditPayload(changeSet, previousVersion, nextVersion),
+                    ResultCode.SUCCESS.code()
+            );
+            return stored;
+        });
     }
 
     private List<AiOpsConfigNotice> buildNotices(
@@ -590,16 +616,62 @@ public class AiOpsAdminService {
     private AiOpsProviderDefinition normalizeProviderDefinition(AiOpsProviderDefinition definition) {
         if (definition == null) {
             return new AiOpsProviderDefinition(
-                    new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null),
-                    new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null),
-                    new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null)
+                    normalizeChatConfig(null),
+                    normalizeEmbeddingConfig(null),
+                    normalizeRerankConfig(null)
             );
         }
         return new AiOpsProviderDefinition(
-                definition.chat() == null ? new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null) : definition.chat(),
-                definition.embedding() == null ? new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null) : definition.embedding(),
-                definition.rerank() == null ? new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null) : definition.rerank()
+                normalizeChatConfig(definition.chat()),
+                normalizeEmbeddingConfig(definition.embedding()),
+                normalizeRerankConfig(definition.rerank())
         );
+    }
+
+    private AiOpsChatConfig normalizeChatConfig(AiOpsChatConfig config) {
+        if (config == null) {
+            return new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null);
+        }
+        return new AiOpsChatConfig(
+                defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_COMPAT),
+                config.baseUrl(),
+                config.apiKey(),
+                config.model(),
+                config.timeout(),
+                config.temperature(),
+                config.maxTokens()
+        );
+    }
+
+    private AiOpsEmbeddingConfig normalizeEmbeddingConfig(AiOpsEmbeddingConfig config) {
+        if (config == null) {
+            return new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null);
+        }
+        return new AiOpsEmbeddingConfig(
+                defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_COMPAT),
+                config.baseUrl(),
+                config.apiKey(),
+                config.model(),
+                config.timeout(),
+                config.dimension()
+        );
+    }
+
+    private AiOpsRerankConfig normalizeRerankConfig(AiOpsRerankConfig config) {
+        if (config == null) {
+            return new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null);
+        }
+        return new AiOpsRerankConfig(
+                defaultProtocol(config.protocol(), AiOpsProtocols.QWEN_RERANK),
+                config.baseUrl(),
+                config.apiKey(),
+                config.model(),
+                config.timeout()
+        );
+    }
+
+    private String defaultProtocol(String protocol, String defaultProtocol) {
+        return StringUtils.hasText(protocol) ? protocol : defaultProtocol;
     }
 
     private AiOpsConfigPayload sanitize(AiOpsConfigPayload payload) {

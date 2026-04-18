@@ -137,7 +137,7 @@ const DiagnosisPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(diagnosisFlowReducer, initialDiagnosisFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
-  const answerRequestRef = React.useRef<{ itemResultId: number; clientRequestId: string } | null>(null);
+  const answerRequestRef = React.useRef<SubmitDiagnosisAnswerRequest | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
   const [loadInfoMessage, setLoadInfoMessage] = React.useState<string | null>(null);
@@ -420,37 +420,34 @@ const DiagnosisPage: React.FC = () => {
     if (!currentItem) {
       return;
     }
-    const clientRequestId =
-      answerRequestRef.current?.itemResultId === currentItem.itemResultId
-        ? answerRequestRef.current.clientRequestId
-        : crypto.randomUUID();
-    answerRequestRef.current = {
-      itemResultId: currentItem.itemResultId,
-      clientRequestId,
-    };
-    const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
-    const hesitationTimeMs = Math.max(0, reactionTimeMs - HESITATION_BASELINE_MS);
-    shownAtRef.current = Date.now();
+    const existingRequest =
+      answerRequestRef.current?.itemResultId === currentItem.itemResultId ? answerRequestRef.current : null;
+    const request = existingRequest ?? (() => {
+      const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
+      const hesitationTimeMs = Math.max(0, reactionTimeMs - HESITATION_BASELINE_MS);
 
-    if (currentItem.taskType === 'REACTION_TIME') {
-      await submitAnswerMutation.mutateAsync({
+      if (currentItem.taskType === 'REACTION_TIME') {
+        return {
+          itemResultId: currentItem.itemResultId,
+          clientRequestId: crypto.randomUUID(),
+          selectedAnswerKey: option.key,
+          selectedSemanticMatch: option.semanticMatch ?? undefined,
+          reactionTimeMs,
+          hesitationTimeMs,
+        } satisfies SubmitDiagnosisAnswerRequest;
+      }
+
+      return {
         itemResultId: currentItem.itemResultId,
-        clientRequestId,
+        clientRequestId: crypto.randomUUID(),
         selectedAnswerKey: option.key,
-        selectedSemanticMatch: option.semanticMatch ?? undefined,
         reactionTimeMs,
         hesitationTimeMs,
-      });
-      return;
-    }
-
-    await submitAnswerMutation.mutateAsync({
-      itemResultId: currentItem.itemResultId,
-      clientRequestId,
-      selectedAnswerKey: option.key,
-      reactionTimeMs,
-      hesitationTimeMs,
-    });
+      } satisfies SubmitDiagnosisAnswerRequest;
+    })();
+    answerRequestRef.current = request;
+    shownAtRef.current = Date.now();
+    await submitAnswerMutation.mutateAsync(request);
   };
 
   const handleResumeContinue = () => {

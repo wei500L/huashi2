@@ -11,7 +11,10 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigSemanticValidator;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsFlexibleDurationParser;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
@@ -37,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -64,6 +68,7 @@ public class AiRuntimeConfigService {
     private final Validator validator;
     private final AtomicReference<AiRuntimeBundle> currentBundle = new AtomicReference<>();
     private final AtomicReference<String> storedSyncStatus = new AtomicReference<>(STORED_SYNC_STATUS_NO_STORED_CONFIG);
+    private final AtomicBoolean storedConfigSyncInProgress = new AtomicBoolean(false);
     private final AtomicLong versionCounter = new AtomicLong();
     private final ConcurrentMap<String, StagedRuntimeBundle> stagedBundles = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, CommittedRuntimeStage> committedStages = new ConcurrentHashMap<>();
@@ -96,6 +101,21 @@ public class AiRuntimeConfigService {
 
     @EventListener(ApplicationReadyEvent.class)
     public void syncStoredConfigAfterStartup() {
+        syncStoredConfig("startup");
+    }
+
+    public void retryStoredConfigSyncIfFailed() {
+        if (!STORED_SYNC_STATUS_SYNC_FAILED.equals(storedSyncStatus.get())) {
+            return;
+        }
+        syncStoredConfig("health-check");
+    }
+
+    private void syncStoredConfig(String trigger) {
+        if (!storedConfigSyncInProgress.compareAndSet(false, true)) {
+            log.debug("event=ai_runtime_sync_skipped reason=sync_in_progress trigger={}", trigger);
+            return;
+        }
         try {
             AiRuntimeBundle baseBundle = current();
             ApiResponse<AiOpsConfigEffectiveResponse> response = baseBundle.appServerRestClient().get()
@@ -105,20 +125,27 @@ public class AiRuntimeConfigService {
 
             if (response == null || !response.success() || response.data() == null || response.data().config() == null) {
                 storedSyncStatus.set(STORED_SYNC_STATUS_NO_STORED_CONFIG);
-                log.info("event=ai_runtime_sync_skipped reason=no_stored_config");
+                log.info("event=ai_runtime_sync_skipped reason=no_stored_config trigger={}", trigger);
                 return;
             }
             apply(response.data().config(), "APP_SERVER_SYNC", response.data().version());
-            log.info("event=ai_runtime_sync_applied source=app-server version={}", response.data().version());
+            log.info("event=ai_runtime_sync_applied source=app-server version={} trigger={}",
+                    response.data().version(),
+                    trigger);
         } catch (RestClientResponseException ex) {
             storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
-            log.warn("event=ai_runtime_sync_failed status={} message={}", ex.getStatusCode().value(), ex.getMessage());
+            log.warn("event=ai_runtime_sync_failed trigger={} status={} message={}",
+                    trigger,
+                    ex.getStatusCode().value(),
+                    ex.getMessage());
         } catch (RestClientException ex) {
             storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
-            log.warn("event=ai_runtime_sync_failed message={}", ex.getMessage());
+            log.warn("event=ai_runtime_sync_failed trigger={} message={}", trigger, ex.getMessage());
         } catch (Exception ex) {
             storedSyncStatus.set(STORED_SYNC_STATUS_SYNC_FAILED);
-            log.warn("event=ai_runtime_sync_failed message={}", ex.getMessage());
+            log.warn("event=ai_runtime_sync_failed trigger={} message={}", trigger, ex.getMessage());
+        } finally {
+            storedConfigSyncInProgress.set(false);
         }
     }
 
@@ -177,17 +204,19 @@ public class AiRuntimeConfigService {
         );
     }
 
-    public AiOpsConfigApplyResponse commit(String stageId) {
+    public synchronized AiOpsConfigApplyResponse commit(String stageId) {
         pruneStagedEntries();
         CommittedRuntimeStage committedStage = committedStages.get(stageId);
         if (committedStage != null && !committedStage.isExpired()) {
             return committedStage.response();
         }
 
-        StagedRuntimeBundle stagedBundle = stagedBundles.remove(stageId);
+        StagedRuntimeBundle stagedBundle = stagedBundles.get(stageId);
         if (stagedBundle == null || stagedBundle.isExpired()) {
             throw new BusinessException(ResultCode.NOT_FOUND, "staged AI ops config was not found or expired", 404);
         }
+        rejectIfOlderThanCurrent(stagedBundle.bundle());
+        stagedBundles.remove(stageId);
 
         AiRuntimeBundle activatedBundle = activate(stagedBundle.bundle());
         currentBundle.set(activatedBundle);
@@ -297,12 +326,9 @@ public class AiRuntimeConfigService {
             return List.of();
         }
 
-        boolean chatSame = sameUpstream(active.chat().protocol(), active.chat().baseUrl(), active.chat().apiKey(), active.chat().model(),
-                fallback.chat().protocol(), fallback.chat().baseUrl(), fallback.chat().apiKey(), fallback.chat().model());
-        boolean embeddingSame = sameUpstream(active.embedding().protocol(), active.embedding().baseUrl(), active.embedding().apiKey(), active.embedding().model(),
-                fallback.embedding().protocol(), fallback.embedding().baseUrl(), fallback.embedding().apiKey(), fallback.embedding().model());
-        boolean rerankSame = sameUpstream(active.rerank().protocol(), active.rerank().baseUrl(), active.rerank().apiKey(), active.rerank().model(),
-                fallback.rerank().protocol(), fallback.rerank().baseUrl(), fallback.rerank().apiKey(), fallback.rerank().model());
+        boolean chatSame = sameUpstream(active.chat(), fallback.chat());
+        boolean embeddingSame = sameUpstream(active.embedding(), fallback.embedding());
+        boolean rerankSame = sameUpstream(active.rerank(), fallback.rerank());
 
         if (chatSame && embeddingSame && rerankSame) {
             return List.of(new AiOpsConfigNotice(
@@ -339,6 +365,39 @@ public class AiRuntimeConfigService {
             ));
         }
         return List.copyOf(notices);
+    }
+
+    private boolean sameUpstream(
+            AiOpsChatConfig left,
+            AiOpsChatConfig right
+    ) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(),
+                right.protocol(), right.baseUrl(), right.apiKey(), right.model());
+    }
+
+    private boolean sameUpstream(
+            AiOpsEmbeddingConfig left,
+            AiOpsEmbeddingConfig right
+    ) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(),
+                right.protocol(), right.baseUrl(), right.apiKey(), right.model());
+    }
+
+    private boolean sameUpstream(
+            AiOpsRerankConfig left,
+            AiOpsRerankConfig right
+    ) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(),
+                right.protocol(), right.baseUrl(), right.apiKey(), right.model());
     }
 
     private boolean sameUpstream(
@@ -416,6 +475,18 @@ public class AiRuntimeConfigService {
                 stagedBundle.version(),
                 OffsetDateTime.now()
         );
+    }
+
+    private void rejectIfOlderThanCurrent(AiRuntimeBundle stagedBundle) {
+        Long stagedVersion = stagedBundle == null ? null : stagedBundle.version();
+        Long currentVersion = current().version();
+        if (stagedVersion != null && currentVersion != null && stagedVersion < currentVersion) {
+            throw new BusinessException(
+                    ResultCode.CONFLICT,
+                    "staged AI ops config version is older than the active runtime version",
+                    409
+            );
+        }
     }
 
     private void pruneStagedEntries() {

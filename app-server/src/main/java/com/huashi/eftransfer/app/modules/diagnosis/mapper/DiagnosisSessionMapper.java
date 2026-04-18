@@ -27,6 +27,21 @@ public interface DiagnosisSessionMapper extends BaseMapper<DiagnosisSessionEntit
 
     @Update("""
             UPDATE diagnosis_session
+            SET status = 'ABANDONED',
+                current_item_order = NULL,
+                last_saved_at = #{abandonedAt},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{sessionId}
+              AND status = 'IN_PROGRESS'
+              AND deleted = FALSE
+            """)
+    int abandonIfInProgress(
+            @Param("sessionId") Long sessionId,
+            @Param("abandonedAt") java.time.LocalDateTime abandonedAt
+    );
+
+    @Update("""
+            UPDATE diagnosis_session
             SET completion_hooks_status = 'IN_PROGRESS',
                 completion_hooks_updated_at = CURRENT_TIMESTAMP,
                 completion_hooks_error = NULL,

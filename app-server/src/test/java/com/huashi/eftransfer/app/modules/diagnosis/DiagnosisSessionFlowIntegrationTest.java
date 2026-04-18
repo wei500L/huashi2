@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -355,6 +356,8 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.completed").value(true));
+
+        assertThat(diagnosisSessionMapper.abandonIfInProgress(sessionId, LocalDateTime.now())).isZero();
 
         MvcResult diagnosisResult = mockMvc.perform(get("/api/diagnosis/sessions/{sessionId}/result", sessionId)
                         .with(bearer(studentToken)))

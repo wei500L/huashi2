@@ -294,6 +294,7 @@ public class TrainingSessionService {
                     session.getCurrentItemOrder(),
                     false,
                     false,
+                    parseCompletionHooksStatus(session.getCompletionHooksStatus()),
                     null
             );
         }
@@ -316,6 +317,7 @@ public class TrainingSessionService {
                     null,
                     false,
                     isSessionReadyToComplete(session),
+                    parseCompletionHooksStatus(session.getCompletionHooksStatus()),
                     null
             );
         }
@@ -335,6 +337,7 @@ public class TrainingSessionService {
                 itemResult.getPresentationOrder(),
                 true,
                 false,
+                parseCompletionHooksStatus(session.getCompletionHooksStatus()),
                 toQuestionItemVO(itemResult, planItem, pair)
         );
     }
@@ -457,8 +460,13 @@ public class TrainingSessionService {
         if (!TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Training session is not in progress", 409);
         }
-        abandonSession(session);
-        auditLogService.record("abandon_training_session", "training_session", String.valueOf(sessionId), Map.of("sessionId", sessionId), ResultCode.SUCCESS.code());
+        boolean abandoned = abandonSession(session);
+        if (!abandoned) {
+            session = requireAccessibleSession(sessionId);
+        }
+        if (TrainingSessionStatus.ABANDONED.name().equals(session.getStatus())) {
+            auditLogService.record("abandon_training_session", "training_session", String.valueOf(sessionId), Map.of("sessionId", sessionId), ResultCode.SUCCESS.code());
+        }
         return progressVO(session);
     }
 
@@ -1442,7 +1450,8 @@ public class TrainingSessionService {
                 session.getAnsweredItems(),
                 session.getCurrentItemOrder(),
                 TrainingSessionStatus.COMPLETED.name().equals(session.getStatus()),
-                TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus()) && isSessionReadyToComplete(session)
+                TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus()) && isSessionReadyToComplete(session),
+                parseCompletionHooksStatus(session.getCompletionHooksStatus())
         );
     }
 
@@ -1465,17 +1474,22 @@ public class TrainingSessionService {
                 .orderByAsc(TrainingSessionEntity::getLastSavedAt)
                 .orderByAsc(TrainingSessionEntity::getId)
                 .last("LIMIT " + limit))) {
-            abandonSession(session);
-            abandoned++;
+            if (abandonSession(session)) {
+                abandoned++;
+            }
         }
         return abandoned;
     }
 
-    private void abandonSession(TrainingSessionEntity session) {
+    private boolean abandonSession(TrainingSessionEntity session) {
+        LocalDateTime abandonedAt = LocalDateTime.now();
+        if (trainingSessionMapper.abandonIfInProgress(session.getId(), abandonedAt) == 0) {
+            return false;
+        }
         session.setStatus(TrainingSessionStatus.ABANDONED.name());
         session.setCurrentItemOrder(null);
-        session.setLastSavedAt(LocalDateTime.now());
-        trainingSessionMapper.updateById(session);
+        session.setLastSavedAt(abandonedAt);
+        return true;
     }
 
     private IdempotencyService.IdempotencyClaimResult<TrainingSessionProgressVO> beginAnswerIdempotency(
@@ -1518,6 +1532,17 @@ public class TrainingSessionService {
             return TrainingSessionStatus.fromCode(value.trim());
         } catch (RuntimeException exception) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported trainingSessionStatus: " + value, 400);
+        }
+    }
+
+    private SessionCompletionHookStatus parseCompletionHooksStatus(String value) {
+        if (!hasText(value)) {
+            return null;
+        }
+        try {
+            return SessionCompletionHookStatus.valueOf(value.trim());
+        } catch (RuntimeException exception) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported session completion hook status: " + value, 400);
         }
     }
 

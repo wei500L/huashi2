@@ -12,7 +12,7 @@ public interface DiagnosisItemResultMapper extends BaseMapper<DiagnosisItemResul
     @Update("""
             UPDATE diagnosis_item_result
             SET answer_state = #{answerState},
-                stimulus_started_at = COALESCE(stimulus_startedAt, #{stimulusStartedAt}),
+                stimulus_started_at = COALESCE(stimulus_started_at, #{stimulusStartedAt}),
                 submitted_at = #{submittedAt},
                 reaction_time_ms = #{reactionTimeMs},
                 hesitation_time_ms = #{hesitationTimeMs},

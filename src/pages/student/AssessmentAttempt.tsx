@@ -58,10 +58,10 @@ function mergeDraftResponses(detail: AssessmentAttemptDetailVO) {
   let restored = false;
   const merged = { ...serverResponses };
   detail.questions.forEach((question) => {
-    const localResponses = draft.responsesByOrder[question.questionOrder] || [];
-    if (!hasResponses(localResponses)) {
+    if (!Object.prototype.hasOwnProperty.call(draft.responsesByOrder, question.questionOrder)) {
       return;
     }
+    const localResponses = draft.responsesByOrder[question.questionOrder] || [];
     const serverQuestionResponses = serverResponses[question.questionOrder] || [];
     if (serverQuestionResponses.join('\u0000') === localResponses.join('\u0000')) {
       return;
@@ -220,27 +220,33 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   );
 
   const resolveSubmittedAttempt = React.useCallback(async () => {
-    const refreshed = await assessmentService.getStudentAttemptHeartbeat(attemptId);
-    if (refreshed.status !== 'SUBMITTED') {
-      return null;
+    try {
+      const refreshed = await assessmentService.getStudentAttemptHeartbeat(attemptId);
+      if (refreshed.status === 'SUBMITTED') {
+        queryClient.setQueryData<AssessmentAttemptDetailVO | undefined>(
+          ['student-assessment-attempt', attemptId],
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  status: refreshed.status,
+                  answeredCount: refreshed.answeredCount,
+                  expiresAt: refreshed.expiresAt,
+                  submittedAt: refreshed.submittedAt || null,
+                  lastSavedAt: refreshed.lastSavedAt || null,
+                  serverTime: refreshed.serverTime,
+                }
+              : current
+        );
+        return refreshed;
+      }
+    } catch {
+      // Keep the old 409 recovery path viable when the heartbeat probe fails.
     }
-    queryClient.setQueryData<AssessmentAttemptDetailVO | undefined>(
-      ['student-assessment-attempt', attemptId],
-      (current) =>
-        current
-          ? {
-              ...current,
-              status: refreshed.status,
-              answeredCount: refreshed.answeredCount,
-              expiresAt: refreshed.expiresAt,
-              submittedAt: refreshed.submittedAt || null,
-              lastSavedAt: refreshed.lastSavedAt || null,
-              serverTime: refreshed.serverTime,
-            }
-          : current
-    );
-    return refreshed;
-  }, [attemptId, queryClient]);
+
+    const refreshedDetail = await detailQuery.refetch();
+    return refreshedDetail.data?.status === 'SUBMITTED' ? refreshedDetail.data : null;
+  }, [attemptId, detailQuery, queryClient]);
 
   const persistResponses = React.useCallback(
     async (

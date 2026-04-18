@@ -12,6 +12,7 @@ import com.huashi.eftransfer.app.modules.notification.mapper.NotificationMapper;
 import com.huashi.eftransfer.app.modules.training.entity.TrainingItemResultEntity;
 import com.huashi.eftransfer.app.modules.training.mapper.ReviewScheduleMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.TrainingItemResultMapper;
+import com.huashi.eftransfer.app.modules.training.mapper.TrainingSessionMapper;
 import com.huashi.eftransfer.app.modules.training.mapper.WrongBookMapper;
 import com.huashi.eftransfer.app.modules.user.entity.StudentProfileEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
@@ -24,6 +25,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -35,6 +37,9 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private TrainingItemResultMapper trainingItemResultMapper;
+
+    @Autowired
+    private TrainingSessionMapper trainingSessionMapper;
 
     @Autowired
     private WrongBookMapper wrongBookMapper;
@@ -297,7 +302,8 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                     .andExpect(jsonPath("$.data.answeredItems").value(index + 1));
             if (index == itemResults.size() - 1) {
                 submitAnswer.andExpect(jsonPath("$.data.status").value("COMPLETED"))
-                        .andExpect(jsonPath("$.data.completed").value(true));
+                        .andExpect(jsonPath("$.data.completed").value(true))
+                        .andExpect(jsonPath("$.data.completionHooksStatus").value("PENDING"));
             } else {
                 submitAnswer.andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
                         .andExpect(jsonPath("$.data.completed").value(false));
@@ -341,7 +347,8 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sessionStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.hasNextItem").value(false))
-                .andExpect(jsonPath("$.data.answeredItems").value(itemResults.size()));
+                .andExpect(jsonPath("$.data.answeredItems").value(itemResults.size()))
+                .andExpect(jsonPath("$.data.completionHooksStatus").isString());
 
         MvcResult followUpTrainingSessionResult = mockMvc.perform(post("/api/training/sessions")
                         .with(bearer(studentToken))
@@ -362,7 +369,10 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                         .with(bearer(studentToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data.completed").value(true));
+                .andExpect(jsonPath("$.data.completed").value(true))
+                .andExpect(jsonPath("$.data.completionHooksStatus").isString());
+
+        assertThat(trainingSessionMapper.abandonIfInProgress(trainingSessionId, LocalDateTime.now())).isZero();
 
         mockMvc.perform(post("/api/training/sessions/{sessionId}/progress", trainingSessionId)
                         .with(bearer(studentToken))

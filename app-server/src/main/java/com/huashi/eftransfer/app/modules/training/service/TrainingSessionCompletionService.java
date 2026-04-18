@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -135,7 +136,11 @@ public class TrainingSessionCompletionService {
     }
 
     private void scheduleProcessing(Long sessionId) {
-        sessionCompletionTaskExecutor.execute(() -> processSafely(sessionId, LocalDateTime.now()));
+        try {
+            sessionCompletionTaskExecutor.execute(() -> processSafely(sessionId, LocalDateTime.now()));
+        } catch (TaskRejectedException exception) {
+            log.warn("event=training_completion_hooks_deferred sessionId={} message={}", sessionId, exception.getMessage());
+        }
     }
 
     private void processSafely(Long sessionId, LocalDateTime staleReference) {
