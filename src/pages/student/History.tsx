@@ -408,6 +408,7 @@ const HistoryPage: React.FC = () => {
               >
                 <option value="ALL">全部状态</option>
                 <option value="IN_PROGRESS">进行中</option>
+                <option value="ABANDONED">已废弃</option>
                 <option value="COMPLETED">已完成</option>
               </select>
             </div>
@@ -468,6 +469,10 @@ const HistoryPage: React.FC = () => {
                           >
                             继续诊断
                           </button>
+                        ) : record.status === 'ABANDONED' ? (
+                          <span className="px-5 py-3 text-sm font-bold text-slate-400 dark:text-white/35">
+                            会话已废弃
+                          </span>
                         ) : (
                           <button
                             type="button"
@@ -639,6 +644,7 @@ const HistoryPage: React.FC = () => {
               >
                 <option value="ALL">全部状态</option>
                 <option value="IN_PROGRESS">进行中</option>
+                <option value="ABANDONED">已废弃</option>
                 <option value="COMPLETED">已完成</option>
               </select>
             </div>
@@ -698,6 +704,10 @@ const HistoryPage: React.FC = () => {
                           >
                             继续训练
                           </button>
+                        ) : record.status === 'ABANDONED' ? (
+                          <span className="px-5 py-3 text-sm font-bold text-slate-400 dark:text-white/35">
+                            会话已废弃
+                          </span>
                         ) : (
                           <button
                             type="button"

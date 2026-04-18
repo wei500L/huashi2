@@ -31,7 +31,9 @@ describe('format display mappings', () => {
     expect(trainingModeLabel('FALSE_FRIEND_DISCRIM')).toBe('纠偏：同形异义词辨析');
     expect(diagnosisTaskTypeLabel('REACTION_TIME')).toBe('反应时判断');
     expect(diagnosisSessionStatusLabel('COMPLETED')).toBe('已完成');
+    expect(diagnosisSessionStatusLabel('ABANDONED')).toBe('已废弃');
     expect(trainingSessionStatusLabel('IN_PROGRESS')).toBe('进行中');
+    expect(trainingSessionStatusLabel('ABANDONED')).toBe('已废弃');
     expect(assessmentAttemptStatusLabel('IN_PROGRESS')).toBe('进行中');
     expect(lexicalImportBatchStatusLabel('IMPORTING')).toBe('导入中');
     expect(lexicalImportRowStatusLabel('INVALID')).toBe('需修正');
@@ -64,7 +66,9 @@ describe('format display mappings', () => {
     expect(trainingModeLabel('FALSE_FRIEND_DISCRIM')).toBe('Correct: false-friend discrimination');
     expect(diagnosisTaskTypeLabel('REACTION_TIME')).toBe('Reaction-time check');
     expect(diagnosisSessionStatusLabel('COMPLETED')).toBe('Completed');
+    expect(diagnosisSessionStatusLabel('ABANDONED')).toBe('Abandoned');
     expect(trainingSessionStatusLabel('IN_PROGRESS')).toBe('In progress');
+    expect(trainingSessionStatusLabel('ABANDONED')).toBe('Abandoned');
     expect(assessmentAttemptStatusLabel('IN_PROGRESS')).toBe('In progress');
     expect(assessmentPaperStatusLabel('DRAFT')).toBe('Draft');
     expect(lexicalImportBatchStatusLabel('IMPORTING')).toBe('Importing');

@@ -9,6 +9,8 @@ import jakarta.validation.constraints.Size;
 public record SubmitTrainingAnswerRequest(
         @NotNull(message = "itemResultId must not be null")
         Long itemResultId,
+        @Size(max = 128, message = "clientRequestId must be less than or equal to 128 characters")
+        String clientRequestId,
         @NotBlank(message = "selectedAnswerKey must not be blank")
         @Size(max = 64, message = "selectedAnswerKey must be less than or equal to 64 characters")
         String selectedAnswerKey,

@@ -252,6 +252,7 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
             String answerKey = index == 0 ? firstWrongOptionKey(itemResult) : itemResult.getCorrectAnswerKey();
             int reactionTime = index == 0 ? 1490 : 860;
             int hesitationTime = index == 0 ? 360 : 120;
+            String clientRequestId = index == 0 ? "training-answer-first" : "training-answer-" + index;
 
             ResultActions submitAnswer = mockMvc.perform(post("/api/training/sessions/{sessionId}/answers", trainingSessionId)
                             .with(bearer(studentToken))
@@ -259,11 +260,12 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                             .content("""
                                     {
                                       "itemResultId": %d,
+                                      "clientRequestId": "%s",
                                       "selectedAnswerKey": "%s",
                                       "reactionTimeMs": %d,
                                       "hesitationTimeMs": %d
                                     }
-                                    """.formatted(itemResult.getId(), answerKey, reactionTime, hesitationTime)))
+                                    """.formatted(itemResult.getId(), clientRequestId, answerKey, reactionTime, hesitationTime)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.answeredItems").value(index + 1));
             if (index == itemResults.size() - 1) {
@@ -272,6 +274,38 @@ class TrainingSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
             } else {
                 submitAnswer.andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
                         .andExpect(jsonPath("$.data.completed").value(false));
+            }
+
+            if (index == 0) {
+                mockMvc.perform(post("/api/training/sessions/{sessionId}/answers", trainingSessionId)
+                                .with(bearer(studentToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "itemResultId": %d,
+                                          "clientRequestId": "%s",
+                                          "selectedAnswerKey": "%s",
+                                          "reactionTimeMs": %d,
+                                          "hesitationTimeMs": %d
+                                        }
+                                        """.formatted(itemResult.getId(), clientRequestId, answerKey, reactionTime, hesitationTime)))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data.answeredItems").value(1));
+
+                mockMvc.perform(post("/api/training/sessions/{sessionId}/answers", trainingSessionId)
+                                .with(bearer(studentToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "itemResultId": %d,
+                                          "clientRequestId": "%s",
+                                          "selectedAnswerKey": "%s",
+                                          "reactionTimeMs": %d,
+                                          "hesitationTimeMs": %d
+                                        }
+                                        """.formatted(itemResult.getId(), clientRequestId, itemResult.getCorrectAnswerKey(), reactionTime, hesitationTime)))
+                        .andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.message").value("clientRequestId already exists with a different answer payload"));
             }
         }
 

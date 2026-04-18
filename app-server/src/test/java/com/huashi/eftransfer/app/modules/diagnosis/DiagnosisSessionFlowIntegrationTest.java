@@ -210,19 +210,51 @@ class DiagnosisSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
             String englishWord = readJson(nextItemResult).path("data").path("item").path("englishWord").asText();
 
             if ("table".equals(englishWord)) {
+                String clientRequestId = "diagnosis-answer-table";
                 mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
                                 .with(bearer(studentToken))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
                                           "itemResultId": %d,
+                                          "clientRequestId": "%s",
                                           "selectedAnswerKey": "semantic_match",
                                           "reactionTimeMs": 620,
                                           "hesitationTimeMs": 90
                                         }
-                                        """.formatted(itemResultId)))
+                                        """.formatted(itemResultId, clientRequestId)))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.data.answeredItems").value(1));
+
+                mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
+                                .with(bearer(studentToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "itemResultId": %d,
+                                          "clientRequestId": "%s",
+                                          "selectedAnswerKey": "semantic_match",
+                                          "reactionTimeMs": 620,
+                                          "hesitationTimeMs": 90
+                                        }
+                                        """.formatted(itemResultId, clientRequestId)))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data.answeredItems").value(1));
+
+                mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/answers", sessionId)
+                                .with(bearer(studentToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "itemResultId": %d,
+                                          "clientRequestId": "%s",
+                                          "selectedAnswerKey": "semantic_mismatch",
+                                          "reactionTimeMs": 620,
+                                          "hesitationTimeMs": 90
+                                        }
+                                        """.formatted(itemResultId, clientRequestId)))
+                        .andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.message").value("clientRequestId already exists with a different answer payload"));
 
                 mockMvc.perform(post("/api/diagnosis/sessions/{sessionId}/progress", sessionId)
                                 .with(bearer(studentToken))

@@ -133,6 +133,7 @@ const DiagnosisPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(diagnosisFlowReducer, initialDiagnosisFlowState);
   const shownAtRef = React.useRef<number>(Date.now());
+  const answerRequestRef = React.useRef<{ itemResultId: number; clientRequestId: string } | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
   const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
@@ -200,6 +201,7 @@ const DiagnosisPage: React.FC = () => {
     onSuccess: async (progress, payload) => {
       setSubmitErrorMessage(null);
       if (progress.completed) {
+        answerRequestRef.current = null;
         setPendingNextItemId(null);
         setSubmitInfoMessage(null);
         markCompleted();
@@ -218,6 +220,7 @@ const DiagnosisPage: React.FC = () => {
     onError: async (error, payload) => {
       const refreshed = await nextItemQuery.refetch();
       if (refreshed.data?.sessionStatus === 'COMPLETED') {
+        answerRequestRef.current = null;
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，系统已同步到最新结果。');
         markCompleted();
@@ -280,7 +283,15 @@ const DiagnosisPage: React.FC = () => {
       return;
     }
     if (nextItemQuery.data.sessionStatus === 'COMPLETED') {
+      answerRequestRef.current = null;
       markCompleted();
+      return;
+    }
+    if (nextItemQuery.data.sessionStatus === 'ABANDONED') {
+      answerRequestRef.current = null;
+      setSubmitInfoMessage(null);
+      setSubmitErrorMessage('当前诊断会话已被系统废弃，请返回重新开始。');
+      dispatch({ type: 'reset' });
     }
   }, [markCompleted, nextItemQuery.data, state.phase]);
 
@@ -302,12 +313,16 @@ const DiagnosisPage: React.FC = () => {
 
   React.useEffect(() => {
     if (!currentItem) {
+      answerRequestRef.current = null;
       return;
     }
     runtime.resetFeedback();
     if (pendingNextItemId !== currentItem.itemResultId) {
       setPendingNextItemId(null);
       setSubmitInfoMessage(null);
+    }
+    if (answerRequestRef.current?.itemResultId !== currentItem.itemResultId) {
+      answerRequestRef.current = null;
     }
     setSubmitErrorMessage(null);
   }, [currentItem?.itemResultId, pendingNextItemId, runtime.resetFeedback]);
@@ -316,6 +331,14 @@ const DiagnosisPage: React.FC = () => {
     if (!currentItem) {
       return;
     }
+    const clientRequestId =
+      answerRequestRef.current?.itemResultId === currentItem.itemResultId
+        ? answerRequestRef.current.clientRequestId
+        : crypto.randomUUID();
+    answerRequestRef.current = {
+      itemResultId: currentItem.itemResultId,
+      clientRequestId,
+    };
     const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
     const hesitationTimeMs = Math.max(0, reactionTimeMs - 1200);
     shownAtRef.current = Date.now();
@@ -323,6 +346,7 @@ const DiagnosisPage: React.FC = () => {
     if (currentItem.taskType === 'REACTION_TIME') {
       await submitAnswerMutation.mutateAsync({
         itemResultId: currentItem.itemResultId,
+        clientRequestId,
         selectedAnswerKey: option.key,
         selectedSemanticMatch: option.semanticMatch ?? undefined,
         reactionTimeMs,
@@ -333,6 +357,7 @@ const DiagnosisPage: React.FC = () => {
 
     await submitAnswerMutation.mutateAsync({
       itemResultId: currentItem.itemResultId,
+      clientRequestId,
       selectedAnswerKey: option.key,
       reactionTimeMs,
       hesitationTimeMs,

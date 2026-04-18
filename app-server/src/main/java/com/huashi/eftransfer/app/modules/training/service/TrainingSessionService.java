@@ -2,7 +2,9 @@ package com.huashi.eftransfer.app.modules.training.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
+import com.huashi.eftransfer.app.common.idempotency.IdempotencyService;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
+import com.huashi.eftransfer.app.common.util.TokenGenerator;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairExampleEntity;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairSenseEntity;
@@ -62,6 +64,7 @@ import com.huashi.eftransfer.shared.page.PageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -103,6 +106,7 @@ public class TrainingSessionService {
     private final TrainingItemGenerator trainingItemGenerator;
     private final TrainingCompletedEventPublisher trainingCompletedEventPublisher;
     private final AuditLogService auditLogService;
+    private final IdempotencyService idempotencyService;
 
     public TrainingSessionService(
             TrainingPlanMapper trainingPlanMapper,
@@ -118,7 +122,8 @@ public class TrainingSessionService {
             com.huashi.eftransfer.app.modules.training.support.TrainingJsonCodec trainingJsonCodec,
             TrainingItemGenerator trainingItemGenerator,
             TrainingCompletedEventPublisher trainingCompletedEventPublisher,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            IdempotencyService idempotencyService
     ) {
         this.trainingPlanMapper = trainingPlanMapper;
         this.trainingPlanItemMapper = trainingPlanItemMapper;
@@ -134,6 +139,7 @@ public class TrainingSessionService {
         this.trainingItemGenerator = trainingItemGenerator;
         this.trainingCompletedEventPublisher = trainingCompletedEventPublisher;
         this.auditLogService = auditLogService;
+        this.idempotencyService = idempotencyService;
     }
 
     @Transactional
@@ -164,7 +170,11 @@ public class TrainingSessionService {
         session.setRiskLevel(plan.getRiskLevel());
         session.setLaunchContextJson(trainingJsonCodec.write(launchContext));
         session.setStartedAt(LocalDateTime.now());
-        trainingSessionMapper.insert(session);
+        try {
+            trainingSessionMapper.insert(session);
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ResultCode.CONFLICT, "Training session already in progress. Resume the active session before starting a new one.", 409);
+        }
 
         Map<Long, LexicalPairEntity> pairMap = loadLexicalPairMap(sessionPlanItems.stream()
                 .map(sessionPlanItem -> sessionPlanItem.planItem().getLexicalPairId())
@@ -270,7 +280,7 @@ public class TrainingSessionService {
 
     public TrainingNextItemVO getNextItem(Long sessionId) {
         TrainingSessionEntity session = requireAccessibleSession(sessionId);
-        session = finalizeStaleSessionIfReady(session);
+        session = refreshSessionAfterHealing(session);
         if (!TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             return new TrainingNextItemVO(
                     session.getId(),
@@ -290,7 +300,7 @@ public class TrainingSessionService {
                 .orderByAsc(TrainingItemResultEntity::getPresentationOrder)
                 .last("LIMIT 1"));
         if (itemResult == null) {
-            session = finalizeStaleSessionIfReady(session);
+            session = refreshSessionAfterHealing(session);
             return new TrainingNextItemVO(
                     session.getId(),
                     session.getStatus(),
@@ -321,7 +331,7 @@ public class TrainingSessionService {
     @Transactional
     public TrainingSessionProgressVO saveProgress(Long sessionId, SaveTrainingProgressRequest request) {
         TrainingSessionEntity session = requireAccessibleSession(sessionId);
-        session = finalizeStaleSessionIfReady(session);
+        session = refreshSessionAfterHealing(session);
         if (TrainingSessionStatus.COMPLETED.name().equals(session.getStatus())) {
             return progressVO(session);
         }
@@ -338,55 +348,85 @@ public class TrainingSessionService {
 
     @Transactional
     public TrainingSessionProgressVO submitAnswer(Long sessionId, SubmitTrainingAnswerRequest request) {
-        TrainingSessionEntity session = requireInProgressSession(sessionId);
-        TrainingItemResultEntity itemResult = requirePendingItemResult(sessionId, request.itemResultId());
-        List<TrainingOptionPayload> options = trainingJsonCodec.readOptions(itemResult.getOptionsJson());
-        boolean optionExists = options.stream().anyMatch(option -> option.key().equalsIgnoreCase(request.selectedAnswerKey()));
-        if (!optionExists) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Selected answer key is not defined in this training item", 400);
-        }
-        LexicalPairEntity pair = requireLexicalPair(itemResult.getLexicalPairId());
-        boolean correct = itemResult.getCorrectAnswerKey().equalsIgnoreCase(request.selectedAnswerKey());
-        String errorType = resolveErrorType(itemResult.getMode(), pair.getLexicalPairType(), correct);
-        String adaptationAction = resolveAdaptationAction(itemResult.getMode(), pair.getLexicalPairType(), correct, request.reactionTimeMs(), errorType);
-
-        itemResult.setSelectedAnswerKey(request.selectedAnswerKey());
-        itemResult.setAnswerPayloadJson(trainingJsonCodec.write(Map.of(
-                "selectedAnswerKey", request.selectedAnswerKey(),
-                "reactionTimeMs", request.reactionTimeMs(),
-                "hesitationTimeMs", request.hesitationTimeMs()
-        )));
-        itemResult.setSubmittedAt(LocalDateTime.now());
-        itemResult.setReactionTimeMs(request.reactionTimeMs());
-        itemResult.setHesitationTimeMs(request.hesitationTimeMs());
-        itemResult.setIsCorrect(correct);
-        itemResult.setDetectedErrorType(errorType);
-        itemResult.setReviewRequired(!correct);
-        itemResult.setAdaptationAction(adaptationAction);
-        itemResult.setAnswerState(TrainingAnswerState.ANSWERED.name());
-        trainingItemResultMapper.updateById(itemResult);
-
-        session.setAnsweredItems(session.getAnsweredItems() + 1);
-        TrainingItemResultEntity nextPending = trainingItemResultMapper.selectOne(Wrappers.<TrainingItemResultEntity>lambdaQuery()
-                .eq(TrainingItemResultEntity::getSessionId, sessionId)
-                .eq(TrainingItemResultEntity::getAnswerState, TrainingAnswerState.PENDING.name())
-                .orderByAsc(TrainingItemResultEntity::getPresentationOrder)
-                .last("LIMIT 1"));
-        session.setCurrentItemOrder(nextPending == null ? session.getTotalItems() : nextPending.getPresentationOrder());
-        if (nextPending == null) {
-            session = finalizeCompletedSession(session);
-        } else {
-            trainingSessionMapper.updateById(session);
+        TrainingSessionEntity accessibleSession = requireAccessibleSession(sessionId);
+        IdempotencyService.IdempotencyClaimResult<TrainingSessionProgressVO> idempotencyClaim = beginAnswerIdempotency(accessibleSession, request);
+        if (idempotencyClaim.replayedResponse() != null) {
+            return idempotencyClaim.replayedResponse();
         }
 
-        auditLogService.record("submit_training_answer", "training_session", String.valueOf(sessionId), request, ResultCode.SUCCESS.code());
-        return progressVO(session);
+        try {
+            TrainingSessionEntity session = requireInProgressSession(sessionId);
+            TrainingItemResultEntity itemResult = requireItemResult(sessionId, request.itemResultId());
+            List<TrainingOptionPayload> options = trainingJsonCodec.readOptions(itemResult.getOptionsJson());
+            boolean optionExists = options.stream().anyMatch(option -> option.key().equalsIgnoreCase(request.selectedAnswerKey()));
+            if (!optionExists) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "Selected answer key is not defined in this training item", 400);
+            }
+            LexicalPairEntity pair = requireLexicalPair(itemResult.getLexicalPairId());
+            boolean correct = itemResult.getCorrectAnswerKey().equalsIgnoreCase(request.selectedAnswerKey());
+            String errorType = resolveErrorType(itemResult.getMode(), pair.getLexicalPairType(), correct);
+            String adaptationAction = resolveAdaptationAction(itemResult.getMode(), pair.getLexicalPairType(), correct, request.reactionTimeMs(), errorType);
+
+            int updatedRows = trainingItemResultMapper.submitAnswer(
+                    itemResult.getId(),
+                    sessionId,
+                    TrainingAnswerState.PENDING.name(),
+                    TrainingAnswerState.ANSWERED.name(),
+                    request.selectedAnswerKey(),
+                    trainingJsonCodec.write(Map.of(
+                            "selectedAnswerKey", request.selectedAnswerKey(),
+                            "reactionTimeMs", request.reactionTimeMs(),
+                            "hesitationTimeMs", request.hesitationTimeMs()
+                    )),
+                    LocalDateTime.now(),
+                    request.reactionTimeMs(),
+                    request.hesitationTimeMs(),
+                    correct,
+                    errorType,
+                    !correct,
+                    adaptationAction
+            );
+            if (updatedRows == 0) {
+                throw answeredItemConflict();
+            }
+
+            TrainingItemResultEntity nextPending = trainingItemResultMapper.selectOne(Wrappers.<TrainingItemResultEntity>lambdaQuery()
+                    .eq(TrainingItemResultEntity::getSessionId, sessionId)
+                    .eq(TrainingItemResultEntity::getAnswerState, TrainingAnswerState.PENDING.name())
+                    .orderByAsc(TrainingItemResultEntity::getPresentationOrder)
+                    .last("LIMIT 1"));
+            int sessionRows = trainingSessionMapper.incrementAnsweredItems(
+                    session.getId(),
+                    nextPending == null ? session.getTotalItems() : nextPending.getPresentationOrder(),
+                    TrainingSessionStatus.IN_PROGRESS.name()
+            );
+            if (sessionRows == 0) {
+                throw new BusinessException(ResultCode.CONFLICT, "Training session is not in progress", 409);
+            }
+
+            session = requireAccessibleSession(session.getId());
+            if (nextPending == null) {
+                session = finalizeCompletedSession(session);
+            }
+
+            TrainingSessionProgressVO progress = progressVO(session);
+            auditLogService.record("submit_training_answer", "training_session", String.valueOf(sessionId), request, ResultCode.SUCCESS.code());
+            if (idempotencyClaim.claimed()) {
+                idempotencyService.complete(idempotencyClaim.requestKey(), progress, currentUserId());
+            }
+            return progress;
+        } catch (RuntimeException exception) {
+            if (idempotencyClaim.claimed()) {
+                idempotencyService.release(idempotencyClaim.requestKey());
+            }
+            throw exception;
+        }
     }
 
     @Transactional
     public TrainingSessionProgressVO completeSession(Long sessionId) {
         TrainingSessionEntity session = requireAccessibleSession(sessionId);
-        session = finalizeStaleSessionIfReady(session);
+        session = refreshSessionAfterHealing(session);
         if (TrainingSessionStatus.COMPLETED.name().equals(session.getStatus())) {
             return progressVO(session);
         }
@@ -402,7 +442,7 @@ public class TrainingSessionService {
 
     public TrainingSessionSummaryVO getSummary(Long sessionId) {
         TrainingSessionEntity session = requireAccessibleSession(sessionId);
-        session = finalizeStaleSessionIfReady(session);
+        session = refreshSessionAfterHealing(session);
         if (!TrainingSessionStatus.COMPLETED.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Training session is not completed", 409);
         }
@@ -491,14 +531,28 @@ public class TrainingSessionService {
         if (session == null || !TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             return session;
         }
+        boolean updated = false;
         int answeredCount = countAnsweredItems(session.getId());
         if (!Objects.equals(session.getAnsweredItems(), answeredCount)) {
             session.setAnsweredItems(answeredCount);
+            updated = true;
         }
         if (!isSessionReadyToComplete(session, answeredCount)) {
+            if (updated) {
+                trainingSessionMapper.updateById(session);
+            }
             return session;
         }
         return finalizeCompletedSession(session);
+    }
+
+    private TrainingSessionEntity refreshSessionAfterHealing(TrainingSessionEntity session) {
+        if (session == null || session.getOwnerUserId() == null) {
+            return session;
+        }
+        healStaleInProgressSessions(session.getOwnerUserId());
+        TrainingSessionEntity refreshed = trainingSessionMapper.selectById(session.getId());
+        return refreshed == null ? session : finalizeStaleSessionIfReady(refreshed);
     }
 
     private boolean isSessionReadyToComplete(TrainingSessionEntity session) {
@@ -944,16 +998,10 @@ public class TrainingSessionService {
     }
 
     private void requireNoActiveSession(Long ownerUserId) {
-        List<TrainingSessionEntity> activeSessions = trainingSessionMapper.selectList(Wrappers.<TrainingSessionEntity>lambdaQuery()
+        healStaleInProgressSessions(ownerUserId);
+        if (trainingSessionMapper.selectCount(Wrappers.<TrainingSessionEntity>lambdaQuery()
                 .eq(TrainingSessionEntity::getOwnerUserId, ownerUserId)
-                .eq(TrainingSessionEntity::getStatus, TrainingSessionStatus.IN_PROGRESS.name())
-                .orderByDesc(TrainingSessionEntity::getStartedAt)
-                .orderByDesc(TrainingSessionEntity::getId));
-        for (TrainingSessionEntity existing : activeSessions) {
-            TrainingSessionEntity healedSession = finalizeStaleSessionIfReady(existing);
-            if (TrainingSessionStatus.COMPLETED.name().equals(healedSession.getStatus())) {
-                continue;
-            }
+                .eq(TrainingSessionEntity::getStatus, TrainingSessionStatus.IN_PROGRESS.name())) > 0) {
             throw new BusinessException(ResultCode.CONFLICT, "Training session already in progress. Resume the active session before starting a new one.", 409);
         }
     }
@@ -971,22 +1019,19 @@ public class TrainingSessionService {
 
     private TrainingSessionEntity requireInProgressSession(Long sessionId) {
         TrainingSessionEntity session = requireAccessibleSession(sessionId);
-        session = finalizeStaleSessionIfReady(session);
+        session = refreshSessionAfterHealing(session);
         if (!TrainingSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Training session is not in progress", 409);
         }
         return session;
     }
 
-    private TrainingItemResultEntity requirePendingItemResult(Long sessionId, Long itemResultId) {
+    private TrainingItemResultEntity requireItemResult(Long sessionId, Long itemResultId) {
         TrainingItemResultEntity itemResult = trainingItemResultMapper.selectOne(Wrappers.<TrainingItemResultEntity>lambdaQuery()
                 .eq(TrainingItemResultEntity::getId, itemResultId)
                 .eq(TrainingItemResultEntity::getSessionId, sessionId));
         if (itemResult == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "Training item result was not found", 404);
-        }
-        if (!TrainingAnswerState.PENDING.name().equals(itemResult.getAnswerState())) {
-            throw new BusinessException(ResultCode.CONFLICT, "Training item has already been answered", 409);
         }
         return itemResult;
     }
@@ -1398,12 +1443,52 @@ public class TrainingSessionService {
     }
 
     private void healStaleInProgressSessions(Long ownerUserId) {
-        trainingSessionMapper.selectList(Wrappers.<TrainingSessionEntity>lambdaQuery()
-                        .eq(TrainingSessionEntity::getOwnerUserId, ownerUserId)
-                        .eq(TrainingSessionEntity::getStatus, TrainingSessionStatus.IN_PROGRESS.name())
-                        .orderByDesc(TrainingSessionEntity::getStartedAt)
-                        .orderByDesc(TrainingSessionEntity::getId))
-                .forEach(this::finalizeStaleSessionIfReady);
+        TrainingSessionEntity keeper = null;
+        for (TrainingSessionEntity existing : trainingSessionMapper.selectList(Wrappers.<TrainingSessionEntity>lambdaQuery()
+                .eq(TrainingSessionEntity::getOwnerUserId, ownerUserId)
+                .eq(TrainingSessionEntity::getStatus, TrainingSessionStatus.IN_PROGRESS.name())
+                .orderByDesc(TrainingSessionEntity::getStartedAt)
+                .orderByDesc(TrainingSessionEntity::getId))) {
+            TrainingSessionEntity healed = finalizeStaleSessionIfReady(existing);
+            if (!TrainingSessionStatus.IN_PROGRESS.name().equals(healed.getStatus())) {
+                continue;
+            }
+            if (keeper == null) {
+                keeper = healed;
+                continue;
+            }
+            abandonSession(healed);
+        }
+    }
+
+    private void abandonSession(TrainingSessionEntity session) {
+        session.setStatus(TrainingSessionStatus.ABANDONED.name());
+        session.setCurrentItemOrder(null);
+        trainingSessionMapper.updateById(session);
+    }
+
+    private IdempotencyService.IdempotencyClaimResult<TrainingSessionProgressVO> beginAnswerIdempotency(
+            TrainingSessionEntity session,
+            SubmitTrainingAnswerRequest request
+    ) {
+        if (!hasText(request.clientRequestId())) {
+            return new IdempotencyService.IdempotencyClaimResult<>(null, false, null);
+        }
+        return idempotencyService.claimOrReplay(
+                buildAnswerRequestKey("training", session.getId(), request.itemResultId(), request.clientRequestId()),
+                idempotencyService.hashPayload(request),
+                currentUserId(),
+                TrainingSessionProgressVO.class
+        );
+    }
+
+    private String buildAnswerRequestKey(String domain, Long sessionId, Long itemResultId, String clientRequestId) {
+        String rawKey = sessionId + ":" + itemResultId + ":" + clientRequestId.trim();
+        return domain + ":answer:" + TokenGenerator.sha256(rawKey);
+    }
+
+    private BusinessException answeredItemConflict() {
+        return new BusinessException(ResultCode.CONFLICT, "Training item has already been answered", 409);
     }
 
     private Long currentUserId() {
@@ -1419,10 +1504,14 @@ public class TrainingSessionService {
 
     private TrainingSessionStatus parseSessionStatus(String value) {
         try {
-            return TrainingSessionStatus.valueOf(value.trim().toUpperCase());
+            return TrainingSessionStatus.fromCode(value.trim());
         } catch (RuntimeException exception) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported trainingSessionStatus: " + value, 400);
         }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private record SessionPlanItem(

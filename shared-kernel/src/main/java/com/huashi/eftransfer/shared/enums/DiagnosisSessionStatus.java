@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 public enum DiagnosisSessionStatus {
     IN_PROGRESS("in_progress", "In Progress"),
+    ABANDONED("abandoned", "Abandoned"),
     COMPLETED("completed", "Completed");
 
     private final String code;

@@ -590,6 +590,7 @@ export interface DiagnosisSessionProgressVO {
 
 export interface SubmitDiagnosisAnswerRequest {
   itemResultId: number;
+  clientRequestId?: string;
   selectedSemanticMatch?: boolean;
   selectedAnswerKey?: string;
   reactionTimeMs: number;
@@ -880,6 +881,7 @@ export interface SaveTrainingProgressRequest {
 
 export interface SubmitTrainingAnswerRequest {
   itemResultId: number;
+  clientRequestId?: string;
   selectedAnswerKey: string;
   reactionTimeMs: number;
   hesitationTimeMs: number;

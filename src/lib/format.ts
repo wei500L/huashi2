@@ -93,10 +93,12 @@ const COPY: Record<
     },
     diagnosisSessionStatusLabels: {
       IN_PROGRESS: '进行中',
+      ABANDONED: '已废弃',
       COMPLETED: '已完成',
     },
     trainingSessionStatusLabels: {
       IN_PROGRESS: '进行中',
+      ABANDONED: '已废弃',
       COMPLETED: '已完成',
     },
     diagnosisTemplateSyncStateLabels: {
@@ -244,10 +246,12 @@ const COPY: Record<
     },
     diagnosisSessionStatusLabels: {
       IN_PROGRESS: 'In progress',
+      ABANDONED: 'Abandoned',
       COMPLETED: 'Completed',
     },
     trainingSessionStatusLabels: {
       IN_PROGRESS: 'In progress',
+      ABANDONED: 'Abandoned',
       COMPLETED: 'Completed',
     },
     diagnosisTemplateSyncStateLabels: {
@@ -581,11 +585,25 @@ export function diagnosisTemplateSyncStateTone(syncState?: string | null): Statu
 }
 
 export function diagnosisSessionStatusTone(status?: string | null): StatusTone {
-  return normalizeDisplayKey(status) === 'COMPLETED' ? 'success' : 'warning';
+  switch (normalizeDisplayKey(status)) {
+    case 'COMPLETED':
+      return 'success';
+    case 'ABANDONED':
+      return 'neutral';
+    default:
+      return 'warning';
+  }
 }
 
 export function trainingSessionStatusTone(status?: string | null): StatusTone {
-  return normalizeDisplayKey(status) === 'COMPLETED' ? 'success' : 'warning';
+  switch (normalizeDisplayKey(status)) {
+    case 'COMPLETED':
+      return 'success';
+    case 'ABANDONED':
+      return 'neutral';
+    default:
+      return 'warning';
+  }
 }
 
 export function assessmentAttemptStatusTone(status?: string | null): StatusTone {
