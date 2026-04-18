@@ -4,15 +4,15 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
-import type { ApiResponse, LoginResponse } from './contracts';
+import type { ApiResponse, LoginResponse, ResultCode } from './contracts';
 import { clearStoredSession, dispatchAuthExpired, readStoredSession, writeStoredSession } from './session';
 
 export class ApiError extends Error {
   status: number;
-  code?: string;
+  code?: ResultCode | string;
   traceId?: string | null;
 
-  constructor(message: string, status = 500, code?: string, traceId?: string | null) {
+  constructor(message: string, status = 500, code?: ResultCode | string, traceId?: string | null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;

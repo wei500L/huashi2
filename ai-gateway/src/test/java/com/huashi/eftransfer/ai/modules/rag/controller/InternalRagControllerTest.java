@@ -180,7 +180,7 @@ class InternalRagControllerTest {
 
     @Test
     void shouldReturnReindexJobPayload() throws Exception {
-        when(knowledgeIngestionService.submit(any())).thenReturn(new RagReindexResponse(7L, "PENDING"));
+        when(knowledgeIngestionService.submit(any())).thenReturn(new RagReindexResponse("7", "PENDING"));
 
         mockMvc.perform(post("/internal/ai/rag/reindex")
                         .header("X-Internal-Token", "test-internal-token")
@@ -194,7 +194,7 @@ class InternalRagControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.jobId").value(7))
+                .andExpect(jsonPath("$.data.jobId").value("7"))
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
     }
 
@@ -219,8 +219,8 @@ class InternalRagControllerTest {
 
     @Test
     void shouldReturnReindexJobStatus() throws Exception {
-        when(knowledgeIngestionService.getJob(7L)).thenReturn(new RagReindexJobResponse(
-                7L,
+        when(knowledgeIngestionService.getJob("7")).thenReturn(new RagReindexJobResponse(
+                "7",
                 "KNOWLEDGE_REINDEX",
                 "INCREMENTAL",
                 "RUNNING",
@@ -237,7 +237,7 @@ class InternalRagControllerTest {
                         .header("X-Internal-Token", "test-internal-token")
                         .header("X-Trace-Id", "trace-rag-job"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.jobId").value(7))
+                .andExpect(jsonPath("$.data.jobId").value("7"))
                 .andExpect(jsonPath("$.data.status").value("RUNNING"));
     }
 

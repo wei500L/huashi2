@@ -136,7 +136,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
-                                "expectedVersion", 1,
+                                "expectedVersion", "1",
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -175,7 +175,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
-                                "expectedVersion", 2,
+                                "expectedVersion", "2",
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -218,7 +218,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
-                                "expectedVersion", 1,
+                                "expectedVersion", "1",
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -256,7 +256,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", renamedPayload,
-                                "expectedVersion", 2,
+                                "expectedVersion", "2",
                                 "providerOrigins", Map.of("primary_openai", "qwen"),
                                 "secrets", Map.of(
                                         "providers", Map.of(
@@ -310,7 +310,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", reorderedPayload,
-                                "expectedVersion", 1,
+                                "expectedVersion", "1",
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "deepseek", Map.of(
@@ -370,7 +370,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", renamedPayload,
-                                "expectedVersion", 1,
+                                "expectedVersion", "1",
                                 "providerOrigins", Map.of("primary_openai", "missing_provider"),
                                 "secrets", Map.of(
                                         "providers", Map.of(
@@ -427,7 +427,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         mockMvc.perform(get("/api/admin/ai-config").with(bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.source").value("DATABASE"))
-                .andExpect(jsonPath("$.data.version").value(5))
+                .andExpect(jsonPath("$.data.version").value("5"))
                 .andExpect(jsonPath("$.data.config").exists())
                 .andExpect(jsonPath("$.data.secrets").exists())
                 .andExpect(jsonPath("$.data.runtime.available").isBoolean())
@@ -487,7 +487,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                         "https://stored-rerank.example.com/v1/rerank",
                                         "stored-rerank-model"
                                 ),
-                                "expectedVersion", 5,
+                                "expectedVersion", "5",
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -505,7 +505,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                 )
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.version").value(6))
+                .andExpect(jsonPath("$.data.version").value("6"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.baseUrl").value("https://stored-chat.example.com/v1"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.model").value("stored-chat-model"));
 
@@ -560,7 +560,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                 )
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.version").value(1))
+                .andExpect(jsonPath("$.data.version").value("1"))
                 .andExpect(jsonPath("$.data.runtime.available").value(false))
                 .andExpect(jsonPath("$.data.runtime.inSync").value(false))
                 .andExpect(jsonPath("$.data.stored.present").value(true))
@@ -607,7 +607,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .with(bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stored.present").value(true))
-                .andExpect(jsonPath("$.data.stored.version").value(1))
+                .andExpect(jsonPath("$.data.stored.version").value("1"))
                 .andExpect(jsonPath("$.data.runtime.available").value(false))
                 .andExpect(jsonPath("$.data.driftDetected").value(true))
                 .andExpect(jsonPath("$.data.syncJobStatus").value("PENDING"))
@@ -742,13 +742,13 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "expectedVersion": 5
+                                  "expectedVersion": "5"
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.version").value(5))
+                .andExpect(jsonPath("$.data.version").value("5"))
                 .andExpect(jsonPath("$.data.runtime.available").value(true))
-                .andExpect(jsonPath("$.data.runtime.version").value(5))
+                .andExpect(jsonPath("$.data.runtime.version").value("5"))
                 .andExpect(jsonPath("$.data.runtime.inSync").value(true));
 
         assertThat(stubAiGatewayClient.lastAppliedConfig).isNotNull();
@@ -771,7 +771,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         mockMvc.perform(get("/internal/ops/ai-config")
                         .header("X-Internal-Token", "test-internal-knowledge-token"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.version").value(5))
+                .andExpect(jsonPath("$.data.version").value("5"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.QWEN_RERANK));
@@ -781,11 +781,11 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "expectedVersion": 5
+                                  "expectedVersion": "5"
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.runtime.version").value(5))
+                .andExpect(jsonPath("$.data.runtime.version").value("5"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.QWEN_RERANK));
@@ -827,7 +827,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
-                                "expectedVersion", 1,
+                                "expectedVersion", "1",
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -870,7 +870,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "config", samplePayload(null),
-                                "expectedVersion", 1,
+                                "expectedVersion", "1",
                                 "secrets", Map.of(
                                         "providers", Map.of(
                                                 "qwen", Map.of(
@@ -1172,7 +1172,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
 
         @Override
         public AiGatewayCallResult<RagReindexResponse> reindex(RagReindexRequest request) {
-            return AiGatewayCallResult.success(new RagReindexResponse(9L, "PENDING"), 1, 5L, "/internal/ai/rag/reindex");
+            return AiGatewayCallResult.success(new RagReindexResponse("9", "PENDING"), 1, 5L, "/internal/ai/rag/reindex");
         }
 
         @Override
@@ -1186,7 +1186,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
         }
 
         @Override
-        public Optional<RagReindexJobResponse> fetchReindexJob(Long jobId) {
+        public Optional<RagReindexJobResponse> fetchReindexJob(String jobId) {
             return Optional.of(new RagReindexJobResponse(
                     jobId,
                     "KNOWLEDGE_REINDEX",

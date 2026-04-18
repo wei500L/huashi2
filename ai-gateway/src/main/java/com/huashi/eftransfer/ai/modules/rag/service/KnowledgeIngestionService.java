@@ -78,22 +78,22 @@ public class KnowledgeIngestionService {
     public RagReindexResponse submit(RagReindexRequest request) {
         PreparedJob job = prepareJob(request);
         ragTaskExecutor.execute(() -> runJob(job, false));
-        return new RagReindexResponse(job.jobId(), "PENDING");
+        return new RagReindexResponse(String.valueOf(job.jobId()), "PENDING");
     }
 
     public RagReindexJobResponse submitAndAwait(RagReindexRequest request) {
         PreparedJob job = prepareJob(request);
         runJob(job, true);
-        return getJob(job.jobId());
+        return getJob(String.valueOf(job.jobId()));
     }
 
-    public RagReindexJobResponse getJob(Long jobId) {
-        var job = ingestionJobRepository.findById(jobId);
+    public RagReindexJobResponse getJob(String jobId) {
+        var job = ingestionJobRepository.findById(parseJobId(jobId));
         if (job == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "RAG reindex job was not found", 404);
         }
         return new RagReindexJobResponse(
-                job.id(),
+                String.valueOf(job.id()),
                 job.jobType(),
                 job.mode(),
                 job.status(),
@@ -119,6 +119,17 @@ public class KnowledgeIngestionService {
                 requestedSourceIds,
                 Boolean.TRUE.equals(request.forceReembed())
         );
+    }
+
+    private Long parseJobId(String jobId) {
+        if (jobId == null || jobId.isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "RAG reindex jobId is required", 400);
+        }
+        try {
+            return Long.valueOf(jobId);
+        } catch (NumberFormatException ex) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "RAG reindex jobId must be a valid integer string", 400);
+        }
     }
 
     private void runJob(PreparedJob job, boolean rethrowFailure) {

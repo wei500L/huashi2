@@ -10,7 +10,7 @@ public record AdminAiConfigViewVO(
         AiOpsConfigPayload config,
         AdminAiSecretFieldsVO secrets,
         String source,
-        Long version,
+        String version,
         OffsetDateTime updatedAt,
         List<AiOpsConfigNotice> notices,
         AdminAiRuntimeStateVO runtime,

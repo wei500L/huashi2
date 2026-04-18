@@ -4,7 +4,7 @@ import java.time.OffsetDateTime;
 
 public record AdminAiStoredStateVO(
         boolean present,
-        Long version,
+        String version,
         OffsetDateTime updatedAt
 ) {
 }

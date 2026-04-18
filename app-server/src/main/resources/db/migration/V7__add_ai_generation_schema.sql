@@ -1,9 +1,6 @@
 ALTER TABLE student_profile
-    ADD COLUMN course_stage VARCHAR(64) NOT NULL DEFAULT 'FOUNDATION';
-
-UPDATE student_profile
-SET course_stage = 'FOUNDATION'
-WHERE course_stage IS NULL OR TRIM(course_stage) = '';
+    ADD COLUMN course_stage VARCHAR(64) NOT NULL DEFAULT 'FOUNDATION'
+/*!80000 , ALGORITHM=INSTANT */;
 
 CREATE TABLE IF NOT EXISTS ai_generation_record
 (

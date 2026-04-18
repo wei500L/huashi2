@@ -2,6 +2,8 @@ spring:
   config:
     activate:
       on-profile: prod
+  flyway:
+    baseline-on-migrate: false
   datasource:
     url: jdbc:mysql://${APP_DB_HOST:localhost}:${APP_DB_PORT:3306}/${APP_DB_NAME:ef_transfer_app}?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&sslMode=${APP_DB_SSL_MODE:REQUIRED}
 

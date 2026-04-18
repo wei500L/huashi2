@@ -104,10 +104,10 @@ npm run build:analyze # 构建分析报告
 
 ## 测试策略
 
-- **app-server**: 集成测试为主（H2 内存数据库，`MODE=MySQL`），覆盖 auth、security、lexicon、diagnosis、training、analytics、ai、opsconfig、assessment、notification、achievement、user、internal、audit、health、support 等模块，共 43 个测试类
-- **ai-gateway**: 集成测试（Testcontainers PostgreSQL + pgvector）+ WireMock 外部服务模拟，覆盖 provider、rag、config、health、security 模块，共 12 个测试类
+- **app-server**: 集成测试为主（H2 内存数据库，`MODE=MySQL`，并补充 MySQL Testcontainers 迁移验证），覆盖 auth、security、lexicon、diagnosis、training、analytics、ai、opsconfig、assessment、notification、achievement、user、internal、audit、health、support 等模块，共 44 个测试类
+- **ai-gateway**: 集成测试（Testcontainers PostgreSQL + pgvector）+ WireMock 外部服务模拟，覆盖 provider、rag、config、health、security 模块，共 17 个测试类
 - **前端**: Vitest + Testing Library + jsdom，当前共 32 个测试文件（routing、API、services、i18n、assessment、teacher-workspace、pages 级组件等）；入口 `src/test/setup.ts`
-- **数据库迁移**: app-server 31 个 Flyway 迁移脚本（V1-V31，MySQL），ai-gateway 5 个迁移脚本（V1-V5，PostgreSQL + pgvector）
+- **数据库迁移**: app-server 36 个 Flyway 迁移脚本（V1-V36，MySQL），ai-gateway 5 个迁移脚本（V1-V5，PostgreSQL + pgvector）
 
 ## 编码规范
 
@@ -150,3 +150,4 @@ npm run build:analyze # 构建分析报告
 |------|------|------|
 | 2026-03-22 00:35:46 | 初始创建 | 全仓扫描生成，覆盖 5 个模块 |
 | 2026-04-18 | 文档同步 | 同步实际测试/迁移/服务计数（见 `docs/review-2026-04-18.md`）：前端 0→32、app-server 23→43、ai-gateway 11→12；Flyway app-server V1-V9→V1-V31、ai-gateway V1-V4→V1-V5；Compose 服务数 6→7（含 frontend） |
+| 2026-04-18 | 迁移安全加固 | `baseline-on-migrate` 下沉到 local/dev，app-server 迁移链扩展到 V36，新增迁移 runbook 与 pgvector 维度守卫 |

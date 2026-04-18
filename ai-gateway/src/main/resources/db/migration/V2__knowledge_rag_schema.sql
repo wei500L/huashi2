@@ -57,7 +57,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_chunk_embedding_current_unique ON chunk_em
 CREATE INDEX IF NOT EXISTS idx_chunk_embedding_current ON chunk_embedding (is_current);
 CREATE INDEX IF NOT EXISTS idx_chunk_embedding_vector_hnsw
     ON chunk_embedding
-    USING hnsw (embedding vector_cosine_ops);
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 128);
 
 CREATE TABLE IF NOT EXISTS ingestion_job
 (

@@ -10,7 +10,7 @@ public record AdminAiConfigSaveRequest(
         @NotNull(message = "config is required")
         @Valid
         AiOpsConfigPayload config,
-        Long expectedVersion,
+        String expectedVersion,
         Map<String, String> providerOrigins,
         @Valid
         AdminAiSecretUpdateGroup secrets

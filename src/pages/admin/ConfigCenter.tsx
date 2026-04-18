@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Info, LoaderCircle, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
@@ -18,10 +19,11 @@ import type {
   AiGatewayHealthResponse,
   AiOpsConfigIssue,
   AiOpsConfigNotice,
+  AiOpsDraftConfigPayload,
+  AiOpsDraftProviderDefinition,
   AiOpsConfigPayload,
   AiOpsProtocol,
   AiOpsConfigValidationResponse,
-  AiOpsProviderDefinition,
   RagReindexJobResponse,
   RagReindexRequest,
 } from '@/lib/contracts';
@@ -214,16 +216,6 @@ function assertSecretField(field: unknown, path: string): void {
   requireNullableNumber(secretField.valueLength, `${path}.valueLength`);
 }
 
-function assertConfigIssue(issue: unknown, path: string): void {
-  const configIssue = requireRecord(issue, path);
-  requireString(configIssue.field, `${path}.field`);
-  requireString(configIssue.code, `${path}.code`);
-  requireString(configIssue.defaultMessage, `${path}.defaultMessage`);
-  if (configIssue.args !== undefined && configIssue.args !== null) {
-    requireRecord(configIssue.args, `${path}.args`);
-  }
-}
-
 function assertConfigNotice(notice: unknown, path: string): void {
   const configNotice = requireRecord(notice, path);
   requireString(configNotice.code, `${path}.code`);
@@ -334,7 +326,7 @@ function assertRuntimeState(runtime: unknown, path: string): void {
   const runtimeState = requireRecord(runtime, path);
   requireBoolean(runtimeState.available, `${path}.available`);
   requireNullableString(runtimeState.source, `${path}.source`);
-  requireNullableNumber(runtimeState.version, `${path}.version`);
+  requireNullableString(runtimeState.version, `${path}.version`);
   requireNullableString(runtimeState.appliedAt, `${path}.appliedAt`);
   requireBoolean(runtimeState.inSync, `${path}.inSync`);
 }
@@ -342,14 +334,14 @@ function assertRuntimeState(runtime: unknown, path: string): void {
 function assertStoredState(stored: unknown, path: string): void {
   const storedState = requireRecord(stored, path);
   requireBoolean(storedState.present, `${path}.present`);
-  requireNullableNumber(storedState.version, `${path}.version`);
+  requireNullableString(storedState.version, `${path}.version`);
   requireNullableString(storedState.updatedAt, `${path}.updatedAt`);
 }
 
 function assertAdminAiConfigViewEnvelope(view: unknown): asserts view is Partial<AdminAiConfigViewVO> {
   const root = requireRecord(view, 'data');
   requireNullableString(root.source, 'source');
-  requireNullableNumber(root.version, 'version');
+  requireNullableString(root.version, 'version');
   requireNullableString(root.updatedAt, 'updatedAt');
   const providerNames = assertAiOpsConfigPayload(root.config, 'config');
   assertSecretFields(root.secrets, providerNames, 'secrets');
@@ -369,7 +361,7 @@ function assertAdminAiConfigDriftEnvelope(view: unknown): asserts view is Partia
   requireArray(root.notices, 'notices').forEach((notice, index) => assertConfigNotice(notice, `notices[${index}]`));
 }
 
-function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinition> | null): AiOpsProviderDefinition {
+function normalizeProviderDefinition(definition?: Partial<AiOpsDraftProviderDefinition> | null): AiOpsDraftProviderDefinition {
   return {
     chat: {
       protocol: definition?.chat?.protocol ?? 'openai-compat',
@@ -428,7 +420,7 @@ function canonicalizeProviderRecord<T>(
   );
 }
 
-function canonicalizeConfigPayload(config: AiOpsConfigPayload): AiOpsConfigPayload {
+function canonicalizeConfigPayload(config: AiOpsDraftConfigPayload): AiOpsDraftConfigPayload {
   return {
     ...config,
     provider: {
@@ -442,7 +434,7 @@ function canonicalizeConfigPayload(config: AiOpsConfigPayload): AiOpsConfigPaylo
   };
 }
 
-function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsConfigPayload> | null): AiOpsConfigPayload {
+function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsDraftConfigPayload> | null): AiOpsDraftConfigPayload {
   return canonicalizeConfigPayload({
     provider: {
       activeProvider: payload?.provider?.activeProvider ?? null,
@@ -488,15 +480,6 @@ function normalizeSecretField(field?: Partial<AdminAiSecretFieldVO> | null): Adm
     configured: Boolean(field?.configured),
     maskedValue: field?.maskedValue ?? '',
     valueLength: field?.valueLength ?? null,
-  };
-}
-
-function normalizeConfigIssue(issue?: Partial<AiOpsConfigIssue> | null): AiOpsConfigIssue {
-  return {
-    field: issue?.field ?? 'config',
-    code: issue?.code ?? 'legacy_message',
-    defaultMessage: issue?.defaultMessage ?? '',
-    args: issue?.args ?? {},
   };
 }
 
@@ -611,7 +594,7 @@ function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
   };
 }
 
-function createEmptyProviderDefinition(): AiOpsProviderDefinition {
+function createEmptyProviderDefinition(): AiOpsDraftProviderDefinition {
   return {
     chat: {
       protocol: 'openai-compat',
@@ -689,21 +672,110 @@ function sanitizeProviderOrigins(providerOrigins: ProviderOriginMap, providerNam
   return filteredEntries.length > 0 ? Object.fromEntries(filteredEntries) : undefined;
 }
 
+function materializeText(value?: string | null): string {
+  return value ?? '';
+}
+
+function materializeNumber(value?: number | null): number {
+  return value ?? 0;
+}
+
+function materializeProtocol(value: AiOpsProtocol | null | undefined, fallback: AiOpsProtocol): AiOpsProtocol {
+  return value ?? fallback;
+}
+
+function materializeProviderDefinition(definition?: AiOpsDraftProviderDefinition | null): AiOpsConfigPayload['provider']['providers'][string] {
+  return {
+    chat: {
+      protocol: materializeProtocol(definition?.chat?.protocol, 'openai-compat'),
+      baseUrl: materializeText(definition?.chat?.baseUrl),
+      apiKey: definition?.chat?.apiKey ?? null,
+      model: materializeText(definition?.chat?.model),
+      timeout: materializeText(definition?.chat?.timeout),
+      temperature: materializeNumber(definition?.chat?.temperature),
+      maxTokens: materializeNumber(definition?.chat?.maxTokens),
+    },
+    embedding: {
+      protocol: materializeProtocol(definition?.embedding?.protocol, 'openai-compat'),
+      baseUrl: materializeText(definition?.embedding?.baseUrl),
+      apiKey: definition?.embedding?.apiKey ?? null,
+      model: materializeText(definition?.embedding?.model),
+      timeout: materializeText(definition?.embedding?.timeout),
+      dimension: materializeNumber(definition?.embedding?.dimension),
+    },
+    rerank: {
+      protocol: materializeProtocol(definition?.rerank?.protocol, 'qwen-rerank'),
+      baseUrl: materializeText(definition?.rerank?.baseUrl),
+      apiKey: definition?.rerank?.apiKey ?? null,
+      model: materializeText(definition?.rerank?.model),
+      timeout: materializeText(definition?.rerank?.timeout),
+    },
+  };
+}
+
+function materializeConfigPayload(config: AiOpsDraftConfigPayload): AiOpsConfigPayload {
+  const activeProvider = materializeText(config.provider.activeProvider);
+  const fallbackProvider = materializeText(config.provider.fallbackProvider);
+  return {
+    provider: {
+      activeProvider,
+      fallbackProvider,
+      providers: canonicalizeProviderRecord(
+        Object.fromEntries(
+          Object.entries(config.provider.providers || {}).map(([providerName, definition]) => [
+            providerName,
+            materializeProviderDefinition(definition),
+          ])
+        ),
+        activeProvider,
+        fallbackProvider
+      ),
+    },
+    resilience: {
+      maxAttempts: materializeNumber(config.resilience.maxAttempts),
+      waitDuration: materializeText(config.resilience.waitDuration),
+      failureRateThreshold: materializeNumber(config.resilience.failureRateThreshold),
+      slidingWindowSize: materializeNumber(config.resilience.slidingWindowSize),
+      openStateDuration: materializeText(config.resilience.openStateDuration),
+    },
+    rag: {
+      appServer: {
+        baseUrl: materializeText(config.rag.appServer.baseUrl),
+        internalToken: config.rag.appServer.internalToken ?? null,
+        connectTimeout: materializeText(config.rag.appServer.connectTimeout),
+        readTimeout: materializeText(config.rag.appServer.readTimeout),
+      },
+      ingestion: {
+        exportPageSize: materializeNumber(config.rag.ingestion.exportPageSize),
+        embeddingBatchSize: materializeNumber(config.rag.ingestion.embeddingBatchSize),
+      },
+      retrieval: {
+        recallTopK: materializeNumber(config.rag.retrieval.recallTopK),
+        recallThreshold: materializeNumber(config.rag.retrieval.recallThreshold),
+        rerankTopN: materializeNumber(config.rag.retrieval.rerankTopN),
+        rerankThreshold: materializeNumber(config.rag.retrieval.rerankThreshold),
+        finalTopK: materializeNumber(config.rag.retrieval.finalTopK),
+      },
+    },
+  };
+}
+
 export function buildSavePayload(
-  config: AiOpsConfigPayload,
+  config: AiOpsDraftConfigPayload,
   secrets: SecretEditorMap,
-  expectedVersion?: number | null,
+  expectedVersion?: string | null,
   providerOrigins: ProviderOriginMap = {}
 ): AdminAiConfigSaveRequest {
   const canonicalConfig = canonicalizeConfigPayload(config);
+  const strictConfig = materializeConfigPayload(canonicalConfig);
   const orderedProviderNames = sortProviderNames(
-    Object.keys(canonicalConfig.provider.providers || {}),
-    canonicalConfig.provider.activeProvider,
-    canonicalConfig.provider.fallbackProvider
+    Object.keys(strictConfig.provider.providers || {}),
+    strictConfig.provider.activeProvider,
+    strictConfig.provider.fallbackProvider
   );
   const sanitizedProviderOrigins = sanitizeProviderOrigins(providerOrigins, orderedProviderNames);
   return {
-    config: canonicalConfig,
+    config: strictConfig,
     expectedVersion: expectedVersion ?? null,
     providerOrigins: sanitizedProviderOrigins,
     secrets: {
@@ -1247,7 +1319,7 @@ function mapLocalIssueCode(message: string): string {
   return 'invalid_value';
 }
 
-function collectLocalConfigIssues(config: AiOpsConfigPayload): AiOpsConfigValidationResponse['issues'] {
+function collectLocalConfigIssues(config: AiOpsDraftConfigPayload): AiOpsConfigValidationResponse['issues'] {
   const result = aiOpsDraftSchema.safeParse({
     provider: {
       activeProvider: config.provider.activeProvider ?? '',
@@ -1280,7 +1352,7 @@ function collectLocalConfigIssues(config: AiOpsConfigPayload): AiOpsConfigValida
   return Array.from(deduped.values());
 }
 
-function currentConfigVersion(view?: AdminAiConfigViewVO | null): number | null {
+function currentConfigVersion(view?: AdminAiConfigViewVO | null): string | null {
   return view?.stored.version ?? view?.runtime.version ?? view?.version ?? null;
 }
 
@@ -1414,7 +1486,7 @@ type ConfigPreset = {
   key: string;
   label: string;
   description: string;
-  apply: (current: AiOpsConfigPayload, providerNames: string[]) => AiOpsConfigPayload;
+  apply: (current: AiOpsDraftConfigPayload, providerNames: string[]) => AiOpsDraftConfigPayload;
 };
 
 function formatDiffValue(value: unknown): string {
@@ -1508,7 +1580,7 @@ function collectSecretChanges(view: AdminAiConfigViewVO, secrets: SecretEditorMa
   return changes;
 }
 
-function buildConfigRiskHints(view: AdminAiConfigViewVO, config: AiOpsConfigPayload, secrets: SecretEditorMap): string[] {
+function buildConfigRiskHints(view: AdminAiConfigViewVO, config: AiOpsDraftConfigPayload, secrets: SecretEditorMap): string[] {
   const hints: string[] = [];
 
   if (view.config.provider.activeProvider !== config.provider.activeProvider) {
@@ -1721,7 +1793,7 @@ const AdminConfigCenterPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = React.useState<ConfigTab>('provider');
   const [editing, setEditing] = React.useState(false);
-  const [config, setConfig] = React.useState<AiOpsConfigPayload | null>(null);
+  const [config, setConfig] = React.useState<AiOpsDraftConfigPayload | null>(null);
   const [secrets, setSecrets] = React.useState<SecretEditorMap | null>(null);
   const [providerOrigins, setProviderOrigins] = React.useState<ProviderOriginMap>({});
   const [validation, setValidation] = React.useState<AiOpsConfigValidationResponse | null>(null);
@@ -1740,7 +1812,7 @@ const AdminConfigCenterPage: React.FC = () => {
     sourceIds: [],
     forceReembed: false,
   });
-  const [jobId, setJobId] = React.useState<number | null>(null);
+  const [jobId, setJobId] = React.useState<string | null>(null);
   const [pollJob, setPollJob] = React.useState(false);
   const [outboxStatus, setOutboxStatus] = React.useState('FAILED');
   const [outboxLimit, setOutboxLimit] = React.useState('20');
@@ -1943,7 +2015,7 @@ const AdminConfigCenterPage: React.FC = () => {
 
   const reindexJobQuery = useQuery({
     queryKey: ['admin-ai-reindex-job', jobId],
-    queryFn: ({ signal }) => adminService.getRagReindexJob(jobId as number, { signal }),
+    queryFn: ({ signal }) => adminService.getRagReindexJob(jobId as string, { signal }),
     enabled: jobId !== null,
     refetchInterval: pollJob ? 2000 : false,
   });
@@ -1974,14 +2046,14 @@ const AdminConfigCenterPage: React.FC = () => {
     });
   }, [reindexJobQuery.data]);
 
-  const updateConfig = React.useCallback((updater: (current: AiOpsConfigPayload) => AiOpsConfigPayload) => {
+  const updateConfig = React.useCallback((updater: (current: AiOpsDraftConfigPayload) => AiOpsDraftConfigPayload) => {
     clearProbeResults();
     setConfig((current) => (current ? canonicalizeConfigPayload(updater(current)) : current));
   }, [clearProbeResults]);
 
   const updateProviderDefinition = React.useCallback((
     providerName: string,
-    updater: (current: AiOpsProviderDefinition) => AiOpsProviderDefinition
+    updater: (current: AiOpsDraftProviderDefinition) => AiOpsDraftProviderDefinition
   ) => {
     updateConfig((current) => {
       const existing = current.provider.providers[providerName];

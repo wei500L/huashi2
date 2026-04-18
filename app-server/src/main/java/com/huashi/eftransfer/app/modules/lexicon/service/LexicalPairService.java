@@ -752,8 +752,9 @@ public class LexicalPairService {
     }
 
     private void publishKnowledgeChangedEvent(Collection<Long> lexicalPairIds) {
-        List<Long> sourceIds = lexicalPairIds.stream()
+        List<String> sourceIds = lexicalPairIds.stream()
                 .filter(Objects::nonNull)
+                .map(String::valueOf)
                 .distinct()
                 .toList();
         if (sourceIds.isEmpty()) {

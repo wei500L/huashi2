@@ -5,7 +5,7 @@ import java.time.OffsetDateTime;
 public record AdminAiRuntimeStateVO(
         boolean available,
         String source,
-        Long version,
+        String version,
         OffsetDateTime appliedAt,
         boolean inSync
 ) {

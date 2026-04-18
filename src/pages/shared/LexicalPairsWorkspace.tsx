@@ -11,7 +11,6 @@ import {
   Info,
   LoaderCircle,
   Plus,
-  Search,
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -22,8 +21,10 @@ import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { saveBlob } from '@/lib/api';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, userHasCapability } from '@/lib/format';
 import type {
+  ContextSupportLevel,
   CsvImportTemplateFieldVO,
   LexicalPairDetailVO,
+  LexicalPairType,
   LexicalPairUpsertRequest,
 } from '@/lib/contracts';
 import { fieldLabel, translateImportMessage } from '@/lib/lexical-import';
@@ -39,7 +40,7 @@ type ExampleEditorState = {
   englishExample: string;
   frenchExample: string;
   chineseTranslation: string;
-  contextSupportLevel: string;
+  contextSupportLevel: ContextSupportLevel;
   source: string;
 };
 
@@ -56,10 +57,10 @@ type PairEditorState = {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   semanticOverlapScore: number;
   falseFriendRisk: number;
-  defaultContextSupport: string;
+  defaultContextSupport: ContextSupportLevel;
   difficultyLevel: number;
   notes: string;
   source: string;
@@ -1417,14 +1418,14 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             <FieldCard label="词对类型" hint="建议使用下拉，不要手动拼写枚举值。">
               <SelectInput
                 value={editor.lexicalPairType}
-                onChange={(value) => updateEditor('lexicalPairType', value)}
+                onChange={(value) => updateEditor('lexicalPairType', value as LexicalPairType)}
                 options={lexicalPairTypeOptions.map((item) => ({ value: item.value, label: item.label }))}
               />
             </FieldCard>
             <FieldCard label="默认语境支持" hint="控制训练题初始上下文强度。">
               <SelectInput
                 value={editor.defaultContextSupport}
-                onChange={(value) => updateEditor('defaultContextSupport', value)}
+                onChange={(value) => updateEditor('defaultContextSupport', value as ContextSupportLevel)}
                 options={contextSupportOptions.map((item) => ({ value: item.value, label: item.label }))}
               />
             </FieldCard>
@@ -1628,7 +1629,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                         <FieldCard label="语境支持">
                           <SelectInput
                             value={example.contextSupportLevel}
-                            onChange={(value) => updateExample(senseIndex, exampleIndex, { contextSupportLevel: value })}
+                            onChange={(value) => updateExample(senseIndex, exampleIndex, { contextSupportLevel: value as ContextSupportLevel })}
                             options={contextSupportOptions.map((item) => ({ value: item.value, label: item.label }))}
                           />
                         </FieldCard>

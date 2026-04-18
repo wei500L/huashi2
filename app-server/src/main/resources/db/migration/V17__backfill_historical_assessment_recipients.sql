@@ -24,10 +24,6 @@ FROM assessment_publish p
                   AND tcs.joined_at <= COALESCE(p.published_at, CURRENT_TIMESTAMP)
                   AND (tcs.left_at IS NULL OR tcs.left_at > COALESCE(p.published_at, CURRENT_TIMESTAMP))
 WHERE p.deleted = FALSE
-  AND NOT EXISTS(
-        SELECT 1
-        FROM assessment_publish_recipient existing
-        WHERE existing.publish_id = p.id
-          AND existing.student_user_id = tcs.student_user_id
-          AND existing.deleted = FALSE
-    );
+ON DUPLICATE KEY UPDATE
+    updated_at = updated_at,
+    updated_by = updated_by;

@@ -126,8 +126,8 @@ function createEmptyRowForm(): ImportRowFormState {
     source: '',
     active: 'true',
     tags: '',
-    knowledgeStatus: '',
-    embeddingStatus: '',
+    knowledgeStatus: null,
+    embeddingStatus: null,
     senseEnglishDefinition: '',
     senseFrenchDefinition: '',
     senseChineseDefinition: '',
@@ -156,8 +156,8 @@ function toRowForm(row?: LexicalImportRowVO | null): ImportRowFormState {
     source: row.draft.source || '',
     active: row.draft.active || 'true',
     tags: row.draft.tags || '',
-    knowledgeStatus: row.draft.knowledgeStatus || '',
-    embeddingStatus: row.draft.embeddingStatus || '',
+    knowledgeStatus: row.draft.knowledgeStatus ?? null,
+    embeddingStatus: row.draft.embeddingStatus ?? null,
     senseEnglishDefinition: row.draft.senseEnglishDefinition || '',
     senseFrenchDefinition: row.draft.senseFrenchDefinition || '',
     senseChineseDefinition: row.draft.senseChineseDefinition || '',
@@ -167,6 +167,13 @@ function toRowForm(row?: LexicalImportRowVO | null): ImportRowFormState {
     exampleContextSupport: row.draft.exampleContextSupport || 'MEDIUM',
     skipped: row.status === 'SKIPPED',
   };
+}
+
+function normalizeEditableRowFieldValue(key: EditableRowFieldKey, value: string): ImportRowFormState[EditableRowFieldKey] {
+  if (key === 'knowledgeStatus' || key === 'embeddingStatus') {
+    return (value || null) as ImportRowFormState[EditableRowFieldKey];
+  }
+  return value as ImportRowFormState[EditableRowFieldKey];
 }
 
 function buildBatchStatusMeta(status?: string | null): StatusMeta {
@@ -937,7 +944,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                                 key={String(field.key)}
                                 label={field.label}
                                 value={rowForm[field.key]}
-                                onChange={(value) => setRowForm((current) => ({ ...current, [field.key]: value }))}
+                                onChange={(value) => setRowForm((current) => ({ ...current, [field.key]: normalizeEditableRowFieldValue(field.key, value) }))}
                                 type={field.type}
                                 options={field.options}
                               />

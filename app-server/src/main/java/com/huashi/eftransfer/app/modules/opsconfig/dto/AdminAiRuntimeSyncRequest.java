@@ -4,6 +4,6 @@ import jakarta.validation.constraints.NotNull;
 
 public record AdminAiRuntimeSyncRequest(
         @NotNull(message = "expectedVersion is required")
-        Long expectedVersion
+        String expectedVersion
 ) {
 }

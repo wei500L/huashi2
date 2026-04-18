@@ -56,7 +56,7 @@ public class LexicalKnowledgeChangedEventListener {
                         KnowledgeSourceTypes.LEXICAL_SENSE,
                         KnowledgeSourceTypes.LEXICAL_EXAMPLE
                 ),
-                event.sourceIds().stream().map(String::valueOf).toList(),
+                event.sourceIds(),
                 Boolean.FALSE
         );
 

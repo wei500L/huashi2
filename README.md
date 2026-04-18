@@ -75,6 +75,8 @@ AI fallback 说明：
 - `APP_AUTH_LOCKOUT_ENABLED=true`
 - `APP_AUTH_LOCKOUT_THRESHOLD=5`
 - `APP_AUTH_LOCKOUT_DURATION=PT15M`
+- `SPRING_PROFILES_ACTIVE=prod`，并保持 `spring.flyway.baseline-on-migrate=false`
+- `AI_EMBEDDING_DIMENSION=1024`，不要在运行时切换 pgvector 维度
 
 ### 2. 启动依赖
 
@@ -100,6 +102,7 @@ npm run dev
 如果你当前最关心的是“怎么导入数据并继续用起来”，先看这份实操指南：
 
 - [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
+- [数据库迁移执行手册](/mnt/d/huashi2/docs/db-migration-runbook.md)
 
 ## 验证命令
 

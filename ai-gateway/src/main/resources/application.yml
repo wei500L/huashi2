@@ -7,6 +7,9 @@ spring:
     name: ai-gateway
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -16,6 +19,9 @@ spring:
     listener:
       simple:
         default-requeue-rejected: false
+        prefetch: ${AI_RABBITMQ_LISTENER_PREFETCH:1}
+        concurrency: ${AI_RABBITMQ_LISTENER_CONCURRENCY:1}
+        max-concurrency: ${AI_RABBITMQ_LISTENER_CONCURRENCY:1}
   datasource:
     url: jdbc:postgresql://${AI_DB_HOST:localhost}:${AI_DB_PORT:5432}/${AI_DB_NAME:ef_transfer_ai}
     username: ${AI_DB_USERNAME:ef_ai}
@@ -23,7 +29,6 @@ spring:
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
-    baseline-on-migrate: true
     locations: classpath:db/migration
   ai:
     vectorstore:

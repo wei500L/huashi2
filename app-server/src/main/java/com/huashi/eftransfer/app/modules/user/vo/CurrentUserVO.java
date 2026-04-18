@@ -1,6 +1,9 @@
 package com.huashi.eftransfer.app.modules.user.vo;
 
-import java.time.LocalDateTime;
+import com.huashi.eftransfer.shared.enums.UserCapability;
+import com.huashi.eftransfer.shared.enums.UserRole;
+
+import java.time.OffsetDateTime;
 import java.util.Set;
 
 public record CurrentUserVO(
@@ -8,10 +11,10 @@ public record CurrentUserVO(
         String username,
         String email,
         String displayName,
-        LocalDateTime lastLoginAt,
-        String primaryRole,
-        Set<String> roles,
-        Set<String> capabilities,
+        OffsetDateTime lastLoginAt,
+        UserRole primaryRole,
+        Set<UserRole> roles,
+        Set<UserCapability> capabilities,
         StudentProfileVO studentProfile,
         TeacherProfileVO teacherProfile
 ) {

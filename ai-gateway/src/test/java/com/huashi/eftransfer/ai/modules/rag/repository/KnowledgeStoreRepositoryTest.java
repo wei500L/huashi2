@@ -94,6 +94,18 @@ class KnowledgeStoreRepositoryTest {
     }
 
     @Test
+    void shouldTuneChunkEmbeddingHnswIndex() {
+        String reloptions = jdbcTemplate.queryForObject("""
+                SELECT array_to_string(reloptions, ',')
+                FROM pg_class
+                WHERE relname = 'idx_chunk_embedding_vector_hnsw'
+                """, String.class);
+
+        assertThat(reloptions).contains("m=16");
+        assertThat(reloptions).contains("ef_construction=128");
+    }
+
+    @Test
     void shouldWriteEmbeddingsAndSkipUnchangedChunks() {
         KnowledgeDocumentPayload payload = sampleDocument("1001", true);
 

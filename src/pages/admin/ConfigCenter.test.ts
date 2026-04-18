@@ -96,13 +96,13 @@ function createConfigViewEnvelope() {
     runtime: {
       available: true,
       source: null,
-      version: 9,
+      version: '9',
       appliedAt: null,
       inSync: true,
     },
     stored: {
       present: true,
-      version: 9,
+      version: '9',
       updatedAt: null,
     },
   };
@@ -175,13 +175,16 @@ describe('ConfigCenter contract guards', () => {
     expect(normalized.config.provider.providers.qwen.embedding.dimension).toBeNull();
     expect(normalized.config.rag.retrieval.finalTopK).toBeNull();
     expect(normalized.runtime.available).toBe(true);
-    expect(normalized.stored.version).toBe(9);
+    expect(normalized.stored.version).toBe('9');
   });
 
   it('accepts blank draft envelopes when runtime and stored snapshots are both absent', () => {
-    const envelope = createConfigViewEnvelope() as any;
-    envelope.config.provider.providers = {};
-    envelope.secrets.providers = {};
+    const envelope = createConfigViewEnvelope() as unknown as Record<string, unknown>;
+    const config = envelope.config as Record<string, unknown>;
+    const provider = config.provider as Record<string, unknown>;
+    const secrets = envelope.secrets as Record<string, unknown>;
+    provider.providers = {};
+    secrets.providers = {};
     envelope.source = null;
     envelope.version = null;
     envelope.updatedAt = null;
@@ -215,16 +218,21 @@ describe('ConfigCenter contract guards', () => {
   });
 
   it('accepts arbitrary technical provider keys', () => {
-    const envelope = createConfigViewEnvelope() as any;
-    envelope.config.provider.providers = {
-      openai_main: envelope.config.provider.providers.qwen,
-      backup_1: envelope.config.provider.providers.qwen,
+    const envelope = createConfigViewEnvelope() as unknown as Record<string, unknown>;
+    const config = envelope.config as Record<string, unknown>;
+    const provider = config.provider as Record<string, unknown>;
+    const providerDefinitions = provider.providers as Record<string, unknown>;
+    const secrets = envelope.secrets as Record<string, unknown>;
+    const secretProviders = secrets.providers as Record<string, unknown>;
+    provider.providers = {
+      openai_main: providerDefinitions.qwen,
+      backup_1: providerDefinitions.qwen,
     };
-    envelope.config.provider.activeProvider = 'openai_main';
-    envelope.config.provider.fallbackProvider = 'backup_1';
-    envelope.secrets.providers = {
-      openai_main: envelope.secrets.providers.qwen,
-      backup_1: envelope.secrets.providers.qwen,
+    provider.activeProvider = 'openai_main';
+    provider.fallbackProvider = 'backup_1';
+    secrets.providers = {
+      openai_main: secretProviders.qwen,
+      backup_1: secretProviders.qwen,
     };
 
     const normalized = normalizeAdminAiConfigView(envelope);
@@ -235,18 +243,23 @@ describe('ConfigCenter contract guards', () => {
   });
 
   it('canonicalizes provider order with active and fallback first', () => {
-    const envelope = createConfigViewEnvelope() as any;
-    envelope.config.provider.providers = {
-      archive: envelope.config.provider.providers.qwen,
-      qwen: envelope.config.provider.providers.qwen,
-      deepseek: envelope.config.provider.providers.qwen,
+    const envelope = createConfigViewEnvelope() as unknown as Record<string, unknown>;
+    const config = envelope.config as Record<string, unknown>;
+    const provider = config.provider as Record<string, unknown>;
+    const providerDefinitions = provider.providers as Record<string, unknown>;
+    const secrets = envelope.secrets as Record<string, unknown>;
+    const secretProviders = secrets.providers as Record<string, unknown>;
+    provider.providers = {
+      archive: providerDefinitions.qwen,
+      qwen: providerDefinitions.qwen,
+      deepseek: providerDefinitions.qwen,
     };
-    envelope.config.provider.activeProvider = 'deepseek';
-    envelope.config.provider.fallbackProvider = 'qwen';
-    envelope.secrets.providers = {
-      archive: envelope.secrets.providers.qwen,
-      qwen: envelope.secrets.providers.qwen,
-      deepseek: envelope.secrets.providers.qwen,
+    provider.activeProvider = 'deepseek';
+    provider.fallbackProvider = 'qwen';
+    secrets.providers = {
+      archive: secretProviders.qwen,
+      qwen: secretProviders.qwen,
+      deepseek: secretProviders.qwen,
     };
 
     const normalized = normalizeAdminAiConfigView(envelope);
@@ -271,10 +284,10 @@ describe('ConfigCenter contract guards', () => {
             embeddingApiKey: { retainExisting: true, value: '' },
             rerankApiKey: { retainExisting: true, value: '' },
           },
-        },
-        appServerInternalToken: { retainExisting: true, value: '' },
       },
-      9,
+      appServerInternalToken: { retainExisting: true, value: '' },
+    },
+      '9',
       { primary_openai: 'qwen' }
     );
 
@@ -309,17 +322,17 @@ describe('ConfigCenter contract guards', () => {
             embeddingApiKey: { retainExisting: true, value: '' },
             rerankApiKey: { retainExisting: true, value: '' },
           },
-        },
-        appServerInternalToken: { retainExisting: true, value: '' },
       },
-      9
+      appServerInternalToken: { retainExisting: true, value: '' },
+    },
+      '9'
     );
 
     expect(Object.keys(payload.config.provider.providers)).toEqual(['deepseek', 'qwen', 'archive']);
     expect(Object.keys(payload.secrets.providers || {})).toEqual(['deepseek', 'qwen', 'archive']);
   });
 
-  it('keeps nullable config leaves when building save payload', () => {
+  it('materializes strict config leaves when building save payload', () => {
     const normalized = normalizeAdminAiConfigView(createConfigViewEnvelope());
     const payload = buildSavePayload(
       normalized.config,
@@ -333,11 +346,14 @@ describe('ConfigCenter contract guards', () => {
         },
         appServerInternalToken: { retainExisting: true, value: '' },
       },
-      9
+      '9'
     );
 
-    expect(payload.config.provider.activeProvider).toBeNull();
-    expect(payload.config.provider.providers.qwen.chat.temperature).toBeNull();
-    expect(payload.config.rag.ingestion.exportPageSize).toBeNull();
+    expect(payload.expectedVersion).toBe('9');
+    expect(payload.config.provider.activeProvider).toBe('');
+    expect(payload.config.provider.fallbackProvider).toBe('');
+    expect(payload.config.provider.providers.qwen.chat.baseUrl).toBe('');
+    expect(payload.config.provider.providers.qwen.chat.temperature).toBe(0);
+    expect(payload.config.rag.ingestion.exportPageSize).toBe(0);
   });
 });

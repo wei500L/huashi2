@@ -92,10 +92,13 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 - `diagnosis` 与 `training` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；刷新后前端优先恢复该 session
 - 生产环境建议显式设置 `APP_DB_SSL_MODE=REQUIRED`
 - 默认登录锁定策略由 `APP_AUTH_LOCKOUT_*` 控制，默认值是 5 次失败锁定 15 分钟
+- `spring.flyway.baseline-on-migrate` 现在只在 `local` / `dev` 开启；`prod` 必须保持为 `false`
+- `AI_EMBEDDING_DIMENSION` 与 pgvector schema 固定为 `1024`；修改维度前必须先做新迁移和数据重建
 
 如果你想直接跑通“导入词对 -> 继续接到模板 / 词表 / RAG”的完整流程，优先看：
 
 - [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
+- [数据库迁移执行手册](/mnt/d/huashi2/docs/db-migration-runbook.md)
 
 ## 6. Docker 本地联调
 

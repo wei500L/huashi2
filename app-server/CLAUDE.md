@@ -86,19 +86,15 @@
 
 | 版本 | 脚本 | 说明 |
 |------|------|------|
-| V1 | `V1__init_base.sql` | 基础表 |
-| V2 | `V2__init_auth_schema.sql` | 认证模式 |
-| V3 | `V3__init_lexical_schema.sql` | 词汇模式 |
-| V4 | `V4__init_diagnosis_schema.sql` | 诊断模式 |
-| V5 | `V5__init_training_schema.sql` | 训练模式 |
-| V6 | `V6__init_analytics_schema.sql` | 分析模式 |
-| V7 | `V7__add_ai_generation_schema.sql` | AI 生成记录 |
-| V8 | `V8__init_admin_ai_config.sql` | AI 运维配置 |
-| V9 | `V9__training_session_resume_support.sql` | 训练会话恢复支持 |
+| V1-V9 | `V1__init_base.sql` → `V9__training_session_resume_support.sql` | 基础 schema、认证、词汇、诊断、训练、分析、AI 配置 |
+| V10-V18 | `V10__add_medium_review_indexes.sql` → `V18__diagnosis_template_target_class.sql` | 检索索引、outbox、导入批次、模板草稿、测评收件人回补 |
+| V19-V29 | `V19__init_notification_schema.sql` → `V29__diagnosis_launch_context.sql` | 通知、效果快照、成就、学习目标、RAG 会话、session 生命周期 |
+| V30-V34 | `V30__normalize_soft_delete_unique_keys_lexical_and_import.sql` → `V34__normalize_soft_delete_unique_keys_class_membership.sql` | 软删除唯一键归一化拆分迁移 |
+| V35-V36 | `V35__admin_ai_config_history_and_probe.sql`、`V36__platform_event_outbox_dlq.sql` | AI 运维历史、outbox DLQ |
 
 ## 测试与质量
 
-测试框架：Spring Boot Test + JUnit 5 + H2 内存数据库 + Spring Security Test
+测试框架：Spring Boot Test + JUnit 5 + H2 内存数据库 + Spring Security Test + Testcontainers MySQL
 
 | 类别 | 测试类 | 数量 |
 |------|--------|------|
@@ -152,8 +148,8 @@ app-server/
   src/main/resources/
     application-{local,dev,prod}.yml                         # 环境配置
     logback-spring.xml                                       # 日志
-    db/migration/V1-V9                                       # Flyway 迁移脚本
-  src/test/java/                                             # 23 个测试类
+    db/migration/V1-V36                                      # Flyway 迁移脚本
+  src/test/java/                                             # 44 个测试类
 ```
 
 ## 变更记录 (Changelog)
@@ -161,3 +157,4 @@ app-server/
 | 时间 | 操作 | 说明 |
 |------|------|------|
 | 2026-03-22 00:35:46 | 初始创建 | 全量扫描生成 |
+| 2026-04-18 | 迁移安全加固 | 迁移链扩展到 V36，拆分软删除唯一键迁移并补 MySQL Testcontainers 校验 |

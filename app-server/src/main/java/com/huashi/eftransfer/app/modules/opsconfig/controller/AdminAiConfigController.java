@@ -78,7 +78,7 @@ public class AdminAiConfigController {
     }
 
     @GetMapping("/reindex-jobs/{jobId}")
-    public ApiResponse<RagReindexJobResponse> getReindexJob(@PathVariable("jobId") Long jobId) {
+    public ApiResponse<RagReindexJobResponse> getReindexJob(@PathVariable("jobId") String jobId) {
         return ApiResponse.success(aiOpsAdminService.fetchReindexJob(jobId), MDC.get("traceId"));
     }
 

@@ -452,7 +452,7 @@ export const adminService = {
   probeAiEmbedding: (payload: AdminAiConfigSaveRequest) => apiPost<AdminAiEmbeddingProbeVO>('/admin/ai-config/probes/embedding', payload),
   probeAiRerank: (payload: AdminAiConfigSaveRequest) => apiPost<AdminAiRerankProbeVO>('/admin/ai-config/probes/rerank', payload),
   triggerRagReindex: (payload: RagReindexRequest) => apiPost<RagReindexResponse>('/admin/ai-config/reindex', payload),
-  getRagReindexJob: (jobId: number, options?: RequestOptions) => apiGet<RagReindexJobResponse>(`/admin/ai-config/reindex-jobs/${jobId}`, options),
+  getRagReindexJob: (jobId: string, options?: RequestOptions) => apiGet<RagReindexJobResponse>(`/admin/ai-config/reindex-jobs/${jobId}`, options),
 };
 
 export { teacherWorkspaceService } from './services/teacherWorkspace';

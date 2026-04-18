@@ -18,4 +18,5 @@ CREATE INDEX IF NOT EXISTS idx_rag_knowledge_document_type ON rag_knowledge_docu
 CREATE INDEX IF NOT EXISTS idx_rag_knowledge_document_source ON rag_knowledge_document (source_uri);
 CREATE INDEX IF NOT EXISTS idx_rag_knowledge_document_embedding
     ON rag_knowledge_document
-    USING hnsw (embedding vector_cosine_ops);
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 128);

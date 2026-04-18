@@ -179,7 +179,7 @@ public class AiGatewayClient {
         return post("/internal/ai/rag/reindex", request, RAG_REINDEX_TYPE);
     }
 
-    public Optional<RagReindexJobResponse> fetchReindexJob(Long jobId) {
+    public Optional<RagReindexJobResponse> fetchReindexJob(String jobId) {
         return getOptional("/internal/ai/rag/reindex/jobs/" + jobId, RAG_REINDEX_JOB_TYPE);
     }
 

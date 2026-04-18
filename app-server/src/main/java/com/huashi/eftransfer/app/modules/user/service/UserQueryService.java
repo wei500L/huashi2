@@ -20,6 +20,7 @@ import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -72,7 +73,7 @@ public class UserQueryService {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "User is not available", 401);
         }
 
-        Set<String> roles = getRoleCodes(userId);
+        Set<UserRole> roles = typedRoles(getRoleCodes(userId));
         requireAssignedRoles(roles);
         StudentProfileEntity studentProfile = studentProfileMapper.selectOne(Wrappers.<StudentProfileEntity>lambdaQuery()
                 .eq(StudentProfileEntity::getUserId, userId));
@@ -100,7 +101,7 @@ public class UserQueryService {
                 user.getUsername(),
                 user.getEmail(),
                 user.getDisplayName(),
-                user.getLastLoginAt(),
+                user.getLastLoginAt() == null ? null : user.getLastLoginAt().atOffset(ZoneOffset.UTC),
                 primaryRole(roles),
                 roles,
                 capabilities(roles),
@@ -130,11 +131,9 @@ public class UserQueryService {
                 .toList();
     }
 
-    private String primaryRole(Set<String> roles) {
+    private UserRole primaryRole(Set<UserRole> roles) {
         return roles.stream()
-                .map(UserRole::valueOf)
                 .sorted(Comparator.comparingInt(this::rolePriority))
-                .map(Enum::name)
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ResultCode.FORBIDDEN, "User account has no assigned roles", 403));
     }
@@ -147,29 +146,30 @@ public class UserQueryService {
         };
     }
 
-    private Set<String> capabilities(Set<String> roles) {
-        Set<UserCapability> capabilities = new LinkedHashSet<>();
-        Set<UserRole> typedRoles = roles.stream()
+    private Set<UserRole> typedRoles(Set<String> roleCodes) {
+        return roleCodes.stream()
                 .map(UserRole::valueOf)
+                .sorted(Comparator.comparingInt(this::rolePriority))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
 
-        if (typedRoles.contains(UserRole.STUDENT)) {
+    private Set<UserCapability> capabilities(Set<UserRole> roles) {
+        Set<UserCapability> capabilities = new LinkedHashSet<>();
+        if (roles.contains(UserRole.STUDENT)) {
             capabilities.add(UserCapability.STUDENT_WORKSPACE);
         }
-        if (typedRoles.contains(UserRole.TEACHER)) {
+        if (roles.contains(UserRole.TEACHER)) {
             capabilities.add(UserCapability.TEACHING_WORKSPACE);
         }
-        if (typedRoles.contains(UserRole.ADMIN)) {
+        if (roles.contains(UserRole.ADMIN)) {
             capabilities.add(UserCapability.ADMIN_CONSOLE);
             capabilities.add(UserCapability.TEACHING_WORKSPACE);
             capabilities.add(UserCapability.STUDENT_WORKSPACE);
         }
-        return capabilities.stream()
-                .map(Enum::name)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return capabilities;
     }
 
-    private void requireAssignedRoles(Set<String> roles) {
+    private void requireAssignedRoles(Set<UserRole> roles) {
         if (roles == null || roles.isEmpty()) {
             throw new BusinessException(ResultCode.FORBIDDEN, "User account has no assigned roles", 403);
         }

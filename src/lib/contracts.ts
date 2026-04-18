@@ -1,22 +1,37 @@
 import type {
+  AiOpsProtocol,
   AssessmentAttemptStatus,
+  AssessmentPaperStatus,
+  AssessmentPublishStatus,
+  AssessmentQuestionType,
   ContextSupportLevel,
+  DiagnosisErrorType,
   DiagnosisSessionStatus,
   DiagnosisTaskType,
+  DiagnosisTemplateStatus,
+  EmbeddingStatus,
+  KnowledgeStatus,
   LexicalPairType,
+  ResultCode,
+  ReviewScheduleStatus,
+  RiskLevel,
   TrainingCognitiveTag,
   TrainingItemType,
   TrainingMode,
+  TrainingPlanStatus,
   TrainingSessionStatus,
+  UserCapability,
+  UserRole,
+  WrongBookMasteryStatus,
 } from './contracts/generated/session-domain';
 
-export type Role = 'STUDENT' | 'TEACHER' | 'ADMIN';
-export type Capability = 'STUDENT_WORKSPACE' | 'TEACHING_WORKSPACE' | 'ADMIN_CONSOLE';
+export type Role = UserRole;
+export type Capability = UserCapability;
 export type SessionCompletionHookStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'FAILED';
 
 export interface ApiResponse<T> {
   success: boolean;
-  code: string;
+  code: ResultCode;
   message: string;
   data: T;
   timestamp: string;
@@ -154,14 +169,14 @@ export interface StudentRiskPairPayload {
   lexicalPairId: number;
   englishWord: string;
   frenchWord: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   riskScore: number;
   attemptCount: number;
   incorrectCount: number;
 }
 
 export interface StudentErrorDistributionPayload {
-  errorType: string;
+  errorType: DiagnosisErrorType;
   count: number;
   ratio: number;
 }
@@ -173,8 +188,8 @@ export interface StudentAnalyticsSnapshotPayload {
   frenchLevel: string;
   lastDiagnosisSummaryId?: number | null;
   lastTrainingSessionId?: number | null;
-  primaryRiskLevel: string;
-  recommendedTrainingMode: string;
+  primaryRiskLevel: RiskLevel;
+  recommendedTrainingMode: TrainingMode;
   pendingReviewCount: number;
   highRiskPairCount: number;
   recentAccuracy: number;
@@ -229,8 +244,8 @@ export interface StudentAnalyticsOverviewVO {
   gradeName: string;
   englishLevel: string;
   frenchLevel: string;
-  primaryRiskLevel: string;
-  recommendedTrainingMode: string;
+  primaryRiskLevel: RiskLevel;
+  recommendedTrainingMode: TrainingMode;
   cards: AnalyticsCardVO[];
   radar: AnalyticsRadarMetricVO[];
   contextPerformance: AnalyticsContextPerformanceVO[];
@@ -275,7 +290,7 @@ export interface AnalyticsHeatmapVO {
 export interface AnalyticsScatterPointVO {
   lexicalPairId: number;
   label: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   accuracy: number;
   avgReactionTimeMs: number;
   attemptCount: number;
@@ -292,7 +307,7 @@ export interface AnalyticsRiskPairVO {
   lexicalPairId: number;
   englishWord: string;
   frenchWord: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   riskScore: number;
   attemptCount: number;
   incorrectCount: number;
@@ -319,7 +334,7 @@ export interface DiagnosisTemplateSummaryVO {
   id: number;
   templateName: string;
   description?: string | null;
-  status: string;
+  status: DiagnosisTemplateStatus;
   targetClassId?: number | null;
   targetClassName?: string | null;
   itemCount: number;
@@ -406,7 +421,7 @@ export interface DiagnosisTemplateDetailVO {
   id: number;
   templateName: string;
   description?: string | null;
-  status: string;
+  status: DiagnosisTemplateStatus;
   targetClassId?: number | null;
   targetClassName?: string | null;
   estimatedDurationMinutes: number;
@@ -651,7 +666,7 @@ export interface DiagnosisHighRiskLexicalPair {
   riskScore: number;
   errorCount: number;
   averageReactionTime: number;
-  dominantErrorType: string;
+  dominantErrorType: DiagnosisErrorType;
 }
 
 export interface DiagnosisRadarMetric {
@@ -681,7 +696,7 @@ export interface DiagnosisResponseTimelinePoint {
   lexicalPairType: LexicalPairType;
   reactionTime: number;
   correct: boolean;
-  errorType?: string | null;
+  errorType?: DiagnosisErrorType | null;
 }
 
 export interface DiagnosisChartPayload {
@@ -755,25 +770,25 @@ export interface RecommendedTrainingPairVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   recommendedMode: TrainingMode;
   recommendedDifficulty: number;
-  riskLevel: string;
+  riskLevel: RiskLevel;
   priorityScore: number;
   recommendedReason: string;
-  dominantErrorType: string;
+  dominantErrorType: DiagnosisErrorType;
   expectedExposures: number;
-  targetContextSupport: string;
+  targetContextSupport: ContextSupportLevel;
 }
 
 export interface RecommendedTrainingPlanVO {
   planId: number;
   sourceDiagnosisSessionId: number;
   sourceDiagnosisSummaryId: number;
-  status: string;
+  status: TrainingPlanStatus;
   priorityMode: TrainingMode;
   recommendedDifficulty: number;
-  riskLevel: string;
+  riskLevel: RiskLevel;
   estimatedTrainingVolume: number;
   recommendationReason: string;
   targetMetrics: string[];
@@ -788,11 +803,11 @@ export interface WrongBookItemVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   recommendedMode: TrainingMode;
   wrongCount: number;
-  lastErrorType: string;
-  masteryStatus: string;
+  lastErrorType: DiagnosisErrorType;
+  masteryStatus: WrongBookMasteryStatus;
   firstWrongAt: string;
   lastWrongAt: string;
   nextReviewAt?: string | null;
@@ -805,11 +820,11 @@ export interface ReviewScheduleItemVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   scheduleStage: number;
   intervalDays: number;
   dueAt: string;
-  status: string;
+  status: ReviewScheduleStatus;
   reviewMode: TrainingMode;
   triggerReason: string;
 }
@@ -825,7 +840,7 @@ export interface TrainingExerciseContentVO {
   question: string;
   options: string[];
   explanation: string;
-  contextLevel?: string | null;
+  contextLevel?: ContextSupportLevel | null;
   sentence?: string | null;
 }
 
@@ -839,7 +854,7 @@ export interface TrainingStimulusPayload {
   questionText?: string | null;
   contextSentence?: string | null;
   explanation?: string | null;
-  contextSupportLevel?: string | null;
+  contextSupportLevel?: ContextSupportLevel | null;
 }
 
 export interface TrainingQuestionItemVO {
@@ -946,8 +961,8 @@ export interface TrainingRiskWordVO {
   chineseGloss: string;
   lexicalPairType: LexicalPairType;
   reason: string;
-  riskLevel: string;
-  dominantErrorType: string;
+  riskLevel: RiskLevel;
+  dominantErrorType: DiagnosisErrorType;
 }
 
 export interface TrainingItemResultDetailVO {
@@ -973,7 +988,7 @@ export interface TrainingItemResultDetailVO {
   reactionTimeMs?: number | null;
   hesitationTimeMs?: number | null;
   correct?: boolean | null;
-  detectedErrorType?: string | null;
+  detectedErrorType?: DiagnosisErrorType | null;
   reviewRequired?: boolean | null;
   adaptationAction?: string | null;
 }
@@ -1000,9 +1015,9 @@ export interface AiFocusLexicalPairVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   riskScore: number;
-  dominantErrorType: string;
+  dominantErrorType: DiagnosisErrorType;
   focusReason: string;
 }
 
@@ -1162,12 +1177,12 @@ export interface TeacherClassStudentBatchRequest {
 }
 
 export interface RiskBucketPayload {
-  riskLevel: string;
+  riskLevel: RiskLevel;
   studentCount: number;
 }
 
 export interface ModeFocusPayload {
-  mode: string;
+  mode: TrainingMode;
   studentCount: number;
 }
 
@@ -1175,14 +1190,14 @@ export interface ClassRiskPairPayload {
   lexicalPairId: number;
   englishWord: string;
   frenchWord: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   riskScore: number;
   attemptCount: number;
   incorrectCount: number;
 }
 
 export interface ClassErrorDistributionPayload {
-  errorType: string;
+  errorType: DiagnosisErrorType;
   count: number;
   ratio: number;
 }
@@ -1197,7 +1212,7 @@ export interface ClassAnalyticsSnapshotPayload {
   recentAccuracy: number;
   recentNegativeTransferRisk: number;
   recentAvgReactionTimeMs: number;
-  primaryRiskLevel: string;
+  primaryRiskLevel: RiskLevel;
   lastActiveAt?: string | null;
   riskDistribution: RiskBucketPayload[];
   recommendedFocusModes: ModeFocusPayload[];
@@ -1212,7 +1227,7 @@ export interface ClassAnalyticsOverviewVO {
   studentCount: number;
   activeStudentCount: number;
   highRiskStudentCount: number;
-  primaryRiskLevel: string;
+  primaryRiskLevel: RiskLevel;
   cards: AnalyticsCardVO[];
   radar: AnalyticsRadarMetricVO[];
   latestSnapshot: ClassAnalyticsSnapshotPayload;
@@ -1228,12 +1243,12 @@ export interface StudentProfileSummaryVO {
   studentUserId: number;
   studentName: string;
   gradeName: string;
-  primaryRiskLevel: string;
+  primaryRiskLevel: RiskLevel;
   recentAccuracy: number;
   recentNegativeTransferRisk: number;
   recentAvgReactionTimeMs: number;
   pendingReviewCount: number;
-  recommendedTrainingMode: string;
+  recommendedTrainingMode: TrainingMode;
   lastActiveAt?: string | null;
 }
 
@@ -1281,8 +1296,8 @@ export interface TeacherInterventionSummaryVO {
 export interface TeacherInterventionEffectSnapshotVO {
   snapshotId: number;
   snapshotAt?: string | null;
-  primaryRiskLevel?: string | null;
-  recommendedTrainingMode?: string | null;
+  primaryRiskLevel?: RiskLevel | null;
+  recommendedTrainingMode?: TrainingMode | null;
   pendingReviewCount?: number | null;
   highRiskPairCount?: number | null;
   recentAccuracy?: number | null;
@@ -1482,16 +1497,16 @@ export interface LexicalPairSummaryVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   semanticOverlapScore: number;
   falseFriendRisk: number;
-  riskLevel: string;
-  defaultContextSupport: string;
+  riskLevel: RiskLevel;
+  defaultContextSupport: ContextSupportLevel;
   difficultyLevel: number;
   source?: string | null;
   active: boolean;
-  knowledgeStatus?: string | null;
-  embeddingStatus?: string | null;
+  knowledgeStatus?: KnowledgeStatus | null;
+  embeddingStatus?: EmbeddingStatus | null;
   lastEmbeddedAt?: string | null;
   tags: string[];
 }
@@ -1501,7 +1516,7 @@ export interface LexicalPairSuggestionVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   matchedBy: string;
 }
 
@@ -1522,7 +1537,7 @@ export interface LexicalPairExampleVO {
   englishExample: string;
   frenchExample: string;
   chineseTranslation: string;
-  contextSupportLevel: string;
+  contextSupportLevel: ContextSupportLevel;
   source?: string | null;
 }
 
@@ -1540,7 +1555,7 @@ export interface LexicalPairExampleRequest {
   englishExample: string;
   frenchExample: string;
   chineseTranslation: string;
-  contextSupportLevel: string;
+  contextSupportLevel: ContextSupportLevel;
   source?: string;
 }
 
@@ -1557,18 +1572,18 @@ export interface LexicalPairDetailVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   semanticOverlapScore: number;
   falseFriendRisk: number;
-  riskLevel: string;
-  defaultContextSupport: string;
+  riskLevel: RiskLevel;
+  defaultContextSupport: ContextSupportLevel;
   difficultyLevel: number;
   notes?: string | null;
   source?: string | null;
   active: boolean;
   searchableText?: string | null;
-  knowledgeStatus?: string | null;
-  embeddingStatus?: string | null;
+  knowledgeStatus?: KnowledgeStatus | null;
+  embeddingStatus?: EmbeddingStatus | null;
   lastEmbeddedAt?: string | null;
   tags: string[];
   senses: LexicalPairSenseVO[];
@@ -1594,10 +1609,10 @@ export interface LexicalListItemVO {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
-  defaultContextSupport: string;
+  lexicalPairType: LexicalPairType;
+  defaultContextSupport: ContextSupportLevel;
   difficultyLevel: number;
-  riskLevel: string;
+  riskLevel: RiskLevel;
 }
 
 export interface LexicalListDetailVO {
@@ -1656,24 +1671,24 @@ export interface LexicalImportRowDraft {
   englishWord?: string | null;
   frenchWord?: string | null;
   chineseGloss?: string | null;
-  lexicalPairType?: string | null;
+  lexicalPairType?: LexicalPairType | null;
   semanticOverlapScore?: string | null;
   falseFriendRisk?: string | null;
-  defaultContextSupport?: string | null;
+  defaultContextSupport?: ContextSupportLevel | null;
   difficultyLevel?: string | null;
   notes?: string | null;
   source?: string | null;
   active?: string | null;
   tags?: string | null;
-  knowledgeStatus?: string | null;
-  embeddingStatus?: string | null;
+  knowledgeStatus?: KnowledgeStatus | null;
+  embeddingStatus?: EmbeddingStatus | null;
   senseEnglishDefinition?: string | null;
   senseFrenchDefinition?: string | null;
   senseChineseDefinition?: string | null;
   exampleEnglish?: string | null;
   exampleFrench?: string | null;
   exampleChinese?: string | null;
-  exampleContextSupport?: string | null;
+  exampleContextSupport?: ContextSupportLevel | null;
 }
 
 export interface LexicalImportRowUpdateRequest extends LexicalImportRowDraft {
@@ -1748,7 +1763,7 @@ export interface AddLexicalListItemsResultVO {
 export interface DiagnosisTemplateUpsertRequest {
   templateName: string;
   description?: string;
-  status: string;
+  status: DiagnosisTemplateStatus;
   estimatedDurationMinutes: number;
   targetClassId?: number | null;
   shareScope?: string | null;
@@ -1760,16 +1775,16 @@ export interface LexicalPairUpsertRequest {
   englishWord: string;
   frenchWord: string;
   chineseGloss: string;
-  lexicalPairType: string;
+  lexicalPairType: LexicalPairType;
   semanticOverlapScore: number;
   falseFriendRisk: number;
-  defaultContextSupport: string;
+  defaultContextSupport: ContextSupportLevel;
   difficultyLevel: number;
   notes?: string;
   source?: string;
   active?: boolean;
-  knowledgeStatus?: string;
-  embeddingStatus?: string;
+  knowledgeStatus?: KnowledgeStatus;
+  embeddingStatus?: EmbeddingStatus;
   tags?: string[];
   senses: LexicalPairSenseRequest[];
 }
@@ -1784,33 +1799,31 @@ export interface AddLexicalListItemsRequest {
   lexicalPairIds: number[];
 }
 
-export type AiOpsProtocol = 'openai-compat' | 'qwen-rerank';
-
 export interface AiOpsChatConfig {
-  protocol?: AiOpsProtocol | null;
-  baseUrl?: string | null;
-  apiKey?: string | null;
-  model?: string | null;
-  timeout?: string | null;
-  temperature?: number | null;
-  maxTokens?: number | null;
+  protocol: AiOpsProtocol;
+  baseUrl: string;
+  apiKey: string | null;
+  model: string;
+  timeout: string;
+  temperature: number;
+  maxTokens: number;
 }
 
 export interface AiOpsEmbeddingConfig {
-  protocol?: AiOpsProtocol | null;
-  baseUrl?: string | null;
-  apiKey?: string | null;
-  model?: string | null;
-  timeout?: string | null;
-  dimension?: number | null;
+  protocol: AiOpsProtocol;
+  baseUrl: string;
+  apiKey: string | null;
+  model: string;
+  timeout: string;
+  dimension: number;
 }
 
 export interface AiOpsRerankConfig {
-  protocol?: AiOpsProtocol | null;
-  baseUrl?: string | null;
-  apiKey?: string | null;
-  model?: string | null;
-  timeout?: string | null;
+  protocol: AiOpsProtocol;
+  baseUrl: string;
+  apiKey: string | null;
+  model: string;
+  timeout: string;
 }
 
 export interface AiOpsProviderDefinition {
@@ -1820,37 +1833,37 @@ export interface AiOpsProviderDefinition {
 }
 
 export interface AiOpsProviderConfig {
-  activeProvider?: string | null;
-  fallbackProvider?: string | null;
+  activeProvider: string;
+  fallbackProvider: string;
   providers: Record<string, AiOpsProviderDefinition>;
 }
 
 export interface AiOpsResilienceConfig {
-  maxAttempts?: number | null;
-  waitDuration?: string | null;
-  failureRateThreshold?: number | null;
-  slidingWindowSize?: number | null;
-  openStateDuration?: string | null;
+  maxAttempts: number;
+  waitDuration: string;
+  failureRateThreshold: number;
+  slidingWindowSize: number;
+  openStateDuration: string;
 }
 
 export interface AiOpsRagAppServerConfig {
-  baseUrl?: string | null;
-  internalToken?: string | null;
-  connectTimeout?: string | null;
-  readTimeout?: string | null;
+  baseUrl: string;
+  internalToken: string | null;
+  connectTimeout: string;
+  readTimeout: string;
 }
 
 export interface AiOpsRagIngestionConfig {
-  exportPageSize?: number | null;
-  embeddingBatchSize?: number | null;
+  exportPageSize: number;
+  embeddingBatchSize: number;
 }
 
 export interface AiOpsRagRetrievalConfig {
-  recallTopK?: number | null;
-  recallThreshold?: number | null;
-  rerankTopN?: number | null;
-  rerankThreshold?: number | null;
-  finalTopK?: number | null;
+  recallTopK: number;
+  recallThreshold: number;
+  rerankTopN: number;
+  rerankThreshold: number;
+  finalTopK: number;
 }
 
 export interface AiOpsRagConfig {
@@ -1863,6 +1876,85 @@ export interface AiOpsConfigPayload {
   provider: AiOpsProviderConfig;
   resilience: AiOpsResilienceConfig;
   rag: AiOpsRagConfig;
+}
+
+export interface AiOpsDraftChatConfig {
+  protocol?: AiOpsProtocol | null;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  model?: string | null;
+  timeout?: string | null;
+  temperature?: number | null;
+  maxTokens?: number | null;
+}
+
+export interface AiOpsDraftEmbeddingConfig {
+  protocol?: AiOpsProtocol | null;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  model?: string | null;
+  timeout?: string | null;
+  dimension?: number | null;
+}
+
+export interface AiOpsDraftRerankConfig {
+  protocol?: AiOpsProtocol | null;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  model?: string | null;
+  timeout?: string | null;
+}
+
+export interface AiOpsDraftProviderDefinition {
+  chat: AiOpsDraftChatConfig;
+  embedding: AiOpsDraftEmbeddingConfig;
+  rerank: AiOpsDraftRerankConfig;
+}
+
+export interface AiOpsDraftProviderConfig {
+  activeProvider?: string | null;
+  fallbackProvider?: string | null;
+  providers: Record<string, AiOpsDraftProviderDefinition>;
+}
+
+export interface AiOpsDraftResilienceConfig {
+  maxAttempts?: number | null;
+  waitDuration?: string | null;
+  failureRateThreshold?: number | null;
+  slidingWindowSize?: number | null;
+  openStateDuration?: string | null;
+}
+
+export interface AiOpsDraftRagAppServerConfig {
+  baseUrl?: string | null;
+  internalToken?: string | null;
+  connectTimeout?: string | null;
+  readTimeout?: string | null;
+}
+
+export interface AiOpsDraftRagIngestionConfig {
+  exportPageSize?: number | null;
+  embeddingBatchSize?: number | null;
+}
+
+export interface AiOpsDraftRagRetrievalConfig {
+  recallTopK?: number | null;
+  recallThreshold?: number | null;
+  rerankTopN?: number | null;
+  rerankThreshold?: number | null;
+  finalTopK?: number | null;
+}
+
+export interface AiOpsDraftRagConfig {
+  appServer: AiOpsDraftRagAppServerConfig;
+  ingestion: AiOpsDraftRagIngestionConfig;
+  retrieval: AiOpsDraftRagRetrievalConfig;
+}
+
+export interface AiOpsDraftConfigPayload {
+  provider: AiOpsDraftProviderConfig;
+  resilience: AiOpsDraftResilienceConfig;
+  rag: AiOpsDraftRagConfig;
 }
 
 export interface AiOpsConfigIssue {
@@ -1905,22 +1997,22 @@ export interface AdminAiSecretFieldsVO {
 export interface AdminAiRuntimeStateVO {
   available: boolean;
   source?: string | null;
-  version?: number | null;
+  version?: string | null;
   appliedAt?: string | null;
   inSync: boolean;
 }
 
 export interface AdminAiStoredStateVO {
   present: boolean;
-  version?: number | null;
+  version?: string | null;
   updatedAt?: string | null;
 }
 
 export interface AdminAiConfigViewVO {
-  config: AiOpsConfigPayload;
+  config: AiOpsDraftConfigPayload;
   secrets: AdminAiSecretFieldsVO;
   source: string;
-  version?: number | null;
+  version?: string | null;
   updatedAt?: string | null;
   notices: AiOpsConfigNotice[];
   runtime: AdminAiRuntimeStateVO;
@@ -1955,13 +2047,13 @@ export interface AdminAiSecretUpdateGroup {
 
 export interface AdminAiConfigSaveRequest {
   config: AiOpsConfigPayload;
-  expectedVersion?: number | null;
+  expectedVersion?: string | null;
   providerOrigins?: Record<string, string>;
   secrets: AdminAiSecretUpdateGroup;
 }
 
 export interface AdminAiRuntimeSyncRequest {
-  expectedVersion: number | null;
+  expectedVersion: string | null;
 }
 
 export interface AdminOutboxRecordVO {
@@ -2036,12 +2128,12 @@ export interface RagReindexRequest {
 }
 
 export interface RagReindexResponse {
-  jobId: number;
+  jobId: string;
   status: string;
 }
 
 export interface RagReindexJobResponse {
-  jobId: number;
+  jobId: string;
   jobType: string;
   mode: string;
   status: string;
@@ -2053,9 +2145,6 @@ export interface RagReindexJobResponse {
   stats: Record<string, unknown>;
   errorMessage?: string | null;
 }
-
-export type AssessmentQuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'FILL_BLANK';
-export type AssessmentPaperStatus = 'DRAFT' | 'PUBLISHED';
 
 export interface AssessmentOptionRequest {
   key: string;
@@ -2116,7 +2205,7 @@ export interface AssessmentPublishSummaryVO {
   publishId: number;
   teachingClassId: number;
   className: string;
-  status: string;
+  status: AssessmentPublishStatus;
   durationMinutes: number;
   questionCount: number;
   totalScore: number;
@@ -2135,7 +2224,7 @@ export interface AssessmentPaperSummaryVO {
   paperCode: string;
   title: string;
   description?: string | null;
-  status: AssessmentPaperStatus | string;
+  status: AssessmentPaperStatus;
   durationMinutes: number;
   questionCount: number;
   totalScore: number;
@@ -2148,7 +2237,7 @@ export interface AssessmentPaperDetailVO {
   paperCode: string;
   title: string;
   description?: string | null;
-  status: AssessmentPaperStatus | string;
+  status: AssessmentPaperStatus;
   durationMinutes: number;
   questionCount: number;
   totalScore: number;
@@ -2319,7 +2408,7 @@ export interface AssessmentPublishDetailVO {
   paperDescription?: string | null;
   teachingClassId: number;
   className: string;
-  status: string;
+  status: AssessmentPublishStatus;
   durationMinutes: number;
   questionCount: number;
   totalScore: number;
@@ -2345,7 +2434,7 @@ export interface TeacherAssessmentAttemptResultVO {
   paperTitle: string;
   paperDescription?: string | null;
   className: string;
-  status: AssessmentAttemptStatus | string;
+  status: AssessmentAttemptStatus;
   instructionsText?: string | null;
   questionCount: number;
   answeredCount: number;
@@ -2359,15 +2448,32 @@ export interface TeacherAssessmentAttemptResultVO {
 }
 
 export type {
+  AiOpsProtocol,
   AssessmentAttemptStatus,
+  AssessmentPaperStatus,
+  AssessmentPublishStatus,
+  AssessmentQuestionType,
   ContextSupportLevel,
+  DiagnosisAnswerState,
+  DiagnosisErrorType,
   DiagnosisSessionStatus,
   DiagnosisTaskType,
+  DiagnosisTemplateStatus,
+  EmbeddingStatus,
+  KnowledgeStatus,
   LexicalPairType,
+  ResultCode,
+  ReviewScheduleStatus,
+  RiskLevel,
+  TrainingAnswerState,
   TrainingCognitiveTag,
   TrainingItemType,
   TrainingMode,
+  TrainingPlanStatus,
   TrainingSessionStatus,
+  UserCapability,
+  UserRole,
+  WrongBookMasteryStatus,
 } from './contracts/generated/session-domain';
 
 export type {

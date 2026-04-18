@@ -68,7 +68,7 @@ public class InternalRagController {
     }
 
     @GetMapping("/reindex/jobs/{jobId}")
-    public ApiResponse<RagReindexJobResponse> getJob(@PathVariable("jobId") Long jobId) {
+    public ApiResponse<RagReindexJobResponse> getJob(@PathVariable("jobId") String jobId) {
         return ApiResponse.success(knowledgeIngestionService.getJob(jobId), MDC.get("traceId"));
     }
 }

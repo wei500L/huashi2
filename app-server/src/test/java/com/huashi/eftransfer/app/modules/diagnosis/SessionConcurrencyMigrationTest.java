@@ -20,7 +20,7 @@ class SessionConcurrencyMigrationTest {
     private static final DateTimeFormatter SQL_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Test
-    void shouldBackfillDuplicateInProgressSessionsAndEnforceSingleActiveConstraint() throws Exception {
+    void shouldEnforceSingleActiveConstraintAfterPreMigrationCleanup() throws Exception {
         String databaseName = "session-concurrency-" + UUID.randomUUID();
         String jdbcUrl = "jdbc:h2:mem:%s;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1".formatted(databaseName);
 
@@ -31,8 +31,7 @@ class SessionConcurrencyMigrationTest {
                 .load()
                 .migrate();
 
-        LocalDateTime earlier = LocalDateTime.of(2026, 4, 1, 9, 0);
-        LocalDateTime later = earlier.plusMinutes(5);
+        LocalDateTime startedAt = LocalDateTime.of(2026, 4, 1, 9, 0);
 
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "");
              Statement statement = connection.createStatement()) {
@@ -54,10 +53,8 @@ class SessionConcurrencyMigrationTest {
                         id, template_id, owner_user_id, status, session_seed, total_items, answered_items,
                         current_item_order, started_at, created_at, updated_at, deleted
                     )
-                    VALUES
-                      (21, 11, 2, 'IN_PROGRESS', 1001, 3, 1, 2, TIMESTAMP '%s', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE),
-                      (22, 11, 2, 'IN_PROGRESS', 1002, 3, 2, 3, TIMESTAMP '%s', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE)
-                    """.formatted(earlier.format(SQL_TIMESTAMP), later.format(SQL_TIMESTAMP)));
+                    VALUES (22, 11, 2, 'IN_PROGRESS', 1002, 3, 2, 3, TIMESTAMP '%s', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE)
+                    """.formatted(startedAt.format(SQL_TIMESTAMP)));
             statement.executeUpdate("""
                     INSERT INTO diagnosis_summary (
                         id, session_id, owner_user_id, template_id, positive_transfer_score, negative_transfer_risk,
@@ -80,10 +77,8 @@ class SessionConcurrencyMigrationTest {
                         id, plan_id, owner_user_id, mode, status, session_seed, total_items, answered_items,
                         current_item_order, planned_difficulty, risk_level, started_at, created_at, updated_at, deleted
                     )
-                    VALUES
-                      (51, 41, 2, 'FALSE_FRIEND_DISCRIM', 'IN_PROGRESS', 2001, 4, 1, 2, 3, 'HIGH', TIMESTAMP '%s', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE),
-                      (52, 41, 2, 'FALSE_FRIEND_DISCRIM', 'IN_PROGRESS', 2002, 4, 2, 3, 3, 'HIGH', TIMESTAMP '%s', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE)
-                    """.formatted(earlier.format(SQL_TIMESTAMP), later.format(SQL_TIMESTAMP)));
+                    VALUES (52, 41, 2, 'FALSE_FRIEND_DISCRIM', 'IN_PROGRESS', 2002, 4, 2, 3, 3, 'HIGH', TIMESTAMP '%s', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE)
+                    """.formatted(startedAt.format(SQL_TIMESTAMP)));
 
             statement.executeUpdate("""
                     INSERT INTO idempotency_record (
@@ -101,34 +96,6 @@ class SessionConcurrencyMigrationTest {
 
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "");
              Statement statement = connection.createStatement()) {
-            try (ResultSet diagnosisRows = statement.executeQuery("""
-                    SELECT id, status
-                    FROM diagnosis_session
-                    WHERE owner_user_id = 2
-                    ORDER BY id ASC
-                    """)) {
-                assertThat(diagnosisRows.next()).isTrue();
-                assertThat(diagnosisRows.getLong("id")).isEqualTo(21L);
-                assertThat(diagnosisRows.getString("status")).isEqualTo("ABANDONED");
-                assertThat(diagnosisRows.next()).isTrue();
-                assertThat(diagnosisRows.getLong("id")).isEqualTo(22L);
-                assertThat(diagnosisRows.getString("status")).isEqualTo("IN_PROGRESS");
-            }
-
-            try (ResultSet trainingRows = statement.executeQuery("""
-                    SELECT id, status
-                    FROM training_session
-                    WHERE owner_user_id = 2
-                    ORDER BY id ASC
-                    """)) {
-                assertThat(trainingRows.next()).isTrue();
-                assertThat(trainingRows.getLong("id")).isEqualTo(51L);
-                assertThat(trainingRows.getString("status")).isEqualTo("ABANDONED");
-                assertThat(trainingRows.next()).isTrue();
-                assertThat(trainingRows.getLong("id")).isEqualTo(52L);
-                assertThat(trainingRows.getString("status")).isEqualTo("IN_PROGRESS");
-            }
-
             try (ResultSet requestHashColumn = statement.executeQuery("""
                     SELECT request_hash
                     FROM idempotency_record

@@ -63,7 +63,7 @@ rag:
 
 ## 数据模型
 
-数据库：PostgreSQL + pgvector 扩展。Flyway 迁移脚本 V1-V4。
+数据库：PostgreSQL + pgvector 扩展。Flyway 迁移脚本 V1-V5。
 
 ### 核心存储
 
@@ -82,6 +82,7 @@ rag:
 | V2 | `V2__knowledge_rag_schema.sql` | 知识 RAG 模式 |
 | V3 | `V3__optimize_lexical_rag_retrieval.sql` | 检索优化 |
 | V4 | `V4__integration_consume_record.sql` | 消息消费记录 |
+| V5 | `V5__drop_legacy_rag_knowledge_document.sql` | 删除旧版 RAG 文档表 |
 
 ## 核心架构
 
@@ -134,11 +135,12 @@ Knowledge Retrieval:
 | `QwenRerankClientTest` | Qwen Rerank |
 | `AiRuntimeConfigServiceTest` | 运行时配置 |
 | `KnowledgeStoreRepositoryTest` | 向量存储 |
+| `RagSchemaDimensionGuardTest` | 启动期 schema / 维度校验 |
 | `LexicalRagFlowIntegrationTest` | RAG 端到端流程 |
 | `LexicalKnowledgeChangedEventListenerTest` | 知识同步事件 |
 | `AppServerKnowledgeClientTest` | app-server 客户端 |
 
-共 11 个测试类。使用 WireMock 模拟外部 AI API，Testcontainers 启动 PostgreSQL。
+共 17 个测试类。使用 WireMock 模拟外部 AI API，Testcontainers 启动 PostgreSQL。
 
 ## 常见问题 (FAQ)
 
@@ -182,8 +184,8 @@ ai-gateway/
     application.yml                                            # 主配置
     application-{local,dev,prod}.yml                           # 环境配置
     logback-spring.xml                                         # 日志
-    db/migration/V1-V4                                         # Flyway 迁移脚本
-  src/test/                                                    # 11 个测试类
+    db/migration/V1-V5                                         # Flyway 迁移脚本
+  src/test/                                                    # 17 个测试类
 ```
 
 ## 变更记录 (Changelog)
@@ -191,3 +193,4 @@ ai-gateway/
 | 时间 | 操作 | 说明 |
 |------|------|------|
 | 2026-03-22 00:35:46 | 初始创建 | 全量扫描生成 |
+| 2026-04-18 | 迁移安全加固 | 显式 HNSW 参数、固定 1024 维度并新增启动期 schema guard |

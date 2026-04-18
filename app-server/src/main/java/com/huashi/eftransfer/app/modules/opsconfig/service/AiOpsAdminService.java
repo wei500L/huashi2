@@ -276,7 +276,7 @@ public class AiOpsAdminService {
         return result.data();
     }
 
-    public RagReindexJobResponse fetchReindexJob(Long jobId) {
+    public RagReindexJobResponse fetchReindexJob(String jobId) {
         return aiGatewayClient.fetchReindexJob(jobId)
                 .orElseThrow(() -> new BusinessException(
                         ResultCode.AI_PROVIDER_UNAVAILABLE,
@@ -333,13 +333,13 @@ public class AiOpsAdminService {
                 new AdminAiRuntimeStateVO(
                         runtime != null,
                         runtime == null ? null : runtime.source(),
-                        runtime == null ? null : runtime.version(),
+                        runtime == null ? null : stringifyVersion(runtime.version()),
                         runtime == null ? null : runtime.appliedAt(),
                         runtime != null && (stored == null || Objects.equals(runtime.version(), stored.version()))
                 ),
                 new AdminAiStoredStateVO(
                         stored != null,
-                        stored == null ? null : stored.version(),
+                        stored == null ? null : stringifyVersion(stored.version()),
                         stored == null ? null : stored.updatedAt()
                 ),
                 stored != null && (runtime == null || !Objects.equals(runtime.version(), stored.version())),
@@ -405,8 +405,8 @@ public class AiOpsAdminService {
         return candidate;
     }
 
-    private void validateExpectedVersion(Long expectedVersion, Long currentVersion) {
-        if (!Objects.equals(expectedVersion, currentVersion)) {
+    private void validateExpectedVersion(String expectedVersion, Long currentVersion) {
+        if (!Objects.equals(parseVersion(expectedVersion, "expectedVersion"), currentVersion)) {
             throw new BusinessException(
                     ResultCode.BAD_REQUEST,
                     "AI ops config was updated by another administrator. Refresh the page and retry.",
@@ -432,15 +432,16 @@ public class AiOpsAdminService {
 
     private StoredAiOpsConfig persistStoredConfig(
             AiOpsConfigPayload candidate,
-            Long expectedVersion,
+            String expectedVersion,
             Long nextVersion,
             Long previousVersion,
             Long actorUserId,
             AiOpsConfigChangeSet changeSet,
             String traceId
     ) {
+        Long expectedVersionNumber = parseVersion(expectedVersion, "expectedVersion");
         return transactionTemplate.execute(status -> {
-            StoredAiOpsConfig stored = storageService.save(candidate, expectedVersion, nextVersion, actorUserId);
+            StoredAiOpsConfig stored = storageService.save(candidate, expectedVersionNumber, nextVersion, actorUserId);
             storageService.saveHistory(
                     candidate,
                     nextVersion,
@@ -465,6 +466,21 @@ public class AiOpsAdminService {
             );
             return stored;
         });
+    }
+
+    private Long parseVersion(String version, String fieldName) {
+        if (version == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(version);
+        } catch (NumberFormatException ex) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, fieldName + " must be a valid integer string", 400);
+        }
+    }
+
+    private String stringifyVersion(Long version) {
+        return version == null ? null : String.valueOf(version);
     }
 
     private PlatformEventOutboxRecord ensureRuntimeSyncOutbox(Long targetVersion, Long actorUserId, String traceId) {
@@ -568,7 +584,7 @@ public class AiOpsAdminService {
         AiOpsConfigPayload normalized = normalizePayload(payload);
         PlatformEventOutboxRecord syncRecord = resolveRuntimeSyncRecord(stored);
         String source = stored != null ? "DATABASE" : runtime == null ? null : runtime.source();
-        Long version = stored != null ? stored.version() : runtime == null ? null : runtime.version();
+        String version = stored != null ? stringifyVersion(stored.version()) : runtime == null ? null : stringifyVersion(runtime.version());
         OffsetDateTime updatedAt = stored != null ? stored.updatedAt() : runtime == null ? null : runtime.appliedAt();
         return new AdminAiConfigViewVO(
                 sanitize(normalized),
@@ -585,13 +601,13 @@ public class AiOpsAdminService {
                 new AdminAiRuntimeStateVO(
                         runtime != null,
                         runtime == null ? null : runtime.source(),
-                        runtime == null ? null : runtime.version(),
+                        runtime == null ? null : stringifyVersion(runtime.version()),
                         runtime == null ? null : runtime.appliedAt(),
                         runtime != null && (stored == null || Objects.equals(runtime.version(), stored.version()))
                 ),
                 new AdminAiStoredStateVO(
                         stored != null,
-                        stored == null ? null : stored.version(),
+                        stored == null ? null : stringifyVersion(stored.version()),
                         stored == null ? null : stored.updatedAt()
                 )
         );

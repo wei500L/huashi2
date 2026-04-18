@@ -4,7 +4,7 @@ import java.time.OffsetDateTime;
 
 public record ApiResponse<T>(
         boolean success,
-        String code,
+        ResultCode code,
         String message,
         T data,
         OffsetDateTime timestamp,
@@ -14,7 +14,7 @@ public record ApiResponse<T>(
     public static <T> ApiResponse<T> success(T data, String traceId) {
         return new ApiResponse<>(
                 true,
-                ResultCode.SUCCESS.code(),
+                ResultCode.SUCCESS,
                 ResultCode.SUCCESS.message(),
                 data,
                 OffsetDateTime.now(),
@@ -25,7 +25,7 @@ public record ApiResponse<T>(
     public static ApiResponse<Void> success(String message, String traceId) {
         return new ApiResponse<>(
                 true,
-                ResultCode.SUCCESS.code(),
+                ResultCode.SUCCESS,
                 message,
                 null,
                 OffsetDateTime.now(),
@@ -36,7 +36,7 @@ public record ApiResponse<T>(
     public static <T> ApiResponse<T> failure(ResultCode resultCode, String message, String traceId) {
         return new ApiResponse<>(
                 false,
-                resultCode.code(),
+                resultCode,
                 message,
                 null,
                 OffsetDateTime.now(),
