@@ -1765,7 +1765,10 @@ export interface AddLexicalListItemsRequest {
   lexicalPairIds: number[];
 }
 
+export type AiOpsProtocol = 'openai-compat' | 'qwen-rerank';
+
 export interface AiOpsChatConfig {
+  protocol?: AiOpsProtocol | null;
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
@@ -1775,6 +1778,7 @@ export interface AiOpsChatConfig {
 }
 
 export interface AiOpsEmbeddingConfig {
+  protocol?: AiOpsProtocol | null;
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
@@ -1783,6 +1787,7 @@ export interface AiOpsEmbeddingConfig {
 }
 
 export interface AiOpsRerankConfig {
+  protocol?: AiOpsProtocol | null;
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
@@ -1843,18 +1848,28 @@ export interface AiOpsConfigPayload {
 
 export interface AiOpsConfigIssue {
   field: string;
-  message: string;
+  code: string;
+  defaultMessage: string;
+  args?: Record<string, unknown>;
+}
+
+export interface AiOpsConfigNotice {
+  code: string;
+  severity: 'info' | 'warning' | 'error' | string;
+  defaultMessage: string;
+  args?: Record<string, unknown>;
 }
 
 export interface AiOpsConfigValidationResponse {
   valid: boolean;
   issues: AiOpsConfigIssue[];
-  notices: string[];
+  notices: AiOpsConfigNotice[];
 }
 
 export interface AdminAiSecretFieldVO {
   configured: boolean;
   maskedValue: string;
+  valueLength?: number | null;
 }
 
 export interface AdminAiProviderSecretFieldsVO {
@@ -1888,7 +1903,7 @@ export interface AdminAiConfigViewVO {
   source: string;
   version?: number | null;
   updatedAt?: string | null;
-  notices: string[];
+  notices: AiOpsConfigNotice[];
   runtime: AdminAiRuntimeStateVO;
   stored: AdminAiStoredStateVO;
 }

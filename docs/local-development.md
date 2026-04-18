@@ -75,6 +75,9 @@ cp .env.example .env
 - `AI_EMBEDDING_MODEL`
 - `AI_RERANK_URL`
 - `AI_RERANK_MODEL`
+- `AI_FALLBACK_CHAT_*`
+- `AI_FALLBACK_EMBEDDING_*`
+- `AI_FALLBACK_RERANK_*`
 
 JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 
@@ -85,6 +88,7 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 建议使用独立 secret；只在本地临时调试时才允许回退到旧 JWT secret
 - `REDIS_PASSWORD` 不能为空；Compose 中的 Redis 现在启用密码认证并仅绑定到 `127.0.0.1`
 - `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`
+- `AI_FALLBACK_*` 需要显式提供；如果留空，bootstrap fallback 可能仍与 active provider 指向同一上游
 - `diagnosis` 与 `training` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；刷新后前端优先恢复该 session
 - 生产环境建议显式设置 `APP_DB_SSL_MODE=REQUIRED`
 - 默认登录锁定策略由 `APP_AUTH_LOCKOUT_*` 控制，默认值是 5 次失败锁定 15 分钟

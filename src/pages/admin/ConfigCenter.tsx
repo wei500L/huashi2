@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Info, LoaderCircle, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
+import { z } from 'zod';
 import { PageHeader } from '@/components/common';
 import { ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -14,7 +15,10 @@ import type {
   AdminAiSecretFieldVO,
   AdminOutboxRecordVO,
   AiGatewayHealthResponse,
+  AiOpsConfigIssue,
+  AiOpsConfigNotice,
   AiOpsConfigPayload,
+  AiOpsProtocol,
   AiOpsConfigValidationResponse,
   AiOpsProviderDefinition,
   RagReindexJobResponse,
@@ -38,6 +42,11 @@ type SecretEditorMap = {
 };
 
 const providerKeyPattern = /^[a-z0-9_-]+$/;
+const providerProtocolOptions = {
+  chat: [{ value: 'openai-compat', label: 'openai-compat' }],
+  embedding: [{ value: 'openai-compat', label: 'openai-compat' }],
+  rerank: [{ value: 'qwen-rerank', label: 'qwen-rerank' }],
+} as const;
 
 const tabs: Array<{ key: ConfigTab; label: string }> = [
   { key: 'provider', label: '模型接入' },
@@ -84,6 +93,7 @@ const fieldTokenLabels: Record<string, string> = {
   chat: 'Chat',
   embedding: 'Embedding',
   rerank: 'Rerank',
+  protocol: '协议',
   baseUrl: '接口地址',
   apiKey: 'API Key',
   model: '模型名',
@@ -200,6 +210,27 @@ function assertSecretField(field: unknown, path: string): void {
   const secretField = requireRecord(field, path);
   requireBoolean(secretField.configured, `${path}.configured`);
   requireString(secretField.maskedValue, `${path}.maskedValue`);
+  requireNullableNumber(secretField.valueLength, `${path}.valueLength`);
+}
+
+function assertConfigIssue(issue: unknown, path: string): void {
+  const configIssue = requireRecord(issue, path);
+  requireString(configIssue.field, `${path}.field`);
+  requireString(configIssue.code, `${path}.code`);
+  requireString(configIssue.defaultMessage, `${path}.defaultMessage`);
+  if (configIssue.args !== undefined && configIssue.args !== null) {
+    requireRecord(configIssue.args, `${path}.args`);
+  }
+}
+
+function assertConfigNotice(notice: unknown, path: string): void {
+  const configNotice = requireRecord(notice, path);
+  requireString(configNotice.code, `${path}.code`);
+  requireString(configNotice.severity, `${path}.severity`);
+  requireString(configNotice.defaultMessage, `${path}.defaultMessage`);
+  if (configNotice.args !== undefined && configNotice.args !== null) {
+    requireRecord(configNotice.args, `${path}.args`);
+  }
 }
 
 function assertProviderSecretGroup(group: unknown, path: string): void {
@@ -212,6 +243,7 @@ function assertProviderSecretGroup(group: unknown, path: string): void {
 function assertProviderDefinition(definition: unknown, path: string): void {
   const providerDefinition = requireRecord(definition, path);
   const chat = requireRecord(providerDefinition.chat, `${path}.chat`);
+  requireNullableString(chat.protocol, `${path}.chat.protocol`);
   requireNullableString(chat.baseUrl, `${path}.chat.baseUrl`);
   requireNullableString(chat.apiKey, `${path}.chat.apiKey`);
   requireNullableString(chat.model, `${path}.chat.model`);
@@ -220,6 +252,7 @@ function assertProviderDefinition(definition: unknown, path: string): void {
   requireNullableNumber(chat.maxTokens, `${path}.chat.maxTokens`);
 
   const embedding = requireRecord(providerDefinition.embedding, `${path}.embedding`);
+  requireNullableString(embedding.protocol, `${path}.embedding.protocol`);
   requireNullableString(embedding.baseUrl, `${path}.embedding.baseUrl`);
   requireNullableString(embedding.apiKey, `${path}.embedding.apiKey`);
   requireNullableString(embedding.model, `${path}.embedding.model`);
@@ -227,6 +260,7 @@ function assertProviderDefinition(definition: unknown, path: string): void {
   requireNullableNumber(embedding.dimension, `${path}.embedding.dimension`);
 
   const rerank = requireRecord(providerDefinition.rerank, `${path}.rerank`);
+  requireNullableString(rerank.protocol, `${path}.rerank.protocol`);
   requireNullableString(rerank.baseUrl, `${path}.rerank.baseUrl`);
   requireNullableString(rerank.apiKey, `${path}.rerank.apiKey`);
   requireNullableString(rerank.model, `${path}.rerank.model`);
@@ -320,12 +354,13 @@ function assertAdminAiConfigViewEnvelope(view: unknown): asserts view is Partial
   assertSecretFields(root.secrets, providerNames, 'secrets');
   assertRuntimeState(root.runtime, 'runtime');
   assertStoredState(root.stored, 'stored');
-  requireArray(root.notices, 'notices').forEach((notice, index) => requireString(notice, `notices[${index}]`));
+  requireArray(root.notices, 'notices').forEach((notice, index) => assertConfigNotice(notice, `notices[${index}]`));
 }
 
 function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinition> | null): AiOpsProviderDefinition {
   return {
     chat: {
+      protocol: definition?.chat?.protocol ?? 'openai-compat',
       baseUrl: definition?.chat?.baseUrl ?? null,
       apiKey: definition?.chat?.apiKey ?? null,
       model: definition?.chat?.model ?? null,
@@ -334,6 +369,7 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinitio
       maxTokens: definition?.chat?.maxTokens ?? null,
     },
     embedding: {
+      protocol: definition?.embedding?.protocol ?? 'openai-compat',
       baseUrl: definition?.embedding?.baseUrl ?? null,
       apiKey: definition?.embedding?.apiKey ?? null,
       model: definition?.embedding?.model ?? null,
@@ -341,6 +377,7 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsProviderDefinitio
       dimension: definition?.embedding?.dimension ?? null,
     },
     rerank: {
+      protocol: definition?.rerank?.protocol ?? 'qwen-rerank',
       baseUrl: definition?.rerank?.baseUrl ?? null,
       apiKey: definition?.rerank?.apiKey ?? null,
       model: definition?.rerank?.model ?? null,
@@ -394,6 +431,25 @@ function normalizeSecretField(field?: Partial<AdminAiSecretFieldVO> | null): Adm
   return {
     configured: Boolean(field?.configured),
     maskedValue: field?.maskedValue ?? '',
+    valueLength: field?.valueLength ?? null,
+  };
+}
+
+function normalizeConfigIssue(issue?: Partial<AiOpsConfigIssue> | null): AiOpsConfigIssue {
+  return {
+    field: issue?.field ?? 'config',
+    code: issue?.code ?? 'legacy_message',
+    defaultMessage: issue?.defaultMessage ?? '',
+    args: issue?.args ?? {},
+  };
+}
+
+function normalizeConfigNotice(notice?: Partial<AiOpsConfigNotice> | null): AiOpsConfigNotice {
+  return {
+    code: notice?.code ?? 'legacy_notice',
+    severity: notice?.severity ?? 'info',
+    defaultMessage: notice?.defaultMessage ?? '',
+    args: notice?.args ?? {},
   };
 }
 
@@ -417,7 +473,7 @@ export function normalizeAdminAiConfigView(view: unknown): AdminAiConfigViewVO {
     source: view?.source ?? '',
     version: view?.version ?? null,
     updatedAt: view?.updatedAt ?? null,
-    notices: Array.isArray(view?.notices) ? view.notices.filter((notice): notice is string => typeof notice === 'string') : [],
+    notices: Array.isArray(view?.notices) ? view.notices.map((notice) => normalizeConfigNotice(notice as Partial<AiOpsConfigNotice>)) : [],
     runtime: {
       available: Boolean(view?.runtime?.available),
       source: view?.runtime?.source ?? null,
@@ -469,6 +525,7 @@ function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
 function createEmptyProviderDefinition(): AiOpsProviderDefinition {
   return {
     chat: {
+      protocol: 'openai-compat',
       baseUrl: '',
       apiKey: null,
       model: '',
@@ -477,6 +534,7 @@ function createEmptyProviderDefinition(): AiOpsProviderDefinition {
       maxTokens: null,
     },
     embedding: {
+      protocol: 'openai-compat',
       baseUrl: '',
       apiKey: null,
       model: '',
@@ -484,6 +542,7 @@ function createEmptyProviderDefinition(): AiOpsProviderDefinition {
       dimension: 1024,
     },
     rerank: {
+      protocol: 'qwen-rerank',
       baseUrl: '',
       apiKey: null,
       model: '',
@@ -640,7 +699,7 @@ const SelectInput: React.FC<{
   value: string | null | undefined;
   onChange: (value: string) => void;
   disabled?: boolean;
-  options: Array<{ value: string; label: string }>;
+  options: ReadonlyArray<{ value: string; label: string }>;
 }> = ({ value, onChange, disabled, options }) => (
   <select
     value={value ?? ''}
@@ -713,6 +772,13 @@ function humanizeFieldName(field: string): string {
     .join(' / ');
 }
 
+function formatConfigArgs(args?: Record<string, unknown>): Record<string, string | number> {
+  const entries = Object.entries(args || {}).filter(
+    (entry): entry is [string, string | number] => typeof entry[1] === 'string' || typeof entry[1] === 'number'
+  );
+  return Object.fromEntries(entries) as Record<string, string | number>;
+}
+
 function translateConfigMessage(message: string): string {
   const trimmed = message.trim();
   if (!trimmed) {
@@ -769,6 +835,315 @@ function translateConfigMessage(message: string): string {
   return trimmed;
 }
 
+function translateConfigIssue(issue: AiOpsConfigIssue): string {
+  switch (issue.code) {
+    case 'provider_key_invalid':
+      return 'Provider key 仅支持小写字母、数字、连字符和下划线。';
+    case 'provider_key_required':
+      return 'Provider key 不能为空。';
+    case 'absolute_url_required':
+      return '请填写包含协议和主机名的绝对 URL。';
+    case 'invalid_url':
+      return 'URL 格式不合法。';
+    case 'invalid_duration':
+      return '时长格式不合法，请使用 30s、500ms 或 PT30S。';
+    case 'positive_duration_required':
+      return '时长必须大于 0。';
+    case 'must_be_greater_than_zero':
+      return '该字段必须大于 0。';
+    case 'temperature_out_of_range':
+      return '温度必须介于 0 到 2 之间。';
+    case 'unsupported_protocol': {
+      const args = formatConfigArgs(issue.args);
+      return `当前仅支持 ${args.expected || '--'}，收到 ${args.actual || '--'}。`;
+    }
+    case 'embedding_dimension_fixed_1024':
+      return '当前 pgvector schema 固定为 1024 维，如需调整必须先做数据库迁移。';
+    case 'rerank_top_n_exceeds_recall_top_k':
+      return '重排 Top N 不能大于 Recall Top K。';
+    case 'final_top_k_exceeds_rerank_top_n':
+      return '最终返回 Top K 不能大于重排 Top N。';
+    case 'fallback_provider_must_differ':
+      return 'fallbackProvider 必须与 activeProvider 不同。';
+    case 'provider_reference_missing':
+      return '该字段必须引用已定义的 provider key。';
+    case 'provider_definitions_required':
+      return '至少需要定义一组 provider。';
+    case 'provider_count_requires_fallback':
+      return 'fallbackProvider 为必填，至少需要两组 provider 定义。';
+    default:
+      return translateConfigMessage(issue.defaultMessage);
+  }
+}
+
+function translateConfigNotice(notice: AiOpsConfigNotice): string {
+  const args = formatConfigArgs(notice.args);
+  switch (notice.code) {
+    case 'automatic_failover_enabled':
+      return '当前启用了自动 failover：active provider 发生可重试错误或熔断打开时，会尝试切到 fallback provider。';
+    case 'fallback_same_upstream_all':
+      return `active=${args.activeProvider || '--'} 与 fallback=${args.fallbackProvider || '--'} 实际指向同一套 chat / embedding / rerank 上游；故障时不会形成真实降级。`;
+    case 'fallback_same_upstream_chat':
+      return `active=${args.activeProvider || '--'} 与 fallback=${args.fallbackProvider || '--'} 的 Chat 实际指向同一上游；故障时 Chat failover 不会生效。`;
+    case 'fallback_same_upstream_embedding':
+      return `active=${args.activeProvider || '--'} 与 fallback=${args.fallbackProvider || '--'} 的 Embedding 实际指向同一上游；故障时 Embedding failover 不会生效。`;
+    case 'fallback_same_upstream_rerank':
+      return `active=${args.activeProvider || '--'} 与 fallback=${args.fallbackProvider || '--'} 的 Rerank 实际指向同一上游；故障时 Rerank failover 不会生效。`;
+    case 'runtime_switch_mixed_window':
+      return `配置切换后约 ${args.stableWindowSeconds || '--'} 秒内，新旧 bundle 可能混用；建议在低峰时段操作。`;
+    case 'runtime_validation_unavailable':
+      return '本地结构校验已通过，但 ai-gateway 当前不可达，运行时构建确认将延后执行。';
+    case 'runtime_sync_pending_after_save':
+      return '配置已写入数据库，但 ai-gateway 运行态同步仍待完成。';
+    case 'runtime_sync_still_pending':
+      return '数据库快照已成为权威版本，但 ai-gateway 运行态仍待同步。';
+    case 'runtime_commit_ack_failed':
+      return 'ai-gateway 已完成运行态提交，但确认响应拉取失败。';
+    case 'runtime_unavailable_showing_stored':
+      return 'ai-gateway 运行态当前不可达，页面正在展示数据库权威快照。';
+    case 'stored_runtime_out_of_sync':
+      return '数据库配置与 ai-gateway 当前运行态版本不一致。';
+    case 'no_stored_snapshot_yet':
+      return '当前还没有数据库快照，页面展示的是未初始化草稿。';
+    default:
+      return translateConfigMessage(notice.defaultMessage);
+  }
+}
+
+function formatSecretStatus(field?: AdminAiSecretFieldVO | null): string {
+  if (!field?.configured) {
+    return '未配置';
+  }
+  const lengthLabel = typeof field.valueLength === 'number' ? `已配置 · 长度 ${field.valueLength}` : '已配置';
+  return field.maskedValue ? `${lengthLabel} · ${field.maskedValue}` : lengthLabel;
+}
+
+const requiredTextSchema = z.string().trim().min(1, 'value is required');
+const protocolSchema = z.enum(['openai-compat', 'qwen-rerank']);
+
+function parseDurationMillis(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const shortMatch = trimmed.match(/^(\d+(?:\.\d+)?)(ms|s|m|h)$/i);
+  if (shortMatch) {
+    const amount = Number.parseFloat(shortMatch[1]);
+    const unit = shortMatch[2].toLowerCase();
+    if (!Number.isFinite(amount)) {
+      return null;
+    }
+    if (unit === 'ms') {
+      return amount;
+    }
+    if (unit === 's') {
+      return amount * 1000;
+    }
+    if (unit === 'm') {
+      return amount * 60_000;
+    }
+    if (unit === 'h') {
+      return amount * 3_600_000;
+    }
+  }
+  const isoMatch = trimmed.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i);
+  if (!isoMatch) {
+    return null;
+  }
+  const hours = isoMatch[1] ? Number.parseInt(isoMatch[1], 10) : 0;
+  const minutes = isoMatch[2] ? Number.parseInt(isoMatch[2], 10) : 0;
+  const seconds = isoMatch[3] ? Number.parseFloat(isoMatch[3]) : 0;
+  return (hours * 3600 + minutes * 60 + seconds) * 1000;
+}
+
+const absoluteUrlSchema = requiredTextSchema.superRefine((value, ctx) => {
+  try {
+    const parsed = new URL(value);
+    if (!parsed.protocol || !parsed.hostname) {
+      ctx.addIssue({ code: 'custom', message: 'must be an absolute URL' });
+    }
+  } catch {
+    ctx.addIssue({ code: 'custom', message: 'must be a valid URL' });
+  }
+});
+
+const durationSchema = requiredTextSchema.superRefine((value, ctx) => {
+  const millis = parseDurationMillis(value);
+  if (millis === null) {
+    ctx.addIssue({ code: 'custom', message: 'must be a valid duration' });
+    return;
+  }
+  if (millis <= 0) {
+    ctx.addIssue({ code: 'custom', message: 'must be a positive duration' });
+  }
+});
+
+const providerDefinitionSchema = z.object({
+  chat: z.object({
+    protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
+    baseUrl: absoluteUrlSchema,
+    model: requiredTextSchema,
+    timeout: durationSchema,
+    temperature: z.number().min(0, 'temperature must be between 0 and 2').max(2, 'temperature must be between 0 and 2'),
+    maxTokens: z.number().int().positive('maxTokens must be greater than 0'),
+  }),
+  embedding: z.object({
+    protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
+    baseUrl: absoluteUrlSchema,
+    model: requiredTextSchema,
+    timeout: durationSchema,
+    dimension: z.number().int().positive('dimension must be greater than 0'),
+  }),
+  rerank: z.object({
+    protocol: protocolSchema.refine((value) => value === 'qwen-rerank', 'Unsupported protocol \'qwen-rerank\''),
+    baseUrl: absoluteUrlSchema,
+    model: requiredTextSchema,
+    timeout: durationSchema,
+  }),
+});
+
+const aiOpsDraftSchema = z.object({
+  provider: z.object({
+    activeProvider: requiredTextSchema,
+    fallbackProvider: requiredTextSchema,
+    providers: z.record(z.string(), providerDefinitionSchema),
+  }).superRefine((provider, ctx) => {
+    const providerNames = Object.keys(provider.providers || {});
+    if (providerNames.length === 0) {
+      ctx.addIssue({ code: 'custom', path: ['providers'], message: 'at least one provider definition is required' });
+    }
+    providerNames.forEach((providerName) => {
+      if (!providerKeyPattern.test(providerName)) {
+        ctx.addIssue({ code: 'custom', path: ['providers', providerName], message: 'provider key must contain only lowercase letters, numbers, hyphen, or underscore' });
+      }
+    });
+    if (providerNames.length < 2) {
+      ctx.addIssue({ code: 'custom', path: ['providers'], message: 'fallbackProvider requires at least two provider definitions' });
+    }
+    if (!providerNames.includes(provider.activeProvider)) {
+      ctx.addIssue({ code: 'custom', path: ['activeProvider'], message: 'must reference a configured provider' });
+    }
+    if (!providerNames.includes(provider.fallbackProvider)) {
+      ctx.addIssue({ code: 'custom', path: ['fallbackProvider'], message: 'must reference a configured provider' });
+    }
+    if (provider.activeProvider === provider.fallbackProvider) {
+      ctx.addIssue({ code: 'custom', path: ['fallbackProvider'], message: 'fallbackProvider must be different from activeProvider' });
+    }
+  }),
+  resilience: z.object({
+    maxAttempts: z.number().int().positive('maxAttempts must be greater than 0'),
+    waitDuration: durationSchema,
+    failureRateThreshold: z.number().gt(0).lte(100),
+    slidingWindowSize: z.number().int().positive('slidingWindowSize must be greater than 0'),
+    openStateDuration: durationSchema,
+  }),
+  rag: z.object({
+    appServer: z.object({
+      baseUrl: absoluteUrlSchema,
+      connectTimeout: durationSchema,
+      readTimeout: durationSchema,
+    }),
+    ingestion: z.object({
+      exportPageSize: z.number().int().positive('exportPageSize must be greater than 0'),
+      embeddingBatchSize: z.number().int().positive('embeddingBatchSize must be greater than 0'),
+    }),
+    retrieval: z.object({
+      recallTopK: z.number().int().positive('recallTopK must be greater than 0'),
+      recallThreshold: z.number().min(0).max(1),
+      rerankTopN: z.number().int().positive('rerankTopN must be greater than 0'),
+      rerankThreshold: z.number().min(0).max(1),
+      finalTopK: z.number().int().positive('finalTopK must be greater than 0'),
+    }).superRefine((retrieval, ctx) => {
+      if (retrieval.rerankTopN > retrieval.recallTopK) {
+        ctx.addIssue({ code: 'custom', path: ['rerankTopN'], message: 'rerankTopN must be less than or equal to recallTopK' });
+      }
+      if (retrieval.finalTopK > retrieval.rerankTopN) {
+        ctx.addIssue({ code: 'custom', path: ['finalTopK'], message: 'finalTopK must be less than or equal to rerankTopN' });
+      }
+    }),
+  }),
+});
+
+function localIssue(field: string, code: string, defaultMessage: string, args: Record<string, unknown> = {}): AiOpsConfigIssue {
+  return { field, code, defaultMessage, args };
+}
+
+function mapLocalIssueCode(message: string): string {
+  if (message === 'provider key must contain only lowercase letters, numbers, hyphen, or underscore') {
+    return 'provider_key_invalid';
+  }
+  if (message === 'must be an absolute URL') {
+    return 'absolute_url_required';
+  }
+  if (message === 'must be a valid URL') {
+    return 'invalid_url';
+  }
+  if (message === 'must be a valid duration') {
+    return 'invalid_duration';
+  }
+  if (message === 'must be a positive duration') {
+    return 'positive_duration_required';
+  }
+  if (message === 'must reference a configured provider') {
+    return 'provider_reference_missing';
+  }
+  if (message === 'fallbackProvider must be different from activeProvider') {
+    return 'fallback_provider_must_differ';
+  }
+  if (message === 'rerankTopN must be less than or equal to recallTopK') {
+    return 'rerank_top_n_exceeds_recall_top_k';
+  }
+  if (message === 'finalTopK must be less than or equal to rerankTopN') {
+    return 'final_top_k_exceeds_rerank_top_n';
+  }
+  if (message === 'at least one provider definition is required') {
+    return 'provider_definitions_required';
+  }
+  if (message === 'fallbackProvider requires at least two provider definitions') {
+    return 'provider_count_requires_fallback';
+  }
+  if (message === 'temperature must be between 0 and 2') {
+    return 'temperature_out_of_range';
+  }
+  if (message.includes('must be greater than 0')) {
+    return 'must_be_greater_than_zero';
+  }
+  return 'invalid_value';
+}
+
+function collectLocalConfigIssues(config: AiOpsConfigPayload): AiOpsConfigValidationResponse['issues'] {
+  const result = aiOpsDraftSchema.safeParse({
+    provider: {
+      activeProvider: config.provider.activeProvider ?? '',
+      fallbackProvider: config.provider.fallbackProvider ?? '',
+      providers: config.provider.providers,
+    },
+    resilience: config.resilience,
+    rag: {
+      appServer: {
+        baseUrl: config.rag.appServer.baseUrl ?? '',
+        connectTimeout: config.rag.appServer.connectTimeout ?? '',
+        readTimeout: config.rag.appServer.readTimeout ?? '',
+      },
+      ingestion: config.rag.ingestion,
+      retrieval: config.rag.retrieval,
+    },
+  });
+
+  if (result.success) {
+    return [];
+  }
+
+  const deduped = new Map<string, AiOpsConfigIssue>();
+  result.error.issues.forEach((issue) => {
+    const field = issue.path.join('.');
+    const normalizedField = field === 'provider.providers' ? 'provider.providers' : field;
+    const mapped = localIssue(normalizedField, mapLocalIssueCode(issue.message), issue.message);
+    deduped.set(`${mapped.field}:${mapped.code}:${mapped.defaultMessage}`, mapped);
+  });
+  return Array.from(deduped.values());
+}
+
 function currentConfigVersion(view?: AdminAiConfigViewVO | null): number | null {
   return view?.stored.version ?? view?.runtime.version ?? view?.version ?? null;
 }
@@ -782,14 +1157,6 @@ function buildProviderOptions(providerNames: string[], currentValue: string | nu
     return [{ value: '', label: '暂无 provider 定义' }];
   }
   return options;
-}
-
-function collectLocalProviderKeyIssues(config: AiOpsConfigPayload): AiOpsConfigValidationResponse['issues'] {
-  return Object.keys(config.provider.providers || {}).flatMap((providerName) => (
-    providerKeyPattern.test(providerName)
-      ? []
-      : [{ field: `provider.providers.${providerName}`, message: 'provider key must contain only lowercase letters, numbers, hyphen, or underscore' }]
-  ));
 }
 
 function normalizeSelectedSourceTypes(sourceTypes: string[]): string[] {
@@ -1673,14 +2040,19 @@ const AdminConfigCenterPage: React.FC = () => {
     setRenameProviderDraft('');
   }, [clearProbeResults, configQuery.data]);
 
+  const localDraftIssues = React.useMemo(
+    () => (config ? collectLocalConfigIssues(config) : []),
+    [config]
+  );
+
   const submitValidation = () => {
     if (!config || !secrets) {
       return;
     }
-    const localIssues = collectLocalProviderKeyIssues(config);
+    const localIssues = collectLocalConfigIssues(config);
     if (localIssues.length > 0) {
       setValidation({ valid: false, issues: localIssues, notices: [] });
-      setFeedback({ tone: 'error', message: '配置校验未通过，请先修正 provider key。' });
+      setFeedback({ tone: 'error', message: '配置校验未通过，请先修正本地字段错误。' });
       return;
     }
     setFeedback(null);
@@ -1705,10 +2077,10 @@ const AdminConfigCenterPage: React.FC = () => {
     if (!config || !secrets) {
       return;
     }
-    const localIssues = collectLocalProviderKeyIssues(config);
+    const localIssues = collectLocalConfigIssues(config);
     if (localIssues.length > 0) {
       setValidation({ valid: false, issues: localIssues, notices: [] });
-      setFeedback({ tone: 'error', message: '保存前请先修正 provider key。' });
+      setFeedback({ tone: 'error', message: '保存前请先修正本地字段错误。' });
       return;
     }
     setFeedback(null);
@@ -1719,10 +2091,10 @@ const AdminConfigCenterPage: React.FC = () => {
     if (!config || !secrets || !configQuery.data) {
       return;
     }
-    const localIssues = collectLocalProviderKeyIssues(config);
+    const localIssues = collectLocalConfigIssues(config);
     if (localIssues.length > 0) {
       setValidation({ valid: false, issues: localIssues, notices: [] });
-      setFeedback({ tone: 'error', message: '测试前请先修正 provider key。' });
+      setFeedback({ tone: 'error', message: '测试前请先修正本地字段错误。' });
       return;
     }
     setFeedback(null);
@@ -1733,17 +2105,17 @@ const AdminConfigCenterPage: React.FC = () => {
     if (!config || !secrets || !configQuery.data) {
       return;
     }
-    const localIssues = collectLocalProviderKeyIssues(config);
+    const localIssues = collectLocalConfigIssues(config);
     if (localIssues.length > 0) {
       setValidation({ valid: false, issues: localIssues, notices: [] });
-      setFeedback({ tone: 'error', message: '测试前请先修正 provider key。' });
+      setFeedback({ tone: 'error', message: '测试前请先修正本地字段错误。' });
       return;
     }
     setFeedback(null);
     rerankProbeMutation.mutate(buildSavePayload(config, secrets, currentConfigVersion(configQuery.data), providerOrigins));
   };
 
-  const currentIssues = validation?.issues ?? [];
+  const currentIssues = validation?.issues ?? (editing ? localDraftIssues : []);
   const validationNotices = validation?.notices ?? [];
 
   if (configQuery.error) {
@@ -1959,7 +2331,7 @@ const AdminConfigCenterPage: React.FC = () => {
         {view.notices.length > 0 && (
           <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-600 dark:text-amber-400">
             {view.notices.map((notice) => (
-              <div key={notice}>{translateConfigMessage(notice)}</div>
+              <div key={notice.code}>{translateConfigNotice(notice)}</div>
             ))}
           </div>
         )}
@@ -1986,10 +2358,10 @@ const AdminConfigCenterPage: React.FC = () => {
         {!!currentIssues.length && (
           <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500 space-y-2">
             {currentIssues.map((issue) => (
-              <div key={`${issue.field}-${issue.message}`}>
+              <div key={`${issue.field}-${issue.code}-${issue.defaultMessage}`}>
                 <span className="font-bold">{humanizeFieldName(issue.field)}</span>
                 <span className="mx-2">·</span>
-                <span>{translateConfigMessage(issue.message)}</span>
+                <span>{translateConfigIssue(issue)}</span>
               </div>
             ))}
           </div>
@@ -1998,7 +2370,7 @@ const AdminConfigCenterPage: React.FC = () => {
         {!!validationNotices.length && (
           <div className="rounded-[1.6rem] border border-sky-500/20 bg-sky-500/5 p-4 text-sm text-sky-700 dark:text-sky-300 space-y-2">
             {validationNotices.map((notice) => (
-              <div key={notice}>{translateConfigMessage(notice)}</div>
+              <div key={notice.code}>{translateConfigNotice(notice)}</div>
             ))}
           </div>
         )}
@@ -2208,6 +2580,17 @@ const AdminConfigCenterPage: React.FC = () => {
                 </div>
 
                 <FieldGrid>
+                  <FieldCard label="Chat 协议" hint="当前后端仅支持 OpenAI 兼容协议的 Chat 接口。">
+                    <SelectInput
+                      value={definition.chat.protocol}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
+                        ...current,
+                        chat: { ...current.chat, protocol: value as AiOpsProtocol },
+                      }))}
+                      disabled={!editing}
+                      options={providerProtocolOptions.chat}
+                    />
+                  </FieldCard>
                   <FieldCard label="Chat 接口地址" hint="用于文本生成。应填写模型服务的根地址或兼容 OpenAI 的 base URL，不会因为 provider key 而被固定到某家厂商。">
                     <TextInput
                       value={definition.chat.baseUrl}
@@ -2219,7 +2602,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   <FieldCard label={providerSecretMeta.chatApiKey.label} hint={providerSecretMeta.chatApiKey.hint}>
                     <div className="space-y-3">
                       <div className="text-xs text-slate-500 dark:text-white/35">
-                        当前状态: {getProviderSecretField(view, providerName, 'chatApiKey')?.configured ? getProviderSecretField(view, providerName, 'chatApiKey')?.maskedValue : '未配置'}
+                        当前状态: {formatSecretStatus(getProviderSecretField(view, providerName, 'chatApiKey'))}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <input
@@ -2284,6 +2667,17 @@ const AdminConfigCenterPage: React.FC = () => {
                 </FieldGrid>
 
                 <FieldGrid>
+                  <FieldCard label="Embedding 协议" hint="当前后端仅支持 OpenAI 兼容协议的 Embedding 接口。">
+                    <SelectInput
+                      value={definition.embedding.protocol}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
+                        ...current,
+                        embedding: { ...current.embedding, protocol: value as AiOpsProtocol },
+                      }))}
+                      disabled={!editing}
+                      options={providerProtocolOptions.embedding}
+                    />
+                  </FieldCard>
                   <FieldCard label="Embedding 接口地址" hint="用于向量化。这里变更后会影响 RAG 导入和检索的一致性，地址与 provider key 同样完全可自定义。">
                     <TextInput
                       value={definition.embedding.baseUrl}
@@ -2295,7 +2689,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   <FieldCard label={providerSecretMeta.embeddingApiKey.label} hint={providerSecretMeta.embeddingApiKey.hint}>
                     <div className="space-y-3">
                       <div className="text-xs text-slate-500 dark:text-white/35">
-                        当前状态: {getProviderSecretField(view, providerName, 'embeddingApiKey')?.configured ? getProviderSecretField(view, providerName, 'embeddingApiKey')?.maskedValue : '未配置'}
+                        当前状态: {formatSecretStatus(getProviderSecretField(view, providerName, 'embeddingApiKey'))}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <input
@@ -2345,6 +2739,17 @@ const AdminConfigCenterPage: React.FC = () => {
                 </FieldGrid>
 
                 <FieldGrid>
+                  <FieldCard label="Rerank 协议" hint="当前后端仅支持 qwen-rerank 协议。新增其他协议前需要先扩展 ai-gateway runtime factory。">
+                    <SelectInput
+                      value={definition.rerank.protocol}
+                      onChange={(value) => updateProviderDefinition(providerName, (current) => ({
+                        ...current,
+                        rerank: { ...current.rerank, protocol: value as AiOpsProtocol },
+                      }))}
+                      disabled={!editing}
+                      options={providerProtocolOptions.rerank}
+                    />
+                  </FieldCard>
                   <FieldCard label="Rerank 接口地址" hint="用于召回后的重排序。若关闭或异常，会明显影响最终检索质量；这里应填写服务真实端点，而不是依赖默认示例地址。">
                     <TextInput
                       value={definition.rerank.baseUrl}
@@ -2356,7 +2761,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   <FieldCard label={providerSecretMeta.rerankApiKey.label} hint={providerSecretMeta.rerankApiKey.hint}>
                     <div className="space-y-3">
                       <div className="text-xs text-slate-500 dark:text-white/35">
-                        当前状态: {getProviderSecretField(view, providerName, 'rerankApiKey')?.configured ? getProviderSecretField(view, providerName, 'rerankApiKey')?.maskedValue : '未配置'}
+                        当前状态: {formatSecretStatus(getProviderSecretField(view, providerName, 'rerankApiKey'))}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <input
@@ -2503,7 +2908,7 @@ const AdminConfigCenterPage: React.FC = () => {
             <FieldCard label={appServerSecretMeta.label} hint={appServerSecretMeta.hint}>
               <div className="space-y-3">
                 <div className="text-xs text-slate-500 dark:text-white/35">
-                  当前状态: {view.secrets.appServerInternalToken.configured ? view.secrets.appServerInternalToken.maskedValue : '未配置'}
+                  当前状态: {formatSecretStatus(view.secrets.appServerInternalToken)}
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <input

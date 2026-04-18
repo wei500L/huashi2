@@ -7,6 +7,7 @@ import com.huashi.eftransfer.ai.modules.internal.service.AiConfigProbeService;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigNotice;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
@@ -53,7 +54,11 @@ class InternalAiConfigControllerTest {
                 "DEFAULTS",
                 1L,
                 OffsetDateTime.now(),
-                List.of("fallbackProvider is currently informational only; automatic failover is not implemented.")
+                List.of(new AiOpsConfigNotice(
+                        "automatic_failover_enabled",
+                        "info",
+                        "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
+                ))
         ));
 
         mockMvc.perform(get("/internal/ai/config/effective")
@@ -68,7 +73,11 @@ class InternalAiConfigControllerTest {
         when(aiRuntimeConfigService.validate(any(AiOpsConfigPayload.class))).thenReturn(new AiOpsConfigValidationResponse(
                 false,
                 List.of(new AiOpsConfigIssue("provider.providers.Primary OpenAI", "provider key must contain only lowercase letters, numbers, hyphen, or underscore")),
-                List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.")
+                List.of(new AiOpsConfigNotice(
+                        "automatic_failover_enabled",
+                        "info",
+                        "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
+                ))
         ));
 
         mockMvc.perform(post("/internal/ai/config/validate")

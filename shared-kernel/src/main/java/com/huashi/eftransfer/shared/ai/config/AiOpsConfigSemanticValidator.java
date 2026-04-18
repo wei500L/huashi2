@@ -16,17 +16,17 @@ public final class AiOpsConfigSemanticValidator {
     public static List<AiOpsConfigIssue> validate(AiOpsConfigPayload payload) {
         List<AiOpsConfigIssue> issues = new ArrayList<>();
         if (payload == null) {
-            issues.add(new AiOpsConfigIssue("config", "config is required"));
+            issues.add(issue("config", "config_required", "config is required"));
             return issues;
         }
         if (payload.provider() == null) {
-            issues.add(new AiOpsConfigIssue("provider", "provider section is required"));
+            issues.add(issue("provider", "provider_section_required", "provider section is required"));
         }
         if (payload.resilience() == null) {
-            issues.add(new AiOpsConfigIssue("resilience", "resilience section is required"));
+            issues.add(issue("resilience", "resilience_section_required", "resilience section is required"));
         }
         if (payload.rag() == null) {
-            issues.add(new AiOpsConfigIssue("rag", "rag section is required"));
+            issues.add(issue("rag", "rag_section_required", "rag section is required"));
         }
         if (!issues.isEmpty()) {
             return issues;
@@ -38,17 +38,34 @@ public final class AiOpsConfigSemanticValidator {
         return issues;
     }
 
+    public static AiOpsConfigIssue issueFromViolation(String field, String message) {
+        if ("protocol is required".equals(message)) {
+            return issue(field, "protocol_required", message);
+        }
+        if (message != null && message.endsWith("is required")) {
+            return issue(field, "value_required", message);
+        }
+        if ("temperature must be between 0 and 2".equals(message)) {
+            return issue(field, "temperature_out_of_range", message);
+        }
+        if (message != null && message.contains("must be greater than 0")) {
+            return issue(field, "must_be_greater_than_zero", message);
+        }
+        return issue(field, "invalid_value", message == null ? "invalid value" : message);
+    }
+
     private static void validateProvider(AiOpsProviderConfig provider, List<AiOpsConfigIssue> issues) {
         if (provider.providers() == null || provider.providers().isEmpty()) {
-            issues.add(new AiOpsConfigIssue("provider.providers", "at least one provider definition is required"));
+            issues.add(issue("provider.providers", "provider_definitions_required", "at least one provider definition is required"));
             return;
         }
         validateProviderReference("provider.activeProvider", provider.activeProvider(), provider.providers(), issues);
         validateProviderReference("provider.fallbackProvider", provider.fallbackProvider(), provider.providers(), issues);
         if (hasText(provider.activeProvider())
                 && provider.activeProvider().equalsIgnoreCase(provider.fallbackProvider())) {
-            issues.add(new AiOpsConfigIssue(
+            issues.add(issue(
                     "provider.fallbackProvider",
+                    "fallback_provider_must_differ",
                     "fallbackProvider must be different from activeProvider"
             ));
         }
@@ -65,7 +82,7 @@ public final class AiOpsConfigSemanticValidator {
 
     private static void validateRag(AiOpsRagConfig rag, List<AiOpsConfigIssue> issues) {
         if (rag.appServer() == null) {
-            issues.add(new AiOpsConfigIssue("rag.appServer", "appServer section is required"));
+            issues.add(issue("rag.appServer", "app_server_section_required", "appServer section is required"));
         } else {
             validateUrl("rag.appServer.baseUrl", rag.appServer().baseUrl(), issues);
             requireText("rag.appServer.internalToken", rag.appServer().internalToken(), issues);
@@ -74,27 +91,29 @@ public final class AiOpsConfigSemanticValidator {
         }
 
         if (rag.ingestion() == null) {
-            issues.add(new AiOpsConfigIssue("rag.ingestion", "ingestion section is required"));
+            issues.add(issue("rag.ingestion", "ingestion_section_required", "ingestion section is required"));
         }
 
         if (rag.retrieval() == null) {
-            issues.add(new AiOpsConfigIssue("rag.retrieval", "retrieval section is required"));
+            issues.add(issue("rag.retrieval", "retrieval_section_required", "retrieval section is required"));
             return;
         }
 
         if (rag.retrieval().rerankTopN() != null
                 && rag.retrieval().recallTopK() != null
                 && rag.retrieval().rerankTopN() > rag.retrieval().recallTopK()) {
-            issues.add(new AiOpsConfigIssue(
+            issues.add(issue(
                     "rag.retrieval.rerankTopN",
+                    "rerank_top_n_exceeds_recall_top_k",
                     "rerankTopN must be less than or equal to recallTopK"
             ));
         }
         if (rag.retrieval().finalTopK() != null
                 && rag.retrieval().rerankTopN() != null
                 && rag.retrieval().finalTopK() > rag.retrieval().rerankTopN()) {
-            issues.add(new AiOpsConfigIssue(
+            issues.add(issue(
                     "rag.retrieval.finalTopK",
+                    "final_top_k_exceeds_rerank_top_n",
                     "finalTopK must be less than or equal to rerankTopN"
             ));
         }
@@ -107,35 +126,53 @@ public final class AiOpsConfigSemanticValidator {
     ) {
         String prefix = "provider.providers." + providerName;
         if (definition == null) {
-            issues.add(new AiOpsConfigIssue(prefix, "provider definition is required"));
+            issues.add(issue(prefix, "provider_definition_required", "provider definition is required"));
             return;
         }
         if (definition.chat() == null) {
-            issues.add(new AiOpsConfigIssue(prefix + ".chat", "chat section is required"));
+            issues.add(issue(prefix + ".chat", "chat_section_required", "chat section is required"));
         } else {
+            validateProtocol(prefix + ".chat.protocol", definition.chat().protocol(), AiOpsProtocols.OPENAI_COMPAT, issues);
             validateUrl(prefix + ".chat.baseUrl", definition.chat().baseUrl(), issues);
             requireText(prefix + ".chat.apiKey", definition.chat().apiKey(), issues);
             validateDuration(prefix + ".chat.timeout", definition.chat().timeout(), issues);
         }
         if (definition.embedding() == null) {
-            issues.add(new AiOpsConfigIssue(prefix + ".embedding", "embedding section is required"));
+            issues.add(issue(prefix + ".embedding", "embedding_section_required", "embedding section is required"));
         } else {
+            validateProtocol(prefix + ".embedding.protocol", definition.embedding().protocol(), AiOpsProtocols.OPENAI_COMPAT, issues);
             validateUrl(prefix + ".embedding.baseUrl", definition.embedding().baseUrl(), issues);
             requireText(prefix + ".embedding.apiKey", definition.embedding().apiKey(), issues);
             validateDuration(prefix + ".embedding.timeout", definition.embedding().timeout(), issues);
             if (definition.embedding().dimension() != null && definition.embedding().dimension() != 1024) {
-                issues.add(new AiOpsConfigIssue(
+                issues.add(issue(
                         prefix + ".embedding.dimension",
+                        "embedding_dimension_fixed_1024",
                         "Current pgvector schema is fixed at 1024 dimensions"
                 ));
             }
         }
         if (definition.rerank() == null) {
-            issues.add(new AiOpsConfigIssue(prefix + ".rerank", "rerank section is required"));
+            issues.add(issue(prefix + ".rerank", "rerank_section_required", "rerank section is required"));
         } else {
+            validateProtocol(prefix + ".rerank.protocol", definition.rerank().protocol(), AiOpsProtocols.QWEN_RERANK, issues);
             validateUrl(prefix + ".rerank.baseUrl", definition.rerank().baseUrl(), issues);
             requireText(prefix + ".rerank.apiKey", definition.rerank().apiKey(), issues);
             validateDuration(prefix + ".rerank.timeout", definition.rerank().timeout(), issues);
+        }
+    }
+
+    private static void validateProtocol(String field, String actual, String expected, List<AiOpsConfigIssue> issues) {
+        if (!hasText(actual)) {
+            return;
+        }
+        if (!expected.equals(actual)) {
+            issues.add(issue(
+                    field,
+                    "unsupported_protocol",
+                    "Unsupported protocol '" + actual + "'; expected " + expected,
+                    Map.of("actual", actual, "expected", expected)
+            ));
         }
     }
 
@@ -149,18 +186,19 @@ public final class AiOpsConfigSemanticValidator {
             return;
         }
         if (!providers.containsKey(providerName)) {
-            issues.add(new AiOpsConfigIssue(field, "must reference a configured provider"));
+            issues.add(issue(field, "provider_reference_missing", "must reference a configured provider"));
         }
     }
 
     private static void validateProviderKey(String providerName, List<AiOpsConfigIssue> issues) {
         if (!hasText(providerName)) {
-            issues.add(new AiOpsConfigIssue("provider.providers", "provider key must not be blank"));
+            issues.add(issue("provider.providers", "provider_key_required", "provider key must not be blank"));
             return;
         }
         if (!PROVIDER_KEY_PATTERN.matcher(providerName).matches()) {
-            issues.add(new AiOpsConfigIssue(
+            issues.add(issue(
                     "provider.providers." + providerName,
+                    "provider_key_invalid",
                     "provider key must contain only lowercase letters, numbers, hyphen, or underscore"
             ));
         }
@@ -173,10 +211,10 @@ public final class AiOpsConfigSemanticValidator {
         try {
             URI uri = URI.create(value);
             if (!hasText(uri.getScheme()) || !hasText(uri.getHost())) {
-                issues.add(new AiOpsConfigIssue(field, "must be an absolute URL"));
+                issues.add(issue(field, "absolute_url_required", "must be an absolute URL"));
             }
         } catch (Exception ex) {
-            issues.add(new AiOpsConfigIssue(field, "must be a valid URL"));
+            issues.add(issue(field, "invalid_url", "must be a valid URL"));
         }
     }
 
@@ -186,20 +224,28 @@ public final class AiOpsConfigSemanticValidator {
         }
         try {
             if (AiOpsFlexibleDurationParser.parse(value).isNegative() || AiOpsFlexibleDurationParser.parse(value).isZero()) {
-                issues.add(new AiOpsConfigIssue(field, "must be a positive duration"));
+                issues.add(issue(field, "positive_duration_required", "must be a positive duration"));
             }
         } catch (Exception ex) {
-            issues.add(new AiOpsConfigIssue(field, "must be a valid duration"));
+            issues.add(issue(field, "invalid_duration", "must be a valid duration"));
         }
     }
 
     private static void requireText(String field, String value, List<AiOpsConfigIssue> issues) {
         if (!hasText(value)) {
-            issues.add(new AiOpsConfigIssue(field, "value is required"));
+            issues.add(issue(field, "value_required", "value is required"));
         }
     }
 
     private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private static AiOpsConfigIssue issue(String field, String code, String defaultMessage) {
+        return new AiOpsConfigIssue(field, code, defaultMessage, Map.of());
+    }
+
+    private static AiOpsConfigIssue issue(String field, String code, String defaultMessage, Map<String, Object> args) {
+        return new AiOpsConfigIssue(field, code, defaultMessage, args);
     }
 }

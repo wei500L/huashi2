@@ -6,10 +6,12 @@ import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigNotice;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigSemanticValidator;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsFlexibleDurationParser;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
@@ -33,6 +35,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -48,6 +51,8 @@ public class AiRuntimeConfigService {
             };
     private static final Duration STAGED_BUNDLE_TTL = Duration.ofMinutes(10);
     private static final int MAX_STAGED_BUNDLES = 16;
+    private static final String NOTICE_SEVERITY_INFO = "info";
+    private static final String NOTICE_SEVERITY_WARNING = "warning";
 
     private final AiProviderProperties providerProperties;
     private final AiResilienceProperties resilienceProperties;
@@ -181,7 +186,7 @@ public class AiRuntimeConfigService {
                 activatedBundle.source(),
                 activatedBundle.version(),
                 activatedBundle.appliedAt(),
-                validationNotices(activatedBundle.config())
+                mergeNotices(validationNotices(activatedBundle.config()), applyNotices(activatedBundle.config()))
         );
         committedStages.put(stageId, new CommittedRuntimeStage(
                 response,
@@ -204,7 +209,7 @@ public class AiRuntimeConfigService {
 
     private ValidationOutcome prepareBundle(AiOpsConfigPayload payload, String source, Long version) {
         List<AiOpsConfigIssue> issues = collectIssues(payload);
-        List<String> notices = validationNotices(payload);
+        List<AiOpsConfigNotice> notices = validationNotices(payload);
         if (!issues.isEmpty()) {
             return new ValidationOutcome(issues, notices, null);
         }
@@ -215,7 +220,7 @@ public class AiRuntimeConfigService {
                     bundleFactory.build(payload, source, version)
             );
         } catch (RuntimeException ex) {
-            List<AiOpsConfigIssue> buildIssues = List.of(new AiOpsConfigIssue("config", ex.getMessage()));
+            List<AiOpsConfigIssue> buildIssues = List.of(new AiOpsConfigIssue("config", "runtime_build_failed", ex.getMessage()));
             return new ValidationOutcome(buildIssues, notices, null);
         }
     }
@@ -224,7 +229,7 @@ public class AiRuntimeConfigService {
         List<AiOpsConfigIssue> issues = new ArrayList<>();
         if (payload != null) {
             for (ConstraintViolation<AiOpsConfigPayload> violation : validator.validate(payload)) {
-                issues.add(new AiOpsConfigIssue(
+                issues.add(AiOpsConfigSemanticValidator.issueFromViolation(
                         violation.getPropertyPath().toString(),
                         violation.getMessage()
                 ));
@@ -239,8 +244,144 @@ public class AiRuntimeConfigService {
         return List.copyOf(deduped.values());
     }
 
-    private List<String> validationNotices(AiOpsConfigPayload payload) {
-        return List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.");
+    private List<AiOpsConfigNotice> validationNotices(AiOpsConfigPayload payload) {
+        List<AiOpsConfigNotice> notices = new ArrayList<>();
+        notices.add(new AiOpsConfigNotice(
+                "automatic_failover_enabled",
+                NOTICE_SEVERITY_INFO,
+                "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
+        ));
+        notices.addAll(fallbackProviderNotices(payload));
+        return List.copyOf(notices);
+    }
+
+    private List<AiOpsConfigNotice> applyNotices(AiOpsConfigPayload payload) {
+        return List.of(new AiOpsConfigNotice(
+                "runtime_switch_mixed_window",
+                NOTICE_SEVERITY_WARNING,
+                "Provider changes can mix old and new bundles for a short window after apply.",
+                Map.of("stableWindowSeconds", estimateSwitchWindowSeconds(payload))
+        ));
+    }
+
+    private List<AiOpsConfigNotice> fallbackProviderNotices(AiOpsConfigPayload payload) {
+        if (payload == null || payload.provider() == null || payload.provider().providers() == null) {
+            return List.of();
+        }
+        String activeProvider = payload.provider().activeProvider();
+        String fallbackProvider = payload.provider().fallbackProvider();
+        if (!StringUtils.hasText(activeProvider) || !StringUtils.hasText(fallbackProvider)) {
+            return List.of();
+        }
+        var providers = payload.provider().providers();
+        if (!providers.containsKey(activeProvider) || !providers.containsKey(fallbackProvider)) {
+            return List.of();
+        }
+
+        var active = providers.get(activeProvider);
+        var fallback = providers.get(fallbackProvider);
+        if (active == null || fallback == null) {
+            return List.of();
+        }
+
+        boolean chatSame = sameUpstream(active.chat().protocol(), active.chat().baseUrl(), active.chat().apiKey(), active.chat().model(),
+                fallback.chat().protocol(), fallback.chat().baseUrl(), fallback.chat().apiKey(), fallback.chat().model());
+        boolean embeddingSame = sameUpstream(active.embedding().protocol(), active.embedding().baseUrl(), active.embedding().apiKey(), active.embedding().model(),
+                fallback.embedding().protocol(), fallback.embedding().baseUrl(), fallback.embedding().apiKey(), fallback.embedding().model());
+        boolean rerankSame = sameUpstream(active.rerank().protocol(), active.rerank().baseUrl(), active.rerank().apiKey(), active.rerank().model(),
+                fallback.rerank().protocol(), fallback.rerank().baseUrl(), fallback.rerank().apiKey(), fallback.rerank().model());
+
+        if (chatSame && embeddingSame && rerankSame) {
+            return List.of(new AiOpsConfigNotice(
+                    "fallback_same_upstream_all",
+                    NOTICE_SEVERITY_WARNING,
+                    "Fallback provider resolves to the same upstream chat, embedding, and rerank endpoints as the active provider.",
+                    Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
+            ));
+        }
+
+        List<AiOpsConfigNotice> notices = new ArrayList<>();
+        if (chatSame) {
+            notices.add(new AiOpsConfigNotice(
+                    "fallback_same_upstream_chat",
+                    NOTICE_SEVERITY_WARNING,
+                    "Fallback chat resolves to the same upstream endpoint as the active provider.",
+                    Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
+            ));
+        }
+        if (embeddingSame) {
+            notices.add(new AiOpsConfigNotice(
+                    "fallback_same_upstream_embedding",
+                    NOTICE_SEVERITY_WARNING,
+                    "Fallback embedding resolves to the same upstream endpoint as the active provider.",
+                    Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
+            ));
+        }
+        if (rerankSame) {
+            notices.add(new AiOpsConfigNotice(
+                    "fallback_same_upstream_rerank",
+                    NOTICE_SEVERITY_WARNING,
+                    "Fallback rerank resolves to the same upstream endpoint as the active provider.",
+                    Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
+            ));
+        }
+        return List.copyOf(notices);
+    }
+
+    private boolean sameUpstream(
+            String leftProtocol,
+            String leftBaseUrl,
+            String leftApiKey,
+            String leftModel,
+            String rightProtocol,
+            String rightBaseUrl,
+            String rightApiKey,
+            String rightModel
+    ) {
+        return Objects.equals(leftProtocol, rightProtocol)
+                && Objects.equals(leftBaseUrl, rightBaseUrl)
+                && Objects.equals(leftApiKey, rightApiKey)
+                && Objects.equals(leftModel, rightModel);
+    }
+
+    private long estimateSwitchWindowSeconds(AiOpsConfigPayload payload) {
+        if (payload == null || payload.provider() == null || payload.provider().providers() == null || payload.resilience() == null) {
+            return 1L;
+        }
+        Duration maxTimeout = Duration.ZERO;
+        for (var definition : payload.provider().providers().values()) {
+            if (definition == null) {
+                continue;
+            }
+            maxTimeout = max(maxTimeout, definition.chat() == null ? null : parseNoticeDuration(definition.chat().timeout()));
+            maxTimeout = max(maxTimeout, definition.embedding() == null ? null : parseNoticeDuration(definition.embedding().timeout()));
+            maxTimeout = max(maxTimeout, definition.rerank() == null ? null : parseNoticeDuration(definition.rerank().timeout()));
+        }
+        int attempts = payload.resilience().maxAttempts() == null ? 1 : Math.max(payload.resilience().maxAttempts(), 1);
+        Duration waitDuration = parseNoticeDuration(payload.resilience().waitDuration());
+        Duration total = maxTimeout.multipliedBy(attempts).plus(waitDuration.multipliedBy(Math.max(attempts - 1L, 0L)));
+        return Math.max(1L, total.toSeconds());
+    }
+
+    private Duration parseNoticeDuration(String value) {
+        if (!StringUtils.hasText(value)) {
+            return Duration.ZERO;
+        }
+        try {
+            return AiOpsFlexibleDurationParser.parse(value);
+        } catch (Exception ex) {
+            return Duration.ZERO;
+        }
+    }
+
+    private Duration max(Duration left, Duration right) {
+        if (left == null) {
+            return right == null ? Duration.ZERO : right;
+        }
+        if (right == null) {
+            return left;
+        }
+        return left.compareTo(right) >= 0 ? left : right;
     }
 
     private String formatIssues(List<AiOpsConfigIssue> issues) {
@@ -282,9 +423,20 @@ public class AiRuntimeConfigService {
                 .forEach(stagedBundles::remove);
     }
 
+    private List<AiOpsConfigNotice> mergeNotices(List<AiOpsConfigNotice> baseNotices, List<AiOpsConfigNotice> extraNotices) {
+        Map<String, AiOpsConfigNotice> notices = new LinkedHashMap<>();
+        if (baseNotices != null) {
+            baseNotices.forEach(notice -> notices.put(notice.code(), notice));
+        }
+        if (extraNotices != null) {
+            extraNotices.forEach(notice -> notices.putIfAbsent(notice.code(), notice));
+        }
+        return List.copyOf(notices.values());
+    }
+
     private record ValidationOutcome(
             List<AiOpsConfigIssue> issues,
-            List<String> notices,
+            List<AiOpsConfigNotice> notices,
             AiRuntimeBundle bundle
     ) {
     }

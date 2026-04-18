@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.modules.opsconfig.service;
 
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigNotice;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigSemanticValidator;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
@@ -25,7 +26,7 @@ public class AiOpsLocalValidationService {
         this.validator = validator;
     }
 
-    public AiOpsConfigValidationResponse validate(AiOpsConfigPayload payload, List<String> notices) {
+    public AiOpsConfigValidationResponse validate(AiOpsConfigPayload payload, List<AiOpsConfigNotice> notices) {
         List<AiOpsConfigIssue> issues = collectIssues(payload);
         return new AiOpsConfigValidationResponse(
                 issues.isEmpty(),
@@ -45,7 +46,7 @@ public class AiOpsLocalValidationService {
         List<AiOpsConfigIssue> issues = new ArrayList<>();
         if (payload != null) {
             for (ConstraintViolation<AiOpsConfigPayload> violation : validator.validate(payload)) {
-                issues.add(new AiOpsConfigIssue(
+                issues.add(AiOpsConfigSemanticValidator.issueFromViolation(
                         violation.getPropertyPath().toString(),
                         violation.getMessage()
                 ));

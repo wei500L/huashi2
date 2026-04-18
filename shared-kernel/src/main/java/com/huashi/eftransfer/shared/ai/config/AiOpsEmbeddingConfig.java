@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public record AiOpsEmbeddingConfig(
+        @NotBlank(message = "protocol is required")
+        String protocol,
         @NotBlank(message = "baseUrl is required")
         String baseUrl,
         String apiKey,

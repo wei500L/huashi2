@@ -20,12 +20,14 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigNotice;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -98,7 +100,11 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 "DEFAULTS",
                 1L,
                 OffsetDateTime.now(),
-                List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.")
+                List.of(new AiOpsConfigNotice(
+                        "automatic_failover_enabled",
+                        "info",
+                        "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
+                ))
         );
 
         mockMvc.perform(put("/api/admin/ai-config")
@@ -641,6 +647,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                 "qwen",
                                 new AiOpsProviderDefinition(
                                         new AiOpsChatConfig(
+                                                AiOpsProtocols.OPENAI_COMPAT,
                                                 qwenChatBaseUrl,
                                                 chatApiKey,
                                                 qwenChatModel,
@@ -649,6 +656,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 2048
                                         ),
                                         new AiOpsEmbeddingConfig(
+                                                AiOpsProtocols.OPENAI_COMPAT,
                                                 qwenEmbeddingBaseUrl,
                                                 "embed-secret-001",
                                                 qwenEmbeddingModel,
@@ -656,6 +664,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 1024
                                         ),
                                         new AiOpsRerankConfig(
+                                                AiOpsProtocols.QWEN_RERANK,
                                                 qwenRerankBaseUrl,
                                                 "rerank-secret-001",
                                                 qwenRerankModel,
@@ -665,6 +674,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                 "deepseek",
                                 new AiOpsProviderDefinition(
                                         new AiOpsChatConfig(
+                                                AiOpsProtocols.OPENAI_COMPAT,
                                                 "https://api.deepseek.com/v1",
                                                 "chat-secret-002",
                                                 "deepseek-chat",
@@ -673,6 +683,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 2048
                                         ),
                                         new AiOpsEmbeddingConfig(
+                                                AiOpsProtocols.OPENAI_COMPAT,
                                                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                                                 "embed-secret-002",
                                                 "text-embedding-v4",
@@ -680,6 +691,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 1024
                                         ),
                                         new AiOpsRerankConfig(
+                                                AiOpsProtocols.QWEN_RERANK,
                                                 "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
                                                 "rerank-secret-002",
                                                 "gte-rerank-v2",

@@ -87,6 +87,8 @@ public class AiProviderProperties {
 
     public static class BaseModelProperties {
 
+        private String protocol = "openai-compat";
+
         private String baseUrl;
 
         private String apiKey;
@@ -94,6 +96,14 @@ public class AiProviderProperties {
         private String model;
 
         private Duration timeout = Duration.ofSeconds(30);
+
+        public String getProtocol() {
+            return protocol;
+        }
+
+        public void setProtocol(String protocol) {
+            this.protocol = protocol;
+        }
 
         public String getBaseUrl() {
             return baseUrl;
@@ -165,5 +175,8 @@ public class AiProviderProperties {
     }
 
     public static class RerankProperties extends BaseModelProperties {
+        public RerankProperties() {
+            setProtocol("qwen-rerank");
+        }
     }
 }

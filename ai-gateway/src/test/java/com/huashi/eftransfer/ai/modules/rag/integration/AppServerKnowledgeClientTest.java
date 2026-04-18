@@ -9,6 +9,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -105,15 +106,15 @@ class AppServerKnowledgeClientTest {
                                 Map.of(
                                         "qwen",
                                         new AiOpsProviderDefinition(
-                                                new AiOpsChatConfig("https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
-                                                new AiOpsEmbeddingConfig("https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
-                                                new AiOpsRerankConfig("https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
+                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "chat-key", "qwen-max", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "embed-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "rerank-key", "gte-rerank-v2", "PT30S")
                                         ),
                                         "deepseek",
                                         new AiOpsProviderDefinition(
-                                                new AiOpsChatConfig("https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT30S", 0.2d, 1024),
-                                                new AiOpsEmbeddingConfig("https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT30S", 1024),
-                                                new AiOpsRerankConfig("https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT30S")
+                                                new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT30S", 0.2d, 1024),
+                                                new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT30S", 1024),
+                                                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT30S")
                                         )
                                 )
                         ),

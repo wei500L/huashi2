@@ -8,6 +8,6 @@ public record AiOpsConfigEffectiveResponse(
         String source,
         Long version,
         OffsetDateTime appliedAt,
-        List<String> notices
+        List<AiOpsConfigNotice> notices
 ) {
 }

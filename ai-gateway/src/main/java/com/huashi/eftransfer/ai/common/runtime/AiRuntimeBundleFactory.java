@@ -9,6 +9,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -141,6 +142,10 @@ public class AiRuntimeBundleFactory {
         AiOpsEmbeddingConfig embeddingConfig = definition.embedding();
         AiOpsRerankConfig rerankConfig = definition.rerank();
 
+        requireSupportedProtocol(providerName, "chat", chatConfig.protocol(), AiOpsProtocols.OPENAI_COMPAT);
+        requireSupportedProtocol(providerName, "embedding", embeddingConfig.protocol(), AiOpsProtocols.OPENAI_COMPAT);
+        requireSupportedProtocol(providerName, "rerank", rerankConfig.protocol(), AiOpsProtocols.QWEN_RERANK);
+
         OpenAiApi chatApi = OpenAiApi.builder()
                 .baseUrl(normalizeOpenAiBaseUrl(chatConfig.baseUrl()))
                 .apiKey(defaultString(chatConfig.apiKey()))
@@ -258,6 +263,7 @@ public class AiRuntimeBundleFactory {
     private AiOpsProviderDefinition toProviderDefinition(AiProviderProperties.ProviderProperties providerProperties) {
         return new AiOpsProviderDefinition(
                 new AiOpsChatConfig(
+                        providerProperties.getChat().getProtocol(),
                         providerProperties.getChat().getBaseUrl(),
                         providerProperties.getChat().getApiKey(),
                         providerProperties.getChat().getModel(),
@@ -266,6 +272,7 @@ public class AiRuntimeBundleFactory {
                         providerProperties.getChat().getMaxTokens()
                 ),
                 new AiOpsEmbeddingConfig(
+                        providerProperties.getEmbedding().getProtocol(),
                         providerProperties.getEmbedding().getBaseUrl(),
                         providerProperties.getEmbedding().getApiKey(),
                         providerProperties.getEmbedding().getModel(),
@@ -273,6 +280,7 @@ public class AiRuntimeBundleFactory {
                         providerProperties.getEmbedding().getDimension()
                 ),
                 new AiOpsRerankConfig(
+                        providerProperties.getRerank().getProtocol(),
                         providerProperties.getRerank().getBaseUrl(),
                         providerProperties.getRerank().getApiKey(),
                         providerProperties.getRerank().getModel(),
@@ -327,5 +335,13 @@ public class AiRuntimeBundleFactory {
 
     private String defaultString(String value) {
         return value == null ? "" : value;
+    }
+
+    private void requireSupportedProtocol(String providerName, String capability, String actual, String expected) {
+        if (!expected.equals(actual)) {
+            throw new IllegalArgumentException(
+                    "Unsupported " + capability + " protocol '" + actual + "' for provider " + providerName + "; expected " + expected
+            );
+        }
     }
 }

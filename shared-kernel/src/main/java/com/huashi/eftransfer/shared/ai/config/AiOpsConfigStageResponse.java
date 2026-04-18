@@ -8,6 +8,6 @@ public record AiOpsConfigStageResponse(
         String source,
         Long version,
         OffsetDateTime stagedAt,
-        List<String> notices
+        List<AiOpsConfigNotice> notices
 ) {
 }

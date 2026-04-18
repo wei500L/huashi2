@@ -29,12 +29,14 @@ import com.huashi.eftransfer.shared.ai.RagReindexResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigEffectiveResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigNotice;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigStageResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
@@ -113,9 +115,11 @@ public class AiOpsAdminService {
             return new AiOpsConfigValidationResponse(
                     true,
                     List.of(),
-                    mergeNotices(validationNotices(), List.of(
+                    mergeNotices(validationNotices(), List.of(notice(
+                            "runtime_validation_unavailable",
+                            "warning",
                             "ai-gateway runtime validation is unavailable. Local schema validation passed; runtime build confirmation is pending."
-                    ))
+                    )))
             );
         }
     }
@@ -153,11 +157,15 @@ public class AiOpsAdminService {
 
         AiOpsConfigValidationResponse remoteValidation = null;
         AiOpsConfigStageResponse stagedRuntime = null;
-        List<String> notices = new ArrayList<>(validationNotices());
+        List<AiOpsConfigNotice> notices = new ArrayList<>(validationNotices());
         try {
             remoteValidation = aiGatewayClient.validateConfig(candidate);
         } catch (RuntimeException ex) {
-            notices.add("ai-gateway runtime validation is unavailable. Local schema validation passed; runtime build confirmation is pending.");
+            notices.add(notice(
+                    "runtime_validation_unavailable",
+                    "warning",
+                    "ai-gateway runtime validation is unavailable. Local schema validation passed; runtime build confirmation is pending."
+            ));
         }
         if (remoteValidation != null) {
             if (!remoteValidation.valid()) {
@@ -171,7 +179,11 @@ public class AiOpsAdminService {
         try {
             stagedRuntime = aiGatewayClient.stageConfig(candidate, "DATABASE", nextVersion);
         } catch (RuntimeException ex) {
-            notices.add("Stored database config was saved locally, but ai-gateway runtime sync is pending.");
+            notices.add(notice(
+                    "runtime_sync_pending_after_save",
+                    "warning",
+                    "Stored database config was saved locally, but ai-gateway runtime sync is pending."
+            ));
         }
 
         Long actorUserId = SecurityUtils.getCurrentUserId().orElse(null);
@@ -327,7 +339,7 @@ public class AiOpsAdminService {
             throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "ai-gateway runtime sync is unavailable", 503);
         }
 
-        List<String> notices = new ArrayList<>(validationNotices());
+        List<AiOpsConfigNotice> notices = new ArrayList<>(validationNotices());
         AiOpsConfigEffectiveResponse runtimeAfterSync = commitRuntime(stagedRuntime, stored.config(), currentRuntime, notices);
         return toView(
                 stored.config(),
@@ -421,7 +433,7 @@ public class AiOpsAdminService {
             AiOpsConfigStageResponse stagedRuntime,
             AiOpsConfigPayload payload,
             AiOpsConfigEffectiveResponse currentRuntime,
-            List<String> notices
+            List<AiOpsConfigNotice> notices
     ) {
         try {
             AiOpsConfigApplyResponse response = aiGatewayClient.commitConfig(stagedRuntime.stageId());
@@ -435,36 +447,56 @@ public class AiOpsAdminService {
         } catch (RuntimeException ex) {
             AiOpsConfigEffectiveResponse effective = aiGatewayClient.fetchEffectiveConfig().orElse(null);
             if (effective != null && Objects.equals(effective.version(), stagedRuntime.version())) {
-                notices.add("ai-gateway runtime commit completed, but the acknowledgement request failed.");
+                notices.add(notice(
+                        "runtime_commit_ack_failed",
+                        "warning",
+                        "ai-gateway runtime commit completed, but the acknowledgement request failed."
+                ));
                 return effective;
             }
-            notices.add("Stored database config is authoritative but ai-gateway runtime sync is still pending.");
+            notices.add(notice(
+                    "runtime_sync_still_pending",
+                    "warning",
+                    "Stored database config is authoritative but ai-gateway runtime sync is still pending."
+            ));
             return currentRuntime;
         }
     }
 
-    private List<String> buildNotices(
+    private List<AiOpsConfigNotice> buildNotices(
             AiOpsConfigEffectiveResponse runtime,
             StoredAiOpsConfig stored,
-            List<String> runtimeNotices
+            List<AiOpsConfigNotice> runtimeNotices
     ) {
-        List<String> notices = new ArrayList<>();
+        List<AiOpsConfigNotice> notices = new ArrayList<>();
         notices = mergeNotices(notices, runtimeNotices);
         if (runtime == null && stored == null) {
-            notices = mergeNotices(notices, List.of("No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot."));
+            notices = mergeNotices(notices, List.of(notice(
+                    "no_stored_snapshot_yet",
+                    "warning",
+                    "No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot."
+            )));
         }
         if (runtime == null && stored != null) {
-            notices = mergeNotices(notices, List.of("ai-gateway runtime is unavailable. The page is showing the stored database snapshot instead."));
+            notices = mergeNotices(notices, List.of(notice(
+                    "runtime_unavailable_showing_stored",
+                    "warning",
+                    "ai-gateway runtime is unavailable. The page is showing the stored database snapshot instead."
+            )));
         }
         if (runtime != null && stored != null && !Objects.equals(runtime.version(), stored.version())) {
-            notices = mergeNotices(notices, List.of("Stored database config is authoritative but not in sync with the current ai-gateway runtime version."));
+            notices = mergeNotices(notices, List.of(notice(
+                    "stored_runtime_out_of_sync",
+                    "warning",
+                    "Stored database config is authoritative but not in sync with the current ai-gateway runtime version."
+            )));
         }
         return notices;
     }
 
     private AdminAiConfigViewVO toView(
             AiOpsConfigPayload payload,
-            List<String> notices,
+            List<AiOpsConfigNotice> notices,
             AiOpsConfigEffectiveResponse runtime,
             StoredAiOpsConfig stored
     ) {
@@ -553,15 +585,15 @@ public class AiOpsAdminService {
     private AiOpsProviderDefinition normalizeProviderDefinition(AiOpsProviderDefinition definition) {
         if (definition == null) {
             return new AiOpsProviderDefinition(
-                    new AiOpsChatConfig(null, null, null, null, null, null),
-                    new AiOpsEmbeddingConfig(null, null, null, null, null),
-                    new AiOpsRerankConfig(null, null, null, null)
+                    new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null),
+                    new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null),
+                    new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null)
             );
         }
         return new AiOpsProviderDefinition(
-                definition.chat() == null ? new AiOpsChatConfig(null, null, null, null, null, null) : definition.chat(),
-                definition.embedding() == null ? new AiOpsEmbeddingConfig(null, null, null, null, null) : definition.embedding(),
-                definition.rerank() == null ? new AiOpsRerankConfig(null, null, null, null) : definition.rerank()
+                definition.chat() == null ? new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null) : definition.chat(),
+                definition.embedding() == null ? new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null) : definition.embedding(),
+                definition.rerank() == null ? new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null) : definition.rerank()
         );
     }
 
@@ -596,7 +628,7 @@ public class AiOpsAdminService {
     }
 
     private AdminAiSecretFieldVO mask(String value) {
-        return new AdminAiSecretFieldVO(StringUtils.hasText(value), maskValue(value));
+        return new AdminAiSecretFieldVO(StringUtils.hasText(value), maskValue(value), secretLength(value));
     }
 
     private String maskValue(String value) {
@@ -608,6 +640,13 @@ public class AiOpsAdminService {
             return "******";
         }
         return trimmed.substring(0, 3) + "******" + trimmed.substring(trimmed.length() - 3);
+    }
+
+    private Integer secretLength(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim().length();
     }
 
     private AiOpsConfigPayload mergeSecrets(
@@ -653,6 +692,7 @@ public class AiOpsAdminService {
             AiOpsProviderDefinition definition = normalizeProviderDefinition(entry.getValue());
             sanitized.put(entry.getKey(), new AiOpsProviderDefinition(
                     new AiOpsChatConfig(
+                            definition.chat().protocol(),
                             definition.chat().baseUrl(),
                             null,
                             definition.chat().model(),
@@ -661,6 +701,7 @@ public class AiOpsAdminService {
                             definition.chat().maxTokens()
                     ),
                     new AiOpsEmbeddingConfig(
+                            definition.embedding().protocol(),
                             definition.embedding().baseUrl(),
                             null,
                             definition.embedding().model(),
@@ -668,6 +709,7 @@ public class AiOpsAdminService {
                             definition.embedding().dimension()
                     ),
                     new AiOpsRerankConfig(
+                            definition.rerank().protocol(),
                             definition.rerank().baseUrl(),
                             null,
                             definition.rerank().model(),
@@ -712,6 +754,7 @@ public class AiOpsAdminService {
             AdminAiProviderSecretUpdateGroup secretGroup = secretProviders == null ? null : secretProviders.get(providerName);
             merged.put(providerName, new AiOpsProviderDefinition(
                     new AiOpsChatConfig(
+                            requested.chat().protocol(),
                             requested.chat().baseUrl(),
                             resolveSecret(existing.chat().apiKey(),
                                     secretGroup == null ? null : secretGroup.chatApiKey()),
@@ -721,6 +764,7 @@ public class AiOpsAdminService {
                             requested.chat().maxTokens()
                     ),
                     new AiOpsEmbeddingConfig(
+                            requested.embedding().protocol(),
                             requested.embedding().baseUrl(),
                             resolveSecret(existing.embedding().apiKey(),
                                     secretGroup == null ? null : secretGroup.embeddingApiKey()),
@@ -729,6 +773,7 @@ public class AiOpsAdminService {
                             requested.embedding().dimension()
                     ),
                     new AiOpsRerankConfig(
+                            requested.rerank().protocol(),
                             requested.rerank().baseUrl(),
                             resolveSecret(existing.rerank().apiKey(),
                                     secretGroup == null ? null : secretGroup.rerankApiKey()),
@@ -788,30 +833,42 @@ public class AiOpsAdminService {
         return normalizePayload(null);
     }
 
-    private List<String> validationNotices() {
-        return List.of("Automatic failover is enabled for retryable provider failures and circuit-open scenarios.");
+    private List<AiOpsConfigNotice> validationNotices() {
+        return List.of(notice(
+                "automatic_failover_enabled",
+                "info",
+                "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
+        ));
     }
 
-    private List<String> mergeNotices(List<String> baseNotices, List<String> extraNotices) {
-        List<String> notices = new ArrayList<>();
+    private List<AiOpsConfigNotice> mergeNotices(List<AiOpsConfigNotice> baseNotices, List<AiOpsConfigNotice> extraNotices) {
+        Map<String, AiOpsConfigNotice> notices = new LinkedHashMap<>();
         if (baseNotices != null) {
-            notices.addAll(baseNotices);
+            baseNotices.forEach(notice -> notices.put(notice.code(), notice));
         }
         if (extraNotices != null) {
-            for (String notice : extraNotices) {
-                if (StringUtils.hasText(notice) && !notices.contains(notice)) {
-                    notices.add(notice);
+            for (AiOpsConfigNotice notice : extraNotices) {
+                if (notice != null && StringUtils.hasText(notice.code())) {
+                    notices.putIfAbsent(notice.code(), notice);
                 }
             }
         }
-        return notices;
+        return List.copyOf(notices.values());
     }
 
-    private List<String> blankDraftNotices(StoredAiOpsConfig stored) {
+    private List<AiOpsConfigNotice> blankDraftNotices(StoredAiOpsConfig stored) {
         if (stored != null) {
             return List.of();
         }
-        return List.of("No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot.");
+        return List.of(notice(
+                "no_stored_snapshot_yet",
+                "warning",
+                "No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot."
+        ));
+    }
+
+    private AiOpsConfigNotice notice(String code, String severity, String defaultMessage) {
+        return new AiOpsConfigNotice(code, severity, defaultMessage);
     }
 
     private String formatValidationIssues(List<com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue> issues) {

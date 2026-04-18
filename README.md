@@ -59,8 +59,15 @@ cp .env.example .env
 - `PLATFORM_INTERNAL_API_TOKEN`
 - `REDIS_PASSWORD`
 - AI 供应商相关变量：`AI_OPENAI_API_KEY`、`AI_OPENAI_BASE_URL`、`AI_CHAT_MODEL`、`AI_EMBEDDING_MODEL`、`AI_RERANK_URL`、`AI_RERANK_MODEL`
+- 如需真实 fallback：`AI_FALLBACK_CHAT_*`、`AI_FALLBACK_EMBEDDING_*`、`AI_FALLBACK_RERANK_*` 这三组变量都应显式填写
 
 JWT key 需要使用随机高熵值，示例可用：`openssl rand -base64 48`
+
+AI fallback 说明：
+
+- `AI_FALLBACK_*` 需要显式填写，failover 才会真正切到另一套上游
+- 如果省略这些变量，bootstrap 默认值会回退到 active provider 使用的同一组 URL / API key / model
+- 后台 AI 配置中心会对“fallback 与 active 实际指向同一上游”给出 warning
 
 生产环境额外建议：
 

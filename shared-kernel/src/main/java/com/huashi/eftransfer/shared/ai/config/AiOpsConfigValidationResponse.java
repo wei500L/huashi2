@@ -5,6 +5,6 @@ import java.util.List;
 public record AiOpsConfigValidationResponse(
         boolean valid,
         List<AiOpsConfigIssue> issues,
-        List<String> notices
+        List<AiOpsConfigNotice> notices
 ) {
 }

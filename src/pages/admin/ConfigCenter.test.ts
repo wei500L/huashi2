@@ -10,6 +10,7 @@ function createConfigViewEnvelope() {
         providers: {
           qwen: {
             chat: {
+              protocol: 'openai-compat',
               baseUrl: null,
               apiKey: null,
               model: null,
@@ -18,6 +19,7 @@ function createConfigViewEnvelope() {
               maxTokens: null,
             },
             embedding: {
+              protocol: 'openai-compat',
               baseUrl: null,
               apiKey: null,
               model: null,
@@ -25,6 +27,7 @@ function createConfigViewEnvelope() {
               dimension: null,
             },
             rerank: {
+              protocol: 'qwen-rerank',
               baseUrl: null,
               apiKey: null,
               model: null,
@@ -66,20 +69,24 @@ function createConfigViewEnvelope() {
           chatApiKey: {
             configured: false,
             maskedValue: '',
+            valueLength: null,
           },
           embeddingApiKey: {
             configured: true,
             maskedValue: 'emb******001',
+            valueLength: 16,
           },
           rerankApiKey: {
             configured: false,
             maskedValue: '',
+            valueLength: null,
           },
         },
       },
       appServerInternalToken: {
         configured: false,
         maskedValue: '',
+        valueLength: null,
       },
     },
     source: null,
@@ -139,9 +146,9 @@ describe('ConfigCenter contract guards', () => {
     expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/runtime\.inSync/);
   });
 
-  it('rejects responses with non-string notices', () => {
+  it('rejects responses with malformed notices', () => {
     const invalid = createConfigViewEnvelope() as Record<string, unknown>;
-    invalid.notices = ['ok', 42];
+    invalid.notices = [{ code: 'ok', severity: 'info', defaultMessage: 'ok' }, 42];
 
     expect(() => normalizeAdminAiConfigView(invalid)).toThrow(AdminAiConfigContractError);
     expect(() => normalizeAdminAiConfigView(invalid)).toThrow(/notices\[1\]/);
@@ -178,7 +185,13 @@ describe('ConfigCenter contract guards', () => {
     envelope.source = null;
     envelope.version = null;
     envelope.updatedAt = null;
-    envelope.notices = ['No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot.'];
+    envelope.notices = [
+      {
+        code: 'no_stored_snapshot_yet',
+        severity: 'warning',
+        defaultMessage: 'No stored AI ops config exists yet. The page is showing an unsynced draft that can be saved as the first snapshot.',
+      },
+    ];
     envelope.runtime = {
       available: false,
       source: null,

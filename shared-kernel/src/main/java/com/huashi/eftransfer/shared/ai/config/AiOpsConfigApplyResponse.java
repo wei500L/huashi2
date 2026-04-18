@@ -7,6 +7,6 @@ public record AiOpsConfigApplyResponse(
         String source,
         Long version,
         OffsetDateTime appliedAt,
-        List<String> notices
+        List<AiOpsConfigNotice> notices
 ) {
 }

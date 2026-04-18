@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.modules.opsconfig.dto;
 
+import com.huashi.eftransfer.shared.ai.config.AiOpsConfigNotice;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 
 import java.time.OffsetDateTime;
@@ -11,7 +12,7 @@ public record AdminAiConfigViewVO(
         String source,
         Long version,
         OffsetDateTime updatedAt,
-        List<String> notices,
+        List<AiOpsConfigNotice> notices,
         AdminAiRuntimeStateVO runtime,
         AdminAiStoredStateVO stored
 ) {
