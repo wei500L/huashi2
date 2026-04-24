@@ -16,6 +16,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
+import { CustomSelect } from '@/components/common/CustomSelect';
 import { LexicalPairSuggestionInput } from '@/components/common/LexicalPairSuggestionInput';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { saveBlob } from '@/lib/api';
@@ -421,18 +422,7 @@ const SelectInput: React.FC<{
   disabled?: boolean;
   options: Array<{ value: string; label: string }>;
 }> = ({ value, onChange, disabled, options }) => (
-  <select
-    value={String(value)}
-    onChange={(event) => onChange(event.target.value)}
-    disabled={disabled}
-    className="native-select w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/45"
-  >
-    {options.map((option) => (
-      <option key={option.value} value={option.value}>
-        {option.label}
-      </option>
-    ))}
-  </select>
+  <CustomSelect value={value} onChange={onChange} disabled={disabled} options={options} />
 );
 
 const RangeField: React.FC<{

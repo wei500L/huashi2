@@ -18,6 +18,7 @@ interface ChartCardProps {
   height?: string | number;
   className?: string;
   extra?: React.ReactNode;
+  embedded?: boolean;
   emptyState?: Partial<Pick<FeedbackStateProps, 'title' | 'description' | 'impact' | 'nextStep'>>;
 }
 
@@ -31,13 +32,15 @@ export const ChartCard: React.FC<ChartCardProps> = ({
   height = 350,
   className,
   extra,
+  embedded = false,
   emptyState,
 }) => {
   const { t } = useTranslation();
   const emptyTitle = emptyState?.title ?? t('ui.chart.emptyTitle', { title });
   const emptyDescription = emptyState?.description ?? t('ui.chart.emptyDescription');
-  const emptyImpact = emptyState?.impact ?? t('ui.chart.emptyImpact');
-  const emptyNextStep = emptyState?.nextStep ?? t('ui.chart.emptyNextStep');
+  const emptyImpact = emptyState?.impact;
+  const emptyNextStep = emptyState?.nextStep;
+  const shouldShowDetails = !embedded && Boolean(emptyImpact || emptyNextStep);
   const errorState = error
     ? getProductizedErrorState(error, {
         resourceLabel: t('ui.chart.resourceLabel', { title }),
@@ -45,15 +48,18 @@ export const ChartCard: React.FC<ChartCardProps> = ({
         retryActionLabel: t('ui.chart.retryAction'),
       })
     : null;
+  const containerStyle = errorState || isEmpty ? { minHeight: height } : { height };
 
   return (
     <div
       className={cn(
-        'liquid-glass-panel border-beam fluid-texture rounded-[2.5rem] overflow-hidden group transition-all duration-700 hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] dark:hover:shadow-[0_30px_80px_rgba(0,0,0,0.6)]',
+        embedded
+          ? 'relative overflow-hidden rounded-[2rem]'
+          : 'liquid-glass-panel border-beam fluid-texture rounded-[2.5rem] overflow-hidden group transition-all duration-700 hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] dark:hover:shadow-[0_30px_80px_rgba(0,0,0,0.6)]',
         className
       )}
     >
-      <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md relative z-10">
+      {!embedded && <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md relative z-10">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(139,92,246,0.8)]" />
           <h3 className="text-base font-black tracking-tight text-slate-800 dark:text-white/85">{title}</h3>
@@ -62,9 +68,9 @@ export const ChartCard: React.FC<ChartCardProps> = ({
           {extra}
           {loading && <RefreshCcw className="animate-spin text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" size={16} />}
         </div>
-      </div>
+      </div>}
       
-      <div className="p-8 relative z-10" style={{ height }}>
+      <div className={cn('relative z-10', embedded ? 'p-0' : 'p-8')} style={containerStyle}>
         {loading ? (
           <div className="absolute inset-0 z-20 bg-black/[0.02] backdrop-blur-md dark:bg-black/20">
             <FeedbackState
@@ -81,11 +87,11 @@ export const ChartCard: React.FC<ChartCardProps> = ({
           <FeedbackState
             kind={errorState.kind}
             compact
-            className="h-full"
+            className={cn('h-full', embedded && 'border-0 bg-transparent px-4 py-6 shadow-none')}
             title={errorState.title}
             description={errorState.description}
-            impact={errorState.impact}
-            nextStep={errorState.nextStep}
+            impact={shouldShowDetails ? errorState.impact : undefined}
+            nextStep={shouldShowDetails ? errorState.nextStep : undefined}
             primaryAction={
               onRetry
                 ? {
@@ -99,11 +105,11 @@ export const ChartCard: React.FC<ChartCardProps> = ({
           <FeedbackState
             kind="empty"
             compact
-            className="h-full"
+            className={cn('min-h-full', embedded && 'border-0 bg-transparent px-4 py-6 shadow-none')}
             title={emptyTitle}
             description={emptyDescription}
-            impact={emptyImpact}
-            nextStep={emptyNextStep}
+            impact={shouldShowDetails ? emptyImpact : undefined}
+            nextStep={shouldShowDetails ? emptyNextStep : undefined}
           />
         ) : (
           <motion.div

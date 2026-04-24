@@ -332,6 +332,7 @@ CREATE TABLE audit_log (
   updated_by bigint DEFAULT NULL,
   deleted tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (id),
+  KEY idx_audit_log_deleted_created_id (deleted,created_at,id),
   KEY idx_audit_log_created_at (created_at),
   KEY idx_audit_log_actor_created_at (actor_user_id,created_at),
   KEY idx_audit_log_action_created_at (action_type,created_at)

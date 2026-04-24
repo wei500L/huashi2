@@ -85,6 +85,11 @@ public class DemoUserInitializer implements ApplicationRunner {
     private UserEntity ensureUser(String username, String email, String displayName, String rawPassword) {
         UserEntity existing = userMapper.selectByUsernameOrEmail(username);
         if (existing != null) {
+            if (looksLikePasswordHash(existing.getDisplayName())) {
+                existing.setDisplayName(displayName);
+                existing.setUpdatedBy(0L);
+                userMapper.updateById(existing);
+            }
             return existing;
         }
 
@@ -98,6 +103,16 @@ public class DemoUserInitializer implements ApplicationRunner {
         user.setUpdatedBy(0L);
         userMapper.insert(user);
         return user;
+    }
+
+    private boolean looksLikePasswordHash(String value) {
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+        return value.startsWith("$2a$")
+                || value.startsWith("$2b$")
+                || value.startsWith("$2y$")
+                || value.startsWith("{bcrypt}");
     }
 
     private void ensureRole(Long userId, UserRole role) {

@@ -360,39 +360,43 @@ const AdminDashboardPage: React.FC = () => {
             <StatusBadge label="最近 30 天" tone="neutral" />
           </div>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
-            <ChartCard
-              title="AI 场景分布"
-              option={buildSceneOption(aiSceneDistribution)}
-              loading={dashboardQuery.isLoading}
-              error={dashboardQuery.error}
-              isEmpty={!aiSceneDistribution.length}
-              className="border-0 bg-transparent shadow-none"
-              height={320}
-            />
-
-            <div className="space-y-3">
-              {aiSceneDistribution.map((item) => (
-                <div
-                  key={item.scene}
-                  className="rounded-[1.5rem] border border-slate-200/80 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/5"
-                >
-                  <div className="font-bold text-slate-900 dark:text-white">{formatSceneLabel(item.scene)}</div>
-                  <div className="mt-1 text-sm text-slate-500 dark:text-white/45">
-                    {integerFormatter.format(item.count)} 次调用
-                  </div>
-                  <div className="mt-2 text-xs font-bold text-slate-400 dark:text-white/30">
-                    占比 {percentFormatter.format(item.ratio)}
-                  </div>
-                </div>
-              ))}
-              {!dashboardQuery.isLoading && !aiSceneDistribution.length && (
-                <div className="rounded-[1.5rem] border border-dashed border-slate-200/80 px-4 py-6 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                  当前没有可用的 AI 调用记录。
-                </div>
-              )}
+          {!dashboardQuery.isLoading && !dashboardQuery.error && !aiSceneDistribution.length ? (
+            <div className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-[2rem] border border-slate-200/80 bg-white/65 px-6 py-10 text-center dark:border-white/10 dark:bg-white/5">
+              <StatusBadge label="暂无内容" tone="neutral" />
+              <h3 className="mt-5 text-xl font-black tracking-tight text-slate-900 dark:text-white/85">当前暂无可展示的 AI 场景分布</h3>
+              <p className="mt-3 max-w-md text-sm leading-6 text-slate-500 dark:text-white/45">
+                系统已经完成本次查询，但还没有足够的数据生成图表。
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+              <ChartCard
+                title="AI 场景分布"
+                option={buildSceneOption(aiSceneDistribution)}
+                loading={dashboardQuery.isLoading}
+                error={dashboardQuery.error}
+                embedded
+                height={320}
+              />
+
+              <div className="space-y-3">
+                {aiSceneDistribution.map((item) => (
+                  <div
+                    key={item.scene}
+                    className="rounded-[1.5rem] border border-slate-200/80 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/5"
+                  >
+                    <div className="font-bold text-slate-900 dark:text-white">{formatSceneLabel(item.scene)}</div>
+                    <div className="mt-1 text-sm text-slate-500 dark:text-white/45">
+                      {integerFormatter.format(item.count)} 次调用
+                    </div>
+                    <div className="mt-2 text-xs font-bold text-slate-400 dark:text-white/30">
+                      占比 {percentFormatter.format(item.ratio)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
