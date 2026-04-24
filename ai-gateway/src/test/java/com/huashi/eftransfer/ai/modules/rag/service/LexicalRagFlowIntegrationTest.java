@@ -101,7 +101,7 @@ class LexicalRagFlowIntegrationTest {
         AiProviderRegistry aiProviderRegistry = mock(AiProviderRegistry.class);
         when(aiProviderRegistry.embed(any())).thenAnswer(invocation -> {
             EmbeddingRequest request = invocation.getArgument(0);
-            return embeddingResponse(new EmbeddingBatchRequest(List.of(request.text()), request.model(), request.dimension()));
+            return embeddingResponse(new EmbeddingBatchRequest(List.of(request.text()), request.model(), request.modality(), request.dimension()));
         });
         when(aiProviderRegistry.embedBatch(any())).thenAnswer(invocation -> embeddingResponse(invocation.getArgument(0)));
         when(aiProviderRegistry.rerank(any())).thenAnswer(invocation -> rerankResponse(invocation.getArgument(0)));

@@ -45,16 +45,17 @@ public class QwenEmbeddingProviderClient {
                 providerName,
                 List.of(request.text()),
                 request.model(),
+                request.modality(),
                 request.dimension()
         );
     }
 
     public EmbeddingResponse embedBatch(String providerName, EmbeddingBatchRequest request) {
-        return embedInternal(providerRuntime(providerName), providerName, request.texts(), request.model(), request.dimension());
+        return embedInternal(providerRuntime(providerName), providerName, request.texts(), request.model(), request.modality(), request.dimension());
     }
 
     public EmbeddingResponse embedBatch(AiProviderRuntime runtime, String providerName, EmbeddingBatchRequest request) {
-        return embedInternal(runtime, providerName, request.texts(), request.model(), request.dimension());
+        return embedInternal(runtime, providerName, request.texts(), request.model(), request.modality(), request.dimension());
     }
 
     private EmbeddingResponse embedInternal(
@@ -62,10 +63,11 @@ public class QwenEmbeddingProviderClient {
             String providerName,
             List<String> texts,
             String requestModel,
+            String modality,
             Integer requestDimension
     ) {
         String provider = providerName;
-        String model = resolveModel(runtime, requestModel);
+        String model = resolveModel(runtime, requestModel, modality);
         int dimension = requestDimension != null ? requestDimension : runtime.definition().embedding().dimension();
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
@@ -119,8 +121,15 @@ public class QwenEmbeddingProviderClient {
                 .toList();
     }
 
-    private String resolveModel(AiProviderRuntime runtime, String requestModel) {
+    private String resolveModel(AiProviderRuntime runtime, String requestModel, String modality) {
+        if (isMultimodal(modality) && runtime.definition().embedding().multimodalModel() != null && !runtime.definition().embedding().multimodalModel().isBlank()) {
+            return runtime.definition().embedding().multimodalModel();
+        }
         return requestModel != null && !requestModel.isBlank() ? requestModel : runtime.definition().embedding().model();
+    }
+
+    private boolean isMultimodal(String modality) {
+        return modality != null && ("multimodal".equalsIgnoreCase(modality) || "vl".equalsIgnoreCase(modality));
     }
 
     private AiProviderRuntime providerRuntime(String providerName) {

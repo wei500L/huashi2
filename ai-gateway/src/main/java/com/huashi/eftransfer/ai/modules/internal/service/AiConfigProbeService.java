@@ -64,7 +64,7 @@ public class AiConfigProbeService {
             EmbeddingResponse response = embeddingProviderClient.embedBatch(
                     runtime,
                     providerName,
-                    new EmbeddingBatchRequest(List.of(EMBEDDING_PROBE_TEXT), null, expectedDimension)
+                    new EmbeddingBatchRequest(List.of(EMBEDDING_PROBE_TEXT), null, null, expectedDimension)
             );
             int itemCount = response.items() == null ? 0 : response.items().size();
             boolean ok = itemCount == 1 && Objects.equals(response.dimension(), expectedDimension);
@@ -105,7 +105,7 @@ public class AiConfigProbeService {
             RerankResponse response = rerankClient.rerank(
                     runtime,
                     providerName,
-                    new RerankRequest(null, RERANK_PROBE_QUERY, RERANK_PROBE_DOCUMENTS, RERANK_PROBE_DOCUMENTS.size(), true, null)
+                    new RerankRequest(null, RERANK_PROBE_QUERY, RERANK_PROBE_DOCUMENTS, RERANK_PROBE_DOCUMENTS.size(), true, null, null)
             );
             List<RerankItem> items = response.items() == null ? List.of() : response.items();
             boolean ordered = isOrdered(items);

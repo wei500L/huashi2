@@ -15,6 +15,7 @@ public record RerankRequest(
         @Min(value = 1, message = "topN must be greater than 0")
         Integer topN,
         Boolean returnDocuments,
+        String modality,
         String instruct
 ) {
 }

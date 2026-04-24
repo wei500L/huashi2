@@ -742,6 +742,7 @@ public class AiOpsAdminService {
                             definition.embedding().baseUrl(),
                             null,
                             definition.embedding().model(),
+                            definition.embedding().multimodalModel(),
                             definition.embedding().connectTimeout(),
                             definition.embedding().readTimeout(),
                             definition.embedding().dimension()
@@ -751,6 +752,7 @@ public class AiOpsAdminService {
                             definition.rerank().baseUrl(),
                             null,
                             definition.rerank().model(),
+                            definition.rerank().multimodalModel(),
                             definition.rerank().connectTimeout(),
                             definition.rerank().readTimeout()
                     )
@@ -836,6 +838,7 @@ public class AiOpsAdminService {
                             resolveSecret(existing.embedding().apiKey(),
                                     secretGroup == null ? null : secretGroup.embeddingApiKey()),
                             requested.embedding().model(),
+                            requested.embedding().multimodalModel(),
                             requested.embedding().connectTimeout(),
                             requested.embedding().readTimeout(),
                             requested.embedding().dimension()
@@ -846,6 +849,7 @@ public class AiOpsAdminService {
                             resolveSecret(existing.rerank().apiKey(),
                                     secretGroup == null ? null : secretGroup.rerankApiKey()),
                             requested.rerank().model(),
+                            requested.rerank().multimodalModel(),
                             requested.rerank().connectTimeout(),
                             requested.rerank().readTimeout()
                     )

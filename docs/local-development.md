@@ -74,12 +74,29 @@ cp .env.example .env
 - `AI_CHAT_MODEL`
 - `AI_EMBEDDING_BASE_URL`
 - `AI_EMBEDDING_MODEL`
+- `AI_MULTIMODAL_EMBEDDING_MODEL`
 - `AI_RERANK_PROTOCOL`
 - `AI_RERANK_BASE_URL`
 - `AI_RERANK_MODEL`
+- `AI_MULTIMODAL_RERANK_MODEL`
 - `AI_FALLBACK_CHAT_*`
 - `AI_FALLBACK_EMBEDDING_*`
 - `AI_FALLBACK_RERANK_*`
+
+开发服务器推荐 AI 配置（密钥通过服务器环境变量注入，不要提交到仓库）：
+
+```bash
+AI_OPENAI_BASE_URL=https://elysiver.h-e.top/v1
+AI_CHAT_MODEL=glm-5
+AI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
+AI_EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B
+AI_MULTIMODAL_EMBEDDING_MODEL=Qwen/Qwen3-VL-Embedding-8B
+AI_RERANK_PROTOCOL=openai-rerank
+AI_RERANK_BASE_URL=https://api.siliconflow.cn/v1
+AI_RERANK_MODEL=Qwen/Qwen3-Reranker-8B
+AI_MULTIMODAL_RERANK_MODEL=Qwen/Qwen3-VL-Reranker-8B
+AI_EMBEDDING_DIMENSION=1024
+```
 
 JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 

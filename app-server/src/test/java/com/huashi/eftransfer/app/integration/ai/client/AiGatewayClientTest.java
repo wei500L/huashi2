@@ -276,7 +276,7 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        AiGatewayCallResult<EmbeddingResponse> single = aiGatewayClient.embed(new EmbeddingRequest("alpha", null, 3));
+        AiGatewayCallResult<EmbeddingResponse> single = aiGatewayClient.embed(new EmbeddingRequest("alpha", null, null, 3));
 
         assertThat(single.success()).isTrue();
         assertThat(single.data().items()).hasSize(1);
@@ -307,7 +307,7 @@ class AiGatewayClientTest {
                 }
                 """));
 
-        AiGatewayCallResult<EmbeddingResponse> batch = aiGatewayClient.embedBatch(new EmbeddingBatchRequest(List.of("alpha", "beta"), null, 3));
+        AiGatewayCallResult<EmbeddingResponse> batch = aiGatewayClient.embedBatch(new EmbeddingBatchRequest(List.of("alpha", "beta"), null, null, 3));
 
         assertThat(batch.success()).isTrue();
         assertThat(batch.data().items()).hasSize(2);
@@ -344,6 +344,7 @@ class AiGatewayClientTest {
                 List.of("doc-a", "doc-b"),
                 2,
                 true,
+                null,
                 null
         ));
 

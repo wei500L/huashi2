@@ -385,8 +385,8 @@ public class AiRuntimeConfigService {
         if (left == null || right == null) {
             return false;
         }
-        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(),
-                right.protocol(), right.baseUrl(), right.apiKey(), right.model());
+        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(), null,
+                right.protocol(), right.baseUrl(), right.apiKey(), right.model(), null);
     }
 
     private boolean sameUpstream(
@@ -396,8 +396,8 @@ public class AiRuntimeConfigService {
         if (left == null || right == null) {
             return false;
         }
-        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(),
-                right.protocol(), right.baseUrl(), right.apiKey(), right.model());
+        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(), left.multimodalModel(),
+                right.protocol(), right.baseUrl(), right.apiKey(), right.model(), right.multimodalModel());
     }
 
     private boolean sameUpstream(
@@ -407,8 +407,8 @@ public class AiRuntimeConfigService {
         if (left == null || right == null) {
             return false;
         }
-        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(),
-                right.protocol(), right.baseUrl(), right.apiKey(), right.model());
+        return sameUpstream(left.protocol(), left.baseUrl(), left.apiKey(), left.model(), left.multimodalModel(),
+                right.protocol(), right.baseUrl(), right.apiKey(), right.model(), right.multimodalModel());
     }
 
     private boolean sameUpstream(
@@ -416,15 +416,18 @@ public class AiRuntimeConfigService {
             String leftBaseUrl,
             String leftApiKey,
             String leftModel,
+            String leftMultimodalModel,
             String rightProtocol,
             String rightBaseUrl,
             String rightApiKey,
-            String rightModel
+            String rightModel,
+            String rightMultimodalModel
     ) {
         return Objects.equals(leftProtocol, rightProtocol)
                 && Objects.equals(leftBaseUrl, rightBaseUrl)
                 && Objects.equals(leftApiKey, rightApiKey)
-                && Objects.equals(leftModel, rightModel);
+                && Objects.equals(leftModel, rightModel)
+                && Objects.equals(leftMultimodalModel, rightMultimodalModel);
     }
 
     private long estimateSwitchWindowSeconds(AiOpsConfigPayload payload) {

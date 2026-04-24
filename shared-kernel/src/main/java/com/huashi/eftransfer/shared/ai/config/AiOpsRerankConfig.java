@@ -12,17 +12,30 @@ public record AiOpsRerankConfig(
         String apiKey,
         @NotBlank(message = "model is required")
         String model,
+        String multimodalModel,
         @NotBlank(message = "connectTimeout is required")
         String connectTimeout,
         @NotBlank(message = "readTimeout is required")
         String readTimeout
 ) {
+    public AiOpsRerankConfig(
+            String protocol,
+            String baseUrl,
+            String apiKey,
+            String model,
+            String connectTimeout,
+            String readTimeout
+    ) {
+        this(protocol, baseUrl, apiKey, model, null, connectTimeout, readTimeout);
+    }
+
     @JsonCreator
     public AiOpsRerankConfig(
             @JsonProperty("protocol") String protocol,
             @JsonProperty("baseUrl") String baseUrl,
             @JsonProperty("apiKey") String apiKey,
             @JsonProperty("model") String model,
+            @JsonProperty("multimodalModel") String multimodalModel,
             @JsonProperty("connectTimeout") String connectTimeout,
             @JsonProperty("readTimeout") String readTimeout,
             @JsonProperty("timeout") String timeout
@@ -32,6 +45,7 @@ public record AiOpsRerankConfig(
                 baseUrl,
                 apiKey,
                 model,
+                multimodalModel,
                 resolveTimeout(connectTimeout, readTimeout, timeout),
                 resolveTimeout(readTimeout, connectTimeout, timeout)
         );

@@ -342,6 +342,7 @@ public class KnowledgeIngestionService {
         EmbeddingResponse response = aiProviderRegistry.embedBatch(new EmbeddingBatchRequest(
                 batch.stream().map(PendingChunkEmbedding::content).toList(),
                 null,
+                null,
                 null
         ));
         if (response.items() == null || response.items().size() != batch.size()) {

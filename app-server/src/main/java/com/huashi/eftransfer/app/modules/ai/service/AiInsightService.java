@@ -446,6 +446,7 @@ public class AiInsightService {
                 documents,
                 Math.min(5, documents.size()),
                 Boolean.TRUE,
+                null,
                 null
         ));
         rawResponses.put("rerank", rerankResult);

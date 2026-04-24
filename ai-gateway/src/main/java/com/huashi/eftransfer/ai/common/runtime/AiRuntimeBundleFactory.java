@@ -317,6 +317,7 @@ public class AiRuntimeBundleFactory {
                         providerProperties.getEmbedding().getBaseUrl(),
                         providerProperties.getEmbedding().getApiKey(),
                         providerProperties.getEmbedding().getModel(),
+                        providerProperties.getEmbedding().getMultimodalModel(),
                         formatDuration(providerProperties.getEmbedding().getConnectTimeout()),
                         formatDuration(providerProperties.getEmbedding().getReadTimeout()),
                         providerProperties.getEmbedding().getDimension()
@@ -326,6 +327,7 @@ public class AiRuntimeBundleFactory {
                         providerProperties.getRerank().getBaseUrl(),
                         providerProperties.getRerank().getApiKey(),
                         providerProperties.getRerank().getModel(),
+                        providerProperties.getRerank().getMultimodalModel(),
                         formatDuration(providerProperties.getRerank().getConnectTimeout()),
                         formatDuration(providerProperties.getRerank().getReadTimeout())
                 )

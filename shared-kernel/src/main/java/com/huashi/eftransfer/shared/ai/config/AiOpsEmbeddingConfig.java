@@ -14,6 +14,7 @@ public record AiOpsEmbeddingConfig(
         String apiKey,
         @NotBlank(message = "model is required")
         String model,
+        String multimodalModel,
         @NotBlank(message = "connectTimeout is required")
         String connectTimeout,
         @NotBlank(message = "readTimeout is required")
@@ -22,12 +23,25 @@ public record AiOpsEmbeddingConfig(
         @Positive(message = "dimension must be greater than 0")
         Integer dimension
 ) {
+    public AiOpsEmbeddingConfig(
+            String protocol,
+            String baseUrl,
+            String apiKey,
+            String model,
+            String connectTimeout,
+            String readTimeout,
+            Integer dimension
+    ) {
+        this(protocol, baseUrl, apiKey, model, null, connectTimeout, readTimeout, dimension);
+    }
+
     @JsonCreator
     public AiOpsEmbeddingConfig(
             @JsonProperty("protocol") String protocol,
             @JsonProperty("baseUrl") String baseUrl,
             @JsonProperty("apiKey") String apiKey,
             @JsonProperty("model") String model,
+            @JsonProperty("multimodalModel") String multimodalModel,
             @JsonProperty("connectTimeout") String connectTimeout,
             @JsonProperty("readTimeout") String readTimeout,
             @JsonProperty("dimension") Integer dimension,
@@ -38,6 +52,7 @@ public record AiOpsEmbeddingConfig(
                 baseUrl,
                 apiKey,
                 model,
+                multimodalModel,
                 resolveTimeout(connectTimeout, readTimeout, timeout),
                 resolveTimeout(readTimeout, connectTimeout, timeout),
                 dimension

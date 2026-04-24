@@ -118,6 +118,7 @@ class QwenRerankClientTest {
                 List.of("doc-a", "doc-b"),
                 2,
                 true,
+                null,
                 null
         ));
 
@@ -154,6 +155,7 @@ class QwenRerankClientTest {
                 List.of("doc-a", "doc-b"),
                 1,
                 false,
+                null,
                 "teacher mode"
         ));
 
@@ -195,6 +197,7 @@ class QwenRerankClientTest {
                 List.of("doc-a", "doc-b"),
                 2,
                 true,
+                null,
                 "teacher mode"
         ));
 
@@ -208,6 +211,35 @@ class QwenRerankClientTest {
                 .withRequestBody(matchingJsonPath("$.model", equalTo("gte-rerank-v2")))
                 .withRequestBody(matchingJsonPath("$.messages[1].content", containing("teacher mode")))
                 .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_object"))));
+    }
+
+    @Test
+    void shouldUseMultimodalRerankModelWhenRequested() {
+        stubFor(post(urlEqualTo("/v1/rerank"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "id": "rerank-vl-req-1",
+                                  "results": [
+                                    {"index": 0, "relevance_score": 0.97}
+                                  ]
+                                }
+                                """)));
+
+        RerankResponse response = rerankClient.rerank("qwen", new RerankRequest(
+                null,
+                "hello",
+                List.of("image-plus-text"),
+                1,
+                true,
+                "multimodal",
+                null
+        ));
+
+        assertThat(response.model()).isEqualTo("Qwen/Qwen3-VL-Reranker-8B");
+        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/rerank"))
+                .withRequestBody(matchingJsonPath("$.model", equalTo("Qwen/Qwen3-VL-Reranker-8B"))));
     }
 
     private QwenRerankClient buildClient(String rerankProtocol) {
@@ -256,6 +288,7 @@ class QwenRerankClientTest {
         rerankProperties.setBaseUrl(wireMockServer.baseUrl() + "/v1");
         rerankProperties.setApiKey("test-api-key");
         rerankProperties.setModel("gte-rerank-v2");
+        rerankProperties.setMultimodalModel("Qwen/Qwen3-VL-Reranker-8B");
 
         AiProviderProperties.ProviderProperties providerProperties = new AiProviderProperties.ProviderProperties();
         providerProperties.setChat(chatProperties);

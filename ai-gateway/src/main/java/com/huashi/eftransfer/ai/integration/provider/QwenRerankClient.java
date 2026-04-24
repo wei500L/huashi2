@@ -51,7 +51,7 @@ public class QwenRerankClient implements RerankClient {
 
     public RerankResponse rerank(AiProviderRuntime runtime, String providerName, RerankRequest request) {
         String provider = providerName;
-        String model = resolveModel(runtime, request.model());
+        String model = resolveModel(runtime, request.model(), request.modality());
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
@@ -210,8 +210,15 @@ public class QwenRerankClient implements RerankClient {
         return null;
     }
 
-    private String resolveModel(AiProviderRuntime runtime, String requestModel) {
+    private String resolveModel(AiProviderRuntime runtime, String requestModel, String modality) {
+        if (isMultimodal(modality) && StringUtils.hasText(runtime.definition().rerank().multimodalModel())) {
+            return runtime.definition().rerank().multimodalModel();
+        }
         return StringUtils.hasText(requestModel) ? requestModel : runtime.definition().rerank().model();
+    }
+
+    private boolean isMultimodal(String modality) {
+        return StringUtils.hasText(modality) && ("multimodal".equalsIgnoreCase(modality) || "vl".equalsIgnoreCase(modality));
     }
 
     private AiProviderRuntime providerRuntime(String providerName) {

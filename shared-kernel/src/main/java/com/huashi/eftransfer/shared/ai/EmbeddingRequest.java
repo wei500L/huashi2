@@ -7,6 +7,7 @@ public record EmbeddingRequest(
         @NotBlank(message = "text must not be blank")
         String text,
         String model,
+        String modality,
         @Positive(message = "dimension must be greater than 0")
         Integer dimension
 ) {

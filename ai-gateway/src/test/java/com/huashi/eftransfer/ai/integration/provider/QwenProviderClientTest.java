@@ -191,6 +191,7 @@ class QwenProviderClientTest {
         EmbeddingResponse response = embeddingProviderClient.embedBatch("qwen", new EmbeddingBatchRequest(
                 List.of("alpha", "beta"),
                 null,
+                null,
                 3
         ));
 
@@ -212,6 +213,34 @@ class QwenProviderClientTest {
                         """, true, true)));
     }
 
+    @Test
+    void shouldUseMultimodalEmbeddingModelWhenRequested() {
+        stubFor(post(urlEqualTo("/v1/embeddings"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "object": "list",
+                                  "model": "Qwen/Qwen3-VL-Embedding-8B",
+                                  "data": [
+                                    {"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]}
+                                  ],
+                                  "usage": {"prompt_tokens": 3, "total_tokens": 3}
+                                }
+                                """)));
+
+        EmbeddingResponse response = embeddingProviderClient.embedBatch("qwen", new EmbeddingBatchRequest(
+                List.of("image-plus-text"),
+                null,
+                "multimodal",
+                3
+        ));
+
+        assertThat(response.model()).isEqualTo("Qwen/Qwen3-VL-Embedding-8B");
+        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/embeddings"))
+                .withRequestBody(matchingJsonPath("$.model", equalTo("Qwen/Qwen3-VL-Embedding-8B"))));
+    }
+
     private AiProviderProperties buildProperties() {
         AiProviderProperties properties = new AiProviderProperties();
         properties.setActiveProvider("qwen");
@@ -225,6 +254,7 @@ class QwenProviderClientTest {
         embeddingProperties.setBaseUrl(wireMockServer.baseUrl() + "/v1");
         embeddingProperties.setApiKey("test-api-key");
         embeddingProperties.setModel("text-embedding-v4");
+        embeddingProperties.setMultimodalModel("Qwen/Qwen3-VL-Embedding-8B");
         embeddingProperties.setDimension(1024);
 
         AiProviderProperties.RerankProperties rerankProperties = new AiProviderProperties.RerankProperties();

@@ -175,6 +175,8 @@ public class AiProviderProperties {
 
         private Integer dimension = 1024;
 
+        private String multimodalModel;
+
         public Integer getDimension() {
             return dimension;
         }
@@ -182,11 +184,29 @@ public class AiProviderProperties {
         public void setDimension(Integer dimension) {
             this.dimension = dimension;
         }
+
+        public String getMultimodalModel() {
+            return multimodalModel;
+        }
+
+        public void setMultimodalModel(String multimodalModel) {
+            this.multimodalModel = multimodalModel;
+        }
     }
 
     public static class RerankProperties extends BaseModelProperties {
+        private String multimodalModel;
+
         public RerankProperties() {
             setProtocol("openai-rerank");
+        }
+
+        public String getMultimodalModel() {
+            return multimodalModel;
+        }
+
+        public void setMultimodalModel(String multimodalModel) {
+            this.multimodalModel = multimodalModel;
         }
     }
 }

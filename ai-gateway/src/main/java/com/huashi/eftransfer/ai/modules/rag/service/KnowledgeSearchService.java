@@ -48,7 +48,7 @@ public class KnowledgeSearchService {
 
     public RagRetrievalResult search(String query, RagSearchFilter filter, SearchRequest searchRequest) {
         var retrieval = runtimeConfigService.current().config().rag().retrieval();
-        EmbeddingResponse embeddingResponse = aiProviderRegistry.embed(new EmbeddingRequest(query, null, null));
+        EmbeddingResponse embeddingResponse = aiProviderRegistry.embed(new EmbeddingRequest(query, null, null, null));
         if (embeddingResponse.items() == null || embeddingResponse.items().isEmpty()) {
             return RagRetrievalResult.empty(query);
         }
@@ -80,6 +80,7 @@ public class KnowledgeSearchService {
                     rerankDocuments,
                     Math.min(retrieval.rerankTopN(), rerankDocuments.size()),
                     Boolean.TRUE,
+                    null,
                     "Rank lexical transfer knowledge by relevance to the user query."
             ));
         } catch (RuntimeException exception) {
