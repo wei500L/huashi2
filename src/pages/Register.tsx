@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BadgeCheck, KeyRound, RefreshCcw, UserPlus2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { RoundedSelect } from '@/components/common/RoundedSelect';
 import { ApiError, getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type { StudentRegistrationContextVO } from '@/lib/contracts';
 import { authService } from '@/lib/services';
@@ -72,6 +73,7 @@ const RegisterPage: React.FC = () => {
     register,
     handleSubmit,
     watch,
+    setValue,
     setError,
     clearErrors,
     formState: { errors, isSubmitting },
@@ -95,8 +97,22 @@ const RegisterPage: React.FC = () => {
   }, [clearError]);
 
   const currentClassCode = watch('classCode').trim();
+  const englishLevelValue = watch('englishLevel');
+  const frenchLevelValue = watch('frenchLevel');
+  const courseStageValue = watch('courseStage');
   const deferredClassCode = React.useDeferredValue(currentClassCode);
   const activeResolvedContext = resolvedContext?.requestedClassCode === currentClassCode ? resolvedContext.payload : null;
+  const levelSelectOptions = React.useMemo(
+    () => [
+      { value: '', label: '--' },
+      ...levelOptions.map((level) => ({ value: level, label: t(`register.levelOptions.${level}`) })),
+    ],
+    [t],
+  );
+  const courseStageSelectOptions = React.useMemo(
+    () => courseStageOptions.map((stage) => ({ value: stage, label: t(`register.courseStageOptions.${stage}`) })),
+    [t],
+  );
   const tokenExpiryLabel = React.useMemo(() => {
     if (!activeResolvedContext?.registrationTokenExpiresAt) {
       return null;
@@ -185,10 +201,12 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    const { confirmPassword: _confirmPassword, classCode: _classCode, ...payload } = values;
     try {
       await registerStudent({
-        ...payload,
+        password: values.password,
+        englishLevel: values.englishLevel,
+        frenchLevel: values.frenchLevel,
+        courseStage: values.courseStage,
         registrationToken: activeResolvedContext.registrationToken,
         displayName: values.displayName.trim(),
         username: values.username.trim(),
@@ -396,48 +414,34 @@ const RegisterPage: React.FC = () => {
               <div className="grid gap-5 md:grid-cols-3">
                 <label className="block">
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.englishLevelLabel')}</div>
-                  <select
-                    {...register('englishLevel')}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
-                  >
-                    <option value="">--</option>
-                    {levelOptions.map((level) => (
-                      <option key={level} value={level}>
-                        {t(`register.levelOptions.${level}`)}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('englishLevel')} />
+                  <RoundedSelect
+                    value={englishLevelValue}
+                    options={levelSelectOptions}
+                    onChange={(value) => setValue('englishLevel', value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+                  />
                   {errors.englishLevel && <div className="mt-2 text-sm text-rose-500">{errors.englishLevel.message}</div>}
                 </label>
 
                 <label className="block">
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.frenchLevelLabel')}</div>
-                  <select
-                    {...register('frenchLevel')}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
-                  >
-                    <option value="">--</option>
-                    {levelOptions.map((level) => (
-                      <option key={level} value={level}>
-                        {t(`register.levelOptions.${level}`)}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('frenchLevel')} />
+                  <RoundedSelect
+                    value={frenchLevelValue}
+                    options={levelSelectOptions}
+                    onChange={(value) => setValue('frenchLevel', value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+                  />
                   {errors.frenchLevel && <div className="mt-2 text-sm text-rose-500">{errors.frenchLevel.message}</div>}
                 </label>
 
                 <label className="block">
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.courseStageLabel')}</div>
-                  <select
-                    {...register('courseStage')}
-                    className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
-                  >
-                    {courseStageOptions.map((stage) => (
-                      <option key={stage} value={stage}>
-                        {t(`register.courseStageOptions.${stage}`)}
-                      </option>
-                    ))}
-                  </select>
+                  <input type="hidden" {...register('courseStage')} />
+                  <RoundedSelect
+                    value={courseStageValue}
+                    options={courseStageSelectOptions}
+                    onChange={(value) => setValue('courseStage', value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
+                  />
                   {errors.courseStage && <div className="mt-2 text-sm text-rose-500">{errors.courseStage.message}</div>}
                 </label>
               </div>

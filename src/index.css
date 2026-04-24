@@ -122,6 +122,38 @@
     color-scheme: dark;
   }
 
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark textarea:-webkit-autofill,
+  .dark textarea:-webkit-autofill:hover,
+  .dark textarea:-webkit-autofill:focus,
+  .dark select:-webkit-autofill,
+  .dark select:-webkit-autofill:hover,
+  .dark select:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgba(248, 250, 252, 0.92) !important;
+    caret-color: rgba(248, 250, 252, 0.92) !important;
+    -webkit-box-shadow: 0 0 0 1000px rgb(8 7 22) inset !important;
+    box-shadow: 0 0 0 1000px rgb(8 7 22) inset !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    transition: background-color 9999s ease-out, color 9999s ease-out;
+  }
+
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    border-color: rgba(139, 92, 246, 0.5) !important;
+    box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.22) !important;
+  }
+
+  .dark input:-webkit-autofill:focus,
+  .dark textarea:-webkit-autofill:focus,
+  .dark select:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px rgb(8 7 22) inset, 0 0 0 1px rgba(139, 92, 246, 0.22) !important;
+    box-shadow: 0 0 0 1000px rgb(8 7 22) inset, 0 0 0 1px rgba(139, 92, 246, 0.22) !important;
+    border-color: rgba(139, 92, 246, 0.5) !important;
+  }
+
   .dark select option,
   .dark select optgroup {
     background-color: rgb(2 6 23);
@@ -446,7 +478,6 @@
   :focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(139, 92, 246, 0.5);
-    border-radius: inherit;
   }
 
   /* Awwwards Level: High-Tech Scanline Pattern */

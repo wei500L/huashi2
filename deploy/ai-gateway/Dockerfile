@@ -11,7 +11,7 @@ RUN chmod +x mvnw
 
 COPY shared-kernel/src shared-kernel/src
 COPY ai-gateway/src ai-gateway/src
-RUN ./mvnw -pl ai-gateway -am -q clean package -DskipTests
+RUN ./mvnw -pl ai-gateway -am -q clean package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:25-jdk
 WORKDIR /app

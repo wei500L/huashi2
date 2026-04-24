@@ -11,7 +11,7 @@ RUN chmod +x mvnw && ./mvnw -pl shared-kernel,app-server -am -q dependency:go-of
 
 COPY shared-kernel/src shared-kernel/src
 COPY app-server/src app-server/src
-RUN ./mvnw -pl app-server -am -q clean package -DskipTests
+RUN ./mvnw -pl app-server -am -q clean package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:25-jdk
 WORKDIR /app

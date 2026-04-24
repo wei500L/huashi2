@@ -28,6 +28,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.retry.RetryUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -51,6 +52,7 @@ public class AiRuntimeBundleFactory {
     private final ProviderErrorSupport providerErrorSupport;
     private final AiCircuitBreakerManager circuitBreakerManager;
 
+    @Autowired
     public AiRuntimeBundleFactory(
             RestClient.Builder restClientBuilder,
             ClientHttpRequestInterceptor providerRequestCaptureInterceptor,

@@ -88,6 +88,7 @@ services:
       context: ..
       dockerfile: deploy/ai-gateway/Dockerfile
     container_name: ef-transfer-ai-gateway
+    user: "0:0"
     restart: unless-stopped
     depends_on:
       postgres:
@@ -185,6 +186,7 @@ services:
       context: ..
       dockerfile: deploy/app-server/Dockerfile
     container_name: ef-transfer-app-server
+    user: "0:0"
     restart: unless-stopped
     depends_on:
       mysql:
