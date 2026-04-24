@@ -289,6 +289,7 @@ public class AiRuntimeBundleFactory {
                 .requestFactory(requestFactory)
                 .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .defaultHeader(HttpHeaders.USER_AGENT, "PostmanRuntime/7.43.0")
                 .requestInterceptor(providerRequestCaptureInterceptor);
 
         if (StringUtils.hasText(baseUrl)) {

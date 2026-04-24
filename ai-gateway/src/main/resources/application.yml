@@ -69,7 +69,7 @@ ai:
           max-tokens: ${AI_CHAT_MAX_TOKENS:2048}
         embedding:
           base-url: ${AI_EMBEDDING_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}
-          api-key: ${AI_OPENAI_API_KEY:}
+          api-key: ${AI_EMBEDDING_API_KEY:${AI_OPENAI_API_KEY:}}
           model: ${AI_EMBEDDING_MODEL:Qwen/Qwen3-Embedding-8B}
           multimodal-model: ${AI_MULTIMODAL_EMBEDDING_MODEL:Qwen/Qwen3-VL-Embedding-8B}
           connect-timeout: ${AI_EMBEDDING_CONNECT_TIMEOUT:PT3S}
@@ -78,7 +78,7 @@ ai:
         rerank:
           protocol: ${AI_RERANK_PROTOCOL:openai-rerank}
           base-url: ${AI_RERANK_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}
-          api-key: ${AI_OPENAI_API_KEY:}
+          api-key: ${AI_RERANK_API_KEY:${AI_OPENAI_API_KEY:}}
           model: ${AI_RERANK_MODEL:Qwen/Qwen3-Reranker-8B}
           multimodal-model: ${AI_MULTIMODAL_RERANK_MODEL:Qwen/Qwen3-VL-Reranker-8B}
           connect-timeout: ${AI_RERANK_CONNECT_TIMEOUT:PT3S}
