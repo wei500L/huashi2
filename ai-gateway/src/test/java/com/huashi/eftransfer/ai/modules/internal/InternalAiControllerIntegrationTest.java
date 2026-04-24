@@ -108,7 +108,7 @@ class InternalAiControllerIntegrationTest {
         registry.add("ai.provider.providers.primary_openai.embedding.api-key", () -> "test-api-key");
         registry.add("ai.provider.providers.primary_openai.embedding.model", () -> "text-embedding-v4");
         registry.add("ai.provider.providers.primary_openai.embedding.dimension", () -> "3");
-        registry.add("ai.provider.providers.primary_openai.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
+        registry.add("ai.provider.providers.primary_openai.rerank.base-url", () -> wireMockServer.baseUrl() + "/v1");
         registry.add("ai.provider.providers.primary_openai.rerank.api-key", () -> "test-api-key");
         registry.add("ai.provider.providers.primary_openai.rerank.model", () -> "gte-rerank-v2");
         registry.add("ai.provider.providers.backup_1.chat.base-url", () -> wireMockServer.baseUrl() + "/v1");
@@ -118,7 +118,7 @@ class InternalAiControllerIntegrationTest {
         registry.add("ai.provider.providers.backup_1.embedding.api-key", () -> "backup-api-key");
         registry.add("ai.provider.providers.backup_1.embedding.model", () -> "text-embedding-v4");
         registry.add("ai.provider.providers.backup_1.embedding.dimension", () -> "3");
-        registry.add("ai.provider.providers.backup_1.rerank.base-url", () -> wireMockServer.baseUrl() + "/rerank");
+        registry.add("ai.provider.providers.backup_1.rerank.base-url", () -> wireMockServer.baseUrl() + "/v1");
         registry.add("ai.provider.providers.backup_1.rerank.api-key", () -> "backup-api-key");
         registry.add("ai.provider.providers.backup_1.rerank.model", () -> "gte-rerank-v2");
         registry.add("ai.resilience.max-attempts", () -> "1");
@@ -269,7 +269,7 @@ class InternalAiControllerIntegrationTest {
 
     @Test
     void shouldReturnRerankApiResponse() throws Exception {
-        stubFor(com.github.tomakehurst.wiremock.client.WireMock.post(urlEqualTo("/rerank"))
+        stubFor(com.github.tomakehurst.wiremock.client.WireMock.post(urlEqualTo("/v1/rerank"))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""

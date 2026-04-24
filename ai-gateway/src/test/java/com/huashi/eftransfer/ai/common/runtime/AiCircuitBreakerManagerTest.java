@@ -54,7 +54,7 @@ class AiCircuitBreakerManagerTest {
         AiOpsProviderDefinition definition = new AiOpsProviderDefinition(
                 new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, chatBaseUrl, "test-api-key", "qwen-max", "PT3S", "PT30S", 0.2d, 1024),
                 new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://embedding.example/v1", "test-api-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
-                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://rerank.example", "test-api-key", "gte-rerank-v2", "PT3S", "PT30S")
+                new AiOpsRerankConfig(AiOpsProtocols.OPENAI_RERANK, "https://rerank.example", "test-api-key", "gte-rerank-v2", "PT3S", "PT30S")
         );
         return new AiProviderRuntime(
                 "qwen",

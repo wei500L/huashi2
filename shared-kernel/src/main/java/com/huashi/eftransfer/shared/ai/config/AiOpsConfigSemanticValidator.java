@@ -158,7 +158,7 @@ public final class AiOpsConfigSemanticValidator {
         if (definition.rerank() == null) {
             issues.add(issue(prefix + ".rerank", "rerank_section_required", "rerank section is required"));
         } else {
-            validateProtocol(prefix + ".rerank.protocol", definition.rerank().protocol(), AiOpsProtocols.QWEN_RERANK, issues);
+            validateRerankProtocol(prefix + ".rerank.protocol", definition.rerank().protocol(), issues);
             validateUrl(prefix + ".rerank.baseUrl", definition.rerank().baseUrl(), issues);
             requireText(prefix + ".rerank.apiKey", definition.rerank().apiKey(), issues);
             validateDuration(prefix + ".rerank.connectTimeout", definition.rerank().connectTimeout(), issues);
@@ -204,6 +204,23 @@ public final class AiOpsConfigSemanticValidator {
                     Map.of("actual", actual, "expected", expected)
             ));
         }
+    }
+
+    private static void validateRerankProtocol(String field, String actual, List<AiOpsConfigIssue> issues) {
+        if (!hasText(actual)) {
+            return;
+        }
+        if (AiOpsProtocols.OPENAI_RERANK.equals(actual)
+                || AiOpsProtocols.OPENAI_CHAT_RERANK.equals(actual)
+                || AiOpsProtocols.OPENAI_COMPAT.equals(actual)) {
+            return;
+        }
+        issues.add(issue(
+                field,
+                "unsupported_protocol",
+                "Unsupported protocol '" + actual + "'; expected one of openai-rerank, openai-chat-rerank",
+                Map.of("actual", actual, "expected", List.of(AiOpsProtocols.OPENAI_RERANK, AiOpsProtocols.OPENAI_CHAT_RERANK))
+        ));
     }
 
     private static void validateProviderReference(

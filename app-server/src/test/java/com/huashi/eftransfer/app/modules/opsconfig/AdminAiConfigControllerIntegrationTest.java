@@ -401,7 +401,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         "stored-chat-model",
                         "https://stored-embedding.example.com/v1",
                         "stored-embedding-model",
-                        "https://stored-rerank.example.com/v1/rerank",
+                        "https://stored-rerank.example.com/v1",
                         "stored-rerank-model"
                 ),
                 null,
@@ -415,7 +415,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         "runtime-chat-model",
                         "https://runtime-embedding.example.com/v1",
                         "runtime-embedding-model",
-                        "https://runtime-rerank.example.com/v1/rerank",
+                        "https://runtime-rerank.example.com/v1",
                         "runtime-rerank-model"
                 ),
                 "DEFAULTS",
@@ -437,7 +437,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.model").value("stored-chat-model"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.baseUrl").value("https://stored-embedding.example.com/v1"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.model").value("stored-embedding-model"))
-                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.baseUrl").value("https://stored-rerank.example.com/v1/rerank"))
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.baseUrl").value("https://stored-rerank.example.com/v1"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.model").value("stored-rerank-model"));
     }
 
@@ -451,7 +451,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         "stored-chat-model",
                         "https://stored-embedding.example.com/v1",
                         "stored-embedding-model",
-                        "https://stored-rerank.example.com/v1/rerank",
+                        "https://stored-rerank.example.com/v1",
                         "stored-rerank-model"
                 ),
                 null,
@@ -465,7 +465,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                         "runtime-chat-model",
                         "https://runtime-embedding.example.com/v1",
                         "runtime-embedding-model",
-                        "https://runtime-rerank.example.com/v1/rerank",
+                        "https://runtime-rerank.example.com/v1",
                         "runtime-rerank-model"
                 ),
                 "DEFAULTS",
@@ -484,7 +484,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                         "stored-chat-model",
                                         "https://stored-embedding.example.com/v1",
                                         "stored-embedding-model",
-                                        "https://stored-rerank.example.com/v1/rerank",
+                                        "https://stored-rerank.example.com/v1",
                                         "stored-rerank-model"
                                 ),
                                 "expectedVersion", "5",
@@ -774,7 +774,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(jsonPath("$.data.version").value("5"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
-                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.QWEN_RERANK));
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.OPENAI_RERANK));
 
         mockMvc.perform(post("/api/admin/ai-config/runtime/sync")
                         .with(bearer(adminToken))
@@ -788,14 +788,14 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 .andExpect(jsonPath("$.data.runtime.version").value("5"))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.chat.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
                 .andExpect(jsonPath("$.data.config.provider.providers.qwen.embedding.protocol").value(AiOpsProtocols.OPENAI_COMPAT))
-                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.QWEN_RERANK));
+                .andExpect(jsonPath("$.data.config.provider.providers.qwen.rerank.protocol").value(AiOpsProtocols.OPENAI_RERANK));
 
         assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").chat().protocol())
                 .isEqualTo(AiOpsProtocols.OPENAI_COMPAT);
         assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").embedding().protocol())
                 .isEqualTo(AiOpsProtocols.OPENAI_COMPAT);
         assertThat(stubAiGatewayClient.lastAppliedConfig.provider().providers().get("qwen").rerank().protocol())
-                .isEqualTo(AiOpsProtocols.QWEN_RERANK);
+                .isEqualTo(AiOpsProtocols.OPENAI_RERANK);
     }
 
     @Test
@@ -899,7 +899,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                 "qwen-max",
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 "text-embedding-v4",
-                "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+                "https://api.siliconflow.cn/v1",
                 "gte-rerank-v2"
         );
     }
@@ -940,7 +940,7 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 1024
                                         ),
                                         new AiOpsRerankConfig(
-                                                AiOpsProtocols.QWEN_RERANK,
+                                                AiOpsProtocols.OPENAI_RERANK,
                                                 qwenRerankBaseUrl,
                                                 "rerank-secret-001",
                                                 qwenRerankModel,
@@ -970,8 +970,8 @@ class AdminAiConfigControllerIntegrationTest extends AbstractWebIntegrationTest 
                                                 1024
                                         ),
                                         new AiOpsRerankConfig(
-                                                AiOpsProtocols.QWEN_RERANK,
-                                                "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+                                                AiOpsProtocols.OPENAI_RERANK,
+                                                "https://api.siliconflow.cn/v1",
                                                 "rerank-secret-002",
                                                 "gte-rerank-v2",
                                                 "PT3S",

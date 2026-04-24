@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.ai.integration.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
@@ -10,6 +11,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -23,17 +25,20 @@ import java.util.Map;
 public class QwenRerankClient implements RerankClient {
 
     private final AiRuntimeConfigService runtimeConfigService;
+    private final ObjectMapper objectMapper;
     private final ResilientAiExecutor resilientAiExecutor;
     private final AiProviderObservationService observationService;
     private final ProviderRequestContextHolder requestContextHolder;
 
     public QwenRerankClient(
             AiRuntimeConfigService runtimeConfigService,
+            ObjectMapper objectMapper,
             ResilientAiExecutor resilientAiExecutor,
             AiProviderObservationService observationService,
             ProviderRequestContextHolder requestContextHolder
     ) {
         this.runtimeConfigService = runtimeConfigService;
+        this.objectMapper = objectMapper;
         this.resilientAiExecutor = resilientAiExecutor;
         this.observationService = observationService;
         this.requestContextHolder = requestContextHolder;
@@ -51,13 +56,14 @@ public class QwenRerankClient implements RerankClient {
         requestContextHolder.clear();
 
         try {
+            boolean chatRerank = AiOpsProtocols.OPENAI_CHAT_RERANK.equals(runtime.definition().rerank().protocol());
             JsonNode response = resilientAiExecutor.execute(runtime, "rerank", () -> runtime.rerankRestClient().post()
-                    .uri("")
-                    .body(buildPayload(request, model))
+                    .uri(chatRerank ? "/v1/chat/completions" : "/v1/rerank")
+                    .body(chatRerank ? buildChatPayload(request, model) : buildRerankPayload(request, model))
                     .retrieve()
                     .body(JsonNode.class));
 
-            List<RerankItem> items = mapItems(request, response);
+            List<RerankItem> items = chatRerank ? mapChatItems(request, response) : mapItems(request, response);
             Integer totalTokens = resolveTotalTokens(response);
             String requestId = resolveRequestId(response);
             RerankResponse rerankResponse = new RerankResponse(
@@ -81,35 +87,54 @@ public class QwenRerankClient implements RerankClient {
         }
     }
 
-    private Map<String, Object> buildPayload(RerankRequest request, String model) {
+    private Map<String, Object> buildRerankPayload(RerankRequest request, String model) {
         Integer topN = request.topN() != null ? request.topN() : request.documents().size();
-
-        if (model.startsWith("qwen3-rerank")) {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("model", model);
-            payload.put("query", request.query());
-            payload.put("documents", request.documents());
-            payload.put("top_n", topN);
-            if (StringUtils.hasText(request.instruct())) {
-                payload.put("instruct", request.instruct());
-            }
-            return payload;
-        }
-
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", model);
-        payload.put("input", Map.of(
-                "query", request.query(),
-                "documents", request.documents()
-        ));
-        Map<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("top_n", topN);
-        parameters.put("return_documents", request.returnDocuments() == null || request.returnDocuments());
+        payload.put("query", request.query());
+        payload.put("documents", request.documents());
+        payload.put("top_n", topN);
+        payload.put("return_documents", request.returnDocuments() == null || request.returnDocuments());
         if (StringUtils.hasText(request.instruct())) {
-            parameters.put("instruct", request.instruct());
+            payload.put("instruction", request.instruct());
         }
-        payload.put("parameters", parameters);
         return payload;
+    }
+
+    private Map<String, Object> buildChatPayload(RerankRequest request, String model) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", model);
+        payload.put("temperature", 0);
+        payload.put("messages", List.of(
+                Map.of(
+                        "role", "system",
+                        "content", "You are a reranking engine. Return only valid JSON with results sorted by relevance."
+                ),
+                Map.of(
+                        "role", "user",
+                        "content", buildChatPrompt(request)
+                )
+        ));
+        payload.put("response_format", Map.of("type", "json_object"));
+        return payload;
+    }
+
+    private String buildChatPrompt(RerankRequest request) {
+        Integer topN = request.topN() != null ? request.topN() : request.documents().size();
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("Rank the documents by relevance to the query. ")
+                .append("Return JSON only in this format: {\"results\":[{\"index\":0,\"relevance_score\":0.95}]}. ")
+                .append("index must be the original zero-based document index. relevance_score must be between 0 and 1. ")
+                .append("Return at most ").append(topN).append(" results.");
+        if (StringUtils.hasText(request.instruct())) {
+            prompt.append("\nInstruction: ").append(request.instruct());
+        }
+        prompt.append("\nQuery: ").append(request.query());
+        prompt.append("\nDocuments:");
+        for (int index = 0; index < request.documents().size(); index++) {
+            prompt.append("\n[").append(index).append("] ").append(request.documents().get(index));
+        }
+        return prompt.toString();
     }
 
     private List<RerankItem> mapItems(RerankRequest request, JsonNode response) {
@@ -126,15 +151,41 @@ public class QwenRerankClient implements RerankClient {
             String document = null;
             if (returnDocuments) {
                 JsonNode documentNode = item.path("document");
-                document = documentNode.isTextual()
-                        ? documentNode.asText()
-                        : index >= 0 && index < request.documents().size() ? request.documents().get(index) : null;
+                JsonNode documentTextNode = documentNode.path("text");
+                if (documentNode.isTextual()) {
+                    document = documentNode.asText();
+                } else if (documentTextNode.isTextual()) {
+                    document = documentTextNode.asText();
+                } else if (index >= 0 && index < request.documents().size()) {
+                    document = request.documents().get(index);
+                }
             }
             items.add(new RerankItem(index, score, document));
         }
 
         items.sort(Comparator.comparing(RerankItem::relevanceScore).reversed());
         return items;
+    }
+
+    private List<RerankItem> mapChatItems(RerankRequest request, JsonNode response) throws java.io.IOException {
+        String content = response.path("choices").path(0).path("message").path("content").asText();
+        JsonNode parsed = objectMapper.readTree(stripJsonFence(content));
+        return mapItems(request, parsed);
+    }
+
+    private String stripJsonFence(String content) {
+        if (content == null) {
+            return "{}";
+        }
+        String trimmed = content.trim();
+        if (trimmed.startsWith("```")) {
+            int firstLineEnd = trimmed.indexOf('\n');
+            int lastFenceStart = trimmed.lastIndexOf("```");
+            if (firstLineEnd >= 0 && lastFenceStart > firstLineEnd) {
+                return trimmed.substring(firstLineEnd + 1, lastFenceStart).trim();
+            }
+        }
+        return trimmed;
     }
 
     private Integer resolveTotalTokens(JsonNode response) {
@@ -150,6 +201,9 @@ public class QwenRerankClient implements RerankClient {
 
     private String resolveRequestId(JsonNode response) {
         JsonNode requestId = response.path("request_id");
+        if (requestId.isMissingNode() || requestId.isNull()) {
+            requestId = response.path("id");
+        }
         if (!requestId.isMissingNode() && !requestId.isNull()) {
             return requestId.asText();
         }

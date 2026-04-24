@@ -92,7 +92,7 @@ class RagSchemaDimensionGuardTest {
         AiOpsProviderDefinition provider = new AiOpsProviderDefinition(
                 new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "chat-key", "qwen-max", "PT3S", "PT30S", 0.2d, 1024),
                 new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "embed-key", "text-embedding-v4", "PT3S", "PT30S", embeddingDimension),
-                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com/rerank", "rerank-key", "gte-rerank-v2", "PT3S", "PT30S")
+                new AiOpsRerankConfig(AiOpsProtocols.OPENAI_RERANK, "https://example.com/v1", "rerank-key", "gte-rerank-v2", "PT3S", "PT30S")
         );
         return new AiOpsConfigPayload(
                 new AiOpsProviderConfig("qwen", "deepseek", Map.of("qwen", provider, "deepseek", provider)),

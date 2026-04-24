@@ -18,7 +18,7 @@ class AiOpsConfigPayloadNormalizerTest {
         AiOpsProviderDefinition normalized = normalizer.normalizeProviderDefinition(new AiOpsProviderDefinition(
                 new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "chat-key", "qwen-max", null, "PT30S", 0.2d, 1024),
                 new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "embed-key", "text-embedding-v4", "PT3S", null, 1024),
-                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com/rerank", "rerank-key", "gte-rerank-v2", null, "PT15S")
+                new AiOpsRerankConfig(AiOpsProtocols.OPENAI_RERANK, "https://example.com/v1", "rerank-key", "gte-rerank-v2", null, "PT15S")
         ));
 
         assertThat(normalized.chat().connectTimeout()).isEqualTo("PT30S");

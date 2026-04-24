@@ -37,8 +37,8 @@ class AiOpsConfigPayloadCompatibilityTest {
                           "dimension": 1536
                         },
                         "rerank": {
-                          "protocol": "qwen-rerank",
-                          "baseUrl": "https://example.com/rerank",
+                          "protocol": "openai-compat",
+                          "baseUrl": "https://example.com/v1",
                           "apiKey": "rerank-key",
                           "model": "gte-rerank-v2",
                           "timeout": "PT8S"

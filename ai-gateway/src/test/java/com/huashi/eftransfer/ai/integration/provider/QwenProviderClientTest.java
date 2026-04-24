@@ -228,7 +228,7 @@ class QwenProviderClientTest {
         embeddingProperties.setDimension(1024);
 
         AiProviderProperties.RerankProperties rerankProperties = new AiProviderProperties.RerankProperties();
-        rerankProperties.setBaseUrl(wireMockServer.baseUrl() + "/rerank");
+        rerankProperties.setBaseUrl(wireMockServer.baseUrl() + "/v1");
         rerankProperties.setApiKey("test-api-key");
         rerankProperties.setModel("gte-rerank-v2");
 

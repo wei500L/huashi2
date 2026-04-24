@@ -186,7 +186,7 @@ public class AiProviderProperties {
 
     public static class RerankProperties extends BaseModelProperties {
         public RerankProperties() {
-            setProtocol("qwen-rerank");
+            setProtocol("openai-rerank");
         }
     }
 }

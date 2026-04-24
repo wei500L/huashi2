@@ -12,10 +12,11 @@ import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
@@ -64,7 +66,7 @@ class QwenRerankClientTest {
     void setUp() {
         wireMockServer.resetAll();
         AiProviderConfiguration configuration = new AiProviderConfiguration();
-        AiProviderProperties properties = buildProperties();
+        AiProviderProperties properties = buildProperties(AiOpsProtocols.OPENAI_RERANK);
         RagProperties ragProperties = buildRagProperties();
         ProviderRequestContextHolder contextHolder = configuration.providerRequestContextHolder();
         ClientHttpRequestInterceptor interceptor = configuration.providerRequestCaptureInterceptor(contextHolder);
@@ -85,6 +87,7 @@ class QwenRerankClientTest {
         when(runtimeConfigService.current()).thenReturn(runtimeBundle);
         rerankClient = new QwenRerankClient(
                 runtimeConfigService,
+                objectMapper,
                 resilientAiExecutor,
                 new AiProviderObservationService(new SimpleMeterRegistry(), providerErrorSupport, contextHolder),
                 contextHolder
@@ -92,22 +95,20 @@ class QwenRerankClientTest {
     }
 
     @Test
-    void shouldCallGteRerankProtocol() {
-        stubFor(post(urlEqualTo("/rerank"))
+    void shouldCallOpenAiCompatibleRerankProtocol() {
+        stubFor(post(urlEqualTo("/v1/rerank"))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
                                 {
-                                  "request_id": "rerank-req-1",
+                                  "id": "rerank-req-1",
                                   "usage": {
                                     "total_tokens": 21
                                   },
-                                  "output": {
-                                    "results": [
-                                      {"index": 1, "relevance_score": 0.91, "document": "doc-b"},
-                                      {"index": 0, "relevance_score": 0.35, "document": "doc-a"}
-                                    ]
-                                  }
+                                  "results": [
+                                    {"index": 1, "relevance_score": 0.91, "document": {"text": "doc-b"}},
+                                    {"index": 0, "relevance_score": 0.35, "document": {"text": "doc-a"}}
+                                  ]
                                 }
                                 """)));
 
@@ -124,16 +125,17 @@ class QwenRerankClientTest {
         assertThat(response.items()).hasSize(2);
         assertThat(response.items().get(0).index()).isEqualTo(1);
         assertThat(response.items().get(0).relevanceScore()).isEqualTo(0.91D);
+        assertThat(response.items().get(0).document()).isEqualTo("doc-b");
 
-        wireMockServer.verify(postRequestedFor(urlEqualTo("/rerank"))
-                .withRequestBody(matchingJsonPath("$.input.query", equalTo("hello")))
-                .withRequestBody(matchingJsonPath("$.parameters.top_n", equalTo("2")))
-                .withRequestBody(matchingJsonPath("$.parameters.return_documents", equalTo("true"))));
+        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/rerank"))
+                .withRequestBody(matchingJsonPath("$.query", equalTo("hello")))
+                .withRequestBody(matchingJsonPath("$.top_n", equalTo("2")))
+                .withRequestBody(matchingJsonPath("$.return_documents", equalTo("true"))));
     }
 
     @Test
-    void shouldCallQwen3RerankProtocol() {
-        stubFor(post(urlEqualTo("/rerank"))
+    void shouldSendInstructionWhenPresent() {
+        stubFor(post(urlEqualTo("/v1/rerank"))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
@@ -159,13 +161,83 @@ class QwenRerankClientTest {
         assertThat(response.items()).hasSize(2);
         assertThat(response.items().get(0).document()).isNull();
 
-        wireMockServer.verify(postRequestedFor(urlEqualTo("/rerank"))
+        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/rerank"))
                 .withRequestBody(matchingJsonPath("$.query", equalTo("hello")))
                 .withRequestBody(matchingJsonPath("$.top_n", equalTo("1")))
-                .withRequestBody(matchingJsonPath("$.instruct", equalTo("teacher mode"))));
+                .withRequestBody(matchingJsonPath("$.instruction", equalTo("teacher mode"))));
     }
 
-    private AiProviderProperties buildProperties() {
+    @Test
+    void shouldCallOpenAiChatCompletionsRerankProtocol() {
+        rerankClient = buildClient(AiOpsProtocols.OPENAI_CHAT_RERANK);
+        stubFor(post(urlEqualTo("/v1/chat/completions"))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "id": "chat-rerank-req-1",
+                                  "choices": [
+                                    {
+                                      "message": {
+                                        "content": "{\"results\":[{\"index\":1,\"relevance_score\":0.88},{\"index\":0,\"relevance_score\":0.31}]}"
+                                      }
+                                    }
+                                  ],
+                                  "usage": {
+                                    "total_tokens": 33
+                                  }
+                                }
+                                """)));
+
+        RerankResponse response = rerankClient.rerank("qwen", new RerankRequest(
+                null,
+                "hello",
+                List.of("doc-a", "doc-b"),
+                2,
+                true,
+                "teacher mode"
+        ));
+
+        assertThat(response.providerRequestId()).isEqualTo("chat-rerank-req-1");
+        assertThat(response.totalTokens()).isEqualTo(33);
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(0).index()).isEqualTo(1);
+        assertThat(response.items().get(0).document()).isEqualTo("doc-b");
+
+        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.model", equalTo("gte-rerank-v2")))
+                .withRequestBody(matchingJsonPath("$.messages[1].content", containing("teacher mode")))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_object"))));
+    }
+
+    private QwenRerankClient buildClient(String rerankProtocol) {
+        AiProviderConfiguration configuration = new AiProviderConfiguration();
+        ProviderRequestContextHolder contextHolder = configuration.providerRequestContextHolder();
+        ClientHttpRequestInterceptor interceptor = configuration.providerRequestCaptureInterceptor(contextHolder);
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        ProviderErrorSupport providerErrorSupport = new ProviderErrorSupport(objectMapper, new SensitiveDataRedactor());
+        AiResilienceProperties resilienceProperties = new AiResilienceProperties();
+        resilienceProperties.setMaxAttempts(1);
+        AiRuntimeBundleFactory bundleFactory = new AiRuntimeBundleFactory(RestClient.builder(), interceptor, providerErrorSupport);
+        AiRuntimeBundle runtimeBundle = bundleFactory.fromProperties(
+                buildProperties(rerankProtocol),
+                resilienceProperties,
+                buildRagProperties(),
+                "TEST",
+                1L
+        );
+        AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
+        when(runtimeConfigService.current()).thenReturn(runtimeBundle);
+        return new QwenRerankClient(
+                runtimeConfigService,
+                objectMapper,
+                new ResilientAiExecutor(),
+                new AiProviderObservationService(new SimpleMeterRegistry(), providerErrorSupport, contextHolder),
+                contextHolder
+        );
+    }
+
+    private AiProviderProperties buildProperties(String rerankProtocol) {
         AiProviderProperties properties = new AiProviderProperties();
         properties.setActiveProvider("qwen");
 
@@ -180,7 +252,8 @@ class QwenRerankClientTest {
         embeddingProperties.setModel("text-embedding-v4");
 
         AiProviderProperties.RerankProperties rerankProperties = new AiProviderProperties.RerankProperties();
-        rerankProperties.setBaseUrl(wireMockServer.baseUrl() + "/rerank");
+        rerankProperties.setProtocol(rerankProtocol);
+        rerankProperties.setBaseUrl(wireMockServer.baseUrl() + "/v1");
         rerankProperties.setApiKey("test-api-key");
         rerankProperties.setModel("gte-rerank-v2");
 

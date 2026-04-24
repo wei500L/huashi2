@@ -127,7 +127,7 @@ class AiRuntimeConfigServiceTest {
                 "stored-chat-model",
                 "https://stored-embedding.example.com/v1",
                 "stored-embedding-model",
-                "https://stored-rerank.example.com/v1/rerank",
+                "https://stored-rerank.example.com/v1",
                 "stored-rerank-model"
         );
         server.removeContext("/internal/ops/ai-config");
@@ -158,7 +158,7 @@ class AiRuntimeConfigServiceTest {
         assertThat(providerRuntime.definition().chat().model()).isEqualTo("stored-chat-model");
         assertThat(providerRuntime.definition().embedding().baseUrl()).isEqualTo("https://stored-embedding.example.com/v1");
         assertThat(providerRuntime.definition().embedding().model()).isEqualTo("stored-embedding-model");
-        assertThat(providerRuntime.definition().rerank().baseUrl()).isEqualTo("https://stored-rerank.example.com/v1/rerank");
+        assertThat(providerRuntime.definition().rerank().baseUrl()).isEqualTo("https://stored-rerank.example.com/v1");
         assertThat(providerRuntime.definition().rerank().model()).isEqualTo("stored-rerank-model");
     }
 
@@ -455,13 +455,13 @@ class AiRuntimeConfigServiceTest {
                                 new AiOpsProviderDefinition(
                                         new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, qwenChatBaseUrl, "chat-key", qwenChatModel, "PT3S", "PT30S", 0.2d, 1024),
                                         new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, qwenEmbeddingBaseUrl, "embed-key", qwenEmbeddingModel, "PT3S", "PT30S", 1024),
-                                        new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, qwenRerankBaseUrl, "rerank-key", qwenRerankModel, "PT3S", "PT30S")
+                                        new AiOpsRerankConfig(AiOpsProtocols.OPENAI_RERANK, qwenRerankBaseUrl, "rerank-key", qwenRerankModel, "PT3S", "PT30S")
                                 ),
                                 "deepseek",
                                 new AiOpsProviderDefinition(
                                         new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-chat-key", "deepseek-chat", "PT3S", "PT30S", 0.2d, 1024),
                                         new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "backup-embed-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
-                                        new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT3S", "PT30S")
+                                        new AiOpsRerankConfig(AiOpsProtocols.OPENAI_RERANK, "https://example.com", "backup-rerank-key", "gte-rerank-v2", "PT3S", "PT30S")
                                 )
                         )
                 ),

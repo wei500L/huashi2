@@ -122,7 +122,7 @@ class RagServiceTest {
         AiOpsProviderDefinition providerDefinition = new AiOpsProviderDefinition(
                 new AiOpsChatConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "qwen-max", "PT3S", "PT30S", 0.2d, 1024),
                 new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, "https://example.com/v1", "test-api-key", "text-embedding-v4", "PT3S", "PT30S", 1024),
-                new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, "https://example.com", "test-api-key", "gte-rerank-v2", "PT3S", "PT30S")
+                new AiOpsRerankConfig(AiOpsProtocols.OPENAI_RERANK, "https://example.com", "test-api-key", "gte-rerank-v2", "PT3S", "PT30S")
         );
         AiProviderRuntime providerRuntime = new AiProviderRuntime(
                 "qwen",

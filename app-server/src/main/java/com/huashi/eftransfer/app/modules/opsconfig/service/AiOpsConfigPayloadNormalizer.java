@@ -120,10 +120,10 @@ public class AiOpsConfigPayloadNormalizer {
 
     private AiOpsRerankConfig normalizeRerankConfig(AiOpsRerankConfig config) {
         if (config == null) {
-            return new AiOpsRerankConfig(AiOpsProtocols.QWEN_RERANK, null, null, null, null, null);
+            return new AiOpsRerankConfig(AiOpsProtocols.OPENAI_RERANK, null, null, null, null, null);
         }
         return new AiOpsRerankConfig(
-                defaultProtocol(config.protocol(), AiOpsProtocols.QWEN_RERANK),
+                defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_RERANK),
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),

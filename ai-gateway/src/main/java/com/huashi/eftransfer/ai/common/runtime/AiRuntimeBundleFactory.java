@@ -183,7 +183,7 @@ public class AiRuntimeBundleFactory {
 
         requireSupportedProtocol(providerName, "chat", chatConfig.protocol(), AiOpsProtocols.OPENAI_COMPAT);
         requireSupportedProtocol(providerName, "embedding", embeddingConfig.protocol(), AiOpsProtocols.OPENAI_COMPAT);
-        requireSupportedProtocol(providerName, "rerank", rerankConfig.protocol(), AiOpsProtocols.QWEN_RERANK);
+        requireSupportedRerankProtocol(providerName, rerankConfig.protocol());
 
         OpenAiApi chatApi = OpenAiApi.builder()
                 .baseUrl(normalizeOpenAiBaseUrl(chatConfig.baseUrl()))
@@ -226,13 +226,13 @@ public class AiRuntimeBundleFactory {
         );
 
         RestClient.Builder rerankBuilder = providerRestClientBuilder(
-                rerankConfig.baseUrl(),
+                normalizeOpenAiBaseUrl(rerankConfig.baseUrl()),
                 rerankConfig.apiKey(),
                 parseDuration(rerankConfig.connectTimeout()),
                 parseDuration(rerankConfig.readTimeout())
         );
         if (StringUtils.hasText(rerankConfig.baseUrl())) {
-            rerankBuilder.baseUrl(rerankConfig.baseUrl());
+            rerankBuilder.baseUrl(normalizeOpenAiBaseUrl(rerankConfig.baseUrl()));
         }
 
         RetryRegistry retryRegistry = RetryRegistry.of(RetryConfig.custom()
@@ -411,5 +411,17 @@ public class AiRuntimeBundleFactory {
                     "Unsupported " + capability + " protocol '" + actual + "' for provider " + providerName + "; expected " + expected
             );
         }
+    }
+
+    private void requireSupportedRerankProtocol(String providerName, String actual) {
+        if (AiOpsProtocols.OPENAI_RERANK.equals(actual)
+                || AiOpsProtocols.OPENAI_CHAT_RERANK.equals(actual)
+                || AiOpsProtocols.OPENAI_COMPAT.equals(actual)) {
+            return;
+        }
+        throw new IllegalArgumentException(
+                "Unsupported rerank protocol '" + actual + "' for provider " + providerName
+                        + "; expected one of " + AiOpsProtocols.OPENAI_RERANK + ", " + AiOpsProtocols.OPENAI_CHAT_RERANK
+        );
     }
 }

@@ -68,14 +68,15 @@ ai:
           temperature: ${AI_CHAT_TEMPERATURE:0.2}
           max-tokens: ${AI_CHAT_MAX_TOKENS:2048}
         embedding:
-          base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+          base-url: ${AI_EMBEDDING_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}
           api-key: ${AI_OPENAI_API_KEY:}
           model: ${AI_EMBEDDING_MODEL:text-embedding-v4}
           connect-timeout: ${AI_EMBEDDING_CONNECT_TIMEOUT:PT3S}
           read-timeout: ${AI_EMBEDDING_READ_TIMEOUT:PT30S}
           dimension: ${AI_EMBEDDING_DIMENSION:1024}
         rerank:
-          base-url: ${AI_RERANK_URL:https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank}
+          protocol: ${AI_RERANK_PROTOCOL:openai-rerank}
+          base-url: ${AI_RERANK_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}
           api-key: ${AI_OPENAI_API_KEY:}
           model: ${AI_RERANK_MODEL:gte-rerank-v2}
           connect-timeout: ${AI_RERANK_CONNECT_TIMEOUT:PT3S}
@@ -90,14 +91,15 @@ ai:
           temperature: ${AI_FALLBACK_CHAT_TEMPERATURE:${AI_CHAT_TEMPERATURE:0.2}}
           max-tokens: ${AI_FALLBACK_CHAT_MAX_TOKENS:${AI_CHAT_MAX_TOKENS:2048}}
         embedding:
-          base-url: ${AI_FALLBACK_EMBEDDING_BASE_URL:${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}}
+          base-url: ${AI_FALLBACK_EMBEDDING_BASE_URL:${AI_EMBEDDING_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}}
           api-key: ${AI_FALLBACK_EMBEDDING_API_KEY:${AI_OPENAI_API_KEY:}}
           model: ${AI_FALLBACK_EMBEDDING_MODEL:${AI_EMBEDDING_MODEL:text-embedding-v4}}
           connect-timeout: ${AI_FALLBACK_EMBEDDING_CONNECT_TIMEOUT:${AI_EMBEDDING_CONNECT_TIMEOUT:PT3S}}
           read-timeout: ${AI_FALLBACK_EMBEDDING_READ_TIMEOUT:${AI_EMBEDDING_READ_TIMEOUT:PT30S}}
           dimension: ${AI_FALLBACK_EMBEDDING_DIMENSION:${AI_EMBEDDING_DIMENSION:1024}}
         rerank:
-          base-url: ${AI_FALLBACK_RERANK_URL:${AI_RERANK_URL:https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank}}
+          protocol: ${AI_FALLBACK_RERANK_PROTOCOL:${AI_RERANK_PROTOCOL:openai-rerank}}
+          base-url: ${AI_FALLBACK_RERANK_BASE_URL:${AI_RERANK_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}}
           api-key: ${AI_FALLBACK_RERANK_API_KEY:${AI_OPENAI_API_KEY:}}
           model: ${AI_FALLBACK_RERANK_MODEL:${AI_RERANK_MODEL:gte-rerank-v2}}
           connect-timeout: ${AI_FALLBACK_RERANK_CONNECT_TIMEOUT:${AI_RERANK_CONNECT_TIMEOUT:PT3S}}

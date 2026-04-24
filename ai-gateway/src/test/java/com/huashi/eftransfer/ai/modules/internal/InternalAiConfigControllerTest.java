@@ -92,7 +92,7 @@ class InternalAiConfigControllerTest {
                                       "deepseek": {
                                         "chat": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "temperature": 0.2, "maxTokens": 1024},
                                         "embedding": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "dimension": 1024},
-                                        "rerank": {"protocol": "qwen-rerank", "baseUrl": "https://example.com", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S"}
+                                        "rerank": {"protocol": "openai-rerank", "baseUrl": "https://example.com", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S"}
                                       }
                                     }
                                   },
@@ -138,7 +138,7 @@ class InternalAiConfigControllerTest {
                                         "deepseek": {
                                           "chat": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "temperature": 0.2, "maxTokens": 1024},
                                           "embedding": {"protocol": "openai-compat", "baseUrl": "https://example.com/v1", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S", "dimension": 1024},
-                                          "rerank": {"protocol": "qwen-rerank", "baseUrl": "https://example.com", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S"}
+                                          "rerank": {"protocol": "openai-rerank", "baseUrl": "https://example.com", "apiKey": "x", "model": "m", "connectTimeout": "PT3S", "readTimeout": "PT30S"}
                                         }
                                       }
                                     },
