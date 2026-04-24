@@ -149,6 +149,9 @@ export const NotificationBell: React.FC = () => {
     let socket: WebSocket | null = null;
 
     const connect = () => {
+      if (closedByEffect) {
+        return;
+      }
       socket = new WebSocket(wsUrl);
       socket.onmessage = handleSocketMessage;
       socket.onclose = () => {
@@ -159,7 +162,7 @@ export const NotificationBell: React.FC = () => {
       };
     };
 
-    connect();
+    reconnectTimer = window.setTimeout(connect, 0);
 
     return () => {
       closedByEffect = true;

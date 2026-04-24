@@ -724,7 +724,7 @@ CREATE TABLE lexical_pair (
   source varchar(255) DEFAULT NULL,
   searchable_text text NOT NULL,
   search_pinyin varchar(1024) DEFAULT NULL,
-  search_initials varchar(255) DEFAULT NULL,
+  search_initials varchar(1024) DEFAULT NULL,
   knowledge_status varchar(32) NOT NULL DEFAULT 'DRAFT',
   embedding_status varchar(32) NOT NULL DEFAULT 'PENDING',
   last_embedded_at timestamp NULL DEFAULT NULL,

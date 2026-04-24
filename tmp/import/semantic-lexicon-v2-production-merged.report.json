@@ -1,0 +1,108 @@
+{
+  "output": "tmp/import/semantic-lexicon-v2-production-merged.csv",
+  "unique_rows": 257,
+  "duplicates_skipped": 118,
+  "conflicting_duplicates_skipped": 10,
+  "source_order": [
+    "docs/semantic-lexicon-v2-import-ready-full.csv",
+    "docs/semantic-lexicon-v2-import-ready-pack-2.csv",
+    "docs/semantic-lexicon-v2-import-ready-high-risk-false-friends-pack-2.csv",
+    "docs/semantic-lexicon-v2-import-ready-pack-3.fixed.csv",
+    "docs/semantic-lexicon-v2-import-ready-pack-4.csv",
+    "docs/semantic-lexicon-v2-import-ready-80.csv",
+    "docs/semantic-lexicon-v2-import-ready-high-risk-false-friends.csv",
+    "docs/semantic-lexicon-v2-import-ready.csv"
+  ],
+  "conflicts_sample": [
+    {
+      "key": [
+        "location",
+        "location"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready-high-risk-false-friends.csv",
+      "line": 6
+    },
+    {
+      "key": [
+        "stage",
+        "stage"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready-high-risk-false-friends.csv",
+      "line": 8
+    },
+    {
+      "key": [
+        "lecture",
+        "lecture"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready-high-risk-false-friends.csv",
+      "line": 9
+    },
+    {
+      "key": [
+        "coin",
+        "coin"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready.csv",
+      "line": 2
+    },
+    {
+      "key": [
+        "actually",
+        "actuellement"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready.csv",
+      "line": 3
+    },
+    {
+      "key": [
+        "library",
+        "librairie"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready.csv",
+      "line": 4
+    },
+    {
+      "key": [
+        "table",
+        "table"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready.csv",
+      "line": 12
+    },
+    {
+      "key": [
+        "important",
+        "important"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready.csv",
+      "line": 13
+    },
+    {
+      "key": [
+        "nation",
+        "nation"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready.csv",
+      "line": 14
+    },
+    {
+      "key": [
+        "journal",
+        "journal"
+      ],
+      "kept_from": "docs/semantic-lexicon-v2-import-ready-full.csv",
+      "skipped_from": "docs/semantic-lexicon-v2-import-ready.csv",
+      "line": 16
+    }
+  ]
+}
