@@ -96,3 +96,32 @@ Confirmed:
 ### AI Gateway external actuator probe
 - `ai_gateway_actuator_health.txt`: STATUS 500
 - body: `{"success":false,"code":"INTERNAL_ERROR","message":"Unexpected error while handling request /actuator/health"...}`
+
+## P1-005 P1-006 P1-007 fix rerun
+Date: 2026-04-25T16:39:46+08:00
+Entry: http://127.0.0.1:3000
+
+### Docker snapshot after fix rerun
+NAME                     IMAGE                    COMMAND                  SERVICE      CREATED              STATUS                    PORTS
+ef-transfer-ai-gateway   ef-transfer-ai-gateway   "java -jar /app/app.…"   ai-gateway   8 minutes ago   Up 8 minutes (healthy)   0.0.0.0:8090->8090/tcp, [::]:8090->8090/tcp
+ef-transfer-app-server   ef-transfer-app-server   "java -jar /app/app.…"   app-server   8 minutes ago   Up 8 minutes (healthy)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+ef-transfer-frontend     ef-transfer-frontend     "/docker-entrypoint.…"   frontend     8 minutes ago   Up 8 minutes (healthy)   0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+
+### API probe summary
+- `teacher_workspace.json`: `code=SUCCESS`
+- `teacher_workspace_overview.json`: `recentClasses[0].className=2024级英法迁移试点1班`
+- `teacher_classes.json`: `data[0].className=2024级英法迁移试点1班`
+- `student_analytics_overview.json`: `studentName=李华`
+- `admin_ai_health.json`: `status=UP`
+- `ai_gateway_actuator_health.txt`: `HTTP/1.1 200`
+
+### Browser smoke summary after fixes
+- teacher: `teacher.zhang / Teacher@123456` login succeeded, landed on `/teacher/workspace`, screenshot `screenshots/prod-rerun-teacher-workspace.png`, class and publish text rendered normally.
+- student: `student.li / Student@123456` login succeeded, landed on `/dashboard`, screenshot `screenshots/prod-rerun-student-dashboard.png`, heading rendered as `李华，当前主风险为 低风险`.
+- admin: `admin.qa / QaAdmin@123456` login succeeded; direct routes `/admin/dashboard` and `/admin/config-center` rendered correctly, screenshots `screenshots/prod-rerun-admin-dashboard-direct.png` and `screenshots/prod-rerun-admin-config-center-direct.png`.
+
+### Current outcome
+- P1-005 fixed
+- P1-006 fixed
+- P1-007 fixed
+- Remaining blocking items: P1-001, P1-002, P1-003

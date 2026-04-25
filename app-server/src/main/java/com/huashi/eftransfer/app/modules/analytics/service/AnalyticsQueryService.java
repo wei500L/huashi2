@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.modules.analytics.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
+import com.huashi.eftransfer.app.common.util.TextMojibakeNormalizer;
 import com.huashi.eftransfer.app.modules.achievement.service.AchievementService;
 import com.huashi.eftransfer.app.modules.analytics.entity.AnalyticsDailyAggregateEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.ClassAnalyticsDailyAggregateEntity;
@@ -717,7 +718,9 @@ public class AnalyticsQueryService {
         StudentAnalyticsSnapshotPayload payload = snapshot == null ? null : readStudentSnapshotPayload(snapshot);
         return new StudentProfileSummaryVO(
                 studentUserId,
-                payload != null && payload.studentName() != null ? payload.studentName() : user == null ? null : user.getDisplayName(),
+                payload != null && payload.studentName() != null
+                        ? payload.studentName()
+                        : user == null ? null : TextMojibakeNormalizer.normalize(user.getDisplayName()),
                 payload != null && payload.gradeName() != null ? payload.gradeName() : studentProfile == null ? null : studentProfile.getGradeName(),
                 snapshot == null ? "LOW" : snapshot.getPrimaryRiskLevel(),
                 snapshot == null ? 0d : decimal(snapshot.getRecentAccuracy()),
@@ -754,7 +757,9 @@ public class AnalyticsQueryService {
 
     private StudentAnalyticsSnapshotPayload readStudentSnapshotPayload(LearningProfileSnapshotEntity snapshotEntity) {
         StudentAnalyticsSnapshotPayload payload = analyticsJsonCodec.read(snapshotEntity.getSnapshotJson(), StudentAnalyticsSnapshotPayload.class);
-        return payload == null ? emptyStudentPayload(snapshotEntity.getStudentUserId()) : payload;
+        return payload == null
+                ? emptyStudentPayload(snapshotEntity.getStudentUserId())
+                : normalizeStudentSnapshotPayload(payload);
     }
 
     private ClassAnalyticsSnapshotPayload readClassSnapshotPayload(
@@ -762,14 +767,14 @@ public class AnalyticsQueryService {
             TeachingClassEntity teachingClass
     ) {
         ClassAnalyticsSnapshotPayload payload = analyticsJsonCodec.read(snapshotEntity.getSnapshotJson(), ClassAnalyticsSnapshotPayload.class);
-        return payload == null ? emptyClassPayload(teachingClass) : payload;
+        return payload == null ? emptyClassPayload(teachingClass) : normalizeClassSnapshotPayload(payload);
     }
 
     private StudentAnalyticsSnapshotPayload emptyStudentPayload(Long studentUserId) {
         UserEntity user = studentUserId == null ? null : userMapper.selectById(studentUserId);
         StudentProfileEntity studentProfile = loadStudentProfile(studentUserId);
         return new StudentAnalyticsSnapshotPayload(
-                user == null ? null : user.getDisplayName(),
+                user == null ? null : TextMojibakeNormalizer.normalize(user.getDisplayName()),
                 studentProfile == null ? null : studentProfile.getGradeName(),
                 studentProfile == null ? null : studentProfile.getEnglishLevel(),
                 studentProfile == null ? null : studentProfile.getFrenchLevel(),
@@ -802,7 +807,7 @@ public class AnalyticsQueryService {
         long studentCount = teachingClassService.countActiveStudents(teachingClass.getId());
         return new ClassAnalyticsSnapshotPayload(
                 teachingClass.getClassCode(),
-                teachingClass.getClassName(),
+                TextMojibakeNormalizer.normalize(teachingClass.getClassName()),
                 teachingClass.getGradeName(),
                 Math.toIntExact(studentCount),
                 0,
@@ -816,6 +821,48 @@ public class AnalyticsQueryService {
                 List.of(),
                 List.of(),
                 List.of()
+        );
+    }
+
+    private StudentAnalyticsSnapshotPayload normalizeStudentSnapshotPayload(StudentAnalyticsSnapshotPayload payload) {
+        return new StudentAnalyticsSnapshotPayload(
+                TextMojibakeNormalizer.normalize(payload.studentName()),
+                payload.gradeName(),
+                payload.englishLevel(),
+                payload.frenchLevel(),
+                payload.lastDiagnosisSummaryId(),
+                payload.lastTrainingSessionId(),
+                payload.primaryRiskLevel(),
+                payload.recommendedTrainingMode(),
+                payload.pendingReviewCount(),
+                payload.highRiskPairCount(),
+                payload.recentAccuracy(),
+                payload.recentNegativeTransferRisk(),
+                payload.recentAvgReactionTimeMs(),
+                payload.lastActiveAt(),
+                payload.topRiskPairs(),
+                payload.errorDistribution(),
+                payload.focusTags()
+        );
+    }
+
+    private ClassAnalyticsSnapshotPayload normalizeClassSnapshotPayload(ClassAnalyticsSnapshotPayload payload) {
+        return new ClassAnalyticsSnapshotPayload(
+                payload.classCode(),
+                TextMojibakeNormalizer.normalize(payload.className()),
+                payload.gradeName(),
+                payload.studentCount(),
+                payload.activeStudentCount(),
+                payload.highRiskStudentCount(),
+                payload.recentAccuracy(),
+                payload.recentNegativeTransferRisk(),
+                payload.recentAvgReactionTimeMs(),
+                payload.primaryRiskLevel(),
+                payload.lastActiveAt(),
+                payload.riskDistribution(),
+                payload.recommendedFocusModes(),
+                payload.topRiskPairs(),
+                payload.errorDistribution()
         );
     }
 

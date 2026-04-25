@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.modules.analytics.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.common.util.TextMojibakeNormalizer;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.TeachingClassStudentEntity;
@@ -36,12 +37,16 @@ public class TeachingClassService {
         if (isAdmin()) {
             return teachingClassMapper.selectList(Wrappers.<TeachingClassEntity>lambdaQuery()
                     .eq(TeachingClassEntity::getActive, Boolean.TRUE)
-                    .orderByAsc(TeachingClassEntity::getId));
+                    .orderByAsc(TeachingClassEntity::getId)).stream()
+                    .map(this::normalizeDisplayFields)
+                    .toList();
         }
         return teachingClassMapper.selectList(Wrappers.<TeachingClassEntity>lambdaQuery()
                 .eq(TeachingClassEntity::getTeacherUserId, currentUserId())
                 .eq(TeachingClassEntity::getActive, Boolean.TRUE)
-                .orderByAsc(TeachingClassEntity::getId));
+                .orderByAsc(TeachingClassEntity::getId)).stream()
+                .map(this::normalizeDisplayFields)
+                .toList();
     }
 
     public TeachingClassEntity requireAccessibleClass(Long classId) {
@@ -52,7 +57,7 @@ public class TeachingClassService {
         if (!isAdmin() && !Objects.equals(teachingClass.getTeacherUserId(), currentUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "You do not have access to this teaching class", 403);
         }
-        return teachingClass;
+        return normalizeDisplayFields(teachingClass);
     }
 
     public Optional<TeachingClassEntity> findActiveByClassCode(String classCode) {
@@ -64,7 +69,7 @@ public class TeachingClassService {
                 .eq(TeachingClassEntity::getActive, Boolean.TRUE)
                 .apply("LOWER(class_code) = {0}", normalized)
                 .last("LIMIT 1"));
-        return Optional.ofNullable(teachingClass);
+        return Optional.ofNullable(normalizeDisplayFields(teachingClass));
     }
 
     public void requireStudentInClass(Long classId, Long studentUserId) {
@@ -142,5 +147,14 @@ public class TeachingClassService {
         return SecurityUtils.getCurrentPrincipal()
                 .map(principal -> principal.roles().contains("ADMIN"))
                 .orElse(false);
+    }
+
+    private TeachingClassEntity normalizeDisplayFields(TeachingClassEntity teachingClass) {
+        if (teachingClass == null) {
+            return null;
+        }
+        teachingClass.setClassName(TextMojibakeNormalizer.normalize(teachingClass.getClassName()));
+        teachingClass.setGradeName(TextMojibakeNormalizer.normalize(teachingClass.getGradeName()));
+        return teachingClass;
     }
 }

@@ -1,2 +1,1 @@
-STATUS 200
-{"success":true,"code":"SUCCESS","message":"Request succeeded","data":[{"classId":1,"classCode":"CLS-0001","className":"2024çº§è‹±æ³•è¿ç§»è¯•ç‚¹1ç­","gradeName":"Pilot Grade","studentCount":2}],"timestamp":"2026-04-25T08:02:12.706219924Z","traceId":"5f53de06-2aa1-41c3-89c8-997398adf446"}
+{"success":true,"code":"SUCCESS","message":"Request succeeded","data":[{"classId":1,"classCode":"CLS-0001","className":"2024级英法迁移试点1班","gradeName":"Pilot Grade","studentCount":2}],"timestamp":"2026-04-25T08:34:34.52044608Z","traceId":"095d207f-5f9a-473f-9849-a829ba074f2b"}

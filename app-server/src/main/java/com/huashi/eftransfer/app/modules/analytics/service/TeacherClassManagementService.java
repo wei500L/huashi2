@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.modules.analytics.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.huashi.eftransfer.app.common.util.TextMojibakeNormalizer;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.modules.analytics.dto.TeacherClassStudentBatchRequest;
 import com.huashi.eftransfer.app.modules.analytics.dto.TeacherClassUpsertRequest;
@@ -249,7 +250,7 @@ public class TeacherClassManagementService {
                     StudentProfileEntity profile = profileMap.get(relation.getStudentUserId());
                     return new TeacherClassStudentVO(
                             relation.getStudentUserId(),
-                            user == null ? "未知学生" : user.getDisplayName(),
+                            user == null ? "未知学生" : TextMojibakeNormalizer.normalize(user.getDisplayName()),
                             user == null ? null : user.getUsername(),
                             profile == null ? null : profile.getStudentNo(),
                             profile == null ? null : profile.getGradeName(),
@@ -342,7 +343,7 @@ public class TeacherClassManagementService {
     ) {
         return new TeacherClassStudentCandidateVO(
                 user.getId(),
-                user.getDisplayName(),
+                TextMojibakeNormalizer.normalize(user.getDisplayName()),
                 user.getUsername(),
                 profile == null ? null : profile.getStudentNo(),
                 profile == null ? null : profile.getGradeName(),

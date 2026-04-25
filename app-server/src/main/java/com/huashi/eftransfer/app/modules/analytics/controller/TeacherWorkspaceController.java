@@ -20,7 +20,7 @@ public class TeacherWorkspaceController {
         this.teacherWorkspaceService = teacherWorkspaceService;
     }
 
-    @GetMapping("/overview")
+    @GetMapping({"", "/", "/overview"})
     public ApiResponse<TeacherWorkspaceOverviewVO> getOverview() {
         return ApiResponse.success(teacherWorkspaceService.getOverview(), MDC.get("traceId"));
     }

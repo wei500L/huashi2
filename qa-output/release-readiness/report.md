@@ -159,3 +159,52 @@
 2. 以生产前端容器作为后续本地 release-readiness 默认入口，不再用 Docker dev 前端做上线判定。
 3. 保留 `admin.qa` 作为本地管理员验收账号；修复后重跑三角色浏览器冒烟和 API 探针。
 4. 阻断项收敛后，再执行真实 AI/RAG 端到端专项：AI 配置探针、词库导入、RAG 查询、fallback 场景。
+
+## 修复后复测（2026-04-25T16:39:46+08:00）
+
+本轮针对 P1-005、P1-006、P1-007 已完成代码修复，并在生产前端入口 `http://127.0.0.1:3000` 下重跑三角色验收。
+
+复测结论：
+
+- P1-005 已修复：`http://127.0.0.1:8090/actuator/health` 现返回 `HTTP/1.1 200`，外部 actuator 健康探针恢复正常。
+- P1-006 已修复：教师工作台、教师班级列表、学生学习总览中的中文姓名/班级名均恢复正常显示。
+- P1-007 已修复：`/api/teacher/workspace` 现返回 `SUCCESS`，与 `/api/teacher/workspace/overview` 保持兼容。
+
+新增 API 证据：
+
+- `qa-output/release-readiness/tmp/teacher_workspace.json`
+  - `code=SUCCESS`
+  - `teacherName=张老师`
+- `qa-output/release-readiness/tmp/teacher_workspace_overview.json`
+  - `recentClasses[0].className=2024级英法迁移试点1班`
+- `qa-output/release-readiness/tmp/teacher_classes.json`
+  - `data[0].className=2024级英法迁移试点1班`
+- `qa-output/release-readiness/tmp/student_analytics_overview.json`
+  - `studentName=李华`
+- `qa-output/release-readiness/tmp/ai_gateway_actuator_health.txt`
+  - `HTTP/1.1 200`
+
+新增浏览器证据：
+
+- 教师工作台：`qa-output/release-readiness/screenshots/prod-rerun-teacher-workspace.png`
+- 学生学习总览：`qa-output/release-readiness/screenshots/prod-rerun-student-dashboard.png`
+- 管理员仪表盘：`qa-output/release-readiness/screenshots/prod-rerun-admin-dashboard-direct.png`
+- 运维配置中心：`qa-output/release-readiness/screenshots/prod-rerun-admin-config-center-direct.png`
+
+三角色复测摘要：
+
+- teacher：`teacher.zhang / Teacher@123456` 登录成功，落在 `/teacher/workspace`，班级卡片与最近发布标题不再乱码。
+- student：`student.li / Student@123456` 登录成功，落在 `/dashboard`，标题显示 `李华，当前主风险为 低风险`。
+- admin：`admin.qa / QaAdmin@123456` 登录成功；直接访问 `/admin/dashboard` 与 `/admin/config-center` 均可正常渲染。
+
+当前仍未处理的阻断项收敛为：
+
+- P1-001 前端 lint 门禁失败
+- P1-002 合约生成检查失败
+- P1-003 后端 OpenAPI 集成测试失败
+
+更新建议下一步：
+
+1. 优先处理剩余门禁类阻断：P1-001、P1-002、P1-003。
+2. 保持生产前端容器作为本地 release-readiness 默认入口。
+3. 在门禁问题收敛后，再补跑一次完整 release-readiness 和 AI/RAG 端到端专项。
