@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Request succeeded",
+  "data": {
+    "accessToken": "eyJraWQiOiJjdXJyZW50IiwiYWxnIjoiSFM1MTIifQ.eyJzdWIiOiJzdHVkZW50LmxpIiwiaXNzIjoiZWYtdHJhbnNmZXItcGxhdGZvcm0iLCJqdGkiOiJiMWMxMWJiNS1jZmQ1LTRmYTQtYTkwNS1jYTJlODM5ZTIwYzQiLCJpYXQiOjE3NzcxMDQxMzIsImV4cCI6MTc3NzEyNTczMiwidWlkIjozLCJkaXNwbGF5TmFtZSI6IuadjuWNjiIsInJvbGVzIjpbIlNUVURFTlQiXSwidG9rZW5UeXBlIjoiQUNDRVNTIn0.YXFac96d1YBBL0iW8ZFq4XHctBCJ7oqwzDJ1Z9dgDgj5Zbd2pFHN1uIQiHI6Qyk7CNJsX1WyZOzO6nWCwQQW1g",
+    "accessTokenExpiresAt": "2026-04-25T14:02:12.531490695Z",
+    "refreshToken": "iYrWxtoFaz2FJjqNG5C8pH_Bxm-iqtKsna71uGsEJXk",
+    "refreshTokenExpiresAt": "2026-05-02T08:02:12.532058138Z",
+    "userInfo": {
+      "id": 3,
+      "username": "student.li",
+      "email": "student.li@ef.local",
+      "displayName": "李华",
+      "lastLoginAt": "2026-04-25T08:02:13Z",
+      "primaryRole": "STUDENT",
+      "roles": [
+        "STUDENT"
+      ],
+      "capabilities": [
+        "STUDENT_WORKSPACE"
+      ],
+      "studentProfile": {
+        "studentNo": "S-1001",
+        "gradeName": "Grade 10",
+        "englishLevel": "B2",
+        "frenchLevel": "B1",
+        "courseStage": "FOUNDATION",
+        "compositeScore": 72,
+        "dailyTrainingTarget": null,
+        "weeklyAccuracyTarget": null
+      },
+      "teacherProfile": null
+    }
+  },
+  "timestamp": "2026-04-25T08:02:12.552996581Z",
+  "traceId": "f3eadbec-20bf-4f82-8e65-33bc9c53087d"
+}

@@ -19,6 +19,33 @@
 | 浏览器冒烟 | 失败 | 教师登录可进入，但页面数据存在乱码；截图已保存 |
 | 显示名修复复验 | 通过 | teacher/student 登录 API 返回中文名正常 |
 
+## 生产前端复测（2026-04-25 15:54–16:03 CST）
+
+复测基线：
+
+- `frontend` 已切换为生产构建 + 静态托管 + `/api` `/ws` 同源反代
+- 访问入口：`http://127.0.0.1:3000`
+- 管理员验收账号：`admin.qa`
+
+| 项目 | 结果 | 说明 |
+| --- | --- | --- |
+| frontend 容器健康 | 通过 | `ef-transfer-frontend` 为 `healthy`，`FailingStreak=0` |
+| 生产前端入口 | 通过 | 首页由 `nginx/1.27.5` 提供，不再包含 `@vite/client` |
+| teacher 登录与工作台 | 失败 | 可登录，但工作台班级/发布项仍出现中文乱码 |
+| student 登录与学习总览 | 失败 | 可登录，但欢迎文案中的学生名显示为乱码 |
+| admin 登录 | 通过 | `admin.qa / QaAdmin@123456` 可登录 |
+| admin 仪表盘 | 通过 | `/admin/dashboard` 可正常打开 |
+| admin 配置中心 | 通过 | `/admin/config-center` 可正常读取当前 AI 配置 |
+| app-server 代理 AI 健康 | 通过 | `/api/admin/ai-config/health` 返回 200 |
+| ai-gateway 外部 actuator | 失败 | `http://127.0.0.1:8090/actuator/health` 仍返回 500 |
+| teacher workspace API | 失败 | `/api/teacher/workspace` 仍返回 500 |
+
+复测结论：
+
+- 前端容器 `unhealthy` 问题是旧 dev Docker 前端拓扑带来的噪音；切到生产前端后已消失。
+- 管理员链路已补齐，不再受默认 demo 管理员账号缺失阻断。
+- 真正仍然阻断上线的是：自动化门禁失败、AI Gateway 外部健康探针异常、教师/学生中文字段乱码、`/api/teacher/workspace` 500。
+
 ## 阻断缺陷
 
 ### P1-001 前端 lint 门禁失败
@@ -53,6 +80,7 @@
 - 补充：宿主机 `curl http://127.0.0.1:3000/` 可返回 200，说明服务可访问但容器内 healthcheck 不稳定/超时。
 - 影响：Compose 健康状态不可信，会影响依赖启动、监控和上线判定。
 - 建议：排查容器内 `node -e fetch('http://127.0.0.1:3000')` 超时原因；调整 healthcheck timeout/start_period 或改为更稳定探针。
+- 当前状态：已通过生产前端容器切换复测消除；当前默认验收基线应改为生产前端而非 Docker dev 前端。
 
 ### P1-005 AI Gateway `/actuator/health` 直接访问返回 500
 
@@ -64,11 +92,12 @@
 
 ### P1-006 教师接口/页面仍存在班级名乱码
 
-- 证据：`qa-output/release-readiness/screenshots/teacher-after-login.png`、API 探针输出
+- 证据：`qa-output/release-readiness/screenshots/teacher-after-login.png`、`qa-output/release-readiness/screenshots/prod-teacher-after-login.png`、`qa-output/release-readiness/tmp/teacher_classes.json`
 - 表现：`/api/teacher/classes` 返回 `2024çº§è‹±æ³•...`，教师工作台页面显示多条乱码班级/发布项。
+- 复测补充：student 生产前端学习总览欢迎文案也显示 `æŽåŽ`，但 `/api/auth/me` 返回 `displayName=李华` 正常，说明至少存在一条前端显示链路仍在错误解码或消费了错误来源。
 - 数据库核对：`teaching_class.class_name` 为正常中文 `2024级英法迁移试点1班`。
 - 影响：核心教师工作台展示乱码，生产首发不可接受。
-- 建议：定位 `TeachingClass`/workspace VO 映射链路，统一显示字段编码修复；修复后对所有中文字段做 API 级回归。
+- 建议：定位 `TeachingClass`/workspace VO 映射链路以及 student dashboard 文案来源，统一做中文字段编码/解码修复；修复后对 teacher/student 全链路做 API + UI 回归。
 
 ### P1-007 `/api/teacher/workspace` 返回 500
 
@@ -83,6 +112,7 @@
 - 表现：`admin / Admin@123456` 返回 401。
 - 影响：完整三角色验收无法使用 admin 账号执行管理员链路。
 - 建议：准备专用 `admin.qa` 或重置本地 admin 密码；之后补跑管理员用户、审计、AI 配置、词库导入链路。
+- 当前状态：已通过 `admin.qa` 完成管理员链路复测；该项不再阻断本地验收，但默认 demo 管理员不可用的事实仍需在文档或环境准备中说明。
 
 ## 已修复并复验的问题
 
@@ -91,6 +121,12 @@
   - `student.li -> 李华`
   - `student.wang -> 王敏`
 - 证据：`qa-output/release-readiness/execution-log.md`
+
+- 前端 Docker 健康误报：切换到生产前端容器后，`ef-transfer-frontend` 复测为 `healthy`，`/healthz` 探针稳定通过。
+- 证据：`qa-output/release-readiness/screenshots/prod-login-teacher-initial.png`、`qa-output/release-readiness/execution-log.md`
+
+- 管理员本地验收阻断：已补充 `admin.qa` 并完成登录、仪表盘、配置中心复测。
+- 证据：`qa-output/release-readiness/screenshots/prod-admin-dashboard-after-nav.png`、`qa-output/release-readiness/screenshots/prod-admin-config-center-direct.png`
 
 ## 非阻断风险 / P2
 
@@ -108,10 +144,18 @@
 - Docker 健康日志：`qa-output/release-readiness/docker-health.log`
 - 浏览器截图：`qa-output/release-readiness/screenshots/initial-login.png`
 - 教师登录后截图：`qa-output/release-readiness/screenshots/teacher-after-login.png`
+- 生产前端复测截图：
+  - `qa-output/release-readiness/screenshots/prod-login-teacher-initial.png`
+  - `qa-output/release-readiness/screenshots/prod-teacher-after-login.png`
+  - `qa-output/release-readiness/screenshots/prod-student-after-login.png`
+  - `qa-output/release-readiness/screenshots/prod-admin-dashboard.png`
+  - `qa-output/release-readiness/screenshots/prod-admin-dashboard-after-nav.png`
+  - `qa-output/release-readiness/screenshots/prod-admin-config-center-direct.png`
+- 生产前端复测 API 探针：`qa-output/release-readiness/tmp/*.json`、`qa-output/release-readiness/tmp/ai_gateway_actuator_health.txt`
 
 ## 建议下一步
 
-1. 先修复 P1-001 到 P1-008。
-2. 准备专用 `admin.qa / teacher.qa / student.qa` 三类账号，避免依赖 demo 密码。
-3. 修复后重新执行：前端门禁、后端全量测试、Docker health、三角色浏览器冒烟。
-4. 再执行真实 AI/RAG 端到端专项：AI 配置探针、词库导入、RAG 查询、fallback 场景。
+1. 优先修复当前仍成立的阻断项：P1-001、P1-002、P1-003、P1-005、P1-006、P1-007。
+2. 以生产前端容器作为后续本地 release-readiness 默认入口，不再用 Docker dev 前端做上线判定。
+3. 保留 `admin.qa` 作为本地管理员验收账号；修复后重跑三角色浏览器冒烟和 API 探针。
+4. 阻断项收敛后，再执行真实 AI/RAG 端到端专项：AI 配置探针、词库导入、RAG 查询、fallback 场景。

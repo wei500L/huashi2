@@ -270,23 +270,14 @@ services:
     depends_on:
       app-server:
         condition: service_healthy
-    environment:
-      VITE_PROXY_TARGET: http://app-server:8080
-      VITE_USE_POLLING: ${FRONTEND_WATCH_USE_POLLING:-true}
-      VITE_POLLING_INTERVAL: ${FRONTEND_WATCH_INTERVAL_MS:-300}
-      CHOKIDAR_USEPOLLING: ${FRONTEND_WATCH_USE_POLLING:-true}
-      CHOKIDAR_INTERVAL: ${FRONTEND_WATCH_INTERVAL_MS:-300}
     ports:
       - "${FRONTEND_PORT}:3000"
-    volumes:
-      - ..:/workspace
-      - frontend-node-modules:/workspace/node_modules
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 20s
+      start_period: 10s
 
 volumes:
   app-server-logs:
@@ -295,4 +286,3 @@ volumes:
   redis-data:
   rabbitmq-data:
   postgres-data:
-  frontend-node-modules:

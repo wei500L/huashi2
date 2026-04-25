@@ -1,0 +1,2 @@
+STATUS 200
+{"success":true,"code":"SUCCESS","message":"Request succeeded","data":[{"classId":1,"classCode":"CLS-0001","className":"2024çº§è‹±æ³•è¿ç§»è¯•ç‚¹1ç­","gradeName":"Pilot Grade","studentCount":2}],"timestamp":"2026-04-25T08:02:12.706219924Z","traceId":"5f53de06-2aa1-41c3-89c8-997398adf446"}

@@ -103,7 +103,7 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 说明：
 
 - `APP_DEMO_DATA_ENABLED=true` 时，本地会注入默认管理员、教师、学生测试账号
-- `APP_DEMO_DATA_ENABLED=false` 时，登录账号需要自行准备
+- `APP_DEMO_DATA_ENABLED=false` 时，登录账号需要自行准备；本地 Docker 验收可运行 `python3 scripts/ensure_qa_admin.py` 准备 `admin.qa`
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 建议使用独立 secret；只在本地临时调试时才允许回退到旧 JWT secret
 - `REDIS_PASSWORD` 不能为空；Compose 中的 Redis 现在启用密码认证并仅绑定到 `127.0.0.1`
 - `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`
@@ -141,13 +141,13 @@ cd deploy
 docker compose --env-file .env up --build
 ```
 
-前端容器现在默认以 Docker 开发模式运行：
+前端容器现在默认以 Docker 生产模式运行：
 
-- `frontend` 会把仓库根目录 bind mount 到容器内 `/workspace`
-- `node_modules` 使用独立 volume，避免被宿主机目录覆盖
-- 容器启动时会执行 `npm install --include=dev`，确保 `package.json` 新增依赖后 volume 内依赖自动补齐
-- 默认开启 Vite 轮询监听，兼容 Docker Desktop / WSL 下的热更新
-- 修改前端源码后不需要重建 `frontend` 镜像；只有依赖变更时才建议重新 `docker compose up -d --build frontend`
+- `frontend` 会在镜像构建阶段执行 `npm run build`
+- 运行态使用静态服务器承载 `dist/`，并把 `/api`、`/ws` 同源反代到 `app-server`
+- 浏览器访问入口仍是 `http://127.0.0.1:3000`
+- 修改前端源码后需要重新 `docker compose up -d --build frontend`
+- 如果你需要 HMR 或更快的前端迭代，改走宿主机 `npm run dev`
 
 ## 7. 本地命令启动
 
@@ -247,6 +247,18 @@ cron 示例：
 - 教师：`teacher.zhang` / `Teacher@123456`
 - 学生：`student.li` / `Student@123456`
 - 学生：`student.wang` / `Student@123456`
+
+默认 Docker `prod` profile 下不会自动注入这些账号。
+
+如果你只需要补齐本地验收管理员账号，执行：
+
+```bash
+python3 scripts/ensure_qa_admin.py
+```
+
+默认会创建或重置：
+
+- 管理员：`admin.qa` / `QaAdmin@123456`
 
 如果你不知道导入入口在哪里，或者不知道导入后为什么学生端还看不到，请直接跳到：
 

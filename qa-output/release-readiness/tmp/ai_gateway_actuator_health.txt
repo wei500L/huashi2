@@ -1,0 +1,12 @@
+STATUS 500
+X-Trace-Id: 30527f4034ed7fdeed03c2d99c9ead01
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+Content-Type: application/json
+Transfer-Encoding: chunked
+Date: Sat, 25 Apr 2026 08:02:43 GMT
+Connection: close
+
+
+{"success":false,"code":"INTERNAL_ERROR","message":"Unexpected error while handling request /actuator/health","data":null,"timestamp":"2026-04-25T08:02:43.476968184Z","traceId":"30527f4034ed7fdeed03c2d99c9ead01"}

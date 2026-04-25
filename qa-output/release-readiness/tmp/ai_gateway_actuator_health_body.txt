@@ -1,0 +1,1 @@
+{"success":false,"code":"INTERNAL_ERROR","message":"Unexpected error while handling request /actuator/health","data":null,"timestamp":"2026-04-25T08:02:33.395948796Z","traceId":"c7913082f4c92d3938bf438b0a0dafcc"}

@@ -99,6 +99,14 @@ npm install
 npm run dev
 ```
 
+如果你使用 `deploy/docker-compose.yml` 启动完整栈，`frontend` 默认会构建 `dist/` 并以生产模式静态托管，同时同源反代 `/api` 和 `/ws` 到 `app-server`。
+
+当 `APP_DEMO_DATA_ENABLED=false` 且需要补齐本地验收管理员账号时，可运行：
+
+```bash
+python3 scripts/ensure_qa_admin.py
+```
+
 如果你当前最关心的是“怎么导入数据并继续用起来”，先看这份实操指南：
 
 - [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)

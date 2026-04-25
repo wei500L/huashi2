@@ -1,0 +1,31 @@
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Request succeeded",
+  "data": {
+    "accessToken": "eyJraWQiOiJjdXJyZW50IiwiYWxnIjoiSFM1MTIifQ.eyJzdWIiOiJhZG1pbi5xYSIsImlzcyI6ImVmLXRyYW5zZmVyLXBsYXRmb3JtIiwianRpIjoiYWEzODFhZmMtNTExMC00MjFjLWFhZjUtYTFiMTU3OTMyMWJmIiwiaWF0IjoxNzc3MTA0MTMyLCJleHAiOjE3NzcxMjU3MzIsInVpZCI6NSwiZGlzcGxheU5hbWUiOiJRQSBBZG1pbiIsInJvbGVzIjpbIkFETUlOIl0sInRva2VuVHlwZSI6IkFDQ0VTUyJ9.H8YTrsB1dX4EhfOETidBfjTR_FfMSiuEDVx74xDzn_4M5SXu7FZ-zFXgSRdAcZVDD_R-MGG4I_uMkatKoR0k6g",
+    "accessTokenExpiresAt": "2026-04-25T14:02:12.645350896Z",
+    "refreshToken": "UkgJKjHQRY2_jckvZnYiEODhEnto1ooqbaSH-qXM9E8",
+    "refreshTokenExpiresAt": "2026-05-02T08:02:12.646034706Z",
+    "userInfo": {
+      "id": 5,
+      "username": "admin.qa",
+      "email": "admin.qa@ef.local",
+      "displayName": "QA Admin",
+      "lastLoginAt": "2026-04-25T08:02:13Z",
+      "primaryRole": "ADMIN",
+      "roles": [
+        "ADMIN"
+      ],
+      "capabilities": [
+        "ADMIN_CONSOLE",
+        "TEACHING_WORKSPACE",
+        "STUDENT_WORKSPACE"
+      ],
+      "studentProfile": null,
+      "teacherProfile": null
+    }
+  },
+  "timestamp": "2026-04-25T08:02:12.66182651Z",
+  "traceId": "a79291c8-6015-45a6-a383-2ace451b87fa"
+}

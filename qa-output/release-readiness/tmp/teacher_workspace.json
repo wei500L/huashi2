@@ -1,0 +1,2 @@
+STATUS 500
+{"success":false,"code":"INTERNAL_ERROR","message":"Unexpected error while handling request","data":null,"timestamp":"2026-04-25T08:02:12.739992818Z","traceId":"5dfd4207-9e16-4f00-bda8-7ed751038c9c"}

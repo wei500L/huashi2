@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Request succeeded",
+  "data": {
+    "accessToken": "eyJraWQiOiJjdXJyZW50IiwiYWxnIjoiSFM1MTIifQ.eyJzdWIiOiJ0ZWFjaGVyLnpoYW5nIiwiaXNzIjoiZWYtdHJhbnNmZXItcGxhdGZvcm0iLCJqdGkiOiI2NDdlNWVjZS0xZGVmLTQ2ZjgtYWQzZC0yOGQ5MTMxYjcwNmUiLCJpYXQiOjE3NzcxMDQxMzIsImV4cCI6MTc3NzEyNTczMiwidWlkIjoyLCJkaXNwbGF5TmFtZSI6IuW8oOiAgeW4iCIsInJvbGVzIjpbIlRFQUNIRVIiXSwidG9rZW5UeXBlIjoiQUNDRVNTIn0.R-Oc8RbPmecA8Q740D-fD07BIvoB5XhzZ3141NztwLygB-tjAP9d5oDljqGJdgGJBBWkpiOHzCkFQe3WK4zpAA",
+    "accessTokenExpiresAt": "2026-04-25T14:02:12.429615492Z",
+    "refreshToken": "kLraCR2X5qCmyJ1ZgMqaUEFWzXBzCifQjRRlgz5v2Jc",
+    "refreshTokenExpiresAt": "2026-05-02T08:02:12.430383357Z",
+    "userInfo": {
+      "id": 2,
+      "username": "teacher.zhang",
+      "email": "teacher.zhang@ef.local",
+      "displayName": "张老师",
+      "lastLoginAt": "2026-04-25T08:02:12Z",
+      "primaryRole": "TEACHER",
+      "roles": [
+        "TEACHER"
+      ],
+      "capabilities": [
+        "TEACHING_WORKSPACE"
+      ],
+      "studentProfile": null,
+      "teacherProfile": {
+        "employeeNo": "T-0001",
+        "department": "Applied Linguistics",
+        "title": "Associate Professor"
+      }
+    }
+  },
+  "timestamp": "2026-04-25T08:02:12.445182515Z",
+  "traceId": "04e74730-308d-4d9f-b96c-ed956a596dc8"
+}
