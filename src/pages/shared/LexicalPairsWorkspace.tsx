@@ -650,8 +650,8 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
   const reindexMutation = useMutation({
     mutationFn: (lexicalPairId: number) =>
       adminService.triggerRagReindex({
-        mode: 'MANUAL',
-        sourceTypes: ['LEXICAL_PAIR'],
+        mode: 'FULL',
+        sourceTypes: ['LEXICAL_PAIR', 'LEXICAL_SENSE', 'LEXICAL_EXAMPLE'],
         sourceIds: [String(lexicalPairId)],
         forceReembed: true,
       }),

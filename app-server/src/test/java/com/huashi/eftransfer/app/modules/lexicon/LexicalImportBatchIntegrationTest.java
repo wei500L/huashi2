@@ -94,6 +94,9 @@ class LexicalImportBatchIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(completedBatch.path("readyRows").asInt()).isZero();
         assertThat(completedBatch.path("invalidRows").asInt()).isZero();
         assertThat(completedBatch.path("importedRows").asInt()).isEqualTo(2);
+        assertThat(completedBatch.path("pendingEmbeddingCount").asInt()).isEqualTo(2);
+        assertThat(completedBatch.path("embeddedCount").asInt()).isZero();
+        assertThat(completedBatch.path("failedEmbeddingCount").asInt()).isZero();
 
         mockMvc.perform(get("/api/lexical-pairs/import-batches/{batchId}/rows", batchId)
                         .with(bearer(teacherToken))

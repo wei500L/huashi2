@@ -400,6 +400,8 @@ export const lexicalPairService = {
     apiPut<LexicalImportRowVO>(`/lexical-pairs/import-batches/${batchId}/rows/${rowId}`, payload),
   commitImportBatch: (batchId: number) =>
     apiPost<LexicalImportBatchCreatedVO>(`/lexical-pairs/import-batches/${batchId}/commit`),
+  reindexImportBatch: (batchId: number) =>
+    apiPost<RagReindexResponse>(`/lexical-pairs/import-batches/${batchId}/reindex`),
   downloadImportFile: (batchId: number, options?: RequestOptions) =>
     apiDownload(`/lexical-pairs/import-batches/${batchId}/file`, options),
 };

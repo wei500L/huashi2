@@ -24,10 +24,13 @@ import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportBatchCr
 import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportBatchDetailVO;
 import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportBatchSummaryVO;
 import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportRowVO;
+import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
+import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
 import com.huashi.eftransfer.app.modules.lexicon.service.LexicalPairService;
 import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.shared.api.ResultCode;
+import com.huashi.eftransfer.shared.enums.EmbeddingStatus;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.page.PageQuery;
 import com.huashi.eftransfer.shared.page.PageResult;
@@ -40,6 +43,8 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
@@ -68,6 +73,7 @@ public class LexicalImportBatchService {
     private final LexicalImportBatchMapper batchMapper;
     private final LexicalImportFileMapper fileMapper;
     private final LexicalImportRowMapper rowMapper;
+    private final LexicalPairMapper lexicalPairMapper;
     private final UserMapper userMapper;
     private final LexicalImportFileParser fileParser;
     private final LexicalImportTemplateSupport templateSupport;
@@ -79,6 +85,7 @@ public class LexicalImportBatchService {
             LexicalImportBatchMapper batchMapper,
             LexicalImportFileMapper fileMapper,
             LexicalImportRowMapper rowMapper,
+            LexicalPairMapper lexicalPairMapper,
             UserMapper userMapper,
             LexicalImportFileParser fileParser,
             LexicalImportTemplateSupport templateSupport,
@@ -89,6 +96,7 @@ public class LexicalImportBatchService {
         this.batchMapper = batchMapper;
         this.fileMapper = fileMapper;
         this.rowMapper = rowMapper;
+        this.lexicalPairMapper = lexicalPairMapper;
         this.userMapper = userMapper;
         this.fileParser = fileParser;
         this.templateSupport = templateSupport;
@@ -127,28 +135,18 @@ public class LexicalImportBatchService {
         storedFile.setFileContent(content);
         fileMapper.insert(storedFile);
 
-        taskExecutor.execute(() -> runWithPrincipal(principal, () -> parseBatch(batch.getId(), format)));
+        dispatchAfterCommit(() -> taskExecutor.execute(() -> runWithPrincipal(principal, () -> parseBatch(batch.getId(), format))));
         return new LexicalImportBatchCreatedVO(batch.getId(), batch.getStatus());
     }
 
     public PageResult<LexicalImportBatchSummaryVO> pageBatches(LexicalImportBatchPageQuery query) {
         PageQuery pageQuery = query.toPageQuery();
         Long ownerFilter = resolveOwnerFilter(query.ownerUserId());
-        var wrapper = Wrappers.<LexicalImportBatchEntity>lambdaQuery()
-                .orderByDesc(LexicalImportBatchEntity::getCreatedAt)
-                .orderByDesc(LexicalImportBatchEntity::getId);
+        var countWrapper = buildBatchPageWrapper(query, ownerFilter, false);
+        var recordWrapper = buildBatchPageWrapper(query, ownerFilter, true);
 
-        if (ownerFilter != null) {
-            wrapper.eq(LexicalImportBatchEntity::getOwnerUserId, ownerFilter);
-        }
-        applyStatusOrViewFilter(wrapper, query.status(), query.view());
-        if (query.keyword() != null && !query.keyword().isBlank()) {
-            String keyword = "%" + query.keyword().trim().toLowerCase(Locale.ROOT) + "%";
-            wrapper.apply("LOWER(original_filename) LIKE {0}", keyword);
-        }
-
-        long total = batchMapper.selectCount(wrapper);
-        List<LexicalImportBatchEntity> batches = batchMapper.selectList(wrapper
+        long total = batchMapper.selectCount(countWrapper);
+        List<LexicalImportBatchEntity> batches = batchMapper.selectList(recordWrapper
                 .last("LIMIT " + pageQuery.pageSize() + " OFFSET " + pageQuery.offset()));
         Map<Long, String> ownerNameMap = loadOwnerDisplayNames(batches.stream()
                 .map(LexicalImportBatchEntity::getOwnerUserId)
@@ -218,27 +216,67 @@ public class LexicalImportBatchService {
         }
     }
 
+    private com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LexicalImportBatchEntity> buildBatchPageWrapper(
+            LexicalImportBatchPageQuery query,
+            Long ownerFilter,
+            boolean includeOrder
+    ) {
+        var wrapper = Wrappers.<LexicalImportBatchEntity>lambdaQuery();
+        if (ownerFilter != null) {
+            wrapper.eq(LexicalImportBatchEntity::getOwnerUserId, ownerFilter);
+        }
+        applyStatusOrViewFilter(wrapper, query.status(), query.view());
+        if (query.keyword() != null && !query.keyword().isBlank()) {
+            String keyword = "%" + query.keyword().trim().toLowerCase(Locale.ROOT) + "%";
+            wrapper.apply("LOWER(original_filename) LIKE {0}", keyword);
+        }
+        if (includeOrder) {
+            wrapper.orderByDesc(LexicalImportBatchEntity::getCreatedAt)
+                    .orderByDesc(LexicalImportBatchEntity::getId);
+        }
+        return wrapper;
+    }
+
+    private com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LexicalImportRowEntity> buildRowPageWrapper(
+            Long batchId,
+            LexicalImportRowPageQuery query,
+            boolean includeOrder
+    ) {
+        var wrapper = Wrappers.<LexicalImportRowEntity>lambdaQuery()
+                .eq(LexicalImportRowEntity::getBatchId, batchId);
+        if (query.status() != null && !query.status().isBlank()) {
+            wrapper.eq(LexicalImportRowEntity::getRowStatus, parseRowStatus(query.status()).name());
+        }
+        if (includeOrder) {
+            wrapper.orderByAsc(LexicalImportRowEntity::getRowNumber)
+                    .orderByAsc(LexicalImportRowEntity::getId);
+        }
+        return wrapper;
+    }
+
     public LexicalImportBatchDetailVO getBatchDetail(Long batchId) {
         LexicalImportBatchEntity batch = requireAccessibleBatch(batchId);
         LexicalImportFileEntity file = requireFile(batch.getId());
         String ownerDisplayName = loadOwnerDisplayNames(List.of(batch.getOwnerUserId())).get(batch.getOwnerUserId());
-        return toDetailVO(batch, file, ownerDisplayName);
+        BatchEmbeddingSummary embeddingSummary = loadBatchEmbeddingSummary(batchId);
+        return toDetailVO(batch, file, ownerDisplayName, embeddingSummary);
+    }
+
+    public List<String> listImportedLexicalPairIds(Long batchId) {
+        requireAccessibleBatch(batchId);
+        return loadImportedLexicalPairIds(batchId).stream()
+                .map(String::valueOf)
+                .toList();
     }
 
     public PageResult<LexicalImportRowVO> pageRows(Long batchId, LexicalImportRowPageQuery query) {
         requireAccessibleBatch(batchId);
         PageQuery pageQuery = query.toPageQuery();
-        var wrapper = Wrappers.<LexicalImportRowEntity>lambdaQuery()
-                .eq(LexicalImportRowEntity::getBatchId, batchId)
-                .orderByAsc(LexicalImportRowEntity::getRowNumber)
-                .orderByAsc(LexicalImportRowEntity::getId);
+        var countWrapper = buildRowPageWrapper(batchId, query, false);
+        var recordWrapper = buildRowPageWrapper(batchId, query, true);
 
-        if (query.status() != null && !query.status().isBlank()) {
-            wrapper.eq(LexicalImportRowEntity::getRowStatus, parseRowStatus(query.status()).name());
-        }
-
-        long total = rowMapper.selectCount(wrapper);
-        List<LexicalImportRowEntity> rows = rowMapper.selectList(wrapper
+        long total = rowMapper.selectCount(countWrapper);
+        List<LexicalImportRowEntity> rows = rowMapper.selectList(recordWrapper
                 .last("LIMIT " + pageQuery.pageSize() + " OFFSET " + pageQuery.offset()));
         List<LexicalImportRowVO> records = rows.stream()
                 .map(this::toRowVO)
@@ -296,7 +334,7 @@ public class LexicalImportBatchService {
         batch.setImportJobFinishedAt(null);
         batchMapper.updateById(batch);
 
-        taskExecutor.execute(() -> runWithPrincipal(principal, () -> importBatch(batchId)));
+        dispatchAfterCommit(() -> taskExecutor.execute(() -> runWithPrincipal(principal, () -> importBatch(batchId))));
         return new LexicalImportBatchCreatedVO(batchId, LexicalImportBatchStatus.IMPORTING.name());
     }
 
@@ -361,9 +399,15 @@ public class LexicalImportBatchService {
                     .orderByAsc(LexicalImportRowEntity::getRowNumber)
                     .orderByAsc(LexicalImportRowEntity::getId));
 
+            List<Long> importedLexicalPairIds = new ArrayList<>();
             for (LexicalImportRowEntity row : readyRows) {
-                processReadyRow(batchId, row);
+                Long lexicalPairId = processReadyRow(batchId, row);
+                if (lexicalPairId != null) {
+                    importedLexicalPairIds.add(lexicalPairId);
+                }
             }
+
+            lexicalPairService.publishKnowledgeChangedEvent(importedLexicalPairIds);
 
             LexicalImportBatchEntity batch = refreshBatchCounts(batchId, LexicalImportBatchStatus.COMPLETED, null);
             batch.setImportJobFinishedAt(LocalDateTime.now());
@@ -383,7 +427,7 @@ public class LexicalImportBatchService {
     }
 
     @Transactional
-    protected void processReadyRow(Long batchId, LexicalImportRowEntity row) {
+    protected Long processReadyRow(Long batchId, LexicalImportRowEntity row) {
         LexicalImportRowDraft draft = readDraft(row.getDraftJson());
         try {
             List<String> validationErrors = validateDraft(batchId, row.getId(), draft);
@@ -393,16 +437,17 @@ public class LexicalImportBatchService {
                 row.setImportMessage(validationErrors.getFirst());
                 row.setImportedLexicalPairId(null);
                 rowMapper.updateById(row);
-                return;
+                return null;
             }
 
             LexicalPairUpsertRequest request = templateSupport.toUpsertRequest(draft);
-            Long lexicalPairId = lexicalPairService.create(request);
+            Long lexicalPairId = lexicalPairService.createFromImport(request);
             row.setRowStatus(LexicalImportRowStatus.IMPORTED.name());
             row.setValidationErrorsJson(null);
             row.setImportMessage(null);
             row.setImportedLexicalPairId(lexicalPairId);
             rowMapper.updateById(row);
+            return lexicalPairId;
         } catch (Exception exception) {
             List<String> errors = List.of(resolveFailureMessage(exception));
             row.setRowStatus(LexicalImportRowStatus.INVALID.name());
@@ -410,6 +455,7 @@ public class LexicalImportBatchService {
             row.setImportMessage(errors.getFirst());
             row.setImportedLexicalPairId(null);
             rowMapper.updateById(row);
+            return null;
         }
     }
 
@@ -624,7 +670,8 @@ public class LexicalImportBatchService {
     private LexicalImportBatchDetailVO toDetailVO(
             LexicalImportBatchEntity batch,
             LexicalImportFileEntity file,
-            String ownerDisplayName
+            String ownerDisplayName,
+            BatchEmbeddingSummary embeddingSummary
     ) {
         return new LexicalImportBatchDetailVO(
                 batch.getId(),
@@ -638,6 +685,10 @@ public class LexicalImportBatchService {
                 safeInt(batch.getInvalidRows()),
                 safeInt(batch.getSkippedRows()),
                 safeInt(batch.getImportedRows()),
+                embeddingSummary.pendingEmbeddingCount(),
+                embeddingSummary.embeddedCount(),
+                embeddingSummary.failedEmbeddingCount(),
+                embeddingSummary.latestEmbeddedAt(),
                 batch.getErrorMessage(),
                 batch.getOwnerUserId(),
                 ownerDisplayName,
@@ -649,6 +700,51 @@ public class LexicalImportBatchService {
                 batch.getCreatedAt(),
                 batch.getUpdatedAt()
         );
+    }
+
+    private BatchEmbeddingSummary loadBatchEmbeddingSummary(Long batchId) {
+        List<Long> importedLexicalPairIds = loadImportedLexicalPairIds(batchId);
+        if (importedLexicalPairIds.isEmpty()) {
+            return new BatchEmbeddingSummary(0, 0, 0, null);
+        }
+
+        int pending = 0;
+        int embedded = 0;
+        int failed = 0;
+        LocalDateTime latestEmbeddedAt = null;
+        for (LexicalPairEntity pair : lexicalPairMapper.selectBatchIds(importedLexicalPairIds)) {
+            String status = pair.getEmbeddingStatus();
+            if (EmbeddingStatus.EMBEDDED.name().equals(status)) {
+                embedded += 1;
+                if (pair.getLastEmbeddedAt() != null && (latestEmbeddedAt == null || pair.getLastEmbeddedAt().isAfter(latestEmbeddedAt))) {
+                    latestEmbeddedAt = pair.getLastEmbeddedAt();
+                }
+            } else if (EmbeddingStatus.FAILED.name().equals(status)) {
+                failed += 1;
+            } else {
+                pending += 1;
+            }
+        }
+        return new BatchEmbeddingSummary(pending, embedded, failed, latestEmbeddedAt);
+    }
+
+    private List<Long> loadImportedLexicalPairIds(Long batchId) {
+        return rowMapper.selectList(Wrappers.<LexicalImportRowEntity>lambdaQuery()
+                        .eq(LexicalImportRowEntity::getBatchId, batchId)
+                        .isNotNull(LexicalImportRowEntity::getImportedLexicalPairId))
+                .stream()
+                .map(LexicalImportRowEntity::getImportedLexicalPairId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private record BatchEmbeddingSummary(
+            int pendingEmbeddingCount,
+            int embeddedCount,
+            int failedEmbeddingCount,
+            LocalDateTime latestEmbeddedAt
+    ) {
     }
 
     private LexicalImportRowVO toRowVO(LexicalImportRowEntity row) {
@@ -756,5 +852,19 @@ public class LexicalImportBatchService {
                 SecurityContextHolder.setContext(previousContext);
             }
         }
+    }
+
+    private void dispatchAfterCommit(Runnable task) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            task.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                task.run();
+            }
+        });
     }
 }

@@ -30,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Repository
 public class KnowledgeStoreRepository {
@@ -232,6 +233,58 @@ public class KnowledgeStoreRepository {
                 "UPDATE knowledge_chunk SET embedding_status = ?, embedded_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 EmbeddingStatus.FAILED.name(),
                 chunkId
+        );
+    }
+
+    public List<LexicalPairEmbeddingState> listLexicalPairEmbeddingStates(Collection<String> lexicalPairSourceIds) {
+        if (lexicalPairSourceIds == null || lexicalPairSourceIds.isEmpty()) {
+            return List.of();
+        }
+        List<String> sourceIds = lexicalPairSourceIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (sourceIds.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = sourceIds.stream().map(ignored -> "?").collect(Collectors.joining(", "));
+        return jdbcTemplate.query(
+                """
+                        SELECT kd.source_id,
+                               CASE
+                                   WHEN COALESCE(SUM(CASE WHEN kc.active THEN 1 ELSE 0 END), 0) = 0 THEN ?
+                                   WHEN COALESCE(SUM(CASE WHEN kc.active AND kc.embedding_status = ? THEN 1 ELSE 0 END), 0) > 0 THEN ?
+                                   WHEN COALESCE(SUM(CASE WHEN kc.active AND kc.embedding_status = ? THEN 1 ELSE 0 END), 0) > 0 THEN ?
+                                   ELSE ?
+                               END AS aggregate_embedding_status,
+                               MAX(CASE WHEN kc.active AND kc.embedding_status = ? THEN kc.embedded_at END) AS last_embedded_at
+                        FROM knowledge_document kd
+                        LEFT JOIN knowledge_chunk kc ON kc.document_id = kd.id
+                        WHERE kd.source_type = ?
+                          AND kd.source_id IN (""" + placeholders + ") " +
+                        """
+                        GROUP BY kd.source_id
+                        ORDER BY kd.source_id
+                        """,
+                ps -> {
+                    int index = 1;
+                    ps.setString(index++, EmbeddingStatus.PENDING.name());
+                    ps.setString(index++, EmbeddingStatus.FAILED.name());
+                    ps.setString(index++, EmbeddingStatus.FAILED.name());
+                    ps.setString(index++, EmbeddingStatus.PENDING.name());
+                    ps.setString(index++, EmbeddingStatus.PENDING.name());
+                    ps.setString(index++, EmbeddingStatus.EMBEDDED.name());
+                    ps.setString(index++, EmbeddingStatus.EMBEDDED.name());
+                    ps.setString(index++, "LEXICAL_PAIR");
+                    for (String sourceId : sourceIds) {
+                        ps.setString(index++, sourceId);
+                    }
+                },
+                (rs, rowNum) -> new LexicalPairEmbeddingState(
+                        rs.getString("source_id"),
+                        rs.getString("aggregate_embedding_status"),
+                        toOffsetDateTime(rs.getTimestamp("last_embedded_at"))
+                )
         );
     }
 
@@ -518,6 +571,13 @@ public class KnowledgeStoreRepository {
     }
 
     private record ChunkRecord(Long id, String contentHash, String embeddingStatus, OffsetDateTime embeddedAt) {
+    }
+
+    public record LexicalPairEmbeddingState(
+            String sourceId,
+            String embeddingStatus,
+            OffsetDateTime lastEmbeddedAt
+    ) {
     }
 
     public record ChunkEmbeddingWrite(

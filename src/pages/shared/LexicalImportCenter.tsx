@@ -8,6 +8,7 @@ import type {
   LexicalImportRowStatus,
   LexicalImportRowUpdateRequest,
   LexicalImportRowVO,
+  RagReindexJobResponse,
 } from '@/lib/contracts';
 import { saveBlob } from '@/lib/api';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
@@ -277,6 +278,47 @@ function isBatchProcessing(batch?: Pick<LexicalImportBatchDetailVO, 'status'> | 
   return Boolean(batch && ['PARSING', 'IMPORTING'].includes(batch.status));
 }
 
+function buildEmbeddingSyncHint(batch: Pick<LexicalImportBatchDetailVO, 'importedRows' | 'pendingEmbeddingCount' | 'embeddedCount' | 'failedEmbeddingCount'>): string {
+  if (batch.importedRows <= 0) {
+    return '这批数据还没有写入词库，知识同步统计会在正式导入后出现。';
+  }
+  if (batch.failedEmbeddingCount > 0) {
+    return `已有 ${batch.failedEmbeddingCount} 条词对嵌入失败，建议先回到词库总览检查失败原因。`;
+  }
+  if (batch.pendingEmbeddingCount > 0) {
+    return `仍有 ${batch.pendingEmbeddingCount} 条词对等待嵌入，后台知识同步还在继续。`;
+  }
+  return `这批已导入词对已全部进入知识库，当前已嵌入 ${batch.embeddedCount} 条。`;
+}
+
+function isTerminalRagJobStatus(status?: string | null): boolean {
+  return status === 'SUCCEEDED' || status === 'FAILED' || status === 'CANCELLED';
+}
+
+function readNumericStat(stats: Record<string, unknown> | undefined, key: string): number | null {
+  const value = stats?.[key];
+  return typeof value === 'number' ? value : null;
+}
+
+function buildRagJobSummary(job?: RagReindexJobResponse | null): string {
+  if (!job) {
+    return '提交定向重建后，这里会显示本批次最近一次手动任务的进度。';
+  }
+  const documentsProcessed = readNumericStat(job.stats, 'documentsProcessed');
+  const chunksProcessed = readNumericStat(job.stats, 'chunksProcessed');
+  const embeddedChunks = readNumericStat(job.stats, 'embeddedChunks');
+  const statsSummary = [documentsProcessed, chunksProcessed, embeddedChunks].every((value) => value === null)
+    ? null
+    : `文档 ${documentsProcessed ?? '--'} · 分块 ${chunksProcessed ?? '--'} · 新嵌入 ${embeddedChunks ?? '--'}`;
+  if (job.status === 'FAILED') {
+    return job.errorMessage || '任务执行失败，请查看 ai-gateway 或 app-server 日志。';
+  }
+  if (job.status === 'SUCCEEDED') {
+    return statsSummary ? `任务已完成。${statsSummary}` : '任务已完成。';
+  }
+  return statsSummary ? `任务进行中。${statsSummary}` : '任务已提交，正在等待 ai-gateway 完成重建。';
+}
+
 function normalizeImportView(value?: string | null): ImportView {
   if (value === 'pending' || value === 'failed') {
     return value;
@@ -306,8 +348,11 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
   const [rowStatus, setRowStatus] = React.useState('');
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [rowForm, setRowForm] = React.useState<ImportRowFormState>(createEmptyRowForm);
+  const [reindexJobIdsByBatch, setReindexJobIdsByBatch] = React.useState<Record<number, string>>({});
+  const [settledReindexJobs, setSettledReindexJobs] = React.useState<Record<string, boolean>>({});
   const isAdmin = mode === 'admin';
   const [source] = React.useState(() => searchParams.get('source') || '');
+  const activeReindexJobId = selectedBatchId === null ? null : reindexJobIdsByBatch[selectedBatchId] || null;
 
   const usersQuery = useQuery({
     queryKey: ['admin-users-for-import-history'],
@@ -391,6 +436,13 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
     enabled: selectedBatchId !== null && batchDetailQuery.data?.status !== 'PARSING',
   });
 
+  const reindexJobQuery = useQuery({
+    queryKey: ['lexical-import-batch-reindex-job', activeReindexJobId],
+    queryFn: ({ signal }) => adminService.getRagReindexJob(activeReindexJobId as string, { signal }),
+    enabled: isAdmin && activeReindexJobId !== null && !settledReindexJobs[activeReindexJobId],
+    refetchInterval: 2000,
+  });
+
   React.useEffect(() => {
     const currentStatus = batchDetailQuery.data?.status ?? null;
     const previousStatus = lastBatchStatusRef.current;
@@ -402,6 +454,21 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
     }
     lastBatchStatusRef.current = currentStatus;
   }, [batchDetailQuery.data?.status, queryClient]);
+
+  React.useEffect(() => {
+    const job = reindexJobQuery.data;
+    if (!job || !activeReindexJobId || !isTerminalRagJobStatus(job.status)) {
+      return;
+    }
+    setSettledReindexJobs((current) => ({ ...current, [activeReindexJobId]: true }));
+    void queryClient.invalidateQueries({ queryKey: ['lexical-import-batch-detail', selectedBatchId] });
+    void queryClient.invalidateQueries({ queryKey: ['lexical-pair-overview'] });
+    if (job.status === 'SUCCEEDED') {
+      setFeedback(`批次 #${selectedBatchId} 的定向重建已完成，知识同步摘要已刷新。`);
+      return;
+    }
+    setFeedback(job.errorMessage || `批次 #${selectedBatchId} 的定向重建失败。`);
+  }, [activeReindexJobId, queryClient, reindexJobQuery.data, selectedBatchId]);
 
   React.useEffect(() => {
     if (!rowsQuery.data?.records.length) {
@@ -489,6 +556,27 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
     },
     onError: (error) => {
       setFeedback(translateImportMessage(error instanceof Error ? error.message : '提交导入失败。'));
+    },
+  });
+
+  const reindexBatchMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedBatchId) {
+        throw new Error('请先选择导入批次。');
+      }
+      return lexicalPairService.reindexImportBatch(selectedBatchId);
+    },
+    onSuccess: async (result) => {
+      if (!selectedBatchId) {
+        return;
+      }
+      setReindexJobIdsByBatch((current) => ({ ...current, [selectedBatchId]: result.jobId }));
+      setSettledReindexJobs((current) => ({ ...current, [result.jobId]: false }));
+      setFeedback(`已提交批次 #${selectedBatchId} 的定向重建任务，任务 #${result.jobId}。`);
+      await queryClient.invalidateQueries({ queryKey: ['lexical-import-batch-detail', selectedBatchId] });
+    },
+    onError: (error) => {
+      setFeedback(error instanceof Error ? error.message : '批次定向重建提交失败。');
     },
   });
 
@@ -778,6 +866,16 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                     <RefreshCw size={14} className={isBatchProcessing(selectedBatch) ? 'animate-spin' : ''} />
                     {commitBatchMutation.isPending || selectedBatch.status === 'IMPORTING' ? '提交中...' : '正式导入可用行'}
                   </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => reindexBatchMutation.mutate()}
+                      disabled={reindexBatchMutation.isPending || selectedBatch.importedRows <= 0}
+                      className="rounded-full border border-primary/20 bg-primary/10 px-5 py-3 text-sm font-bold text-primary disabled:opacity-60"
+                    >
+                      {reindexBatchMutation.isPending ? '提交重建中...' : '重建本批索引'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -787,6 +885,34 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                 <MetricCard label="需修正" value={selectedBatch.invalidRows} className="border-rose-500/20 bg-rose-500/5 text-rose-500" />
                 <MetricCard label="已跳过" value={selectedBatch.skippedRows} className="border-slate-200/70 bg-white/60 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/75" />
                 <MetricCard label="已导入" value={selectedBatch.importedRows} className="border-primary/20 bg-primary/5 text-primary" />
+              </div>
+
+              <div className="space-y-4 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">知识同步概览</div>
+                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{buildEmbeddingSyncHint(selectedBatch)}</div>
+                  <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
+                    最近成功嵌入 {formatDateTime(selectedBatch.latestEmbeddedAt)}
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <MetricCard label="待嵌入" value={selectedBatch.pendingEmbeddingCount} className="border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400" />
+                  <MetricCard label="已嵌入" value={selectedBatch.embeddedCount} className="border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400" />
+                  <MetricCard label="嵌入失败" value={selectedBatch.failedEmbeddingCount} className="border-rose-500/20 bg-rose-500/5 text-rose-500" />
+                </div>
+                {isAdmin && (
+                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/55">
+                    <div className="font-bold text-slate-900 dark:text-white">
+                      最近一次定向重建任务 {activeReindexJobId ? `#${activeReindexJobId}` : '--'}
+                    </div>
+                    <div className="mt-2">{buildRagJobSummary(reindexJobQuery.data)}</div>
+                    {reindexJobQuery.data?.finishedAt && (
+                      <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
+                        结束时间 {formatDateTime(reindexJobQuery.data.finishedAt)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {selectedBatch.errorMessage && (

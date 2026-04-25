@@ -82,6 +82,8 @@ import java.util.stream.Collectors;
 @Service
 public class LexicalPairService {
 
+    private static final int KNOWLEDGE_EVENT_SOURCE_ID_CHUNK_SIZE = 200;
+
     private record SuggestionMatch(String matchedBy, int priority) {
     }
 
@@ -303,6 +305,14 @@ public class LexicalPairService {
         Long lexicalPairId = createInternal(request);
         registerKnowledgeChangedEvent(List.of(lexicalPairId));
         log.info("event=lexical_pair_created pairId={} englishWord={} frenchWord={}",
+                lexicalPairId, request.englishWord(), request.frenchWord());
+        return lexicalPairId;
+    }
+
+    @Transactional
+    public Long createFromImport(LexicalPairUpsertRequest request) {
+        Long lexicalPairId = createInternal(request);
+        log.info("event=lexical_pair_imported pairId={} englishWord={} frenchWord={}",
                 lexicalPairId, request.englishWord(), request.frenchWord());
         return lexicalPairId;
     }
@@ -751,7 +761,8 @@ public class LexicalPairService {
         publishKnowledgeChangedEvent(lexicalPairIds);
     }
 
-    private void publishKnowledgeChangedEvent(Collection<Long> lexicalPairIds) {
+    @Transactional
+    public void publishKnowledgeChangedEvent(Collection<Long> lexicalPairIds) {
         List<String> sourceIds = lexicalPairIds.stream()
                 .filter(Objects::nonNull)
                 .map(String::valueOf)
@@ -760,14 +771,17 @@ public class LexicalPairService {
         if (sourceIds.isEmpty()) {
             return;
         }
-        lexicalKnowledgeChangedEventPublisher.publish(new com.huashi.eftransfer.shared.event.LexicalKnowledgeChangedEvent(
-                UUID.randomUUID().toString(),
-                1,
-                "LEXICAL_PAIR",
-                sourceIds,
-                OffsetDateTime.now(ZoneOffset.UTC),
-                MDC.get("traceId")
-        ));
+        for (int start = 0; start < sourceIds.size(); start += KNOWLEDGE_EVENT_SOURCE_ID_CHUNK_SIZE) {
+            int end = Math.min(start + KNOWLEDGE_EVENT_SOURCE_ID_CHUNK_SIZE, sourceIds.size());
+            lexicalKnowledgeChangedEventPublisher.publish(new com.huashi.eftransfer.shared.event.LexicalKnowledgeChangedEvent(
+                    UUID.randomUUID().toString(),
+                    1,
+                    "LEXICAL_PAIR",
+                    sourceIds.subList(start, end),
+                    OffsetDateTime.now(ZoneOffset.UTC),
+                    MDC.get("traceId")
+            ));
+        }
     }
 
     private Map<Long, List<LexicalPairExampleEntity>> loadExampleMap(List<Long> senseIds) {

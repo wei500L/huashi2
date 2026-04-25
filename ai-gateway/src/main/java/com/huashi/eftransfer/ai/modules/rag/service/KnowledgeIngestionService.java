@@ -15,6 +15,8 @@ import com.huashi.eftransfer.ai.modules.rag.support.PendingChunkEmbedding;
 import com.huashi.eftransfer.ai.modules.rag.support.ReindexMode;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
+import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncItem;
+import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncRequest;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExampleItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
@@ -200,8 +202,10 @@ public class KnowledgeIngestionService {
             );
 
             List<PendingChunkEmbedding> pendingChunkEmbeddings = new ArrayList<>();
+            Set<String> processedLexicalPairIds = new LinkedHashSet<>();
             for (LexicalKnowledgeExportItem item : response.items()) {
                 seenDocumentIds.add(String.valueOf(item.lexicalPairId()));
+                processedLexicalPairIds.add(String.valueOf(item.lexicalPairId()));
                 KnowledgeDocumentPayload documentPayload = toLexicalDocument(item, requestedSourceTypes);
                 KnowledgeStoreRepository.UpsertDocumentResult result = knowledgeStoreRepository.upsertDocument(
                         documentPayload,
@@ -217,6 +221,7 @@ public class KnowledgeIngestionService {
             }
 
             embedPendingChunks(pendingChunkEmbeddings, stats);
+            syncLexicalPairEmbeddingStatuses(processedLexicalPairIds);
             cursor = response.nextCursor();
             ingestionJobRepository.updateProgress(jobId, cursor, watermark, stats.toMap());
         } while (cursor != null);
@@ -361,6 +366,24 @@ public class KnowledgeIngestionService {
         }
         knowledgeStoreRepository.replaceChunkEmbeddings(writes);
         stats.embeddedChunks += batch.size();
+    }
+
+    private void syncLexicalPairEmbeddingStatuses(Set<String> lexicalPairSourceIds) {
+        if (lexicalPairSourceIds == null || lexicalPairSourceIds.isEmpty()) {
+            return;
+        }
+        List<LexicalPairEmbeddingStatusSyncItem> items = knowledgeStoreRepository.listLexicalPairEmbeddingStates(lexicalPairSourceIds)
+                .stream()
+                .map(state -> new LexicalPairEmbeddingStatusSyncItem(
+                        Long.valueOf(state.sourceId()),
+                        state.embeddingStatus(),
+                        state.lastEmbeddedAt()
+                ))
+                .toList();
+        if (items.isEmpty()) {
+            return;
+        }
+        appServerKnowledgeClient.syncLexicalPairEmbeddingStatus(new LexicalPairEmbeddingStatusSyncRequest(items));
     }
 
     private KnowledgeDocumentPayload toLexicalDocument(LexicalKnowledgeExportItem item, Set<String> requestedSourceTypes) {

@@ -1712,6 +1712,9 @@ export interface LexicalImportBatchSummaryVO {
   invalidRows: number;
   skippedRows: number;
   importedRows: number;
+  pendingEmbeddingCount: number;
+  embeddedCount: number;
+  failedEmbeddingCount: number;
   errorMessage?: string | null;
   ownerUserId: number;
   ownerDisplayName?: string | null;
@@ -1733,6 +1736,10 @@ export interface LexicalImportBatchDetailVO {
   invalidRows: number;
   skippedRows: number;
   importedRows: number;
+  pendingEmbeddingCount: number;
+  embeddedCount: number;
+  failedEmbeddingCount: number;
+  latestEmbeddedAt?: string | null;
   errorMessage?: string | null;
   ownerUserId: number;
   ownerDisplayName?: string | null;

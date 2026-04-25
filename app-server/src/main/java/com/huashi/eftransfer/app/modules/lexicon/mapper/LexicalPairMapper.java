@@ -5,6 +5,9 @@ import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import java.time.LocalDateTime;
 
 @Mapper
 public interface LexicalPairMapper extends BaseMapper<LexicalPairEntity> {
@@ -21,4 +24,17 @@ public interface LexicalPairMapper extends BaseMapper<LexicalPairEntity> {
             LIMIT 1
             """)
     LexicalPairEntity selectByWords(@Param("englishWord") String englishWord, @Param("frenchWord") String frenchWord);
+
+    @Update("""
+            UPDATE lexical_pair
+            SET embedding_status = #{embeddingStatus},
+                last_embedded_at = #{lastEmbeddedAt}
+            WHERE id = #{lexicalPairId}
+              AND deleted = FALSE
+            """)
+    int updateEmbeddingState(
+            @Param("lexicalPairId") Long lexicalPairId,
+            @Param("embeddingStatus") String embeddingStatus,
+            @Param("lastEmbeddedAt") LocalDateTime lastEmbeddedAt
+    );
 }

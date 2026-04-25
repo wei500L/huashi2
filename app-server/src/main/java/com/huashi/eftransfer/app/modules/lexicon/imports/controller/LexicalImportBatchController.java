@@ -9,6 +9,9 @@ import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportBatchCr
 import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportBatchDetailVO;
 import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportBatchSummaryVO;
 import com.huashi.eftransfer.app.modules.lexicon.imports.vo.LexicalImportRowVO;
+import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsAdminService;
+import com.huashi.eftransfer.shared.ai.RagReindexRequest;
+import com.huashi.eftransfer.shared.ai.RagReindexResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import com.huashi.eftransfer.shared.page.PageResult;
 import jakarta.validation.Valid;
@@ -38,9 +41,14 @@ import java.nio.charset.StandardCharsets;
 public class LexicalImportBatchController {
 
     private final LexicalImportBatchService lexicalImportBatchService;
+    private final AiOpsAdminService aiOpsAdminService;
 
-    public LexicalImportBatchController(LexicalImportBatchService lexicalImportBatchService) {
+    public LexicalImportBatchController(
+            LexicalImportBatchService lexicalImportBatchService,
+            AiOpsAdminService aiOpsAdminService
+    ) {
         this.lexicalImportBatchService = lexicalImportBatchService;
+        this.aiOpsAdminService = aiOpsAdminService;
     }
 
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
@@ -84,6 +92,20 @@ public class LexicalImportBatchController {
     @PostMapping("/{batchId}/commit")
     public ApiResponse<LexicalImportBatchCreatedVO> commitBatch(@PathVariable Long batchId) {
         return ApiResponse.success(lexicalImportBatchService.commitBatch(batchId), MDC.get("traceId"));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{batchId}/reindex")
+    public ApiResponse<RagReindexResponse> reindexBatch(@PathVariable Long batchId) {
+        return ApiResponse.success(
+                aiOpsAdminService.triggerReindex(new RagReindexRequest(
+                        "FULL",
+                        java.util.List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                        lexicalImportBatchService.listImportedLexicalPairIds(batchId),
+                        Boolean.TRUE
+                )),
+                MDC.get("traceId")
+        );
     }
 
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")

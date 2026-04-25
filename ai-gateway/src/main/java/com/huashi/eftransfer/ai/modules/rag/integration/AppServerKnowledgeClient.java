@@ -2,6 +2,8 @@ package com.huashi.eftransfer.ai.modules.rag.integration;
 
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncRequest;
+import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncResponse;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import org.slf4j.MDC;
@@ -19,6 +21,9 @@ import java.util.List;
 public class AppServerKnowledgeClient {
 
     private static final ParameterizedTypeReference<ApiResponse<LexicalKnowledgeExportPageResponse>> EXPORT_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<LexicalPairEmbeddingStatusSyncResponse>> EMBEDDING_STATUS_SYNC_TYPE =
             new ParameterizedTypeReference<>() {
             };
 
@@ -43,6 +48,23 @@ public class AppServerKnowledgeClient {
 
         if (response == null || !response.success() || response.data() == null) {
             throw new IllegalStateException("Unexpected app-server lexical knowledge export response");
+        }
+        return response.data();
+    }
+
+    public LexicalPairEmbeddingStatusSyncResponse syncLexicalPairEmbeddingStatus(
+            LexicalPairEmbeddingStatusSyncRequest request
+    ) {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        ApiResponse<LexicalPairEmbeddingStatusSyncResponse> response = bundle.appServerRestClient().post()
+                .uri("/internal/knowledge/lexical-pairs/embedding-status")
+                .headers(this::applyTraceHeader)
+                .body(request)
+                .retrieve()
+                .body(EMBEDDING_STATUS_SYNC_TYPE);
+
+        if (response == null || !response.success() || response.data() == null) {
+            throw new IllegalStateException("Unexpected app-server lexical embedding status sync response");
         }
         return response.data();
     }

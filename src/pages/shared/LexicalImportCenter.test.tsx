@@ -16,6 +16,7 @@ import LexicalImportCenter from './LexicalImportCenter';
 vi.mock('@/lib/services', () => ({
   adminService: {
     listUsers: vi.fn(),
+    getRagReindexJob: vi.fn(),
   },
   lexicalPairService: {
     createImportBatch: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('@/lib/services', () => ({
     listImportRows: vi.fn(),
     updateImportRow: vi.fn(),
     commitImportBatch: vi.fn(),
+    reindexImportBatch: vi.fn(),
     downloadImportFile: vi.fn(),
   },
 }));
@@ -40,6 +42,9 @@ const batchSummary: LexicalImportBatchSummaryVO = {
   invalidRows: 1,
   skippedRows: 0,
   importedRows: 0,
+  pendingEmbeddingCount: 0,
+  embeddedCount: 0,
+  failedEmbeddingCount: 0,
   errorMessage: null,
   ownerUserId: 7,
   ownerDisplayName: 'Teacher Zhang',
@@ -61,6 +66,9 @@ const batchDetail: LexicalImportBatchDetailVO = {
   invalidRows: 1,
   skippedRows: 0,
   importedRows: 0,
+  pendingEmbeddingCount: 0,
+  embeddedCount: 0,
+  failedEmbeddingCount: 0,
   errorMessage: null,
   ownerUserId: 7,
   ownerDisplayName: 'Teacher Zhang',
@@ -69,6 +77,7 @@ const batchDetail: LexicalImportBatchDetailVO = {
   parserJobFinishedAt: '2026-03-22T10:00:05',
   importJobStartedAt: null,
   importJobFinishedAt: null,
+  latestEmbeddedAt: null,
   createdAt: '2026-03-22T10:00:00',
   updatedAt: '2026-03-22T10:00:05',
 };
@@ -116,7 +125,10 @@ function pageResult<T>(records: T[]): PageResult<T> {
 
 const queryClients: QueryClient[] = [];
 
-function renderImportCenter(initialEntries: string[] = ['/teacher/lexical-pairs/imports']) {
+function renderImportCenter(
+  initialEntries: string[] = ['/teacher/lexical-pairs/imports'],
+  mode: 'teacher' | 'admin' = 'teacher'
+) {
   const client = new QueryClient({
     defaultOptions: {
       queries: {
@@ -133,7 +145,7 @@ function renderImportCenter(initialEntries: string[] = ['/teacher/lexical-pairs/
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={initialEntries}>
-        <LexicalImportCenter mode="teacher" />
+        <LexicalImportCenter mode={mode} />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -142,6 +154,23 @@ function renderImportCenter(initialEntries: string[] = ['/teacher/lexical-pairs/
 describe('LexicalImportCenter', () => {
   beforeEach(() => {
     vi.mocked(adminService.listUsers).mockResolvedValue(pageResult([]));
+    vi.mocked(adminService.getRagReindexJob).mockResolvedValue({
+      jobId: 'job-41',
+      jobType: 'KNOWLEDGE_REINDEX',
+      mode: 'MANUAL',
+      status: 'SUCCEEDED',
+      sourceTypes: ['LEXICAL_PAIR', 'LEXICAL_SENSE', 'LEXICAL_EXAMPLE'],
+      sourceIds: ['501'],
+      lastCursor: null,
+      lastSourceUpdatedAt: null,
+      finishedAt: '2026-03-22T10:06:00',
+      stats: {
+        documentsProcessed: 1,
+        chunksProcessed: 3,
+        embeddedChunks: 3,
+      },
+      errorMessage: null,
+    });
     vi.mocked(lexicalPairService.listImportBatches).mockResolvedValue(pageResult([batchSummary]));
     vi.mocked(lexicalPairService.getImportBatch).mockResolvedValue(batchDetail);
     vi.mocked(lexicalPairService.listImportRows).mockResolvedValue(pageResult([invalidRow]));
@@ -162,6 +191,10 @@ describe('LexicalImportCenter', () => {
       batchId: 41,
       status: 'IMPORTING',
     } satisfies LexicalImportBatchCreatedVO);
+    vi.mocked(lexicalPairService.reindexImportBatch).mockResolvedValue({
+      jobId: 'job-41',
+      status: 'PENDING',
+    });
     vi.mocked(lexicalPairService.downloadImportFile).mockResolvedValue(new Blob(['csv']));
   });
 
@@ -248,5 +281,58 @@ describe('LexicalImportCenter', () => {
       pageSize: 12,
     });
     expect(await screen.findByText(/当前从教师工作台进入/)).toBeInTheDocument();
+  });
+
+  it('shows embedding sync summary for the selected batch', async () => {
+    vi.mocked(lexicalPairService.getImportBatch).mockResolvedValue({
+      ...batchDetail,
+      importedRows: 4,
+      pendingEmbeddingCount: 1,
+      embeddedCount: 3,
+      failedEmbeddingCount: 0,
+      latestEmbeddedAt: '2026-03-22T10:06:00',
+    });
+
+    renderImportCenter();
+
+    expect(await screen.findByText('知识同步概览')).toBeInTheDocument();
+    expect(await screen.findByText('仍有 1 条词对等待嵌入，后台知识同步还在继续。')).toBeInTheDocument();
+    expect(await screen.findByText(/最近成功嵌入/)).toBeInTheDocument();
+    expect(await screen.findByText('待嵌入')).toBeInTheDocument();
+    expect(await screen.findByText('已嵌入')).toBeInTheDocument();
+  });
+
+  it('allows admin to trigger batch reindex and shows the latest job summary', async () => {
+    vi.mocked(lexicalPairService.getImportBatch).mockResolvedValue({
+      ...batchDetail,
+      status: 'COMPLETED',
+      importedRows: 4,
+      pendingEmbeddingCount: 2,
+      embeddedCount: 2,
+      failedEmbeddingCount: 0,
+      latestEmbeddedAt: '2026-03-22T10:06:00',
+    });
+    vi.mocked(lexicalPairService.listImportBatches).mockResolvedValue(
+      pageResult([
+        {
+          ...batchSummary,
+          status: 'COMPLETED',
+          importedRows: 4,
+        },
+      ])
+    );
+    renderImportCenter(['/admin/lexical-pairs/imports'], 'admin');
+
+    await userEvent.click(await screen.findByRole('button', { name: '重建本批索引' }));
+
+    await waitFor(() => {
+      expect(lexicalPairService.reindexImportBatch).toHaveBeenCalledWith(41);
+    });
+    await waitFor(() => {
+      expect(adminService.getRagReindexJob).toHaveBeenCalledWith('job-41', expect.anything());
+    });
+
+    expect(await screen.findByText(/最近一次定向重建任务 #job-41/)).toBeInTheDocument();
+    expect(await screen.findByText(/任务已完成。文档 1 · 分块 3 · 新嵌入 3/)).toBeInTheDocument();
   });
 });

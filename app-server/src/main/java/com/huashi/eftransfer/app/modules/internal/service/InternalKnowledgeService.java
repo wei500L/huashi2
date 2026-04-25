@@ -11,11 +11,15 @@ import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairSenseMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairTagRelMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalTagMapper;
+import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncItem;
+import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncRequest;
+import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncResponse;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExampleItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeSenseItem;
 import com.huashi.eftransfer.shared.api.ResultCode;
+import com.huashi.eftransfer.shared.enums.EmbeddingStatus;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -31,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -103,6 +108,34 @@ public class InternalKnowledgeService {
 
         String nextCursor = pairs.isEmpty() ? null : encodeCursor(pairs.getLast().getUpdatedAt(), pairs.getLast().getId());
         return new LexicalKnowledgeExportPageResponse(items, nextCursor, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    public LexicalPairEmbeddingStatusSyncResponse syncLexicalPairEmbeddingStatuses(
+            LexicalPairEmbeddingStatusSyncRequest request
+    ) {
+        if (request == null || request.items() == null || request.items().isEmpty()) {
+            return new LexicalPairEmbeddingStatusSyncResponse(0);
+        }
+
+        Map<Long, LexicalPairEmbeddingStatusSyncItem> itemsById = new LinkedHashMap<>();
+        for (LexicalPairEmbeddingStatusSyncItem item : request.items()) {
+            if (item == null || item.lexicalPairId() == null || item.lexicalPairId() <= 0) {
+                continue;
+            }
+            itemsById.put(item.lexicalPairId(), item);
+        }
+
+        int updatedCount = 0;
+        for (LexicalPairEmbeddingStatusSyncItem item : itemsById.values()) {
+            EmbeddingStatus status = parseEmbeddingStatus(item.embeddingStatus());
+            updatedCount += lexicalPairMapper.updateEmbeddingState(
+                    item.lexicalPairId(),
+                    status.name(),
+                    resolveLastEmbeddedAt(status, item.lastEmbeddedAt())
+            );
+        }
+
+        return new LexicalPairEmbeddingStatusSyncResponse(updatedCount);
     }
 
     private LexicalKnowledgeExportItem toExportItem(
@@ -231,6 +264,25 @@ public class InternalKnowledgeService {
 
     private Double decimal(BigDecimal value) {
         return value == null ? null : value.doubleValue();
+    }
+
+    private EmbeddingStatus parseEmbeddingStatus(String value) {
+        if (!StringUtils.hasText(value)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "embeddingStatus must not be blank", 400);
+        }
+        try {
+            return EmbeddingStatus.fromCode(value.trim());
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, exception.getMessage(), 400);
+        }
+    }
+
+    private LocalDateTime resolveLastEmbeddedAt(EmbeddingStatus status, OffsetDateTime lastEmbeddedAt) {
+        if (!Objects.equals(status, EmbeddingStatus.EMBEDDED)) {
+            return null;
+        }
+        OffsetDateTime effective = lastEmbeddedAt == null ? OffsetDateTime.now(ZoneOffset.UTC) : lastEmbeddedAt;
+        return effective.atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
     private record CursorState(LocalDateTime updatedAt, Long id) {
