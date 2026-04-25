@@ -39,12 +39,15 @@ export const NotificationBell: React.FC = () => {
   const queryClient = useQueryClient();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const session = useAuthStore((state) => state.session);
+  const authStatus = useAuthStore((state) => state.status);
   const locale = useUIStore((state) => state.locale);
   const [isOpen, setIsOpen] = useState(false);
+  const isAuthenticated = authStatus === 'authenticated' && Boolean(session?.accessToken);
 
   const unreadCountQuery = useQuery({
     queryKey: ['notifications', 'count'],
     queryFn: ({ signal }) => notificationService.getUnreadCount({ signal }),
+    enabled: isAuthenticated,
     refetchInterval: 60_000,
     staleTime: 15_000,
   });
@@ -52,6 +55,7 @@ export const NotificationBell: React.FC = () => {
   const recentNotificationsQuery = useQuery({
     queryKey: ['notifications', 'recent'],
     queryFn: ({ signal }) => notificationService.list({ pageNo: 1, pageSize: RECENT_PAGE_SIZE }, { signal }),
+    enabled: isAuthenticated,
     refetchInterval: 120_000,
     staleTime: 15_000,
   });
@@ -138,6 +142,9 @@ export const NotificationBell: React.FC = () => {
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
     const accessToken = session?.accessToken;
     const wsUrl = accessToken ? buildNotificationWebSocketUrl(accessToken) : null;
     if (!wsUrl) {
@@ -169,9 +176,11 @@ export const NotificationBell: React.FC = () => {
       if (reconnectTimer !== null) {
         window.clearTimeout(reconnectTimer);
       }
-      socket?.close();
+      if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
+        socket.close();
+      }
     };
-  }, [handleSocketMessage, session?.accessToken]);
+  }, [handleSocketMessage, isAuthenticated, session?.accessToken]);
 
   const handleNotificationClick = async (notification: NotificationItemVO) => {
     if (notification.status === 'UNREAD') {

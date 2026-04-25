@@ -25,6 +25,8 @@ interface AuthStore {
   isAuthenticated: () => boolean;
 }
 
+let initializePromise: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthStore>((set, get) => ({
   status: 'idle',
   session: readStoredSession(),
@@ -32,26 +34,36 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   error: null,
 
   initialize: async () => {
-    const stored = readStoredSession();
-    if (!stored) {
-      set({ status: 'anonymous', session: null, user: null, error: null });
-      return;
+    if (initializePromise) {
+      return initializePromise;
     }
-    set({ status: 'loading', session: stored, user: stored.userInfo, error: null });
-    try {
-      const user = await authService.me();
-      const nextSession = { ...stored, userInfo: user };
-      writeStoredSession(nextSession);
-      set({ status: 'authenticated', session: nextSession, user, error: null });
-    } catch (error) {
-      clearStoredSession();
-      set({
-        status: 'anonymous',
-        session: null,
-        user: null,
-        error: error instanceof Error ? error.message : 'Failed to initialize session',
-      });
-    }
+
+    initializePromise = (async () => {
+      const stored = readStoredSession();
+      if (!stored) {
+        set({ status: 'anonymous', session: null, user: null, error: null });
+        return;
+      }
+      set({ status: 'loading', session: stored, user: stored.userInfo, error: null });
+      try {
+        const user = await authService.me();
+        const nextSession = { ...stored, userInfo: user };
+        writeStoredSession(nextSession);
+        set({ status: 'authenticated', session: nextSession, user, error: null });
+      } catch (error) {
+        clearStoredSession();
+        set({
+          status: 'anonymous',
+          session: null,
+          user: null,
+          error: error instanceof Error ? error.message : 'Failed to initialize session',
+        });
+      }
+    })().finally(() => {
+      initializePromise = null;
+    });
+
+    return initializePromise;
   },
 
   login: async (payload) => {
