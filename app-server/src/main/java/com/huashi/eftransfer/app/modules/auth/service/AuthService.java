@@ -30,6 +30,7 @@ import com.huashi.eftransfer.app.modules.user.entity.UserRoleEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserRoleMapper;
+import com.huashi.eftransfer.app.modules.user.service.DisplayNameNormalizer;
 import com.huashi.eftransfer.app.modules.user.service.UserQueryService;
 import com.huashi.eftransfer.app.modules.user.vo.CurrentUserVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
@@ -309,10 +310,11 @@ public class AuthService {
 
     private LoginResponse issueTokens(UserEntity user, Set<String> roles, AuthClientContext clientContext) {
         requireAssignedRoles(roles);
+        String displayName = DisplayNameNormalizer.normalize(user.getDisplayName());
         AccessToken accessToken = jwtTokenProvider.generateAccessToken(
                 user.getId(),
                 user.getUsername(),
-                user.getDisplayName(),
+                displayName,
                 roles
         );
 
@@ -326,7 +328,7 @@ public class AuthService {
                         refreshTokenHash,
                         user.getId(),
                         user.getUsername(),
-                        user.getDisplayName(),
+                        displayName,
                         roles,
                         accessToken.tokenId(),
                         accessToken.expiresAt(),

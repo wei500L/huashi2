@@ -13,6 +13,7 @@ import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.TeacherProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserRoleMapper;
+import com.huashi.eftransfer.app.modules.user.service.DisplayNameNormalizer;
 import com.huashi.eftransfer.shared.enums.UserRole;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,7 +86,7 @@ public class DemoUserInitializer implements ApplicationRunner {
     private UserEntity ensureUser(String username, String email, String displayName, String rawPassword) {
         UserEntity existing = userMapper.selectByUsernameOrEmail(username);
         if (existing != null) {
-            if (looksLikePasswordHash(existing.getDisplayName())) {
+            if (shouldRepairDisplayName(existing.getDisplayName())) {
                 existing.setDisplayName(displayName);
                 existing.setUpdatedBy(0L);
                 userMapper.updateById(existing);
@@ -113,6 +114,10 @@ public class DemoUserInitializer implements ApplicationRunner {
                 || value.startsWith("$2b$")
                 || value.startsWith("$2y$")
                 || value.startsWith("{bcrypt}");
+    }
+
+    private boolean shouldRepairDisplayName(String value) {
+        return looksLikePasswordHash(value) || DisplayNameNormalizer.looksLikeMojibake(value);
     }
 
     private void ensureRole(Long userId, UserRole role) {
