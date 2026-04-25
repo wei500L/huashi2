@@ -42,11 +42,10 @@ const StudentAssessmentsPage: React.FC = () => {
     mutationFn: (publishId: number) => assessmentService.startStudentAttempt(publishId),
     onSuccess: (attempt) => {
       setErrorMessage(null);
-      if (attempt.status === 'SUBMITTED') {
-        navigate(`/assessments/attempts/${attempt.attemptId}/result`);
-        return;
-      }
-      navigate(`/assessments/attempts/${attempt.attemptId}`);
+      const targetPath = attempt.status === 'SUBMITTED'
+        ? `/assessments/attempts/${attempt.attemptId}/result`
+        : `/assessments/attempts/${attempt.attemptId}`;
+      window.location.assign(targetPath);
     },
     onError: (error) => {
       setErrorMessage(getApiErrorMessage(error, t('ui.actions.enterAssessmentCenter')));
@@ -131,7 +130,7 @@ const StudentAssessmentsPage: React.FC = () => {
                 disabled={startMutation.isPending || action.disabled}
                 onClick={() => {
                   if (item.attemptStatus === 'SUBMITTED' && item.attemptId) {
-                    navigate(`/assessments/attempts/${item.attemptId}/result`);
+                    window.location.assign(`/assessments/attempts/${item.attemptId}/result`);
                     return;
                   }
                   void startMutation.mutate(item.publishId);

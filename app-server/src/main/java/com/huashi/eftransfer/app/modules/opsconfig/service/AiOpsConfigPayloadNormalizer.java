@@ -96,7 +96,6 @@ public class AiOpsConfigPayloadNormalizer {
                 config.baseUrl(),
                 config.apiKey(),
                 config.model(),
-                config.multimodalModel(),
                 normalizeTimeout(config.connectTimeout(), config.readTimeout()),
                 normalizeTimeout(config.readTimeout(), config.connectTimeout()),
                 config.temperature(),

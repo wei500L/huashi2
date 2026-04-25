@@ -114,7 +114,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const heartbeatQuery = useQuery({
     queryKey: ['student-assessment-attempt-heartbeat', attemptId],
     queryFn: ({ signal }) => assessmentService.getStudentAttemptHeartbeat(attemptId, { signal }),
-    enabled: Number.isFinite(attemptId) && !!detailQuery.data,
+    enabled: Number.isFinite(attemptId) && detailQuery.data?.attemptId === attemptId,
     retry: false,
     refetchInterval: (query) => {
       if (detailQuery.data?.status !== 'IN_PROGRESS') {
@@ -125,7 +125,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   });
 
   React.useEffect(() => {
-    if (!detailQuery.data) {
+    if (!detailQuery.data || detailQuery.data.attemptId !== attemptId) {
       return;
     }
     setServerOffsetMs(new Date(detailQuery.data.serverTime).getTime() - Date.now());
@@ -153,10 +153,10 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       window.clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
     }
-  }, [detailQuery.data]);
+  }, [attemptId, detailQuery.data]);
 
   React.useEffect(() => {
-    if (!heartbeatQuery.data) {
+    if (!heartbeatQuery.data || heartbeatQuery.data.attemptId !== attemptId) {
       return;
     }
     setServerOffsetMs(new Date(heartbeatQuery.data.serverTime).getTime() - Date.now());
@@ -193,9 +193,10 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     []
   );
 
-  const detail = detailQuery.data;
+  const detail = detailQuery.data?.attemptId === attemptId ? detailQuery.data : undefined;
   const currentServerNow = clientNow + serverOffsetMs;
-  const remainingMs = detail ? new Date(detail.expiresAt).getTime() - currentServerNow : null;
+  const expiresAtMs = detail ? new Date(detail.expiresAt).getTime() : Number.NaN;
+  const remainingMs = detail && Number.isFinite(expiresAtMs) ? expiresAtMs - currentServerNow : null;
   const orderedQuestions = detail?.questions || [];
   const currentQuestion = orderedQuestions.find((question) => question.questionOrder === selectedQuestionOrder) || orderedQuestions[0];
   const answeredCountFromLocal = orderedQuestions.filter((question) => hasResponses(responsesByOrder[question.questionOrder])).length;
@@ -421,12 +422,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   }, [detail, persistResponses, responsesByOrder, submitLocked]);
 
   React.useEffect(() => {
-    if (!detail || detail.status !== 'IN_PROGRESS' || remainingMs === null || remainingMs > 0 || autoSubmitTriggeredRef.current) {
-      return;
-    }
-    autoSubmitTriggeredRef.current = true;
-    void handleSubmit('timeout');
-  }, [detail, handleSubmit, remainingMs]);
+    autoSubmitTriggeredRef.current = false;
+  }, [attemptId]);
 
   const updateSingleResponse = React.useCallback((questionOrder: number, value: string) => {
     setResponsesByOrder((current) => {
@@ -485,6 +482,17 @@ const StudentAssessmentAttemptPage: React.FC = () => {
           return (
             <label
               key={option.key}
+              onClick={(event) => {
+                if (!canEdit) {
+                  return;
+                }
+                event.preventDefault();
+                if (question.questionType === 'SINGLE_CHOICE') {
+                  updateSingleResponse(question.questionOrder, option.key);
+                } else {
+                  toggleMultipleResponse(question.questionOrder, option.key);
+                }
+              }}
               className={`flex items-start gap-3 rounded-[1.4rem] border px-4 py-4 text-sm transition-all ${
                 checked
                   ? 'border-primary/30 bg-primary/10 text-slate-900 dark:text-white'
@@ -494,13 +502,10 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               <input
                 type={question.questionType === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'}
                 name={`question-${question.questionOrder}`}
+                value={option.key}
                 checked={checked}
                 disabled={!canEdit}
-                onChange={() =>
-                  question.questionType === 'SINGLE_CHOICE'
-                    ? updateSingleResponse(question.questionOrder, option.key)
-                    : toggleMultipleResponse(question.questionOrder, option.key)
-                }
+                readOnly
               />
               <div>
                 <div className="font-semibold">{option.key}</div>
