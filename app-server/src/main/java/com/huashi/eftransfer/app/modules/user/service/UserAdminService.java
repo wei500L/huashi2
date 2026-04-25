@@ -277,10 +277,15 @@ public class UserAdminService {
         if ("INVITE_LINK".equals(credentialMode)) {
             return "Invite@" + java.util.UUID.randomUUID();
         }
-        if (request.initialPassword() == null || request.initialPassword().isBlank()) {
+        String initialPassword = request.initialPassword();
+        if (initialPassword == null || initialPassword.isBlank()) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "initialPassword must not be blank when credentialMode is MANUAL_PASSWORD", 400);
         }
-        return request.initialPassword();
+        String normalized = initialPassword.trim();
+        if (normalized.length() < 8 || normalized.length() > 128) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "initialPassword must be between 8 and 128 characters when credentialMode is MANUAL_PASSWORD", 400);
+        }
+        return normalized;
     }
 
     private String normalizeCredentialMode(String value) {

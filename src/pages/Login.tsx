@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Brain, BookOpen, ShieldCheck } from 'lucide-react';
 import { useAuthStore, useUIStore } from '@/store';
 import { clearPendingAuthExpired, hasPendingAuthExpired } from '@/lib/session';
-import { getPreferredWorkspaceForUser, homePathForWorkspace, resolveActiveWorkspace } from '@/lib/workspaces';
+import { resolveHomePathForUser } from '@/lib/workspaces';
 
 type LoginFormData = {
   usernameOrEmail: string;
@@ -23,6 +23,12 @@ const Login: React.FC = () => {
   const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
   const routeState = location.state as { from?: string; expired?: boolean; passwordChanged?: boolean } | null;
   const redirectTo = routeState?.from;
+  const resolvedRedirectTo = React.useMemo(() => {
+    if (!redirectTo || redirectTo === '/login' || redirectTo === '/register' || redirectTo.startsWith('/settings')) {
+      return null;
+    }
+    return redirectTo;
+  }, [redirectTo]);
   const passwordChanged = Boolean(routeState?.passwordChanged);
   const expired = !passwordChanged && (Boolean(routeState?.expired) || hasPendingAuthExpired());
   const loginSchema = React.useMemo(() => z.object({
@@ -64,16 +70,18 @@ const Login: React.FC = () => {
 
   React.useEffect(() => {
     if (user) {
-      const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
-      const nextWorkspace = resolveActiveWorkspace({
-        user,
-        pathname: location.pathname,
-        activeWorkspace,
-        preferredWorkspace,
-      });
-      navigate(redirectTo || homePathForWorkspace(nextWorkspace), { replace: true });
+      navigate(
+        resolvedRedirectTo
+          || resolveHomePathForUser({
+            user,
+            pathname: location.pathname,
+            activeWorkspace,
+            preferredWorkspaceByUser,
+          }),
+        { replace: true }
+      );
     }
-  }, [navigate, redirectTo, user, location.pathname, activeWorkspace, preferredWorkspaceByUser]);
+  }, [navigate, resolvedRedirectTo, user, location.pathname, activeWorkspace, preferredWorkspaceByUser]);
 
   React.useEffect(() => {
     if (expired || passwordChanged) {

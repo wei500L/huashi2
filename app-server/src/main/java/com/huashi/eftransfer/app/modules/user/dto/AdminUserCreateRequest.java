@@ -22,7 +22,6 @@ public record AdminUserCreateRequest(
         @Size(max = 128, message = "displayName must be less than or equal to 128 characters")
         String displayName,
 
-        @Size(min = 8, max = 128, message = "initialPassword must be between 8 and 128 characters")
         String initialPassword,
 
         @Size(max = 32, message = "credentialMode must be less than or equal to 32 characters")

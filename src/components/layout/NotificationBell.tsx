@@ -1,4 +1,5 @@
 import React, { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -37,11 +38,13 @@ export const NotificationBell: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const session = useAuthStore((state) => state.session);
   const authStatus = useAuthStore((state) => state.status);
   const locale = useUIStore((state) => state.locale);
   const [isOpen, setIsOpen] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const isAuthenticated = authStatus === 'authenticated' && Boolean(session?.accessToken);
 
   const unreadCountQuery = useQuery({
@@ -132,13 +135,48 @@ export const NotificationBell: React.FC = () => {
     if (!isOpen) {
       return;
     }
+    const updatePanelPosition = () => {
+      const button = buttonRef.current;
+      if (!button) {
+        return;
+      }
+      const rect = button.getBoundingClientRect();
+      const width = Math.min(window.innerWidth - 16, 384);
+      const left = Math.min(
+        Math.max(8, rect.right - width),
+        Math.max(8, window.innerWidth - width - 8)
+      );
+      setPanelStyle({
+        top: rect.bottom + 14,
+        left,
+        width,
+      });
+    };
+
+    updatePanelPosition();
+
     const handlePointerDown = (event: MouseEvent) => {
-      if (!panelRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target) || buttonRef.current?.contains(target)) {
+        return;
+      }
+      setIsOpen(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         setIsOpen(false);
       }
     };
+    window.addEventListener('resize', updatePanelPosition);
+    window.addEventListener('scroll', updatePanelPosition, true);
     document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition, true);
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -182,23 +220,98 @@ export const NotificationBell: React.FC = () => {
     };
   }, [handleSocketMessage, isAuthenticated, session?.accessToken]);
 
-  const handleNotificationClick = async (notification: NotificationItemVO) => {
-    if (notification.status === 'UNREAD') {
-      try {
-        await markReadMutation.mutateAsync(notification.id);
-      } catch {
-        // Keep navigation responsive even when mark-read fails.
-      }
-    }
+  const handleNotificationClick = (notification: NotificationItemVO) => {
     if (notification.actionUrl) {
       navigate(notification.actionUrl);
-      setIsOpen(false);
+    }
+    setIsOpen(false);
+    if (notification.status === 'UNREAD') {
+      void markReadMutation.mutateAsync(notification.id).catch(() => {
+        // Keep navigation responsive even when mark-read fails.
+      });
     }
   };
 
+  const panel = isOpen && panelStyle
+    ? createPortal(
+      <div
+        ref={panelRef}
+        style={{
+          position: 'fixed',
+          top: panelStyle.top,
+          left: panelStyle.left,
+          width: panelStyle.width,
+        }}
+        className="z-[140] rounded-[1.8rem] border border-slate-200/80 bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/92"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-black text-slate-900 dark:text-white">{t('shell.notifications.title')}</div>
+            <div className="mt-1 text-xs text-slate-400 dark:text-white/40">
+              {t('shell.notifications.unreadCount', { count: unreadCount })}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => markAllReadMutation.mutate()}
+            disabled={unreadCount === 0 || markAllReadMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-white/55"
+          >
+            <CheckCheck size={14} />
+            {t('shell.notifications.markAllRead')}
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {recentNotificationsQuery.isLoading ? (
+            <div className="rounded-2xl border border-slate-200/70 px-4 py-6 text-sm text-slate-400 dark:border-white/10 dark:text-white/40">
+              {t('shell.notifications.loading')}
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200/80 px-4 py-8 text-center text-sm text-slate-400 dark:border-white/10 dark:text-white/35">
+              {t('shell.notifications.empty')}
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                onClick={() => handleNotificationClick(notification)}
+                className={cn(
+                  'w-full rounded-[1.35rem] border px-4 py-3 text-left transition-all',
+                  notification.status === 'UNREAD'
+                    ? 'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-white/5'
+                    : 'border-transparent bg-transparent hover:border-slate-200/70 hover:bg-slate-50/70 dark:hover:border-white/10 dark:hover:bg-white/5'
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', levelAccent(notification.level))} />
+                      <span className="truncate text-sm font-black text-slate-900 dark:text-white">{notification.title}</span>
+                    </div>
+                    <p className="mt-2 max-h-12 overflow-hidden text-sm leading-6 text-slate-500 dark:text-white/58">
+                      {notification.content}
+                    </p>
+                    <div className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400 dark:text-white/30">
+                      {formatNotificationTime(notification.createdAt, locale)}
+                    </div>
+                  </div>
+                  {notification.status === 'UNREAD' && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary shrink-0" />}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>,
+      document.body
+    )
+    : null;
+
   return (
-    <div ref={panelRef} className="relative">
+    <>
       <button
+        ref={buttonRef}
         type="button"
         aria-label={buttonLabel}
         aria-expanded={isOpen}
@@ -212,70 +325,7 @@ export const NotificationBell: React.FC = () => {
           </span>
         )}
       </button>
-
-      {isOpen && (
-        <div className="absolute right-0 top-[calc(100%+0.85rem)] z-50 w-[min(90vw,24rem)] rounded-[1.8rem] border border-slate-200/80 bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/92">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-black text-slate-900 dark:text-white">{t('shell.notifications.title')}</div>
-              <div className="mt-1 text-xs text-slate-400 dark:text-white/40">
-                {t('shell.notifications.unreadCount', { count: unreadCount })}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => markAllReadMutation.mutate()}
-              disabled={unreadCount === 0 || markAllReadMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-white/55"
-            >
-              <CheckCheck size={14} />
-              {t('shell.notifications.markAllRead')}
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {recentNotificationsQuery.isLoading ? (
-              <div className="rounded-2xl border border-slate-200/70 px-4 py-6 text-sm text-slate-400 dark:border-white/10 dark:text-white/40">
-                {t('shell.notifications.loading')}
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200/80 px-4 py-8 text-center text-sm text-slate-400 dark:border-white/10 dark:text-white/35">
-                {t('shell.notifications.empty')}
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  type="button"
-                  onClick={() => handleNotificationClick(notification)}
-                  className={cn(
-                    'w-full rounded-[1.35rem] border px-4 py-3 text-left transition-all',
-                    notification.status === 'UNREAD'
-                      ? 'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-white/5'
-                      : 'border-transparent bg-transparent hover:border-slate-200/70 hover:bg-slate-50/70 dark:hover:border-white/10 dark:hover:bg-white/5'
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', levelAccent(notification.level))} />
-                        <span className="truncate text-sm font-black text-slate-900 dark:text-white">{notification.title}</span>
-                      </div>
-                      <p className="mt-2 max-h-12 overflow-hidden text-sm leading-6 text-slate-500 dark:text-white/58">
-                        {notification.content}
-                      </p>
-                      <div className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400 dark:text-white/30">
-                        {formatNotificationTime(notification.createdAt, locale)}
-                      </div>
-                    </div>
-                    {notification.status === 'UNREAD' && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary shrink-0" />}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      {panel}
+    </>
   );
 };

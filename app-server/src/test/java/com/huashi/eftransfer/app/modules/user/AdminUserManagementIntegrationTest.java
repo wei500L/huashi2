@@ -36,6 +36,7 @@ class AdminUserManagementIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.user.enabled").value(true))
                 .andExpect(jsonPath("$.data.user.roles", hasItem("STUDENT")))
                 .andExpect(jsonPath("$.data.user.roles", hasItem("TEACHER")))
+                .andExpect(jsonPath("$.data.accountAction.linkUrl").exists())
                 .andReturn();
         long userId = readJson(createResult).path("data").path("user").path("id").asLong();
 
@@ -225,6 +226,45 @@ class AdminUserManagementIntegrationTest extends AbstractWebIntegrationTest {
                                   "userIds": [],
                                   "enabled": true,
                                   "roles": ["TEACHER"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void shouldRequireInitialPasswordOnlyForManualPasswordMode() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+
+        mockMvc.perform(post("/api/admin/users")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "invite.only",
+                                  "email": "invite.only@example.com",
+                                  "displayName": "Invite Only",
+                                  "credentialMode": "INVITE_LINK",
+                                  "enabled": true,
+                                  "roles": ["STUDENT"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.username").value("invite.only"))
+                .andExpect(jsonPath("$.data.accountAction.linkUrl").exists());
+
+        mockMvc.perform(post("/api/admin/users")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "manual.invalid",
+                                  "email": "manual.invalid@example.com",
+                                  "displayName": "Manual Invalid",
+                                  "credentialMode": "MANUAL_PASSWORD",
+                                  "initialPassword": "short",
+                                  "enabled": true,
+                                  "roles": ["STUDENT"]
                                 }
                                 """))
                 .andExpect(status().isBadRequest())

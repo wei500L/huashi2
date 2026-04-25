@@ -4,17 +4,15 @@ import { AppLayout } from './components/layout';
 import { RouteSkeleton } from './components/common';
 import i18n from './lib/i18n';
 import { buildDocumentTitle } from './lib/page-title';
-import { requiresStudentProfileCompletion } from './lib/student-profile';
 import { AUTH_EXPIRED_EVENT, SESSION_CHANGE_EVENT, hasPendingAuthExpired } from './lib/session';
 import { useAuthStore, useUIStore } from './store';
 import { userHasCapability } from './lib/format';
-import type { Capability, CurrentUserVO } from './lib/contracts';
+import type { Capability } from './lib/contracts';
 import {
   getPreferredWorkspaceForUser,
-  homePathForWorkspace,
   resolveActiveWorkspace,
+  resolveHomePathForUser,
 } from './lib/workspaces';
-import type { WorkspaceId } from './lib/workspaces';
 
 const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
@@ -55,26 +53,6 @@ const AdminLexicalPairImportsPage = React.lazy(() => import('./pages/admin/Lexic
 
 const BootScreen: React.FC = () => <RouteSkeleton />;
 
-function resolveHomePath(
-  user: Pick<CurrentUserVO, 'id' | 'username' | 'primaryRole' | 'capabilities' | 'studentProfile'> | null | undefined,
-  pathname: string,
-  activeWorkspace: WorkspaceId | null,
-  preferredWorkspaceByUser: Record<string, WorkspaceId>
-): string {
-  if (requiresStudentProfileCompletion(user)) {
-    return '/settings';
-  }
-
-  const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
-  const currentWorkspace = resolveActiveWorkspace({
-    user,
-    pathname,
-    activeWorkspace,
-    preferredWorkspace,
-  });
-  return homePathForWorkspace(currentWorkspace);
-}
-
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const authenticated = useAuthStore((state) => state.status === 'authenticated' && !!state.session?.accessToken);
@@ -101,7 +79,12 @@ const RequireCapability: React.FC<{ capability: Capability; children: React.Reac
     <>{children}</>
   ) : (
     <Navigate
-      to={resolveHomePath(user, location.pathname, activeWorkspace, preferredWorkspaceByUser)}
+      to={resolveHomePathForUser({
+        user,
+        pathname: location.pathname,
+        activeWorkspace,
+        preferredWorkspaceByUser,
+      })}
       replace
     />
   );
@@ -112,7 +95,17 @@ const HomeRedirect: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const activeWorkspace = useUIStore((state) => state.activeWorkspace);
   const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
-  return <Navigate to={resolveHomePath(user, location.pathname, activeWorkspace, preferredWorkspaceByUser)} replace />;
+  return (
+    <Navigate
+      to={resolveHomePathForUser({
+        user,
+        pathname: location.pathname,
+        activeWorkspace,
+        preferredWorkspaceByUser,
+      })}
+      replace
+    />
+  );
 };
 
 const withSuspense = (node: React.ReactNode) => <Suspense fallback={<BootScreen />}>{node}</Suspense>;
@@ -133,7 +126,13 @@ const App: React.FC = () => {
   } = useUIStore();
 
   const resolvedHomePath = React.useMemo(
-    () => resolveHomePath(user, location.pathname, activeWorkspace, preferredWorkspaceByUser),
+    () =>
+      resolveHomePathForUser({
+        user,
+        pathname: location.pathname,
+        activeWorkspace,
+        preferredWorkspaceByUser,
+      }),
     [user, location.pathname, activeWorkspace, preferredWorkspaceByUser]
   );
 

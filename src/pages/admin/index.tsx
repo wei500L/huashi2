@@ -33,15 +33,16 @@ const roleOptions: Array<{ value: Role; label: string }> = [
   { value: 'STUDENT', label: '学生' },
 ];
 
-const emptyCreateForm: AdminUserCreateRequest = {
-  username: '',
-  email: '',
-  displayName: '',
-  initialPassword: '',
-  credentialMode: 'INVITE_LINK',
-  enabled: true,
-  roles: ['STUDENT'],
-};
+function createEmptyCreateForm(): AdminUserCreateRequest {
+  return {
+    username: '',
+    email: '',
+    displayName: '',
+    credentialMode: 'INVITE_LINK',
+    enabled: true,
+    roles: ['STUDENT'],
+  };
+}
 
 const emptyAccessForm: AdminUserAccessUpdateRequest = {
   enabled: true,
@@ -69,6 +70,27 @@ function copyActionLink(link: AccountActionLinkVO | null) {
   return navigator.clipboard.writeText(`${window.location.origin}${link.linkUrl}`);
 }
 
+function buildCreateUserPayload(form: AdminUserCreateRequest): AdminUserCreateRequest {
+  const credentialMode = form.credentialMode === 'MANUAL_PASSWORD' ? 'MANUAL_PASSWORD' : 'INVITE_LINK';
+  const basePayload: AdminUserCreateRequest = {
+    username: form.username.trim(),
+    email: form.email.trim(),
+    displayName: form.displayName.trim(),
+    credentialMode,
+    enabled: form.enabled,
+    roles: [...form.roles],
+  };
+
+  if (credentialMode === 'MANUAL_PASSWORD') {
+    return {
+      ...basePayload,
+      initialPassword: form.initialPassword?.trim() || '',
+    };
+  }
+
+  return basePayload;
+}
+
 const AdminUsersPage: React.FC = () => {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
@@ -82,7 +104,7 @@ const AdminUsersPage: React.FC = () => {
     pageSize: 10,
   });
   const [showCreateForm, setShowCreateForm] = React.useState(false);
-  const [createForm, setCreateForm] = React.useState<AdminUserCreateRequest>(emptyCreateForm);
+  const [createForm, setCreateForm] = React.useState<AdminUserCreateRequest>(() => createEmptyCreateForm());
   const [editingUser, setEditingUser] = React.useState<UserSummaryVO | null>(null);
   const [accessForm, setAccessForm] = React.useState<AdminUserAccessUpdateRequest>(emptyAccessForm);
   const [bulkAccessForm, setBulkAccessForm] = React.useState<AdminUserAccessUpdateRequest>(emptyAccessForm);
@@ -123,7 +145,7 @@ const AdminUsersPage: React.FC = () => {
       setErrorMessage(null);
       setLatestActionLink(result.accountAction || null);
       setBatchResult(null);
-      setCreateForm(emptyCreateForm);
+      setCreateForm(createEmptyCreateForm());
       setShowCreateForm(false);
       await queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
@@ -494,57 +516,72 @@ const AdminUsersPage: React.FC = () => {
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">默认使用邀请链接交付账号；若选择手动密码模式，再录入初始密码。</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <input value={createForm.username} onChange={(event) => setCreateForm((state) => ({ ...state, username: event.target.value }))} placeholder="用户名" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
-            <input value={createForm.email} onChange={(event) => setCreateForm((state) => ({ ...state, email: event.target.value }))} placeholder="邮箱" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
-            <input value={createForm.displayName} onChange={(event) => setCreateForm((state) => ({ ...state, displayName: event.target.value }))} placeholder="显示名称" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
-            <select
-              value={createForm.credentialMode}
-              onChange={(event) => setCreateForm((state) => ({ ...state, credentialMode: event.target.value as AdminUserCreateRequest['credentialMode'] }))}
-              className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
-            >
-              <option value="INVITE_LINK">邀请链接</option>
-              <option value="MANUAL_PASSWORD">手动密码</option>
-            </select>
-            {createForm.credentialMode === 'MANUAL_PASSWORD' && (
-              <input
-                type="password"
-                value={createForm.initialPassword || ''}
-                onChange={(event) => setCreateForm((state) => ({ ...state, initialPassword: event.target.value }))}
-                placeholder="初始密码"
-                className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
-              />
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            {roleOptions.map((role) => (
-              <label
-                key={role.value}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm dark:border-white/10"
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              createMutation.mutate(buildCreateUserPayload(createForm));
+            }}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <input value={createForm.username} onChange={(event) => setCreateForm((state) => ({ ...state, username: event.target.value }))} placeholder="用户名" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
+              <input value={createForm.email} onChange={(event) => setCreateForm((state) => ({ ...state, email: event.target.value }))} placeholder="邮箱" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
+              <input value={createForm.displayName} onChange={(event) => setCreateForm((state) => ({ ...state, displayName: event.target.value }))} placeholder="显示名称" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
+              <select
+                value={createForm.credentialMode}
+                onChange={(event) => {
+                  const credentialMode = event.target.value as AdminUserCreateRequest['credentialMode'];
+                  setCreateForm((state) => ({
+                    ...state,
+                    credentialMode,
+                    initialPassword: credentialMode === 'MANUAL_PASSWORD' ? state.initialPassword : undefined,
+                  }));
+                }}
+                className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
               >
+                <option value="INVITE_LINK">邀请链接</option>
+                <option value="MANUAL_PASSWORD">手动密码</option>
+              </select>
+              {createForm.credentialMode === 'MANUAL_PASSWORD' && (
                 <input
-                  type="checkbox"
-                  checked={createForm.roles.includes(role.value)}
-                  onChange={() => setCreateForm((state) => ({ ...state, roles: toggleRole(state.roles, role.value) }))}
+                  type="password"
+                  value={createForm.initialPassword || ''}
+                  onChange={(event) => setCreateForm((state) => ({ ...state, initialPassword: event.target.value }))}
+                  placeholder="初始密码"
+                  className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                 />
-                {role.label}
-              </label>
-            ))}
-            <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm dark:border-white/10">
-              <input type="checkbox" checked={createForm.enabled} onChange={(event) => setCreateForm((state) => ({ ...state, enabled: event.target.checked }))} />
-              创建后立即启用
-            </label>
-          </div>
+              )}
+            </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => createMutation.mutate(createForm)} disabled={createMutation.isPending} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
-              {createMutation.isPending ? '创建中...' : '创建用户'}
-            </button>
-            <button type="button" onClick={() => setShowCreateForm(false)} className="rounded-2xl border border-slate-200 px-6 py-3 text-sm dark:border-white/10">
-              取消
-            </button>
-          </div>
+            <div className="flex flex-wrap gap-3">
+              {roleOptions.map((role) => (
+                <label
+                  key={role.value}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm dark:border-white/10"
+                >
+                  <input
+                    type="checkbox"
+                    checked={createForm.roles.includes(role.value)}
+                    onChange={() => setCreateForm((state) => ({ ...state, roles: toggleRole(state.roles, role.value) }))}
+                  />
+                  {role.label}
+                </label>
+              ))}
+              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm dark:border-white/10">
+                <input type="checkbox" checked={createForm.enabled} onChange={(event) => setCreateForm((state) => ({ ...state, enabled: event.target.checked }))} />
+                创建后立即启用
+              </label>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button type="submit" disabled={createMutation.isPending} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
+                {createMutation.isPending ? '创建中...' : '创建用户'}
+              </button>
+              <button type="button" onClick={() => setShowCreateForm(false)} className="rounded-2xl border border-slate-200 px-6 py-3 text-sm dark:border-white/10">
+                取消
+              </button>
+            </div>
+          </form>
         </section>
       )}
 

@@ -5,6 +5,7 @@ import {
   getPreferredWorkspaceForUser,
   mapPathBetweenWorkspaces,
   resolveActiveWorkspace,
+  resolveHomePathForUser,
   workspaceFromPathname,
   workspacePreferenceKey,
 } from './workspaces';
@@ -79,5 +80,78 @@ describe('workspace helpers', () => {
         preferredWorkspace: 'STUDENT_WORKSPACE',
       })
     ).toBe('STUDENT_WORKSPACE');
+  });
+
+  it('keeps student-profile completion gates scoped to the student workspace', () => {
+    const preferredWorkspaceByUser = {};
+
+    expect(
+      resolveHomePathForUser({
+        user: {
+          ...multiWorkspaceUser,
+          studentProfile: {
+            studentNo: 'S-001',
+            gradeName: '',
+            englishLevel: 'A2',
+            frenchLevel: 'A1',
+            courseStage: 'FOUNDATION',
+            compositeScore: 0,
+          },
+        },
+        pathname: '/login',
+        activeWorkspace: null,
+        preferredWorkspaceByUser,
+      })
+    ).toBe('/admin/dashboard');
+
+    expect(
+      resolveHomePathForUser({
+        user: {
+          id: 9,
+          username: 'student.only',
+          primaryRole: 'STUDENT',
+          capabilities: ['STUDENT_WORKSPACE'],
+          studentProfile: {
+            studentNo: 'S-009',
+            gradeName: '',
+            englishLevel: 'A2',
+            frenchLevel: 'A1',
+            courseStage: 'FOUNDATION',
+            compositeScore: 0,
+          },
+        },
+        pathname: '/login',
+        activeWorkspace: null,
+        preferredWorkspaceByUser,
+      })
+    ).toBe('/settings');
+  });
+
+  it('does not let stale active workspace state override the default home path', () => {
+    expect(
+      resolveHomePathForUser({
+        user: multiWorkspaceUser,
+        pathname: '/login',
+        activeWorkspace: 'STUDENT_WORKSPACE',
+        preferredWorkspaceByUser: {},
+      })
+    ).toBe('/admin/dashboard');
+  });
+
+  it('defaults teachers to the teaching workspace home even when student capability is also present', () => {
+    expect(
+      resolveHomePathForUser({
+        user: {
+          id: 10,
+          username: 'teacher.multi',
+          primaryRole: 'TEACHER',
+          capabilities: ['TEACHING_WORKSPACE', 'STUDENT_WORKSPACE'],
+          studentProfile: null,
+        },
+        pathname: '/login',
+        activeWorkspace: 'STUDENT_WORKSPACE',
+        preferredWorkspaceByUser: {},
+      })
+    ).toBe('/teacher/workspace');
   });
 });

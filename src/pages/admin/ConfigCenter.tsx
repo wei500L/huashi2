@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, Info, LoaderCircle, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Info, LoaderCircle, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
 import { z } from 'zod';
 import { PageHeader } from '@/components/common';
 import { ApiError } from '@/lib/api';
@@ -1114,6 +1114,14 @@ function formatSecretStatus(field?: AdminAiSecretFieldVO | null): string {
   }
   const lengthLabel = typeof field.valueLength === 'number' ? `已配置 · 长度 ${field.valueLength}` : '已配置';
   return field.maskedValue ? `${lengthLabel} · ${field.maskedValue}` : lengthLabel;
+}
+
+function summarizeProviderValue(value?: string | number | null): string {
+  if (value === null || value === undefined) {
+    return '--';
+  }
+  const normalized = `${value}`.trim();
+  return normalized || '--';
 }
 
 function describeStoredSyncStatus(status?: string | null): string {
@@ -2808,51 +2816,43 @@ const AdminConfigCenterPage: React.FC = () => {
               : providerName === config.provider.fallbackProvider
                 ? 'border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400'
                 : 'border-slate-200/70 bg-white/70 text-slate-500 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/45';
+            const providerRole = providerName === config.provider.activeProvider
+              ? '主用 Provider'
+              : providerName === config.provider.fallbackProvider
+                ? '故障切换备用 Provider'
+                : '普通候选 Provider';
 
             return (
-              <div key={providerName} className="rounded-[1.9rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03] space-y-5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-3">
-                    <div>
-                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Provider Definition</div>
-                    <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">{providerName}</div>
-                    </div>
-                    {editing && renamingProviderName === providerName && (
-                      <div className="flex flex-col gap-3 md:flex-row">
-                        <TextInput
-                          value={renameProviderDraft}
-                          onChange={setRenameProviderDraft}
-                          disabled={!editing}
-                          placeholder="provider_key"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => renameProvider(providerName)}
-                            className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/75"
-                          >
-                            确认重命名
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelRenameProvider}
-                            className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/45 inline-flex items-center gap-2"
-                          >
-                            <X size={16} />
-                            取消
-                          </button>
-                        </div>
+              <details
+                key={providerName}
+                open
+                className="group rounded-[1.9rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+              >
+                <summary className="list-none cursor-pointer">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-2">
+                      <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Provider Definition</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-lg font-black text-slate-900 dark:text-white">{providerName}</div>
+                        <div className={`rounded-2xl border px-3 py-2 text-xs font-bold ${providerTone}`}>{providerName}</div>
+                        {providerName === config.provider.activeProvider && (
+                          <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-bold text-primary">ACTIVE</div>
+                        )}
+                        {providerName === config.provider.fallbackProvider && (
+                          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs font-bold text-amber-600 dark:text-amber-400">FALLBACK</div>
+                        )}
                       </div>
-                    )}
+                      <div className="text-sm text-slate-500 dark:text-white/45">{providerRole}</div>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-white/45">
+                      <span>展开查看 Chat / Embedding / Rerank 详细配置</span>
+                      <ChevronDown size={18} className="transition-transform group-open:rotate-180" />
+                    </div>
                   </div>
+                </summary>
+
+                <div className="mt-5 space-y-5">
                   <div className="flex flex-wrap gap-2">
-                    <div className={`rounded-2xl border px-3 py-2 text-xs font-bold ${providerTone}`}>{providerName}</div>
-                    {providerName === config.provider.activeProvider && (
-                      <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-bold text-primary">ACTIVE</div>
-                    )}
-                    {providerName === config.provider.fallbackProvider && (
-                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs font-bold text-amber-600 dark:text-amber-400">FALLBACK</div>
-                    )}
                     {editing && renamingProviderName !== providerName && (
                       <>
                         <button
@@ -2874,9 +2874,58 @@ const AdminConfigCenterPage: React.FC = () => {
                       </>
                     )}
                   </div>
-                </div>
 
-                <FieldGrid>
+                  {editing && renamingProviderName === providerName && (
+                    <div className="flex flex-col gap-3 md:flex-row">
+                      <TextInput
+                        value={renameProviderDraft}
+                        onChange={setRenameProviderDraft}
+                        disabled={!editing}
+                        placeholder="provider_key"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => renameProvider(providerName)}
+                          className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/75"
+                        >
+                          确认重命名
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelRenameProvider}
+                          className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/45 inline-flex items-center gap-2"
+                        >
+                          <X size={16} />
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-slate-950/25">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">Chat 摘要</div>
+                    <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.chat.model)}</div>
+                    <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">{summarizeProviderValue(definition.chat.baseUrl)}</div>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-slate-950/25">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">Embedding 摘要</div>
+                    <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.embedding.model)}</div>
+                    <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">
+                      {summarizeProviderValue(definition.embedding.baseUrl)} · 维度 {summarizeProviderValue(definition.embedding.dimension)}
+                    </div>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-slate-950/25">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">Rerank 摘要</div>
+                    <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.rerank.model)}</div>
+                    <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">
+                      {summarizeProviderValue(definition.rerank.protocol)} · {summarizeProviderValue(definition.rerank.baseUrl)}
+                    </div>
+                  </div>
+                  </div>
+
+                  <FieldGrid>
                   <FieldCard label="Chat 协议" hint="当前后端仅支持 OpenAI 兼容协议的 Chat 接口。">
                     <SelectInput
                       value={definition.chat.protocol}
@@ -2969,9 +3018,9 @@ const AdminConfigCenterPage: React.FC = () => {
                       disabled={!editing}
                     />
                   </FieldCard>
-                </FieldGrid>
+                  </FieldGrid>
 
-                <FieldGrid>
+                  <FieldGrid>
                   <FieldCard label="Embedding 协议" hint="当前后端仅支持 OpenAI 兼容协议的 Embedding 接口。">
                     <SelectInput
                       value={definition.embedding.protocol}
@@ -3052,9 +3101,9 @@ const AdminConfigCenterPage: React.FC = () => {
                       disabled={!editing}
                     />
                   </FieldCard>
-                </FieldGrid>
+                  </FieldGrid>
 
-                <FieldGrid>
+                  <FieldGrid>
                   <FieldCard label="Rerank 协议" hint="当前后端支持 openai-rerank 与 openai-chat-rerank。新增其他协议前需要先扩展 ai-gateway runtime factory。">
                     <SelectInput
                       value={definition.rerank.protocol}
@@ -3124,8 +3173,9 @@ const AdminConfigCenterPage: React.FC = () => {
                       placeholder="PT30S"
                     />
                   </FieldCard>
-                </FieldGrid>
-              </div>
+                  </FieldGrid>
+                </div>
+              </details>
             );
           })}
         </SectionCard>

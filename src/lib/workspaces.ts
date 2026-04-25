@@ -1,8 +1,10 @@
 import type { Capability, CurrentUserVO, Role } from './contracts';
+import { requiresStudentProfileCompletion } from './student-profile';
 
 export type WorkspaceId = Capability;
 
 type WorkspaceUser = Pick<CurrentUserVO, 'id' | 'username' | 'primaryRole' | 'capabilities'>;
+type HomePathUser = Pick<CurrentUserVO, 'id' | 'username' | 'primaryRole' | 'capabilities' | 'studentProfile'>;
 
 const WORKSPACE_ORDER: WorkspaceId[] = ['ADMIN_CONSOLE', 'TEACHING_WORKSPACE', 'STUDENT_WORKSPACE'];
 
@@ -170,4 +172,35 @@ export function resolveActiveWorkspace(params: {
   }
 
   return defaultWorkspaceForUser(user, preferredWorkspace);
+}
+
+export function resolveHomePathForUser(params: {
+  user?: HomePathUser | null;
+  pathname: string;
+  activeWorkspace?: WorkspaceId | null;
+  preferredWorkspaceByUser: Record<string, WorkspaceId>;
+}): string {
+  const { user, pathname, preferredWorkspaceByUser } = params;
+  const available = listAvailableWorkspaces(user?.capabilities);
+  const primaryWorkspace = workspaceFromRole(user?.primaryRole);
+  if (primaryWorkspace && available.includes(primaryWorkspace)) {
+    if (primaryWorkspace === 'STUDENT_WORKSPACE' && requiresStudentProfileCompletion(user)) {
+      return '/settings';
+    }
+    return homePathForWorkspace(primaryWorkspace);
+  }
+
+  const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+  const currentWorkspace = resolveActiveWorkspace({
+    user,
+    pathname,
+    activeWorkspace: null,
+    preferredWorkspace,
+  });
+
+  if (currentWorkspace === 'STUDENT_WORKSPACE' && requiresStudentProfileCompletion(user)) {
+    return '/settings';
+  }
+
+  return homePathForWorkspace(currentWorkspace);
 }

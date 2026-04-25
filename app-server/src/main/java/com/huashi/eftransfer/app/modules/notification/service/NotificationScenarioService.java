@@ -13,6 +13,7 @@ import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
 import com.huashi.eftransfer.app.modules.user.entity.UserRoleEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserRoleMapper;
+import com.huashi.eftransfer.app.modules.user.service.DisplayNameNormalizer;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -77,7 +78,7 @@ public class NotificationScenarioService {
                     "DIAGNOSIS_COMPLETED",
                     "INFO",
                     "学生已完成诊断",
-                    student.getDisplayName() + " 已完成诊断，负迁移风险 "
+                    displayName(student.getDisplayName(), "学生") + " 已完成诊断，负迁移风险 "
                             + Math.round(event.negativeTransferRisk() * 100)
                             + "%，可进入学情详情查看结果。",
                     "/teacher/classes/" + teachingClass.getId() + "/students/" + event.ownerUserId(),
@@ -136,8 +137,8 @@ public class NotificationScenarioService {
                 "INFO",
                 timeoutSubmitted ? "学生测评已超时自动交卷" : "学生已提交课堂测评",
                 timeoutSubmitted
-                        ? student.getDisplayName() + " 的《" + publish.getPaperTitleSnapshot() + "》已在截止后由系统自动交卷，可查看作答结果。"
-                        : student.getDisplayName() + " 已提交《" + publish.getPaperTitleSnapshot() + "》，可查看作答结果。",
+                        ? displayName(student.getDisplayName(), "学生") + " 的《" + publish.getPaperTitleSnapshot() + "》已在截止后由系统自动交卷，可查看作答结果。"
+                        : displayName(student.getDisplayName(), "学生") + " 已提交《" + publish.getPaperTitleSnapshot() + "》，可查看作答结果。",
                 "/teacher/assessments/attempts/" + attempt.getId() + "/result",
                 "查看结果",
                 "{\"attemptId\":" + attempt.getId() + ",\"publishId\":" + publish.getId()
@@ -265,7 +266,14 @@ public class NotificationScenarioService {
             return fallback;
         }
         UserEntity user = userMapper.selectById(userId);
-        return user == null ? fallback : user.getDisplayName();
+        return user == null ? fallback : displayName(user.getDisplayName(), fallback);
+    }
+
+    private String displayName(String rawDisplayName, String fallback) {
+        if (rawDisplayName == null || rawDisplayName.isBlank()) {
+            return fallback;
+        }
+        return DisplayNameNormalizer.normalize(rawDisplayName.trim());
     }
 
     private String formatDateTime(LocalDateTime value) {
