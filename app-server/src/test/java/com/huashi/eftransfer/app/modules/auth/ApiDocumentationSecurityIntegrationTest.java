@@ -17,10 +17,10 @@ class ApiDocumentationSecurityIntegrationTest extends AbstractWebIntegrationTest
         mockMvc.perform(get("/v3/api-docs").with(bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.openapi", startsWith("3.")))
-                .andExpect(jsonPath("$.components.schemas.DiagnosisSessionStatus.enum[0]").value("IN_PROGRESS"))
-                .andExpect(jsonPath("$.components.schemas.TrainingSessionStatus.enum[1]").value("ABANDONED"))
-                .andExpect(jsonPath("$.components.schemas.AssessmentAttemptStatus.enum[1]").value("SUBMITTED"))
-                .andExpect(jsonPath("$.components.schemas.TrainingMode.enum[0]").value("COGNATE_BOOST"));
+                .andExpect(jsonPath("$.components.schemas.DiagnosisSessionCreatedVO.properties.status.enum[0]").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.components.schemas.TrainingSessionCreatedVO.properties.status.enum[1]").value("ABANDONED"))
+                .andExpect(jsonPath("$.components.schemas.AssessmentAttemptResultVO.properties.status.enum[1]").value("SUBMITTED"))
+                .andExpect(jsonPath("$.components.schemas.TrainingSessionCreatedVO.properties.mode.enum[0]").value("COGNATE_BOOST"));
     }
 
     @Test

@@ -2,7 +2,6 @@ import React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Clock3, FileText, PlayCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
 import { assessmentAttemptStatusLabel, assessmentAttemptStatusTone, formatDateTime } from '@/lib/format';
@@ -30,7 +29,6 @@ function resolveAction(item: StudentAssessmentSummaryVO, now: number, t: TFuncti
 
 const StudentAssessmentsPage: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const now = Date.now();
   const assessmentsQuery = useQuery({

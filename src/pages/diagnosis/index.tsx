@@ -13,12 +13,11 @@ import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
 import { buildRadarOption, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel } from '@/lib/format';
 import { buildTrainingHref } from '@/lib/training-launch';
+import { toDiagnosisRadarChartMetrics } from './radarMetrics';
 import type {
-  AnalyticsRadarMetricVO,
   DiagnosisItemResultDetailVO,
   DiagnosisOptionPayload,
   DiagnosisOptionViewVO,
-  DiagnosisRadarMetric,
   DiagnosisHistorySummaryVO,
   SubmitDiagnosisAnswerRequest,
 } from '@/lib/contracts';
@@ -27,19 +26,6 @@ import { HESITATION_BASELINE_MS, NEXT_ITEM_RETRY_DELAY_MS, SLOW_NEXT_ITEM_NOTICE
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
 import { diagnosisFlowReducer, initialDiagnosisFlowState } from './flow';
-
-const DIAGNOSIS_RADAR_MAX = 1;
-
-export function toDiagnosisRadarChartMetrics(
-  radarMetrics?: DiagnosisRadarMetric[] | null
-): AnalyticsRadarMetricVO[] {
-  return (radarMetrics || []).map((metric) => ({
-    key: metric.code,
-    label: metric.label,
-    value: metric.value,
-    max: DIAGNOSIS_RADAR_MAX,
-  }));
-}
 
 function findOptionLabel(options: DiagnosisOptionPayload[], answerKey?: string | null) {
   if (!answerKey) {

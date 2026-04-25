@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DiagnosisRadarMetric } from '@/lib/contracts';
-import { toDiagnosisRadarChartMetrics } from './index';
+import { toDiagnosisRadarChartMetrics } from './radarMetrics';
 
 describe('diagnosis result helpers', () => {
   it('maps backend radar metrics into chart metrics with a local max', () => {

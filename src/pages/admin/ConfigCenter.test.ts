@@ -29,7 +29,7 @@ function createConfigViewEnvelope() {
               dimension: null,
             },
             rerank: {
-              protocol: 'qwen-rerank',
+              protocol: 'openai-rerank',
               baseUrl: null,
               apiKey: null,
               model: null,

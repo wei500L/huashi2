@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/common';
 import { ApiError } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { adminService } from '@/lib/services';
+import { AiOpsProtocolValues } from '@/lib/contracts/generated/session-domain';
 import type {
   AdminAiConfigDriftVO,
   AdminAiConfigSaveRequest,
@@ -45,10 +46,12 @@ type SecretEditorMap = {
 };
 
 const providerKeyPattern = /^[a-z0-9_-]+$/;
+const protocolSchema = z.enum(AiOpsProtocolValues);
+const rerankProtocolValues = ['openai-rerank', 'openai-chat-rerank'] as const satisfies readonly AiOpsProtocol[];
 const providerProtocolOptions = {
   chat: [{ value: 'openai-compat', label: 'openai-compat' }],
   embedding: [{ value: 'openai-compat', label: 'openai-compat' }],
-  rerank: [{ value: 'qwen-rerank', label: 'qwen-rerank' }],
+  rerank: rerankProtocolValues.map((value) => ({ value, label: value })),
 } as const;
 
 const tabs: Array<{ key: ConfigTab; label: string }> = [
@@ -388,7 +391,7 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsDraftProviderDefi
       dimension: definition?.embedding?.dimension ?? null,
     },
     rerank: {
-      protocol: definition?.rerank?.protocol ?? 'qwen-rerank',
+      protocol: definition?.rerank?.protocol ?? 'openai-rerank',
       baseUrl: definition?.rerank?.baseUrl ?? null,
       apiKey: definition?.rerank?.apiKey ?? null,
       model: definition?.rerank?.model ?? null,
@@ -625,7 +628,7 @@ function createEmptyProviderDefinition(): AiOpsDraftProviderDefinition {
       dimension: 1024,
     },
     rerank: {
-      protocol: 'qwen-rerank',
+      protocol: 'openai-rerank',
       baseUrl: '',
       apiKey: null,
       model: '',
@@ -718,7 +721,7 @@ function materializeProviderDefinition(definition?: AiOpsDraftProviderDefinition
       dimension: materializeNumber(definition?.embedding?.dimension),
     },
     rerank: {
-      protocol: materializeProtocol(definition?.rerank?.protocol, 'qwen-rerank'),
+      protocol: materializeProtocol(definition?.rerank?.protocol, 'openai-rerank'),
       baseUrl: materializeText(definition?.rerank?.baseUrl),
       apiKey: definition?.rerank?.apiKey ?? null,
       model: materializeText(definition?.rerank?.model),
@@ -1149,7 +1152,6 @@ function describeSyncJobStatus(status?: string | null): string {
 }
 
 const requiredTextSchema = z.string().trim().min(1, 'value is required');
-const protocolSchema = z.enum(['openai-compat', 'qwen-rerank']);
 
 function parseDurationMillis(value: string): number | null {
   const trimmed = value.trim();
@@ -1227,7 +1229,10 @@ const providerDefinitionSchema = z.object({
     dimension: z.number().int().positive('dimension must be greater than 0'),
   }),
   rerank: z.object({
-    protocol: protocolSchema.refine((value) => value === 'qwen-rerank', 'Unsupported protocol \'qwen-rerank\''),
+    protocol: protocolSchema.refine(
+      (value) => rerankProtocolValues.includes(value as (typeof rerankProtocolValues)[number]),
+      'Unsupported protocol; expected openai-rerank or openai-chat-rerank'
+    ),
     baseUrl: absoluteUrlSchema,
     model: requiredTextSchema,
     connectTimeout: durationSchema,
@@ -3050,7 +3055,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 </FieldGrid>
 
                 <FieldGrid>
-                  <FieldCard label="Rerank 协议" hint="当前后端仅支持 qwen-rerank 协议。新增其他协议前需要先扩展 ai-gateway runtime factory。">
+                  <FieldCard label="Rerank 协议" hint="当前后端支持 openai-rerank 与 openai-chat-rerank。新增其他协议前需要先扩展 ai-gateway runtime factory。">
                     <SelectInput
                       value={definition.rerank.protocol}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({

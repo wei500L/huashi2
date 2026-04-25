@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { TFunction } from 'i18next';
 import {
   buildTeacherWorkspaceEmptyState,
   buildTeacherWorkspaceOnboardingCard,
@@ -6,7 +7,7 @@ import {
 } from './copy';
 
 const t = ((key: string, options?: Record<string, unknown>) =>
-  options ? `${key}:${JSON.stringify(options)}` : key) as any;
+  options ? `${key}:${JSON.stringify(options)}` : key) as unknown as TFunction;
 
 describe('teacher workspace copy helpers', () => {
   it('prioritizes intervention, draft, import, and lexical-list actions', () => {

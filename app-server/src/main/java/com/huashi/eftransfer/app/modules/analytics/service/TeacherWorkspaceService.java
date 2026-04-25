@@ -1,7 +1,6 @@
 package com.huashi.eftransfer.app.modules.analytics.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.huashi.eftransfer.app.common.util.TextMojibakeNormalizer;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.modules.analytics.entity.InterventionRecordEntity;
 import com.huashi.eftransfer.app.modules.analytics.entity.LearningProfileSnapshotEntity;
@@ -265,9 +264,9 @@ public class TeacherWorkspaceService {
                     return new TeacherWorkspaceAssessmentPublishVO(
                             publish.getId(),
                             publish.getPaperId(),
-                            TextMojibakeNormalizer.normalize(publish.getPaperTitleSnapshot()),
+                            publish.getPaperTitleSnapshot(),
                             publish.getTeachingClassId(),
-                            teachingClass == null ? "未知班级" : TextMojibakeNormalizer.normalize(teachingClass.getClassName()),
+                            teachingClass == null ? "未知班级" : teachingClass.getClassName(),
                             publish.getPublishedAt(),
                             publish.getDueAt(),
                             snapshot.assignedCount(),
@@ -384,7 +383,7 @@ public class TeacherWorkspaceService {
         return new TeacherWorkspaceClassActivityVO(
                 teachingClass.getId(),
                 teachingClass.getClassCode(),
-                TextMojibakeNormalizer.normalize(teachingClass.getClassName()),
+                teachingClass.getClassName(),
                 studentIds.size(),
                 highRiskStudentCount,
                 lastActiveAt
@@ -463,7 +462,7 @@ public class TeacherWorkspaceService {
 
     private String resolveTeacherName(UserEntity user) {
         if (user.getDisplayName() != null && !user.getDisplayName().isBlank()) {
-            return TextMojibakeNormalizer.normalize(user.getDisplayName());
+            return user.getDisplayName();
         }
         if (user.getUsername() != null && !user.getUsername().isBlank()) {
             return user.getUsername();
