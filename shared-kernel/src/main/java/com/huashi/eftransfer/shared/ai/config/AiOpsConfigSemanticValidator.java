@@ -81,6 +81,7 @@ public final class AiOpsConfigSemanticValidator {
             validateProviderDefinition(entry.getKey(), entry.getValue(), issues);
         }
         validateEmbeddingDimensions(provider.providers(), issues);
+        validateEmbeddingSpaces(provider.providers(), issues);
     }
 
     private static void validateResilience(AiOpsResilienceConfig resilience, List<AiOpsConfigIssue> issues) {
@@ -187,6 +188,41 @@ public final class AiOpsConfigSemanticValidator {
                         "embedding_dimension_mismatch",
                         "All provider embedding dimensions must match",
                         Map.of("expected", expectedDimension, "actual", dimension)
+                ));
+            }
+        }
+    }
+
+    private static void validateEmbeddingSpaces(
+            Map<String, AiOpsProviderDefinition> providers,
+            List<AiOpsConfigIssue> issues
+    ) {
+        String expectedModel = null;
+        String expectedMultimodalModel = null;
+        for (Map.Entry<String, AiOpsProviderDefinition> entry : providers.entrySet()) {
+            AiOpsProviderDefinition definition = entry.getValue();
+            AiOpsEmbeddingConfig embedding = definition == null ? null : definition.embedding();
+            if (embedding == null) {
+                continue;
+            }
+            if (expectedModel == null) {
+                expectedModel = embedding.model();
+                expectedMultimodalModel = embedding.multimodalModel();
+                continue;
+            }
+            if (!java.util.Objects.equals(expectedModel, embedding.model())) {
+                issues.add(issue(
+                        "provider.providers." + entry.getKey() + ".embedding.model",
+                        "embedding_space_model_mismatch",
+                        "All failover providers must use the same embedding model",
+                        Map.of("expected", expectedModel, "actual", String.valueOf(embedding.model()))
+                ));
+            }
+            if (!java.util.Objects.equals(expectedMultimodalModel, embedding.multimodalModel())) {
+                issues.add(issue(
+                        "provider.providers." + entry.getKey() + ".embedding.multimodalModel",
+                        "embedding_space_multimodal_model_mismatch",
+                        "All failover providers must use the same multimodal embedding model"
                 ));
             }
         }

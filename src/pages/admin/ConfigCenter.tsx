@@ -213,6 +213,13 @@ function requireNullableNumber(value: unknown, path: string): number | null | un
   return value as number | null | undefined;
 }
 
+function requireNullableBoolean(value: unknown, path: string): boolean | null | undefined {
+  if (value !== null && value !== undefined && typeof value !== 'boolean') {
+    throw new AdminAiConfigContractError(`AI 管理员配置响应契约异常：缺少 ${path}。`);
+  }
+  return value as boolean | null | undefined;
+}
+
 function assertSecretField(field: unknown, path: string): void {
   const secretField = requireRecord(field, path);
   requireBoolean(secretField.configured, `${path}.configured`);
@@ -254,6 +261,7 @@ function assertProviderDefinition(definition: unknown, path: string): void {
   requireNullableString(embedding.baseUrl, `${path}.embedding.baseUrl`);
   requireNullableString(embedding.apiKey, `${path}.embedding.apiKey`);
   requireNullableString(embedding.model, `${path}.embedding.model`);
+  requireNullableString(embedding.multimodalModel, `${path}.embedding.multimodalModel`);
   requireNullableString(embedding.connectTimeout, `${path}.embedding.connectTimeout`);
   requireNullableString(embedding.readTimeout, `${path}.embedding.readTimeout`);
   requireNullableNumber(embedding.dimension, `${path}.embedding.dimension`);
@@ -263,6 +271,7 @@ function assertProviderDefinition(definition: unknown, path: string): void {
   requireNullableString(rerank.baseUrl, `${path}.rerank.baseUrl`);
   requireNullableString(rerank.apiKey, `${path}.rerank.apiKey`);
   requireNullableString(rerank.model, `${path}.rerank.model`);
+  requireNullableString(rerank.multimodalModel, `${path}.rerank.multimodalModel`);
   requireNullableString(rerank.connectTimeout, `${path}.rerank.connectTimeout`);
   requireNullableString(rerank.readTimeout, `${path}.rerank.readTimeout`);
 }
@@ -300,6 +309,8 @@ function assertAiOpsConfigPayload(payload: unknown, path: string): string[] {
   const ingestion = requireRecord(rag.ingestion, `${path}.rag.ingestion`);
   requireNullableNumber(ingestion.exportPageSize, `${path}.rag.ingestion.exportPageSize`);
   requireNullableNumber(ingestion.embeddingBatchSize, `${path}.rag.ingestion.embeddingBatchSize`);
+  requireNullableBoolean(ingestion.failedRetryEnabled, `${path}.rag.ingestion.failedRetryEnabled`);
+  requireNullableNumber(ingestion.failedRetryLimit, `${path}.rag.ingestion.failedRetryLimit`);
 
   const retrieval = requireRecord(rag.retrieval, `${path}.rag.retrieval`);
   requireNullableNumber(retrieval.recallTopK, `${path}.rag.retrieval.recallTopK`);
@@ -386,6 +397,7 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsDraftProviderDefi
       baseUrl: definition?.embedding?.baseUrl ?? null,
       apiKey: definition?.embedding?.apiKey ?? null,
       model: definition?.embedding?.model ?? null,
+      multimodalModel: definition?.embedding?.multimodalModel ?? null,
       connectTimeout: definition?.embedding?.connectTimeout ?? null,
       readTimeout: definition?.embedding?.readTimeout ?? null,
       dimension: definition?.embedding?.dimension ?? null,
@@ -395,6 +407,7 @@ function normalizeProviderDefinition(definition?: Partial<AiOpsDraftProviderDefi
       baseUrl: definition?.rerank?.baseUrl ?? null,
       apiKey: definition?.rerank?.apiKey ?? null,
       model: definition?.rerank?.model ?? null,
+      multimodalModel: definition?.rerank?.multimodalModel ?? null,
       connectTimeout: definition?.rerank?.connectTimeout ?? null,
       readTimeout: definition?.rerank?.readTimeout ?? null,
     },
@@ -474,6 +487,8 @@ function normalizeAiOpsConfigPayload(payload?: Partial<AiOpsDraftConfigPayload> 
       ingestion: {
         exportPageSize: payload?.rag?.ingestion?.exportPageSize ?? null,
         embeddingBatchSize: payload?.rag?.ingestion?.embeddingBatchSize ?? null,
+        failedRetryEnabled: payload?.rag?.ingestion?.failedRetryEnabled ?? true,
+        failedRetryLimit: payload?.rag?.ingestion?.failedRetryLimit ?? 64,
       },
       retrieval: {
         recallTopK: payload?.rag?.retrieval?.recallTopK ?? null,
@@ -623,6 +638,7 @@ function createEmptyProviderDefinition(): AiOpsDraftProviderDefinition {
       baseUrl: '',
       apiKey: null,
       model: '',
+      multimodalModel: null,
       connectTimeout: '',
       readTimeout: '',
       dimension: 1024,
@@ -632,6 +648,7 @@ function createEmptyProviderDefinition(): AiOpsDraftProviderDefinition {
       baseUrl: '',
       apiKey: null,
       model: '',
+      multimodalModel: null,
       connectTimeout: '',
       readTimeout: '',
     },
@@ -716,6 +733,7 @@ function materializeProviderDefinition(definition?: AiOpsDraftProviderDefinition
       baseUrl: materializeText(definition?.embedding?.baseUrl),
       apiKey: definition?.embedding?.apiKey ?? null,
       model: materializeText(definition?.embedding?.model),
+      multimodalModel: definition?.embedding?.multimodalModel ?? null,
       connectTimeout: materializeText(definition?.embedding?.connectTimeout),
       readTimeout: materializeText(definition?.embedding?.readTimeout),
       dimension: materializeNumber(definition?.embedding?.dimension),
@@ -725,6 +743,7 @@ function materializeProviderDefinition(definition?: AiOpsDraftProviderDefinition
       baseUrl: materializeText(definition?.rerank?.baseUrl),
       apiKey: definition?.rerank?.apiKey ?? null,
       model: materializeText(definition?.rerank?.model),
+      multimodalModel: definition?.rerank?.multimodalModel ?? null,
       connectTimeout: materializeText(definition?.rerank?.connectTimeout),
       readTimeout: materializeText(definition?.rerank?.readTimeout),
     },
@@ -766,6 +785,8 @@ function materializeConfigPayload(config: AiOpsDraftConfigPayload): AiOpsConfigP
       ingestion: {
         exportPageSize: materializeNumber(config.rag.ingestion.exportPageSize),
         embeddingBatchSize: materializeNumber(config.rag.ingestion.embeddingBatchSize),
+        failedRetryEnabled: config.rag.ingestion.failedRetryEnabled ?? true,
+        failedRetryLimit: config.rag.ingestion.failedRetryLimit ?? 64,
       },
       retrieval: {
         recallTopK: materializeNumber(config.rag.retrieval.recallTopK),
@@ -1022,7 +1043,7 @@ function translateConfigMessage(message: string): string {
     return '数据库配置与 ai-gateway 当前运行态版本不一致。';
   }
   if (trimmed.includes('rag_schema_metadata row was not found')) {
-    return '数据库缺少 RAG schema metadata，请先完成最新的 Flyway 迁移。';
+    return '数据库缺少 RAG schema metadata，请先按数据库结构执行手册完成 schema 初始化。';
   }
   if (trimmed.includes('rag_schema_metadata expects')) {
     return '当前数据库中的 pgvector schema 维度与应用配置不一致。';
@@ -1057,6 +1078,10 @@ function translateConfigIssue(issue: AiOpsConfigIssue): string {
     }
     case 'embedding_dimension_mismatch':
       return '所有 provider 的 embedding 向量维度必须一致。';
+    case 'embedding_space_model_mismatch':
+      return '所有 active/fallback provider 必须使用同一个 embedding 模型，避免跨向量空间检索。';
+    case 'embedding_space_multimodal_model_mismatch':
+      return '所有 active/fallback provider 必须使用同一个多模态 embedding 模型。';
     case 'rerank_top_n_exceeds_recall_top_k':
       return '重排 Top N 不能大于 Recall Top K。';
     case 'final_top_k_exceeds_rerank_top_n':
@@ -1232,6 +1257,7 @@ const providerDefinitionSchema = z.object({
     protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
     baseUrl: absoluteUrlSchema,
     model: requiredTextSchema,
+    multimodalModel: z.string().nullable().optional(),
     connectTimeout: durationSchema,
     readTimeout: durationSchema,
     dimension: z.number().int().positive('dimension must be greater than 0'),
@@ -1243,6 +1269,7 @@ const providerDefinitionSchema = z.object({
     ),
     baseUrl: absoluteUrlSchema,
     model: requiredTextSchema,
+    multimodalModel: z.string().nullable().optional(),
     connectTimeout: durationSchema,
     readTimeout: durationSchema,
   }),
@@ -1286,6 +1313,17 @@ const aiOpsDraftSchema = z.object({
         }
       });
     }
+    const embeddingModels = providerNames
+      .map((providerName) => ({ providerName, model: provider.providers[providerName]?.embedding?.model }))
+      .filter((entry) => typeof entry.model === 'string' && entry.model.length > 0);
+    if (embeddingModels.length > 1) {
+      const expectedModel = embeddingModels[0].model;
+      embeddingModels.slice(1).forEach((entry) => {
+        if (entry.model !== expectedModel) {
+          ctx.addIssue({ code: 'custom', path: ['providers', entry.providerName, 'embedding', 'model'], message: 'all failover providers must use the same embedding model' });
+        }
+      });
+    }
   }),
   resilience: z.object({
     maxAttempts: z.number().int().positive('maxAttempts must be greater than 0'),
@@ -1303,6 +1341,8 @@ const aiOpsDraftSchema = z.object({
     ingestion: z.object({
       exportPageSize: z.number().int().positive('exportPageSize must be greater than 0'),
       embeddingBatchSize: z.number().int().positive('embeddingBatchSize must be greater than 0'),
+      failedRetryEnabled: z.boolean().nullable().optional(),
+      failedRetryLimit: z.number().int().positive('failedRetryLimit must be greater than 0').max(256).nullable().optional(),
     }),
     retrieval: z.object({
       recallTopK: z.number().int().positive('recallTopK must be greater than 0'),
@@ -1356,6 +1396,9 @@ function mapLocalIssueCode(message: string): string {
   }
   if (message === 'all provider embedding dimensions must match') {
     return 'embedding_dimension_mismatch';
+  }
+  if (message === 'all failover providers must use the same embedding model') {
+    return 'embedding_space_model_mismatch';
   }
   if (message === 'at least one provider definition is required') {
     return 'provider_definitions_required';
@@ -1699,6 +1742,13 @@ function buildConfigRiskHints(view: AdminAiConfigViewVO, config: AiOpsDraftConfi
   });
   if (embeddingDimensionChanged) {
     hints.push('Embedding 向量维度已调整，数据库迁移完成后必须执行全量 reindex。');
+  }
+  const embeddingModelChanged = Object.entries(config.provider.providers || {}).some(([providerName, provider]) => {
+    const baseline = view.config.provider.providers?.[providerName];
+    return baseline && baseline.embedding.model !== provider.embedding.model;
+  });
+  if (embeddingModelChanged) {
+    hints.push('Embedding 模型已调整；新旧模型不共享向量空间，保存后必须执行全量强制 reindex。');
   }
 
   collectSecretChanges(view, secrets).forEach((change) => {

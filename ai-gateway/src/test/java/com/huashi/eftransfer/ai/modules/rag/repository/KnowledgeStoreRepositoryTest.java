@@ -8,6 +8,7 @@ import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeSearchService;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeChunkPayload;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeDocumentPayload;
+import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSearchCandidate;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSourceTypes;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievalResult;
 import com.huashi.eftransfer.ai.modules.rag.support.RagSearchFilter;
@@ -135,7 +136,7 @@ class KnowledgeStoreRepositoryTest {
         AiProviderRegistry providerRegistry = mock(AiProviderRegistry.class);
         when(providerRegistry.embed(any())).thenReturn(new EmbeddingResponse(
                 "qwen",
-                "text-embedding-v4",
+                "test-embedding-model",
                 1024,
                 "embed-test",
                 null,
@@ -184,7 +185,7 @@ class KnowledgeStoreRepositoryTest {
         AiProviderRegistry providerRegistry = mock(AiProviderRegistry.class);
         when(providerRegistry.embed(any())).thenReturn(new EmbeddingResponse(
                 "qwen",
-                "text-embedding-v4",
+                "test-embedding-model",
                 1024,
                 "embed-test",
                 null,
@@ -210,6 +211,150 @@ class KnowledgeStoreRepositoryTest {
         assertThat(result.chunks()).hasSize(2);
         assertThat(result.chunks().get(0).sourceType()).isEqualTo(KnowledgeSourceTypes.LEXICAL_PAIR);
         assertThat(result.chunks().get(0).score()).isGreaterThan(result.chunks().get(1).score());
+    }
+
+    @Test
+    void shouldNotCompareVectorsFromDifferentEmbeddingModels() {
+        seedChunk("pair:1001", "1001", KnowledgeSourceTypes.LEXICAL_PAIR, "coin / coin", "False friend pair guidance", vector(1));
+
+        List<KnowledgeSearchCandidate> candidates = knowledgeStoreRepository.similaritySearch(
+                vector(1),
+                "different-embedding-model",
+                RagSearchFilter.empty(),
+                10,
+                64
+        );
+
+        assertThat(candidates).isEmpty();
+        assertThat(knowledgeStoreRepository.getIndexCoverage("different-embedding-model", 1024))
+                .satisfies(coverage -> {
+                    assertThat(coverage.activeChunkCount()).isEqualTo(1);
+                    assertThat(coverage.searchableChunkCount()).isZero();
+                    assertThat(coverage.isComplete()).isFalse();
+                });
+    }
+
+    @Test
+    void shouldNotServeUpdatedContentWithStaleEmbedding() {
+        seedChunk("pair:1001", "1001", KnowledgeSourceTypes.LEXICAL_PAIR, "coin / coin", "Old content", vector(1));
+        KnowledgeDocumentPayload updated = new KnowledgeDocumentPayload(
+                KnowledgeSourceTypes.LEXICAL_PAIR,
+                "1001",
+                "coin / coin",
+                OffsetDateTime.now(ZoneOffset.UTC),
+                true,
+                Map.of(),
+                List.of(new KnowledgeChunkPayload(
+                        "pair:1001",
+                        0,
+                        KnowledgeSourceTypes.LEXICAL_PAIR,
+                        "1001",
+                        "coin / coin",
+                        "Updated content",
+                        Map.of(),
+                        true
+                ))
+        );
+        KnowledgeStoreRepository.UpsertDocumentResult result = knowledgeStoreRepository.upsertDocument(updated, false, "updated-doc-hash");
+        knowledgeStoreRepository.markChunkEmbeddingFailed(
+                result.pendingChunkEmbeddings().getFirst().chunkId(),
+                result.pendingChunkEmbeddings().getFirst().contentHash()
+        );
+
+        List<KnowledgeSearchCandidate> candidates = knowledgeStoreRepository.similaritySearch(
+                vector(1),
+                "test-embedding-model",
+                RagSearchFilter.empty(),
+                10,
+                64
+        );
+
+        assertThat(candidates).isEmpty();
+    }
+
+    @Test
+    void shouldValidateReplacementBeforeInvalidatingCurrentEmbedding() {
+        seedChunk("pair:1001", "1001", KnowledgeSourceTypes.LEXICAL_PAIR, "coin / coin", "Content", vector(1));
+        Long chunkId = jdbcTemplate.queryForObject("SELECT id FROM knowledge_chunk WHERE chunk_key = 'pair:1001'", Long.class);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> knowledgeStoreRepository.replaceChunkEmbedding(
+                chunkId,
+                "test-embedding-model",
+                1024,
+                "new-content-hash",
+                List.of(0.1d)
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(countCurrentEmbeddings()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectStaleEmbeddingWriteAfterChunkContentChanges() {
+        KnowledgeStoreRepository.UpsertDocumentResult original = knowledgeStoreRepository.upsertDocument(
+                sampleDocument("1001", true),
+                false,
+                "doc-hash-1"
+        );
+        var originalPair = original.pendingChunkEmbeddings().getFirst();
+
+        KnowledgeDocumentPayload updated = sampleDocument("1001", true);
+        KnowledgeChunkPayload oldPair = updated.chunks().getFirst();
+        KnowledgeDocumentPayload changed = new KnowledgeDocumentPayload(
+                updated.sourceType(),
+                updated.sourceId(),
+                updated.title(),
+                updated.sourceUpdatedAt(),
+                updated.active(),
+                updated.metadata(),
+                List.of(
+                        new KnowledgeChunkPayload(
+                                oldPair.chunkKey(),
+                                oldPair.chunkOrder(),
+                                oldPair.sourceType(),
+                                oldPair.sourceId(),
+                                oldPair.title(),
+                                oldPair.content() + " Updated evidence.",
+                                oldPair.metadata(),
+                                oldPair.active()
+                        ),
+                        updated.chunks().get(1)
+                )
+        );
+        KnowledgeStoreRepository.UpsertDocumentResult latest = knowledgeStoreRepository.upsertDocument(
+                changed,
+                false,
+                "doc-hash-2"
+        );
+        var latestPair = latest.pendingChunkEmbeddings().stream()
+                .filter(chunk -> chunk.chunkId().equals(originalPair.chunkId()))
+                .findFirst()
+                .orElseThrow();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> knowledgeStoreRepository.replaceChunkEmbedding(
+                originalPair.chunkId(),
+                "test-embedding-model",
+                1024,
+                originalPair.contentHash(),
+                vector(1)
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("stale");
+
+        knowledgeStoreRepository.markChunkEmbeddingFailed(originalPair.chunkId(), originalPair.contentHash());
+        assertThat(singleString("SELECT embedding_status FROM knowledge_chunk WHERE id = " + originalPair.chunkId()))
+                .isEqualTo("PENDING");
+        assertThat(countCurrentEmbeddings()).isZero();
+
+        knowledgeStoreRepository.replaceChunkEmbedding(
+                latestPair.chunkId(),
+                "test-embedding-model",
+                1024,
+                latestPair.contentHash(),
+                vector(1)
+        );
+        assertThat(singleString("SELECT embedding_status FROM knowledge_chunk WHERE id = " + originalPair.chunkId()))
+                .isEqualTo("EMBEDDED");
+        assertThat(countCurrentEmbeddings()).isEqualTo(1);
     }
 
     private AiRuntimeBundle runtimeBundle(RagProperties ragProperties) {
@@ -297,6 +442,15 @@ class KnowledgeStoreRepositoryTest {
                 result.pendingChunkEmbeddings().getFirst().contentHash(),
                 embedding
         );
+    }
+
+    private int countCurrentEmbeddings() {
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM chunk_embedding WHERE is_current = TRUE", Integer.class);
+        return count == null ? 0 : count;
+    }
+
+    private String singleString(String sql) {
+        return jdbcTemplate.queryForObject(sql, String.class);
     }
 
     private KnowledgeDocumentPayload sampleDocument(String sourceId, boolean active) {

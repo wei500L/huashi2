@@ -54,6 +54,9 @@ management:
 # admin snapshot, DATABASE / APP_SERVER_SYNC runtime config should override these
 # example URLs and model ids.
 ai:
+  runtime:
+    sync-retry-initial-delay: ${AI_RUNTIME_SYNC_RETRY_INITIAL_DELAY:PT10S}
+    sync-retry-interval: ${AI_RUNTIME_SYNC_RETRY_INTERVAL:PT10S}
   provider:
     active-provider: ${AI_PROVIDER:qwen}
     fallback-provider: ${AI_FALLBACK_PROVIDER:deepseek}
@@ -132,6 +135,9 @@ rag:
   ingestion:
     export-page-size: ${RAG_EXPORT_PAGE_SIZE:100}
     embedding-batch-size: ${RAG_EMBEDDING_BATCH_SIZE:32}
+    failed-retry-enabled: ${RAG_FAILED_RETRY_ENABLED:true}
+    failed-retry-limit: ${RAG_FAILED_RETRY_LIMIT:64}
+    failed-retry-interval: ${RAG_FAILED_RETRY_INTERVAL:PT1M}
   retrieval:
     recall-top-k: ${RAG_RECALL_TOP_K:20}
     recall-threshold: ${RAG_RECALL_THRESHOLD:0.55}

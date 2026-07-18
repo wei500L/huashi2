@@ -9,12 +9,12 @@ import org.mockito.Mockito;
 import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.amqp.RabbitAnnotationDrivenConfiguration;
 import org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,10 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class KnowledgeSyncRabbitListenerPropertiesTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(
-                    RabbitAutoConfiguration.class,
-                    RabbitAnnotationDrivenConfiguration.class
-            ))
+            .withConfiguration(AutoConfigurations.of(RabbitAutoConfiguration.class))
             .withUserConfiguration(TestConfiguration.class)
             .withPropertyValues(
                     "spring.rabbitmq.listener.simple.auto-startup=false",
@@ -46,7 +43,7 @@ class KnowledgeSyncRabbitListenerPropertiesTest {
             SimpleMessageListenerContainer container =
                     (SimpleMessageListenerContainer) registry.getListenerContainers().iterator().next();
 
-            assertThat(container.getPrefetchCount()).isEqualTo(1);
+            assertThat(ReflectionTestUtils.getField(container, "prefetchCount")).isEqualTo(1);
             assertThat(ReflectionTestUtils.getField(container, "concurrentConsumers")).isEqualTo(1);
             assertThat(ReflectionTestUtils.getField(container, "maxConcurrentConsumers")).isEqualTo(1);
         });
@@ -60,12 +57,14 @@ class KnowledgeSyncRabbitListenerPropertiesTest {
         LexicalKnowledgeChangedEventListener lexicalKnowledgeChangedEventListener(
                 ObjectMapper objectMapper,
                 KnowledgeIngestionService knowledgeIngestionService,
-                IntegrationConsumeRecordRepository integrationConsumeRecordRepository
+                IntegrationConsumeRecordRepository integrationConsumeRecordRepository,
+                RetryTemplate knowledgeSyncRetryTemplate
         ) {
             return new LexicalKnowledgeChangedEventListener(
                     objectMapper,
                     knowledgeIngestionService,
-                    integrationConsumeRecordRepository
+                    integrationConsumeRecordRepository,
+                    knowledgeSyncRetryTemplate
             );
         }
 

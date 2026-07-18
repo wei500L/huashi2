@@ -29,7 +29,8 @@ import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ai.retry.RetryUtils;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
@@ -115,7 +116,9 @@ public class AiRuntimeBundleFactory {
                                 ),
                                 new AiOpsRagIngestionConfig(
                                         ragProperties.getIngestion().getExportPageSize(),
-                                        ragProperties.getIngestion().getEmbeddingBatchSize()
+                                        ragProperties.getIngestion().getEmbeddingBatchSize(),
+                                        ragProperties.getIngestion().isFailedRetryEnabled(),
+                                        ragProperties.getIngestion().getFailedRetryLimit()
                                 ),
                                 new AiOpsRagRetrievalConfig(
                                         ragProperties.getRetrieval().getRecallTopK(),
@@ -202,7 +205,7 @@ public class AiRuntimeBundleFactory {
                         .temperature(chatConfig.temperature())
                         .maxTokens(chatConfig.maxTokens())
                         .build())
-                .retryTemplate(RetryUtils.DEFAULT_RETRY_TEMPLATE)
+                .retryTemplate(singleAttemptRetryTemplate())
                 .build();
 
         OpenAiApi embeddingApi = OpenAiApi.builder()
@@ -222,7 +225,7 @@ public class AiRuntimeBundleFactory {
                         .model(embeddingConfig.model())
                         .dimensions(embeddingConfig.dimension())
                         .build(),
-                RetryUtils.DEFAULT_RETRY_TEMPLATE
+                singleAttemptRetryTemplate()
         );
 
         RestClient.Builder rerankBuilder = providerRestClientBuilder(
@@ -406,6 +409,12 @@ public class AiRuntimeBundleFactory {
 
     private String defaultString(String value) {
         return value == null ? "" : value;
+    }
+
+    private RetryTemplate singleAttemptRetryTemplate() {
+        RetryTemplate retryTemplate = new RetryTemplate();
+        retryTemplate.setRetryPolicy(new SimpleRetryPolicy(1));
+        return retryTemplate;
     }
 
     private void requireSupportedProtocol(String providerName, String capability, String actual, String expected) {

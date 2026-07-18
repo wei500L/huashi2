@@ -41,6 +41,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -214,36 +215,50 @@ class QwenProviderClientTest {
     }
 
     @Test
-    void shouldUseMultimodalEmbeddingModelWhenRequested() {
+    void shouldMapEmbeddingVectorsByProviderIndexInsteadOfResponseOrder() {
         stubFor(post(urlEqualTo("/v1/embeddings"))
                 .willReturn(aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
                                 {
                                   "object": "list",
-                                  "model": "Qwen/Qwen3-VL-Embedding-8B",
+                                  "model": "text-embedding-v4",
                                   "data": [
+                                    {"object": "embedding", "index": 1, "embedding": [0.4, 0.5, 0.6]},
                                     {"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]}
                                   ],
-                                  "usage": {"prompt_tokens": 3, "total_tokens": 3}
+                                  "usage": {"prompt_tokens": 9, "total_tokens": 9}
                                 }
                                 """)));
 
         EmbeddingResponse response = embeddingProviderClient.embedBatch("qwen", new EmbeddingBatchRequest(
+                List.of("alpha", "beta"),
+                null,
+                null,
+                3
+        ));
+
+        assertThat(response.items()).extracting(item -> item.text()).containsExactly("alpha", "beta");
+        assertThat(response.items().get(0).embedding()).containsExactly(0.1D, 0.2D, 0.3D);
+        assertThat(response.items().get(1).embedding()).containsExactly(0.4D, 0.5D, 0.6D);
+    }
+
+    @Test
+    void shouldRejectMultimodalEmbeddingUntilRequestContractSupportsMedia() {
+        assertThatThrownBy(() -> embeddingProviderClient.embedBatch("qwen", new EmbeddingBatchRequest(
                 List.of("image-plus-text"),
                 null,
                 "multimodal",
                 3
-        ));
-
-        assertThat(response.model()).isEqualTo("Qwen/Qwen3-VL-Embedding-8B");
-        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/embeddings"))
-                .withRequestBody(matchingJsonPath("$.model", equalTo("Qwen/Qwen3-VL-Embedding-8B"))));
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("text-only request contract");
     }
 
     private AiProviderProperties buildProperties() {
         AiProviderProperties properties = new AiProviderProperties();
         properties.setActiveProvider("qwen");
+        properties.setFallbackProvider("backup");
 
         AiProviderProperties.ChatProperties chatProperties = new AiProviderProperties.ChatProperties();
         chatProperties.setBaseUrl(wireMockServer.baseUrl() + "/v1");
@@ -269,6 +284,7 @@ class QwenProviderClientTest {
 
         Map<String, AiProviderProperties.ProviderProperties> providers = new LinkedHashMap<>();
         providers.put("qwen", providerProperties);
+        providers.put("backup", providerProperties);
         properties.setProviders(providers);
         return properties;
     }

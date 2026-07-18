@@ -10,14 +10,18 @@ import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
 import com.huashi.eftransfer.ai.common.filter.TraceFilter;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
+import com.huashi.eftransfer.ai.common.observability.SensitiveDataRedactor;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.huashi.eftransfer.ai.common.runtime.AiCircuitBreakerManager;
+import com.huashi.eftransfer.ai.common.security.InternalApiTokenAuthenticator;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.integration.provider.QwenAiProviderFacade;
 import com.huashi.eftransfer.ai.integration.provider.QwenChatProviderClient;
 import com.huashi.eftransfer.ai.integration.provider.QwenEmbeddingProviderClient;
 import com.huashi.eftransfer.ai.integration.provider.QwenRerankClient;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
+import com.huashi.eftransfer.ai.modules.rag.service.RagSchemaDimensionGuard;
 import com.huashi.eftransfer.ai.modules.internal.controller.InternalAiController;
 import com.huashi.eftransfer.ai.modules.internal.service.InternalAiService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -30,6 +34,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -60,10 +65,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         InternalAiService.class,
         AiProviderConfiguration.class,
         ProviderErrorSupport.class,
+        SensitiveDataRedactor.class,
         AiProviderObservationService.class,
         ResilientAiExecutor.class,
         AiRuntimeBundleFactory.class,
+        AiCircuitBreakerManager.class,
         AiRuntimeConfigService.class,
+        InternalApiTokenAuthenticator.class,
         AiProviderRegistry.class,
         QwenAiProviderFacade.class,
         QwenChatProviderClient.class,
@@ -77,6 +85,9 @@ class InternalAiControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private RagSchemaDimensionGuard ragSchemaDimensionGuard;
 
     @BeforeAll
     static void beforeAll() {

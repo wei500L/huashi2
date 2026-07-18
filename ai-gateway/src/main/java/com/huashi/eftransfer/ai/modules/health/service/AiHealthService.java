@@ -4,6 +4,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.modules.rag.repository.IngestionJobRepository;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
+import com.huashi.eftransfer.ai.modules.internal.service.AiConfigProbeService;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
 import org.springframework.core.env.Environment;
@@ -24,19 +25,22 @@ public class AiHealthService {
     private final AiRuntimeConfigService runtimeConfigService;
     private final KnowledgeStoreRepository knowledgeStoreRepository;
     private final IngestionJobRepository ingestionJobRepository;
+    private final AiConfigProbeService aiConfigProbeService;
 
     public AiHealthService(
             JdbcTemplate jdbcTemplate,
             Environment environment,
             AiRuntimeConfigService runtimeConfigService,
             KnowledgeStoreRepository knowledgeStoreRepository,
-            IngestionJobRepository ingestionJobRepository
+            IngestionJobRepository ingestionJobRepository,
+            AiConfigProbeService aiConfigProbeService
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.environment = environment;
         this.runtimeConfigService = runtimeConfigService;
         this.knowledgeStoreRepository = knowledgeStoreRepository;
         this.ingestionJobRepository = ingestionJobRepository;
+        this.aiConfigProbeService = aiConfigProbeService;
     }
 
     public AiGatewayHealthResponse getHealthPayload() {
@@ -47,20 +51,33 @@ public class AiHealthService {
         String storedSyncStatus = runtimeConfigService.storedSyncStatus();
         boolean databaseReady = isDatabaseReady();
         String vectorVersion = fetchVectorExtensionVersion();
+        var latestSuccessfulJob = ingestionJobRepository.findLatestSuccessfulJob("KNOWLEDGE_REINDEX");
+        KnowledgeStoreRepository.KnowledgeIndexCoverage indexCoverage = activeProvider == null || activeProvider.embedding() == null
+                ? new KnowledgeStoreRepository.KnowledgeIndexCoverage(0, 0)
+                : knowledgeStoreRepository.getIndexCoverage(
+                        activeProvider.embedding().model(),
+                        activeProvider.embedding().dimension()
+                );
         boolean vectorStoreReady = !"UNAVAILABLE".equals(vectorVersion)
                 && knowledgeStoreRepository.hasKnowledgeDocuments()
-                && ingestionJobRepository.findLatestSuccessfulJob("KNOWLEDGE_REINDEX") != null;
-        boolean providerReady = activeProvider != null
+                && latestSuccessfulJob != null
+                && embeddingFailureCount(latestSuccessfulJob.stats()) == 0
+                && indexCoverage.isComplete();
+        boolean providerConfigured = activeProvider != null
                 && configured(activeProvider.chat().baseUrl())
                 && configured(activeProvider.chat().apiKey())
                 && configured(activeProvider.chat().model())
                 && configured(activeProvider.embedding().baseUrl())
                 && configured(activeProvider.embedding().apiKey())
                 && configured(activeProvider.embedding().model());
-        boolean rerankReady = activeProvider != null
+        boolean rerankConfigured = activeProvider != null
                 && configured(activeProvider.rerank().baseUrl())
                 && configured(activeProvider.rerank().apiKey())
                 && configured(activeProvider.rerank().model());
+        boolean providerReady = providerConfigured
+                && aiConfigProbeService.isEmbeddingReady(provider.activeProvider(), activeProvider.embedding());
+        boolean rerankReady = rerankConfigured
+                && aiConfigProbeService.isRerankReady(provider.activeProvider(), activeProvider.rerank());
         AppServerProbe appServerProbe = probeAppServer(bundle);
         List<String> profiles = Arrays.asList(environment.getActiveProfiles());
         boolean storedSyncHealthy = !AiRuntimeConfigService.STORED_SYNC_STATUS_SYNC_FAILED.equals(storedSyncStatus);
@@ -94,6 +111,14 @@ public class AiHealthService {
 
     private boolean configured(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private int embeddingFailureCount(java.util.Map<String, Object> stats) {
+        if (stats == null) {
+            return 0;
+        }
+        Object value = stats.get("embeddingFailures");
+        return value instanceof Number number ? number.intValue() : 0;
     }
 
     private boolean isDatabaseReady() {

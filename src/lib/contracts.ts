@@ -1822,6 +1822,7 @@ export interface AiOpsEmbeddingConfig {
   baseUrl: string;
   apiKey: string | null;
   model: string;
+  multimodalModel?: string | null;
   connectTimeout: string;
   readTimeout: string;
   dimension: number;
@@ -1832,6 +1833,7 @@ export interface AiOpsRerankConfig {
   baseUrl: string;
   apiKey: string | null;
   model: string;
+  multimodalModel?: string | null;
   connectTimeout: string;
   readTimeout: string;
 }
@@ -1866,6 +1868,8 @@ export interface AiOpsRagAppServerConfig {
 export interface AiOpsRagIngestionConfig {
   exportPageSize: number;
   embeddingBatchSize: number;
+  failedRetryEnabled?: boolean | null;
+  failedRetryLimit?: number | null;
 }
 
 export interface AiOpsRagRetrievalConfig {
@@ -1905,6 +1909,7 @@ export interface AiOpsDraftEmbeddingConfig {
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
+  multimodalModel?: string | null;
   connectTimeout?: string | null;
   readTimeout?: string | null;
   dimension?: number | null;
@@ -1915,6 +1920,7 @@ export interface AiOpsDraftRerankConfig {
   baseUrl?: string | null;
   apiKey?: string | null;
   model?: string | null;
+  multimodalModel?: string | null;
   connectTimeout?: string | null;
   readTimeout?: string | null;
 }
@@ -1949,6 +1955,8 @@ export interface AiOpsDraftRagAppServerConfig {
 export interface AiOpsDraftRagIngestionConfig {
   exportPageSize?: number | null;
   embeddingBatchSize?: number | null;
+  failedRetryEnabled?: boolean | null;
+  failedRetryLimit?: number | null;
 }
 
 export interface AiOpsDraftRagRetrievalConfig {

@@ -27,6 +27,8 @@ import java.util.Map;
 public class KnowledgeSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeSearchService.class);
+    private static final String QUERY_EMBEDDING_INSTRUCTION =
+            "Given an English, French, or Chinese lexical-transfer learning question, retrieve passages that provide directly relevant lexical evidence.";
 
     private final AiProviderRegistry aiProviderRegistry;
     private final KnowledgeStoreRepository knowledgeStoreRepository;
@@ -48,7 +50,12 @@ public class KnowledgeSearchService {
 
     public RagRetrievalResult search(String query, RagSearchFilter filter, SearchRequest searchRequest) {
         var retrieval = runtimeConfigService.current().config().rag().retrieval();
-        EmbeddingResponse embeddingResponse = aiProviderRegistry.embed(new EmbeddingRequest(query, null, null, null));
+        EmbeddingResponse embeddingResponse = aiProviderRegistry.embed(new EmbeddingRequest(
+                toInstructionAwareQuery(query),
+                null,
+                null,
+                null
+        ));
         if (embeddingResponse.items() == null || embeddingResponse.items().isEmpty()) {
             return RagRetrievalResult.empty(query);
         }
@@ -57,7 +64,8 @@ public class KnowledgeSearchService {
         int finalTopK = resolveFinalTopK(searchRequest, retrieval.finalTopK());
         double recallThreshold = resolveRecallThreshold(searchRequest, retrieval.recallThreshold());
         List<KnowledgeSearchCandidate> recallCandidates = knowledgeStoreRepository.similaritySearch(
-                queryEmbedding,
+                 queryEmbedding,
+                embeddingResponse.model(),
                 filter,
                 retrieval.recallTopK(),
                 retrieval.hnswEfSearch()
@@ -139,6 +147,10 @@ public class KnowledgeSearchService {
                 Content:
                 %s
                 """.formatted(candidate.title(), candidate.sourceType(), candidate.sourceId(), candidate.content());
+    }
+
+    private String toInstructionAwareQuery(String query) {
+        return "Instruct: %s\nQuery: %s".formatted(QUERY_EMBEDDING_INSTRUCTION, query);
     }
 
     private Document toDocument(RagRetrievedChunk chunk) {

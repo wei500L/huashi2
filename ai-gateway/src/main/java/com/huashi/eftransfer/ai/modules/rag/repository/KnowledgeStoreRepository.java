@@ -48,6 +48,16 @@ public class KnowledgeStoreRepository {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UpsertDocumentResult upsertDocument(KnowledgeDocumentPayload documentPayload, boolean forceReembed, String contentHash) {
+        return upsertDocument(documentPayload, forceReembed, contentHash, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public UpsertDocumentResult upsertDocument(
+            KnowledgeDocumentPayload documentPayload,
+            boolean forceReembed,
+            String contentHash,
+            Set<String> reconcileSourceTypes
+    ) {
         Long documentId = jdbcTemplate.queryForObject(
                 """
                         INSERT INTO knowledge_document (
@@ -166,7 +176,9 @@ public class KnowledgeStoreRepository {
             }
         }
 
-        deactivateMissingChunks(documentId, activeChunkKeys);
+        if (reconcileSourceTypes == null || !reconcileSourceTypes.isEmpty()) {
+            deactivateMissingChunks(documentId, activeChunkKeys, reconcileSourceTypes);
+        }
         if (!documentPayload.active()) {
             deactivateAllChunks(documentId);
         }
@@ -174,14 +186,19 @@ public class KnowledgeStoreRepository {
         return new UpsertDocumentResult(documentId, pendingChunkEmbeddings);
     }
 
+    @Transactional
     public void replaceChunkEmbedding(Long chunkId, String model, int dimension, String contentHash, List<Double> embedding) {
         replaceChunkEmbeddings(List.of(new ChunkEmbeddingWrite(chunkId, model, dimension, contentHash, embedding)));
     }
 
+    @Transactional
     public void replaceChunkEmbeddings(List<ChunkEmbeddingWrite> writes) {
         if (writes == null || writes.isEmpty()) {
             return;
         }
+
+        validateEmbeddingWrites(writes);
+        lockAndValidateCurrentChunks(writes);
 
         List<Long> chunkIds = writes.stream()
                 .map(ChunkEmbeddingWrite::chunkId)
@@ -217,7 +234,7 @@ public class KnowledgeStoreRepository {
                 }
         );
 
-        jdbcTemplate.batchUpdate(
+        int[][] updatedChunks = jdbcTemplate.batchUpdate(
                 "UPDATE knowledge_chunk SET embedding_status = ?, embedded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 writes,
                 writes.size(),
@@ -226,14 +243,83 @@ public class KnowledgeStoreRepository {
                     ps.setLong(2, write.chunkId());
                 }
         );
+        for (int[] batch : updatedChunks) {
+            for (int updated : batch) {
+                if (updated == 0) {
+                    throw new IllegalStateException("Embedding write became stale before chunk status update");
+                }
+            }
+        }
     }
 
-    public void markChunkEmbeddingFailed(Long chunkId) {
+    public void markChunkEmbeddingFailed(Long chunkId, String contentHash) {
         jdbcTemplate.update(
-                "UPDATE knowledge_chunk SET embedding_status = ?, embedded_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                "UPDATE knowledge_chunk SET embedding_status = ?, embedded_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND content_hash = ?",
                 EmbeddingStatus.FAILED.name(),
-                chunkId
+                chunkId,
+                contentHash
         );
+    }
+
+    @Transactional
+    public List<PendingChunkEmbedding> claimFailedChunkEmbeddings(int limit) {
+        int resolvedLimit = Math.max(1, Math.min(limit, 256));
+        List<PendingChunkEmbedding> chunks = jdbcTemplate.query(
+                """
+                        SELECT kc.id, kc.content, kc.content_hash
+                        FROM knowledge_chunk kc
+                        JOIN knowledge_document kd ON kd.id = kc.document_id
+                        WHERE kc.active = TRUE
+                          AND kd.active = TRUE
+                          AND (
+                              kc.embedding_status = ?
+                              OR (kc.embedding_status = ? AND kc.updated_at < CURRENT_TIMESTAMP - INTERVAL '10 minutes')
+                          )
+                        ORDER BY kc.updated_at, kc.id
+                        LIMIT ?
+                        FOR UPDATE OF kc SKIP LOCKED
+                        """,
+                (rs, rowNum) -> new PendingChunkEmbedding(
+                        rs.getLong("id"),
+                        rs.getString("content"),
+                        rs.getString("content_hash")
+                ),
+                EmbeddingStatus.FAILED.name(),
+                EmbeddingStatus.PENDING.name(),
+                resolvedLimit
+        );
+        if (chunks.isEmpty()) {
+            return chunks;
+        }
+        String placeholders = String.join(", ", java.util.Collections.nCopies(chunks.size(), "?"));
+        jdbcTemplate.update(
+                "UPDATE knowledge_chunk SET embedding_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (" + placeholders + ")",
+                prepend(EmbeddingStatus.PENDING.name(), chunks.stream().map(PendingChunkEmbedding::chunkId).toList())
+        );
+        return chunks;
+    }
+
+    public Set<String> findLexicalPairSourceIdsForChunks(Collection<Long> chunkIds) {
+        if (chunkIds == null || chunkIds.isEmpty()) {
+            return Set.of();
+        }
+        String placeholders = String.join(", ", java.util.Collections.nCopies(chunkIds.size(), "?"));
+        List<String> sourceIds = jdbcTemplate.queryForList(
+                """
+                        SELECT DISTINCT CASE
+                            WHEN metadata ->> 'lexicalPairId' IS NOT NULL THEN metadata ->> 'lexicalPairId'
+                            WHEN source_type = 'LEXICAL_PAIR' THEN source_id
+                            ELSE NULL
+                        END AS lexical_pair_source_id
+                        FROM knowledge_chunk
+                        WHERE id IN (""" + placeholders + ")",
+                String.class,
+                chunkIds.toArray()
+        );
+        return sourceIds.stream()
+                .filter(Objects::nonNull)
+                .filter(value -> !value.isBlank())
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
     public List<LexicalPairEmbeddingState> listLexicalPairEmbeddingStates(Collection<String> lexicalPairSourceIds) {
@@ -288,7 +374,13 @@ public class KnowledgeStoreRepository {
         );
     }
 
-    public List<KnowledgeSearchCandidate> similaritySearch(List<Double> embedding, RagSearchFilter filter, int limit, int hnswEfSearch) {
+    public List<KnowledgeSearchCandidate> similaritySearch(
+            List<Double> embedding,
+            String embeddingModel,
+            RagSearchFilter filter,
+            int limit,
+            int hnswEfSearch
+    ) {
         StringBuilder sql = new StringBuilder("""
                 SELECT kc.id,
                        kc.source_type,
@@ -302,9 +394,15 @@ public class KnowledgeStoreRepository {
                 JOIN chunk_embedding ce ON ce.chunk_id = kc.id AND ce.is_current = TRUE
                 WHERE kc.active = TRUE
                   AND kd.active = TRUE
+                  AND kc.embedding_status = 'EMBEDDED'
+                  AND ce.content_hash = kc.content_hash
+                  AND ce.embedding_model = ?
+                  AND ce.embedding_dimension = ?
                 """);
         List<Object> params = new ArrayList<>();
         params.add(toVectorParameter(embedding));
+        params.add(embeddingModel);
+        params.add(embedding.size());
 
         appendInClause(sql, params, "kc.source_type", filter.sourceTypes());
         appendInClause(sql, params, "kc.source_id", filter.sourceIds());
@@ -362,6 +460,32 @@ public class KnowledgeStoreRepository {
         return count != null && count > 0;
     }
 
+    public KnowledgeIndexCoverage getIndexCoverage(String embeddingModel, int embeddingDimension) {
+        KnowledgeIndexCoverage coverage = jdbcTemplate.queryForObject(
+                """
+                        SELECT COUNT(*) AS active_chunk_count,
+                               COUNT(*) FILTER (
+                                   WHERE kc.embedding_status = 'EMBEDDED'
+                                     AND ce.content_hash = kc.content_hash
+                                     AND ce.embedding_model = ?
+                                     AND ce.embedding_dimension = ?
+                               ) AS searchable_chunk_count
+                        FROM knowledge_chunk kc
+                        JOIN knowledge_document kd ON kd.id = kc.document_id
+                        LEFT JOIN chunk_embedding ce ON ce.chunk_id = kc.id AND ce.is_current = TRUE
+                        WHERE kc.active = TRUE
+                          AND kd.active = TRUE
+                        """,
+                (rs, rowNum) -> new KnowledgeIndexCoverage(
+                        rs.getInt("active_chunk_count"),
+                        rs.getInt("searchable_chunk_count")
+                ),
+                embeddingModel,
+                embeddingDimension
+        );
+        return coverage == null ? new KnowledgeIndexCoverage(0, 0) : coverage;
+    }
+
     private ChunkRecord findChunk(Long documentId, String chunkKey) {
         List<ChunkRecord> chunks = jdbcTemplate.query(
                 """
@@ -382,28 +506,33 @@ public class KnowledgeStoreRepository {
         return chunks.isEmpty() ? null : chunks.getFirst();
     }
 
-    private void deactivateMissingChunks(Long documentId, Set<String> activeChunkKeys) {
-        if (activeChunkKeys == null || activeChunkKeys.isEmpty()) {
-            deactivateAllChunks(documentId);
-            return;
+    private void deactivateMissingChunks(Long documentId, Set<String> activeChunkKeys, Set<String> sourceTypes) {
+        StringBuilder scope = new StringBuilder("document_id = ?");
+        List<Object> scopeParams = new ArrayList<>();
+        scopeParams.add(documentId);
+        if (sourceTypes != null && !sourceTypes.isEmpty()) {
+            scope.append(" AND source_type IN (")
+                    .append(String.join(", ", java.util.Collections.nCopies(sourceTypes.size(), "?")))
+                    .append(")");
+            scopeParams.addAll(sourceTypes);
         }
-        String placeholders = String.join(", ", java.util.Collections.nCopies(activeChunkKeys.size(), "?"));
-        List<Object> params = new ArrayList<>();
-        params.add(documentId);
-        params.addAll(activeChunkKeys);
+        StringBuilder missingScope = new StringBuilder(scope);
+        List<Object> missingParams = new ArrayList<>(scopeParams);
+        if (activeChunkKeys != null && !activeChunkKeys.isEmpty()) {
+            missingScope.append(" AND chunk_key NOT IN (")
+                    .append(String.join(", ", java.util.Collections.nCopies(activeChunkKeys.size(), "?")))
+                    .append(")");
+            missingParams.addAll(activeChunkKeys);
+        }
         jdbcTemplate.update(
-                "UPDATE knowledge_chunk SET active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE document_id = ? AND chunk_key NOT IN (" + placeholders + ")",
-                params.toArray()
+                "UPDATE knowledge_chunk SET active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE " + missingScope,
+                missingParams.toArray()
         );
         jdbcTemplate.update(
-                """
-                        UPDATE chunk_embedding
-                        SET is_current = FALSE
-                        WHERE chunk_id IN (
-                            SELECT id FROM knowledge_chunk WHERE document_id = ? AND active = FALSE
-                        ) AND is_current = TRUE
-                        """,
-                documentId
+                "UPDATE chunk_embedding SET is_current = FALSE WHERE chunk_id IN ("
+                        + "SELECT id FROM knowledge_chunk WHERE " + scope + " AND active = FALSE"
+                        + ") AND is_current = TRUE",
+                scopeParams.toArray()
         );
     }
 
@@ -545,6 +674,64 @@ public class KnowledgeStoreRepository {
         }
     }
 
+    private Object[] prepend(Object first, List<?> remaining) {
+        Object[] values = new Object[remaining.size() + 1];
+        values[0] = first;
+        for (int index = 0; index < remaining.size(); index++) {
+            values[index + 1] = remaining.get(index);
+        }
+        return values;
+    }
+
+    private void validateEmbeddingWrites(List<ChunkEmbeddingWrite> writes) {
+        Set<Long> chunkIds = new java.util.HashSet<>();
+        for (ChunkEmbeddingWrite write : writes) {
+            if (write == null || write.chunkId() == null) {
+                throw new IllegalArgumentException("Embedding write chunkId is required");
+            }
+            if (!chunkIds.add(write.chunkId())) {
+                throw new IllegalArgumentException("Embedding batch contains duplicate chunkId " + write.chunkId());
+            }
+            if (write.model() == null || write.model().isBlank()) {
+                throw new IllegalArgumentException("Embedding write model is required");
+            }
+            if (write.dimension() <= 0) {
+                throw new IllegalArgumentException("Embedding write dimension must be greater than zero");
+            }
+            if (write.embedding() == null || write.embedding().size() != write.dimension()) {
+                int actual = write.embedding() == null ? 0 : write.embedding().size();
+                throw new IllegalArgumentException(
+                        "Embedding write dimension mismatch: declared=%d actual=%d".formatted(write.dimension(), actual)
+                );
+            }
+            if (write.embedding().stream().anyMatch(value -> value == null || !Double.isFinite(value))) {
+                throw new IllegalArgumentException("Embedding write contains a non-finite value");
+            }
+            if (write.contentHash() == null || write.contentHash().isBlank()) {
+                throw new IllegalArgumentException("Embedding write contentHash is required");
+            }
+        }
+    }
+
+    private void lockAndValidateCurrentChunks(List<ChunkEmbeddingWrite> writes) {
+        String placeholders = String.join(", ", java.util.Collections.nCopies(writes.size(), "?"));
+        Map<Long, ChunkWriteState> states = jdbcTemplate.query(
+                "SELECT id, content_hash, active FROM knowledge_chunk WHERE id IN (" + placeholders + ") FOR UPDATE",
+                (rs, rowNum) -> new ChunkWriteState(
+                        rs.getLong("id"),
+                        rs.getString("content_hash"),
+                        rs.getBoolean("active")
+                ),
+                writes.stream().map(ChunkEmbeddingWrite::chunkId).toArray()
+        ).stream().collect(Collectors.toMap(ChunkWriteState::chunkId, state -> state));
+        for (ChunkEmbeddingWrite write : writes) {
+            ChunkWriteState state = states.get(write.chunkId());
+            if (state == null || !state.active() || !Objects.equals(state.contentHash(), write.contentHash())) {
+                throw new IllegalStateException("Embedding write is stale for chunk " + write.chunkId());
+            }
+        }
+    }
+
     private String toVectorParameter(List<Double> embedding) {
         StringBuilder builder = new StringBuilder("[");
         for (int index = 0; index < embedding.size(); index++) {
@@ -573,6 +760,9 @@ public class KnowledgeStoreRepository {
     private record ChunkRecord(Long id, String contentHash, String embeddingStatus, OffsetDateTime embeddedAt) {
     }
 
+    private record ChunkWriteState(Long chunkId, String contentHash, boolean active) {
+    }
+
     public record LexicalPairEmbeddingState(
             String sourceId,
             String embeddingStatus,
@@ -590,5 +780,11 @@ public class KnowledgeStoreRepository {
     }
 
     public record UpsertDocumentResult(Long documentId, List<PendingChunkEmbedding> pendingChunkEmbeddings) {
+    }
+
+    public record KnowledgeIndexCoverage(int activeChunkCount, int searchableChunkCount) {
+        public boolean isComplete() {
+            return activeChunkCount > 0 && activeChunkCount == searchableChunkCount;
+        }
     }
 }

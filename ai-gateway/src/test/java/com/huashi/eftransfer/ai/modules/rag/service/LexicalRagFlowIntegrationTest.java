@@ -75,6 +75,7 @@ class LexicalRagFlowIntegrationTest {
 
     private static JdbcTemplate jdbcTemplate;
     private static AppServerKnowledgeClient appServerKnowledgeClient;
+    private static AiProviderRegistry aiProviderRegistry;
     private static KnowledgeIngestionService knowledgeIngestionService;
     private static RagService ragService;
 
@@ -98,13 +99,7 @@ class LexicalRagFlowIntegrationTest {
         RagProperties ragProperties = ragProperties();
         AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
         when(runtimeConfigService.current()).thenReturn(runtimeBundle(ragProperties));
-        AiProviderRegistry aiProviderRegistry = mock(AiProviderRegistry.class);
-        when(aiProviderRegistry.embed(any())).thenAnswer(invocation -> {
-            EmbeddingRequest request = invocation.getArgument(0);
-            return embeddingResponse(new EmbeddingBatchRequest(List.of(request.text()), request.model(), request.modality(), request.dimension()));
-        });
-        when(aiProviderRegistry.embedBatch(any())).thenAnswer(invocation -> embeddingResponse(invocation.getArgument(0)));
-        when(aiProviderRegistry.rerank(any())).thenAnswer(invocation -> rerankResponse(invocation.getArgument(0)));
+        aiProviderRegistry = mock(AiProviderRegistry.class);
 
         knowledgeIngestionService = new KnowledgeIngestionService(
                 ingestionJobRepository,
@@ -118,7 +113,7 @@ class LexicalRagFlowIntegrationTest {
         KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(aiProviderRegistry, knowledgeStoreRepository, runtimeConfigService);
         ragService = new RagService(
                 runtimeConfigService,
-                new RagRetrievalCapture(),
+                aiProviderRegistry,
                 knowledgeSearchService,
                 objectMapper
         );
@@ -132,6 +127,13 @@ class LexicalRagFlowIntegrationTest {
     @BeforeEach
     void cleanTables() {
         jdbcTemplate.execute("TRUNCATE TABLE chunk_embedding, knowledge_chunk, knowledge_document, ingestion_job RESTART IDENTITY CASCADE");
+        Mockito.reset(appServerKnowledgeClient, aiProviderRegistry);
+        when(aiProviderRegistry.embed(any())).thenAnswer(invocation -> {
+            EmbeddingRequest request = invocation.getArgument(0);
+            return embeddingResponse(new EmbeddingBatchRequest(List.of(request.text()), request.model(), request.modality(), request.dimension()));
+        });
+        when(aiProviderRegistry.embedBatch(any())).thenAnswer(invocation -> embeddingResponse(invocation.getArgument(0)));
+        when(aiProviderRegistry.rerank(any())).thenAnswer(invocation -> rerankResponse(invocation.getArgument(0)));
     }
 
     @Test
@@ -219,6 +221,91 @@ class LexicalRagFlowIntegrationTest {
                 .hasMessageContaining("app-server export failed");
 
         assertThat(single("SELECT status FROM ingestion_job ORDER BY id DESC LIMIT 1")).isEqualTo("FAILED");
+    }
+
+    @Test
+    void shouldFailJobWhenAnyEmbeddingFails() {
+        when(appServerKnowledgeClient.exportLexicalPairs(any(), any(), anyInt(), any()))
+                .thenReturn(new LexicalKnowledgeExportPageResponse(
+                        List.of(coinLexicalItem()),
+                        null,
+                        OffsetDateTime.now(ZoneOffset.UTC)
+                ));
+        Mockito.doThrow(new IllegalStateException("embedding unavailable"))
+                .when(aiProviderRegistry)
+                .embedBatch(any(EmbeddingBatchRequest.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
+                "FULL",
+                List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                List.of("1001"),
+                false
+        )))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("embedding failures");
+
+        assertThat(single("SELECT status FROM ingestion_job ORDER BY id DESC LIMIT 1")).isEqualTo("FAILED");
+        assertThat(count("SELECT COUNT(*) FROM knowledge_chunk WHERE embedding_status = 'FAILED'")).isEqualTo(3);
+    }
+
+    @Test
+    void shouldPreserveUnselectedChunksDuringPartialSourceTypeReindex() {
+        when(appServerKnowledgeClient.exportLexicalPairs(any(), any(), anyInt(), any()))
+                .thenReturn(new LexicalKnowledgeExportPageResponse(
+                        List.of(coinLexicalItem()),
+                        null,
+                        OffsetDateTime.now(ZoneOffset.UTC)
+                ));
+
+        knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
+                "FULL",
+                List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                List.of("1001"),
+                true
+        ));
+        knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
+                "FULL",
+                List.of("LEXICAL_EXAMPLE"),
+                List.of("1001"),
+                false
+        ));
+
+        assertThat(count("SELECT COUNT(*) FROM knowledge_chunk WHERE active = TRUE")).isEqualTo(3);
+        assertThat(count("SELECT COUNT(*) FROM chunk_embedding WHERE is_current = TRUE")).isEqualTo(3);
+    }
+
+    @Test
+    void shouldDeactivateMissingSelectedChunksWithoutTouchingUnselectedChunks() {
+        when(appServerKnowledgeClient.exportLexicalPairs(any(), any(), anyInt(), any()))
+                .thenReturn(
+                        new LexicalKnowledgeExportPageResponse(
+                                List.of(coinLexicalItem()),
+                                null,
+                                OffsetDateTime.now(ZoneOffset.UTC)
+                        ),
+                        new LexicalKnowledgeExportPageResponse(
+                                List.of(coinLexicalItemWithoutExamples()),
+                                null,
+                                OffsetDateTime.now(ZoneOffset.UTC)
+                        )
+                );
+
+        knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
+                "FULL",
+                List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE"),
+                List.of("1001"),
+                true
+        ));
+        knowledgeIngestionService.submitAndAwait(new RagReindexRequest(
+                "FULL",
+                List.of("LEXICAL_EXAMPLE"),
+                List.of("1001"),
+                false
+        ));
+
+        assertThat(count("SELECT COUNT(*) FROM knowledge_chunk WHERE active = TRUE")).isEqualTo(2);
+        assertThat(count("SELECT COUNT(*) FROM knowledge_chunk WHERE source_type = 'LEXICAL_EXAMPLE' AND active = TRUE")).isZero();
+        assertThat(count("SELECT COUNT(*) FROM chunk_embedding WHERE is_current = TRUE")).isEqualTo(2);
     }
 
     private static RagProperties ragProperties() {
@@ -327,6 +414,37 @@ class LexicalRagFlowIntegrationTest {
                                 "HIGH",
                                 "Teacher Curated"
                         ))
+                ))
+        );
+    }
+
+    private static LexicalKnowledgeExportItem coinLexicalItemWithoutExamples() {
+        LexicalKnowledgeExportItem item = coinLexicalItem();
+        LexicalKnowledgeSenseItem sense = item.senses().getFirst();
+        return new LexicalKnowledgeExportItem(
+                item.lexicalPairId(),
+                item.sourceUpdatedAt(),
+                item.active(),
+                item.knowledgeStatus(),
+                item.embeddingStatus(),
+                item.englishWord(),
+                item.frenchWord(),
+                item.chineseGloss(),
+                item.lexicalPairType(),
+                item.semanticOverlapScore(),
+                item.falseFriendRisk(),
+                item.defaultContextSupport(),
+                item.difficultyLevel(),
+                item.notes(),
+                item.source(),
+                item.tags(),
+                List.of(new LexicalKnowledgeSenseItem(
+                        sense.senseId(),
+                        sense.sortOrder(),
+                        sense.englishDefinition(),
+                        sense.frenchDefinition(),
+                        sense.chineseDefinition(),
+                        List.of()
                 ))
         );
     }

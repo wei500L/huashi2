@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.shared.ai.config;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -27,4 +29,36 @@ public record AiOpsRagRetrievalConfig(
         @Positive(message = "hnswEfSearch must be greater than 0")
         Integer hnswEfSearch
 ) {
+    @JsonCreator
+    public AiOpsRagRetrievalConfig(
+            @JsonProperty("recallTopK") Integer recallTopK,
+            @JsonProperty("recallThreshold") Double recallThreshold,
+            @JsonProperty("rerankTopN") Integer rerankTopN,
+            @JsonProperty("rerankThreshold") Double rerankThreshold,
+            @JsonProperty("finalTopK") Integer finalTopK,
+            @JsonProperty("hnswEfSearch") Integer hnswEfSearch,
+            @JsonProperty("candidateCount") Integer legacyCandidateCount,
+            @JsonProperty("minScore") Double legacyMinScore,
+            @JsonProperty("maxContextChunks") Integer legacyMaxContextChunks,
+            @JsonProperty("lexicalWeight") Double ignoredLegacyLexicalWeight
+    ) {
+        this(
+                recallTopK != null ? recallTopK : legacyCandidateCount,
+                recallThreshold != null ? recallThreshold : legacyMinScore,
+                rerankTopN,
+                rerankThreshold != null ? rerankThreshold : 0.2d,
+                resolveFinalTopK(finalTopK, legacyMaxContextChunks, rerankTopN),
+                hnswEfSearch
+        );
+    }
+
+    private static Integer resolveFinalTopK(Integer current, Integer legacyMaxContextChunks, Integer rerankTopN) {
+        if (current != null) {
+            return current;
+        }
+        if (legacyMaxContextChunks == null) {
+            return null;
+        }
+        return rerankTopN == null ? legacyMaxContextChunks : Math.min(legacyMaxContextChunks, rerankTopN);
+    }
 }

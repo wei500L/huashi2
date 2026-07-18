@@ -20,6 +20,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 @Component
 public class QwenRerankClient implements RerankClient {
@@ -88,7 +90,7 @@ public class QwenRerankClient implements RerankClient {
     }
 
     private Map<String, Object> buildRerankPayload(RerankRequest request, String model) {
-        Integer topN = request.topN() != null ? request.topN() : request.documents().size();
+        int topN = resolveTopN(request);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", model);
         payload.put("query", request.query());
@@ -120,7 +122,7 @@ public class QwenRerankClient implements RerankClient {
     }
 
     private String buildChatPrompt(RerankRequest request) {
-        Integer topN = request.topN() != null ? request.topN() : request.documents().size();
+        int topN = resolveTopN(request);
         StringBuilder prompt = new StringBuilder();
         prompt.append("Rank the documents by relevance to the query. ")
                 .append("Return JSON only in this format: {\"results\":[{\"index\":0,\"relevance_score\":0.95}]}. ")
@@ -142,12 +144,29 @@ public class QwenRerankClient implements RerankClient {
         if (results.isMissingNode() || !results.isArray()) {
             results = response.path("results");
         }
+        if (!results.isArray()) {
+            throw new IllegalStateException("Rerank provider response does not contain a results array");
+        }
 
         boolean returnDocuments = request.returnDocuments() == null || request.returnDocuments();
         List<RerankItem> items = new ArrayList<>();
+        Set<Integer> seenIndexes = new HashSet<>();
         for (JsonNode item : results) {
             int index = item.path("index").asInt(-1);
-            double score = item.path("relevance_score").asDouble(item.path("score").asDouble(0.0D));
+            if (index < 0 || index >= request.documents().size()) {
+                throw new IllegalStateException("Rerank provider returned an out-of-range document index: " + index);
+            }
+            if (!seenIndexes.add(index)) {
+                throw new IllegalStateException("Rerank provider returned a duplicate document index: " + index);
+            }
+            JsonNode scoreNode = item.has("relevance_score") ? item.get("relevance_score") : item.get("score");
+            if (scoreNode == null || !scoreNode.isNumber()) {
+                throw new IllegalStateException("Rerank provider returned a missing or non-numeric relevance score");
+            }
+            double score = scoreNode.asDouble();
+            if (!Double.isFinite(score) || score < 0.0D || score > 1.0D) {
+                throw new IllegalStateException("Rerank provider returned an invalid relevance score: " + score);
+            }
             String document = null;
             if (returnDocuments) {
                 JsonNode documentNode = item.path("document");
@@ -164,7 +183,14 @@ public class QwenRerankClient implements RerankClient {
         }
 
         items.sort(Comparator.comparing(RerankItem::relevanceScore).reversed());
-        return items;
+        int topN = Math.min(resolveTopN(request), items.size());
+        return List.copyOf(items.subList(0, topN));
+    }
+
+    private int resolveTopN(RerankRequest request) {
+        return request.topN() == null
+                ? request.documents().size()
+                : Math.min(request.topN(), request.documents().size());
     }
 
     private List<RerankItem> mapChatItems(RerankRequest request, JsonNode response) throws java.io.IOException {
@@ -211,8 +237,10 @@ public class QwenRerankClient implements RerankClient {
     }
 
     private String resolveModel(AiProviderRuntime runtime, String requestModel, String modality) {
-        if (isMultimodal(modality) && StringUtils.hasText(runtime.definition().rerank().multimodalModel())) {
-            return runtime.definition().rerank().multimodalModel();
+        if (isMultimodal(modality)) {
+            throw new IllegalArgumentException(
+                    "Multimodal rerank is not supported by the current text-only request contract"
+            );
         }
         return StringUtils.hasText(requestModel) ? requestModel : runtime.definition().rerank().model();
     }

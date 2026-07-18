@@ -28,7 +28,10 @@ import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -43,10 +46,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class KnowledgeIngestionService {
 
+    private static final Logger log = LoggerFactory.getLogger(KnowledgeIngestionService.class);
     private static final String JOB_TYPE = "KNOWLEDGE_REINDEX";
     private static final TypeReference<List<SeedKnowledgeEntry>> SEED_TYPE = new TypeReference<>() {
     };
@@ -58,6 +63,7 @@ public class KnowledgeIngestionService {
     private final AiRuntimeConfigService runtimeConfigService;
     private final TaskExecutor ragTaskExecutor;
     private final ObjectMapper objectMapper;
+    private final AtomicBoolean failedEmbeddingRetryInProgress = new AtomicBoolean(false);
 
     public KnowledgeIngestionService(
             IngestionJobRepository ingestionJobRepository,
@@ -161,6 +167,12 @@ public class KnowledgeIngestionService {
                 );
             }
 
+            if (stats.embeddingFailures > 0) {
+                throw new IllegalStateException(
+                        "Knowledge reindex completed with %d embedding failures".formatted(stats.embeddingFailures)
+                );
+            }
+
             ingestionJobRepository.markSucceeded(job.jobId(), watermark, stats.toMap());
         } catch (Exception ex) {
             ingestionJobRepository.markFailed(job.jobId(), ex.getMessage(), watermark, stats.toMap());
@@ -210,7 +222,10 @@ public class KnowledgeIngestionService {
                 KnowledgeStoreRepository.UpsertDocumentResult result = knowledgeStoreRepository.upsertDocument(
                         documentPayload,
                         forceReembed,
-                        documentHash(documentPayload)
+                        documentHash(documentPayload),
+                        requestedSourceTypes.stream()
+                                .filter(KnowledgeSourceTypes.APP_SERVER_SOURCE_TYPES::contains)
+                                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
                 );
                 pendingChunkEmbeddings.addAll(result.pendingChunkEmbeddings());
                 stats.documentsProcessed++;
@@ -327,19 +342,55 @@ public class KnowledgeIngestionService {
                 writeEmbeddingBatch(batch, stats);
             } catch (Exception ex) {
                 if (batch.size() == 1) {
-                    knowledgeStoreRepository.markChunkEmbeddingFailed(batch.getFirst().chunkId());
+                    knowledgeStoreRepository.markChunkEmbeddingFailed(
+                            batch.getFirst().chunkId(),
+                            batch.getFirst().contentHash()
+                    );
                     stats.embeddingFailures++;
                 } else {
                     for (PendingChunkEmbedding chunk : batch) {
                         try {
                             writeEmbeddingBatch(List.of(chunk), stats);
                         } catch (Exception nestedEx) {
-                            knowledgeStoreRepository.markChunkEmbeddingFailed(chunk.chunkId());
+                            knowledgeStoreRepository.markChunkEmbeddingFailed(chunk.chunkId(), chunk.contentHash());
                             stats.embeddingFailures++;
                         }
                     }
                 }
             }
+        }
+    }
+
+    @Scheduled(fixedDelayString = "${rag.ingestion.failed-retry-interval:PT1M}")
+    public void retryFailedEmbeddings() {
+        if (!runtimeConfigService.current().config().rag().ingestion().resolveFailedRetryEnabled()) {
+            return;
+        }
+        if (!failedEmbeddingRetryInProgress.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            int limit = runtimeConfigService.current().config().rag().ingestion().resolvedFailedRetryLimit();
+            List<PendingChunkEmbedding> claimed = knowledgeStoreRepository.claimFailedChunkEmbeddings(limit);
+            if (claimed.isEmpty()) {
+                return;
+            }
+            StatsAccumulator stats = new StatsAccumulator();
+            embedPendingChunks(claimed, stats);
+            Set<String> lexicalPairIds = knowledgeStoreRepository.findLexicalPairSourceIdsForChunks(
+                    claimed.stream().map(PendingChunkEmbedding::chunkId).toList()
+            );
+            syncLexicalPairEmbeddingStatuses(lexicalPairIds);
+            if (stats.embeddingFailures > 0) {
+                log.warn("event=failed_embedding_retry_partial claimed={} succeeded={} failed={}",
+                        claimed.size(), stats.embeddedChunks, stats.embeddingFailures);
+            } else {
+                log.info("event=failed_embedding_retry_succeeded claimed={}", claimed.size());
+            }
+        } catch (RuntimeException exception) {
+            log.warn("event=failed_embedding_retry_failed message={}", exception.getMessage());
+        } finally {
+            failedEmbeddingRetryInProgress.set(false);
         }
     }
 

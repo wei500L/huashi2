@@ -43,23 +43,38 @@ public class AiProviderRegistry {
     }
 
     public ChatResponse chat(ChatRequest request) {
-        return executeWithFailover("chat", providerName -> chatProviderClient.chat(providerName, request));
+        return executeWithFailover(
+                "chat",
+                (runtime, providerName) -> chatProviderClient.chat(runtime, providerName, request)
+        );
     }
 
     public StructuredChatResponse structuredChat(StructuredChatRequest request) {
-        return executeWithFailover("structured-chat", providerName -> chatProviderClient.structuredChat(providerName, request));
+        return executeWithFailover(
+                "structured-chat",
+                (runtime, providerName) -> chatProviderClient.structuredChat(runtime, providerName, request)
+        );
     }
 
     public EmbeddingResponse embed(EmbeddingRequest request) {
-        return executeWithFailover("embedding", providerName -> embeddingProviderClient.embed(providerName, request));
+        return executeWithFailover(
+                "embedding",
+                (runtime, providerName) -> embeddingProviderClient.embed(runtime, providerName, request)
+        );
     }
 
     public EmbeddingResponse embedBatch(EmbeddingBatchRequest request) {
-        return executeWithFailover("embedding-batch", providerName -> embeddingProviderClient.embedBatch(providerName, request));
+        return executeWithFailover(
+                "embedding-batch",
+                (runtime, providerName) -> embeddingProviderClient.embedBatch(runtime, providerName, request)
+        );
     }
 
     public RerankResponse rerank(RerankRequest request) {
-        return executeWithFailover("rerank", providerName -> rerankClient.rerank(providerName, request));
+        return executeWithFailover(
+                "rerank",
+                (runtime, providerName) -> rerankClient.rerank(runtime, providerName, request)
+        );
     }
 
     public AiProviderRuntime activeRuntime() {
@@ -71,17 +86,17 @@ public class AiProviderRegistry {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         String activeProvider = bundle.config().provider().activeProvider();
         String fallbackProvider = bundle.config().provider().fallbackProvider();
-        requireRuntime(bundle, activeProvider);
+        AiProviderRuntime activeRuntime = requireRuntime(bundle, activeProvider);
         try {
-            return providerOperation.execute(activeProvider);
+            return providerOperation.execute(activeRuntime, activeProvider);
         } catch (ProviderCallException ex) {
             if (!shouldFailover(bundle, activeProvider, fallbackProvider, ex)) {
                 throw ex;
             }
             log.warn("event=ai_provider_failover operation={} fromProvider={} toProvider={} reason={}",
                     operation, activeProvider, fallbackProvider, ex.getMessage());
-            requireRuntime(bundle, fallbackProvider);
-            return providerOperation.execute(fallbackProvider);
+            AiProviderRuntime fallbackRuntime = requireRuntime(bundle, fallbackProvider);
+            return providerOperation.execute(fallbackRuntime, fallbackProvider);
         }
     }
 
@@ -111,6 +126,6 @@ public class AiProviderRegistry {
 
     @FunctionalInterface
     private interface ProviderOperation<T> {
-        T execute(String providerName);
+        T execute(AiProviderRuntime runtime, String providerName);
     }
 }

@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
@@ -104,6 +105,10 @@ public class AiRuntimeConfigService {
                 "DEFAULTS",
                 versionCounter.incrementAndGet()
         );
+        List<AiOpsConfigIssue> bootstrapIssues = collectIssues(bundle.config());
+        if (!bootstrapIssues.isEmpty()) {
+            throw new IllegalStateException("Invalid bootstrap AI configuration: " + formatIssues(bootstrapIssues));
+        }
         ragSchemaDimensionGuard.verifyConfig(bundle.config());
         currentBundle.set(bundle);
     }
@@ -118,6 +123,16 @@ public class AiRuntimeConfigService {
             return;
         }
         syncStoredConfig("health-check");
+    }
+
+    @Scheduled(
+            initialDelayString = "${ai.runtime.sync-retry-initial-delay:PT10S}",
+            fixedDelayString = "${ai.runtime.sync-retry-interval:PT10S}"
+    )
+    public void retryStoredConfigSyncOnSchedule() {
+        if (STORED_SYNC_STATUS_SYNC_FAILED.equals(storedSyncStatus.get())) {
+            syncStoredConfig("scheduled-retry");
+        }
     }
 
     private void syncStoredConfig(String trigger) {

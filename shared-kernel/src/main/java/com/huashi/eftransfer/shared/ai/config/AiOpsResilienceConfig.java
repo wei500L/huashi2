@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.shared.ai.config;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -22,4 +24,26 @@ public record AiOpsResilienceConfig(
         @NotBlank(message = "openStateDuration is required")
         String openStateDuration
 ) {
+    @JsonCreator
+    public AiOpsResilienceConfig(
+            @JsonProperty("maxAttempts") Integer maxAttempts,
+            @JsonProperty("waitDuration") String waitDuration,
+            @JsonProperty("failureRateThreshold") Float failureRateThreshold,
+            @JsonProperty("slidingWindowSize") Integer slidingWindowSize,
+            @JsonProperty("openStateDuration") String openStateDuration,
+            @JsonProperty("backoff") String legacyBackoff,
+            @JsonProperty("waitDurationInOpenState") String legacyOpenStateDuration
+    ) {
+        this(
+                maxAttempts,
+                firstText(waitDuration, legacyBackoff),
+                failureRateThreshold,
+                slidingWindowSize,
+                firstText(openStateDuration, legacyOpenStateDuration)
+        );
+    }
+
+    private static String firstText(String preferred, String fallback) {
+        return preferred != null && !preferred.isBlank() ? preferred : fallback;
+    }
 }

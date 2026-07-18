@@ -2,6 +2,7 @@ package com.huashi.eftransfer.ai.modules.internal;
 
 import com.huashi.eftransfer.ai.common.config.InternalApiProperties;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.huashi.eftransfer.ai.common.security.InternalApiTokenAuthenticator;
 import com.huashi.eftransfer.ai.modules.internal.controller.InternalAiConfigController;
 import com.huashi.eftransfer.ai.modules.internal.service.AiConfigProbeService;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyResponse;
@@ -18,6 +19,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
@@ -32,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = InternalAiConfigController.class)
 @EnableConfigurationProperties(InternalApiProperties.class)
+@Import(InternalApiTokenAuthenticator.class)
 @TestPropertySource(properties = {
         "platform.internal-api.enabled=true",
         "platform.internal-api.token=test-internal-token"

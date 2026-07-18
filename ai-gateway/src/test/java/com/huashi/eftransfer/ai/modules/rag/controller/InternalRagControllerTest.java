@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.ai.modules.rag.controller;
 
 import com.huashi.eftransfer.ai.common.config.InternalApiProperties;
+import com.huashi.eftransfer.ai.common.security.InternalApiTokenAuthenticator;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeIngestionService;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeSyncDlqService;
 import com.huashi.eftransfer.ai.modules.rag.service.RagService;
@@ -19,6 +20,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -33,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = InternalRagController.class)
 @EnableConfigurationProperties(InternalApiProperties.class)
+@Import(InternalApiTokenAuthenticator.class)
 @TestPropertySource(properties = {
         "platform.internal-api.enabled=true",
         "platform.internal-api.token=test-internal-token"

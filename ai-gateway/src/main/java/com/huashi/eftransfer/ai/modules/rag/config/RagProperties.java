@@ -87,6 +87,8 @@ public class RagProperties {
 
         private int exportPageSize = 100;
         private int embeddingBatchSize = 32;
+        private boolean failedRetryEnabled = true;
+        private int failedRetryLimit = 64;
 
         public int getExportPageSize() {
             return exportPageSize;
@@ -102,6 +104,22 @@ public class RagProperties {
 
         public void setEmbeddingBatchSize(int embeddingBatchSize) {
             this.embeddingBatchSize = embeddingBatchSize;
+        }
+
+        public boolean isFailedRetryEnabled() {
+            return failedRetryEnabled;
+        }
+
+        public void setFailedRetryEnabled(boolean failedRetryEnabled) {
+            this.failedRetryEnabled = failedRetryEnabled;
+        }
+
+        public int getFailedRetryLimit() {
+            return failedRetryLimit;
+        }
+
+        public void setFailedRetryLimit(int failedRetryLimit) {
+            this.failedRetryLimit = failedRetryLimit;
         }
     }
 

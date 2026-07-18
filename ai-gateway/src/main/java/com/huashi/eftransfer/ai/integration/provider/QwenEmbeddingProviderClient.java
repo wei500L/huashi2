@@ -16,6 +16,8 @@ import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -40,8 +42,12 @@ public class QwenEmbeddingProviderClient {
     }
 
     public EmbeddingResponse embed(String providerName, EmbeddingRequest request) {
+        return embed(providerRuntime(providerName), providerName, request);
+    }
+
+    public EmbeddingResponse embed(AiProviderRuntime runtime, String providerName, EmbeddingRequest request) {
         return embedInternal(
-                providerRuntime(providerName),
+                runtime,
                 providerName,
                 List.of(request.text()),
                 request.model(),
@@ -83,13 +89,16 @@ public class QwenEmbeddingProviderClient {
                     )
             ));
 
+            ValidatedEmbeddings validated = validateEmbeddings(texts, response.getResults(), dimension);
+            List<Embedding> embeddings = validated.embeddings();
+
             EmbeddingResponse embeddingResponse = new EmbeddingResponse(
                     provider,
                     model,
-                    dimension,
+                    validated.dimension(),
                     requestContextHolder.getRequestId(),
                     toUsage(response.getMetadata().getUsage()),
-                    mapItems(texts, response.getResults())
+                    mapItems(texts, embeddings)
             );
             observationService.recordSuccess(
                     "embedding",
@@ -115,6 +124,50 @@ public class QwenEmbeddingProviderClient {
                 .toList();
     }
 
+    private ValidatedEmbeddings validateEmbeddings(List<String> texts, List<Embedding> embeddings, int expectedDimension) {
+        if (embeddings == null || embeddings.size() != texts.size()) {
+            int actualSize = embeddings == null ? 0 : embeddings.size();
+            throw new IllegalStateException(
+                    "Embedding provider returned %d vectors for %d inputs".formatted(actualSize, texts.size())
+            );
+        }
+        List<Embedding> ordered = new ArrayList<>(Collections.nCopies(texts.size(), null));
+        int actualDimension = -1;
+        for (int responsePosition = 0; responsePosition < embeddings.size(); responsePosition++) {
+            Embedding embedding = embeddings.get(responsePosition);
+            if (embedding == null || embedding.getIndex() == null) {
+                throw new IllegalStateException("Embedding provider returned a vector without an input index");
+            }
+            int index = embedding.getIndex();
+            if (index < 0 || index >= texts.size()) {
+                throw new IllegalStateException("Embedding provider returned an out-of-range input index: " + index);
+            }
+            if (ordered.set(index, embedding) != null) {
+                throw new IllegalStateException("Embedding provider returned a duplicate input index: " + index);
+            }
+            float[] output = embedding.getOutput();
+            if (output == null || output.length == 0) {
+                throw new IllegalStateException("Embedding provider returned an empty vector at index " + index);
+            }
+            if (actualDimension < 0) {
+                actualDimension = output.length;
+            } else if (actualDimension != output.length) {
+                throw new IllegalStateException("Embedding provider returned inconsistent vector dimensions");
+            }
+            for (float value : output) {
+                if (!Float.isFinite(value)) {
+                    throw new IllegalStateException("Embedding provider returned a non-finite value at index " + index);
+                }
+            }
+        }
+        if (actualDimension != expectedDimension) {
+            throw new IllegalStateException(
+                    "Embedding provider returned dimension %d but %d was requested".formatted(actualDimension, expectedDimension)
+            );
+        }
+        return new ValidatedEmbeddings(List.copyOf(ordered), actualDimension);
+    }
+
     private List<Double> toDoubles(float[] vector) {
         return IntStream.range(0, vector.length)
                 .mapToObj(index -> BigDecimal.valueOf(Double.parseDouble(Float.toString(vector[index]))).doubleValue())
@@ -122,8 +175,10 @@ public class QwenEmbeddingProviderClient {
     }
 
     private String resolveModel(AiProviderRuntime runtime, String requestModel, String modality) {
-        if (isMultimodal(modality) && runtime.definition().embedding().multimodalModel() != null && !runtime.definition().embedding().multimodalModel().isBlank()) {
-            return runtime.definition().embedding().multimodalModel();
+        if (isMultimodal(modality)) {
+            throw new IllegalArgumentException(
+                    "Multimodal embedding is not supported by the current text-only request contract"
+            );
         }
         return requestModel != null && !requestModel.isBlank() ? requestModel : runtime.definition().embedding().model();
     }
@@ -146,5 +201,8 @@ public class QwenEmbeddingProviderClient {
             return null;
         }
         return new TokenUsage(usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
+    }
+
+    private record ValidatedEmbeddings(List<Embedding> embeddings, int dimension) {
     }
 }

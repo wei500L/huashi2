@@ -14,6 +14,7 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
+      - ../app-server/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/02-app-schema.sql:ro
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
@@ -77,6 +78,7 @@ services:
       - "${AI_DB_PORT}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
+      - ../ai-gateway/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-ai-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USERNAME} -d ${AI_DB_NAME}"]
       interval: 10s
@@ -88,7 +90,6 @@ services:
       context: ..
       dockerfile: deploy/ai-gateway/Dockerfile
     container_name: ef-transfer-ai-gateway
-    user: "0:0"
     restart: unless-stopped
     depends_on:
       postgres:
@@ -195,7 +196,6 @@ services:
       context: ..
       dockerfile: deploy/app-server/Dockerfile
     container_name: ef-transfer-app-server
-    user: "0:0"
     restart: unless-stopped
     depends_on:
       mysql:

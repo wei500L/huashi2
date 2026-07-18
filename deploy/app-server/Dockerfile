@@ -16,6 +16,7 @@ RUN ./mvnw -pl app-server -am -q clean package -Dmaven.test.skip=true
 FROM eclipse-temurin:25-jdk
 WORKDIR /app
 RUN useradd --system --create-home --shell /usr/sbin/nologin appuser \
+    && mkdir -p /app/logs \
     && chown -R appuser:appuser /app
 COPY --from=builder /workspace/app-server/target/app-server-0.1.0-SNAPSHOT.jar /app/app.jar
 RUN chown appuser:appuser /app/app.jar

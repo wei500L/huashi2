@@ -16,6 +16,8 @@ import com.huashi.eftransfer.shared.ai.RerankResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
+import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class AiConfigProbeService {
@@ -41,6 +44,8 @@ public class AiConfigProbeService {
     private final AiRuntimeBundleFactory bundleFactory;
     private final QwenEmbeddingProviderClient embeddingProviderClient;
     private final QwenRerankClient rerankClient;
+    private final AtomicReference<EmbeddingProbeState> embeddingProbeState = new AtomicReference<>();
+    private final AtomicReference<RerankProbeState> rerankProbeState = new AtomicReference<>();
 
     public AiConfigProbeService(
             AiRuntimeConfigService runtimeConfigService,
@@ -68,7 +73,7 @@ public class AiConfigProbeService {
             );
             int itemCount = response.items() == null ? 0 : response.items().size();
             boolean ok = itemCount == 1 && Objects.equals(response.dimension(), expectedDimension);
-            return new AdminAiEmbeddingProbeVO(
+            AdminAiEmbeddingProbeVO result = new AdminAiEmbeddingProbeVO(
                     ok,
                     ok ? "Embedding probe succeeded" : "Embedding probe returned unexpected shape",
                     response.provider(),
@@ -80,8 +85,15 @@ public class AiConfigProbeService {
                     expectedDimension,
                     itemCount
             );
+            embeddingProbeState.set(new EmbeddingProbeState(
+                    providerName,
+                    runtime.definition().embedding(),
+                    ok,
+                    result.testedAt()
+            ));
+            return result;
         } catch (RuntimeException exception) {
-            return new AdminAiEmbeddingProbeVO(
+            AdminAiEmbeddingProbeVO result = new AdminAiEmbeddingProbeVO(
                     false,
                     summarizeFailure(exception),
                     providerName,
@@ -93,6 +105,13 @@ public class AiConfigProbeService {
                     expectedDimension,
                     null
             );
+            embeddingProbeState.set(new EmbeddingProbeState(
+                    providerName,
+                    runtime.definition().embedding(),
+                    false,
+                    result.testedAt()
+            ));
+            return result;
         }
     }
 
@@ -111,8 +130,18 @@ public class AiConfigProbeService {
             boolean ordered = isOrdered(items);
             Integer topDocumentIndex = items.isEmpty() ? null : items.getFirst().index();
             Double topScore = items.isEmpty() ? null : items.getFirst().relevanceScore();
-            boolean ok = !items.isEmpty() && ordered && Objects.equals(topDocumentIndex, 0);
-            return new AdminAiRerankProbeVO(
+            boolean validScores = items.stream().allMatch(item -> Double.isFinite(item.relevanceScore())
+                    && item.relevanceScore() >= 0.0D
+                    && item.relevanceScore() <= 1.0D);
+            boolean uniqueIndexes = items.stream().map(RerankItem::index).distinct().count() == items.size();
+            boolean validIndexes = items.stream().allMatch(item -> item.index() >= 0 && item.index() < RERANK_PROBE_DOCUMENTS.size());
+            boolean ok = !items.isEmpty()
+                    && ordered
+                    && validScores
+                    && uniqueIndexes
+                    && validIndexes
+                    && Objects.equals(topDocumentIndex, 0);
+            AdminAiRerankProbeVO result = new AdminAiRerankProbeVO(
                     ok,
                     ok ? "Rerank probe succeeded" : "Rerank probe returned unexpected ranking",
                     response.provider(),
@@ -126,8 +155,15 @@ public class AiConfigProbeService {
                     topDocumentIndex,
                     topScore
             );
+            rerankProbeState.set(new RerankProbeState(
+                    providerName,
+                    runtime.definition().rerank(),
+                    ok,
+                    result.testedAt()
+            ));
+            return result;
         } catch (RuntimeException exception) {
-            return new AdminAiRerankProbeVO(
+            AdminAiRerankProbeVO result = new AdminAiRerankProbeVO(
                     false,
                     summarizeFailure(exception),
                     providerName,
@@ -141,7 +177,24 @@ public class AiConfigProbeService {
                     null,
                     null
             );
+            rerankProbeState.set(new RerankProbeState(
+                    providerName,
+                    runtime.definition().rerank(),
+                    false,
+                    result.testedAt()
+            ));
+            return result;
         }
+    }
+
+    public boolean isEmbeddingReady(String providerName, AiOpsEmbeddingConfig config) {
+        EmbeddingProbeState state = embeddingProbeState.get();
+        return state != null && state.matches(providerName, config) && state.isRecentAndSuccessful();
+    }
+
+    public boolean isRerankReady(String providerName, AiOpsRerankConfig config) {
+        RerankProbeState state = rerankProbeState.get();
+        return state != null && state.matches(providerName, config) && state.isRecentAndSuccessful();
     }
 
     private AiRuntimeBundle buildProbeBundle(AiOpsConfigPayload payload) {
@@ -185,5 +238,37 @@ public class AiConfigProbeService {
 
     private long elapsedMillis(long startedAt) {
         return Math.max(1L, (System.nanoTime() - startedAt) / 1_000_000L);
+    }
+
+    private record EmbeddingProbeState(
+            String providerName,
+            AiOpsEmbeddingConfig config,
+            boolean successful,
+            OffsetDateTime checkedAt
+    ) {
+        private boolean matches(String currentProvider, AiOpsEmbeddingConfig currentConfig) {
+            return Objects.equals(providerName, currentProvider)
+                    && Objects.equals(config, currentConfig);
+        }
+
+        private boolean isRecentAndSuccessful() {
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+        }
+    }
+
+    private record RerankProbeState(
+            String providerName,
+            AiOpsRerankConfig config,
+            boolean successful,
+            OffsetDateTime checkedAt
+    ) {
+        private boolean matches(String currentProvider, AiOpsRerankConfig currentConfig) {
+            return Objects.equals(providerName, currentProvider)
+                    && Objects.equals(config, currentConfig);
+        }
+
+        private boolean isRecentAndSuccessful() {
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+        }
     }
 }

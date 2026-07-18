@@ -282,8 +282,9 @@ export async function apiDownload(url: string, config?: AxiosRequestConfig): Pro
     ...config,
     responseType: 'arraybuffer',
   });
+  const contentType = response.headers['content-type'];
   return new Blob([response.data], {
-    type: response.headers['content-type'] || 'application/octet-stream',
+    type: typeof contentType === 'string' ? contentType : 'application/octet-stream',
   });
 }
 

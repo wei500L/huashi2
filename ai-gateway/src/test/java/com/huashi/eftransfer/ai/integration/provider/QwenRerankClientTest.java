@@ -39,6 +39,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -160,7 +161,7 @@ class QwenRerankClientTest {
         ));
 
         assertThat(response.providerRequestId()).isEqualTo("rerank-req-2");
-        assertThat(response.items()).hasSize(2);
+        assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).document()).isNull();
 
         wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/rerank"))
@@ -181,7 +182,7 @@ class QwenRerankClientTest {
                                   "choices": [
                                     {
                                       "message": {
-                                        "content": "{\"results\":[{\"index\":1,\"relevance_score\":0.88},{\"index\":0,\"relevance_score\":0.31}]}"
+                                        "content": "{\\\"results\\\":[{\\\"index\\\":1,\\\"relevance_score\\\":0.88},{\\\"index\\\":0,\\\"relevance_score\\\":0.31}]}"
                                       }
                                     }
                                   ],
@@ -214,20 +215,8 @@ class QwenRerankClientTest {
     }
 
     @Test
-    void shouldUseMultimodalRerankModelWhenRequested() {
-        stubFor(post(urlEqualTo("/v1/rerank"))
-                .willReturn(aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "id": "rerank-vl-req-1",
-                                  "results": [
-                                    {"index": 0, "relevance_score": 0.97}
-                                  ]
-                                }
-                                """)));
-
-        RerankResponse response = rerankClient.rerank("qwen", new RerankRequest(
+    void shouldRejectMultimodalRerankUntilRequestContractSupportsMedia() {
+        assertThatThrownBy(() -> rerankClient.rerank("qwen", new RerankRequest(
                 null,
                 "hello",
                 List.of("image-plus-text"),
@@ -235,11 +224,9 @@ class QwenRerankClientTest {
                 true,
                 "multimodal",
                 null
-        ));
-
-        assertThat(response.model()).isEqualTo("Qwen/Qwen3-VL-Reranker-8B");
-        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/rerank"))
-                .withRequestBody(matchingJsonPath("$.model", equalTo("Qwen/Qwen3-VL-Reranker-8B"))));
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("text-only request contract");
     }
 
     private QwenRerankClient buildClient(String rerankProtocol) {
@@ -272,6 +259,7 @@ class QwenRerankClientTest {
     private AiProviderProperties buildProperties(String rerankProtocol) {
         AiProviderProperties properties = new AiProviderProperties();
         properties.setActiveProvider("qwen");
+        properties.setFallbackProvider("backup");
 
         AiProviderProperties.ChatProperties chatProperties = new AiProviderProperties.ChatProperties();
         chatProperties.setBaseUrl(wireMockServer.baseUrl() + "/v1");
@@ -297,6 +285,7 @@ class QwenRerankClientTest {
 
         Map<String, AiProviderProperties.ProviderProperties> providers = new LinkedHashMap<>();
         providers.put("qwen", providerProperties);
+        providers.put("backup", providerProperties);
         properties.setProviders(providers);
         return properties;
     }
