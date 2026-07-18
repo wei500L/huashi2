@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record RerankRequest(
+        @Size(max = 128, message = "model is too long")
         String model,
         @NotBlank(message = "query must not be blank")
         @Size(max = 32768, message = "query is too long")
@@ -18,7 +19,9 @@ public record RerankRequest(
         @Min(value = 1, message = "topN must be greater than 0")
         Integer topN,
         Boolean returnDocuments,
+        @Size(max = 32, message = "modality is too long")
         String modality,
+        @Size(max = 8192, message = "instruct is too long")
         String instruct
 ) {
 }

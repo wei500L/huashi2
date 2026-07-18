@@ -6,6 +6,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.QwenEmbeddingProviderClient;
 import com.huashi.eftransfer.ai.integration.provider.QwenRerankClient;
+import com.huashi.eftransfer.ai.modules.rag.support.EmbeddingTextSupport;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
@@ -32,7 +33,11 @@ import java.util.concurrent.atomic.AtomicReference;
 @Service
 public class AiConfigProbeService {
 
-    private static final String EMBEDDING_PROBE_TEXT = "semantic probe: false friend classroom guidance";
+    private static final String EMBEDDING_PROBE_QUERY = "What are false friends in English-French vocabulary learning?";
+    private static final String EMBEDDING_PROBE_RELEVANT_DOCUMENT =
+            "False friends are English-French word pairs that look similar but have different meanings.";
+    private static final String EMBEDDING_PROBE_UNRELATED_DOCUMENT =
+            "A classroom roster lists student names and assigned seat numbers.";
     private static final String RERANK_PROBE_QUERY = "Which passage best explains false friends in vocabulary learning?";
     private static final List<String> RERANK_PROBE_DOCUMENTS = List.of(
             "False friends are word pairs that look similar across languages but differ in meaning.",
@@ -69,13 +74,31 @@ public class AiConfigProbeService {
             EmbeddingResponse response = embeddingProviderClient.embedBatch(
                     runtime,
                     providerName,
-                    new EmbeddingBatchRequest(List.of(EMBEDDING_PROBE_TEXT), null, null, expectedDimension)
+                    new EmbeddingBatchRequest(List.of(
+                            EmbeddingTextSupport.toRetrievalQuery(EMBEDDING_PROBE_QUERY),
+                            EMBEDDING_PROBE_RELEVANT_DOCUMENT,
+                            EMBEDDING_PROBE_UNRELATED_DOCUMENT
+                    ), null, null, expectedDimension)
             );
             int itemCount = response.items() == null ? 0 : response.items().size();
-            boolean ok = itemCount == 1 && Objects.equals(response.dimension(), expectedDimension);
+            Double relatedSimilarity = itemCount == 3
+                    ? cosineSimilarity(response.items().get(0).embedding(), response.items().get(1).embedding())
+                    : null;
+            Double unrelatedSimilarity = itemCount == 3
+                    ? cosineSimilarity(response.items().get(0).embedding(), response.items().get(2).embedding())
+                    : null;
+            Double similarityMargin = relatedSimilarity == null || unrelatedSimilarity == null
+                    ? null
+                    : relatedSimilarity - unrelatedSimilarity;
+            boolean semanticOrdering = similarityMargin != null
+                    && Double.isFinite(similarityMargin)
+                    && similarityMargin > 0.0D;
+            boolean ok = itemCount == 3
+                    && Objects.equals(response.dimension(), expectedDimension)
+                    && semanticOrdering;
             AdminAiEmbeddingProbeVO result = new AdminAiEmbeddingProbeVO(
                     ok,
-                    ok ? "Embedding probe succeeded" : "Embedding probe returned unexpected shape",
+                    ok ? "Embedding probe succeeded" : "Embedding probe did not separate relevant and unrelated passages",
                     response.provider(),
                     response.model(),
                     elapsedMillis(startedAt),
@@ -83,7 +106,10 @@ public class AiConfigProbeService {
                     OffsetDateTime.now(),
                     response.dimension(),
                     expectedDimension,
-                    itemCount
+                    itemCount,
+                    relatedSimilarity,
+                    unrelatedSimilarity,
+                    similarityMargin
             );
             embeddingProbeState.set(new EmbeddingProbeState(
                     providerName,
@@ -103,6 +129,9 @@ public class AiConfigProbeService {
                     OffsetDateTime.now(),
                     null,
                     expectedDimension,
+                    null,
+                    null,
+                    null,
                     null
             );
             embeddingProbeState.set(new EmbeddingProbeState(
@@ -229,6 +258,31 @@ public class AiConfigProbeService {
                 .sorted(Comparator.comparing(RerankItem::relevanceScore).reversed())
                 .toList();
         return items.equals(sorted);
+    }
+
+    private Double cosineSimilarity(List<Double> left, List<Double> right) {
+        if (left == null || right == null || left.isEmpty() || left.size() != right.size()) {
+            return null;
+        }
+        double dot = 0.0D;
+        double leftNorm = 0.0D;
+        double rightNorm = 0.0D;
+        for (int index = 0; index < left.size(); index++) {
+            Double leftValue = left.get(index);
+            Double rightValue = right.get(index);
+            if (leftValue == null || rightValue == null
+                    || !Double.isFinite(leftValue) || !Double.isFinite(rightValue)) {
+                return null;
+            }
+            dot += leftValue * rightValue;
+            leftNorm += leftValue * leftValue;
+            rightNorm += rightValue * rightValue;
+        }
+        if (leftNorm == 0.0D || rightNorm == 0.0D) {
+            return null;
+        }
+        double similarity = dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
+        return Double.isFinite(similarity) ? similarity : null;
     }
 
     private String summarizeFailure(RuntimeException exception) {

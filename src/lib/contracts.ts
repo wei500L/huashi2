@@ -2126,6 +2126,9 @@ export interface AdminAiEmbeddingProbeVO {
   dimension?: number | null;
   expectedDimension?: number | null;
   itemCount?: number | null;
+  relatedSimilarity?: number | null;
+  unrelatedSimilarity?: number | null;
+  similarityMargin?: number | null;
 }
 
 export interface AdminAiRerankProbeVO {

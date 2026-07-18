@@ -2,6 +2,7 @@ package com.huashi.eftransfer.ai.integration.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.ai.common.exception.InvalidProviderResponseException;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
@@ -59,13 +60,31 @@ public class QwenRerankClient implements RerankClient {
 
         try {
             boolean chatRerank = AiOpsProtocols.OPENAI_CHAT_RERANK.equals(runtime.definition().rerank().protocol());
-            JsonNode response = resilientAiExecutor.execute(runtime, "rerank", () -> runtime.rerankRestClient().post()
-                    .uri(chatRerank ? "/v1/chat/completions" : "/v1/rerank")
-                    .body(chatRerank ? buildChatPayload(request, model) : buildRerankPayload(request, model))
-                    .retrieve()
-                    .body(JsonNode.class));
+            ProviderRerankResult providerResult = resilientAiExecutor.execute(runtime, "rerank", () -> {
+                JsonNode response = runtime.rerankRestClient().post()
+                        .uri(chatRerank ? "/v1/chat/completions" : "/v1/rerank")
+                        .body(chatRerank ? buildChatPayload(request, model) : buildRerankPayload(request, model))
+                        .retrieve()
+                        .body(JsonNode.class);
+                if (response == null) {
+                    throw new InvalidProviderResponseException("Rerank provider returned no response");
+                }
+                JsonNode responseModel = response.path("model");
+                if (responseModel.isTextual() && !responseModel.asText().isBlank()
+                        && !model.equals(responseModel.asText())) {
+                    throw new InvalidProviderResponseException(
+                            "Rerank provider returned model %s but %s was requested"
+                                    .formatted(responseModel.asText(), model)
+                    );
+                }
+                return new ProviderRerankResult(
+                        response,
+                        chatRerank ? mapChatItems(request, response) : mapItems(request, response)
+                );
+            });
 
-            List<RerankItem> items = chatRerank ? mapChatItems(request, response) : mapItems(request, response);
+            JsonNode response = providerResult.response();
+            List<RerankItem> items = providerResult.items();
             Integer totalTokens = resolveTotalTokens(response);
             String requestId = resolveRequestId(response);
             RerankResponse rerankResponse = new RerankResponse(
@@ -145,7 +164,7 @@ public class QwenRerankClient implements RerankClient {
             results = response.path("results");
         }
         if (!results.isArray()) {
-            throw new IllegalStateException("Rerank provider response does not contain a results array");
+            throw new InvalidProviderResponseException("Rerank provider response does not contain a results array");
         }
 
         boolean returnDocuments = request.returnDocuments() == null || request.returnDocuments();
@@ -154,18 +173,18 @@ public class QwenRerankClient implements RerankClient {
         for (JsonNode item : results) {
             int index = item.path("index").asInt(-1);
             if (index < 0 || index >= request.documents().size()) {
-                throw new IllegalStateException("Rerank provider returned an out-of-range document index: " + index);
+                throw new InvalidProviderResponseException("Rerank provider returned an out-of-range document index: " + index);
             }
             if (!seenIndexes.add(index)) {
-                throw new IllegalStateException("Rerank provider returned a duplicate document index: " + index);
+                throw new InvalidProviderResponseException("Rerank provider returned a duplicate document index: " + index);
             }
             JsonNode scoreNode = item.has("relevance_score") ? item.get("relevance_score") : item.get("score");
             if (scoreNode == null || !scoreNode.isNumber()) {
-                throw new IllegalStateException("Rerank provider returned a missing or non-numeric relevance score");
+                throw new InvalidProviderResponseException("Rerank provider returned a missing or non-numeric relevance score");
             }
             double score = scoreNode.asDouble();
             if (!Double.isFinite(score) || score < 0.0D || score > 1.0D) {
-                throw new IllegalStateException("Rerank provider returned an invalid relevance score: " + score);
+                throw new InvalidProviderResponseException("Rerank provider returned an invalid relevance score: " + score);
             }
             String document = null;
             if (returnDocuments) {
@@ -193,10 +212,14 @@ public class QwenRerankClient implements RerankClient {
                 : Math.min(request.topN(), request.documents().size());
     }
 
-    private List<RerankItem> mapChatItems(RerankRequest request, JsonNode response) throws java.io.IOException {
+    private List<RerankItem> mapChatItems(RerankRequest request, JsonNode response) {
         String content = response.path("choices").path(0).path("message").path("content").asText();
-        JsonNode parsed = objectMapper.readTree(stripJsonFence(content));
-        return mapItems(request, parsed);
+        try {
+            JsonNode parsed = objectMapper.readTree(stripJsonFence(content));
+            return mapItems(request, parsed);
+        } catch (java.io.IOException exception) {
+            throw new InvalidProviderResponseException("Rerank chat provider returned invalid JSON", exception);
+        }
     }
 
     private String stripJsonFence(String content) {
@@ -256,5 +279,8 @@ public class QwenRerankClient implements RerankClient {
             throw new IllegalStateException("No configured AI provider runtime for " + providerName);
         }
         return runtime;
+    }
+
+    private record ProviderRerankResult(JsonNode response, List<RerankItem> items) {
     }
 }

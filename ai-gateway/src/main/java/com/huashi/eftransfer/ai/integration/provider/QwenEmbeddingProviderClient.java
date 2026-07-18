@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.ai.integration.provider;
 
+import com.huashi.eftransfer.ai.common.exception.InvalidProviderResponseException;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
@@ -79,17 +80,33 @@ public class QwenEmbeddingProviderClient {
         requestContextHolder.clear();
 
         try {
-            org.springframework.ai.embedding.EmbeddingResponse response = resilientAiExecutor.execute(runtime, "embedding", () -> runtime.embeddingModel().call(
-                    new org.springframework.ai.embedding.EmbeddingRequest(
-                            texts,
-                            OpenAiEmbeddingOptions.builder()
-                                    .model(model)
-                                    .dimensions(dimension)
-                                    .build()
-                    )
-            ));
+            ProviderEmbeddingResult providerResult = resilientAiExecutor.execute(runtime, "embedding", () -> {
+                org.springframework.ai.embedding.EmbeddingResponse response = runtime.embeddingModel().call(
+                        new org.springframework.ai.embedding.EmbeddingRequest(
+                                texts,
+                                OpenAiEmbeddingOptions.builder()
+                                        .model(model)
+                                        .dimensions(dimension)
+                                        .build()
+                        )
+                );
+                if (response == null) {
+                    throw new InvalidProviderResponseException("Embedding provider returned no response");
+                }
+                String responseModel = response.getMetadata() == null ? null : response.getMetadata().getModel();
+                if (responseModel != null && !responseModel.isBlank() && !model.equals(responseModel)) {
+                    throw new InvalidProviderResponseException(
+                            "Embedding provider returned model %s but %s was requested".formatted(responseModel, model)
+                    );
+                }
+                return new ProviderEmbeddingResult(
+                        response,
+                        validateEmbeddings(texts, response.getResults(), dimension)
+                );
+            });
 
-            ValidatedEmbeddings validated = validateEmbeddings(texts, response.getResults(), dimension);
+            org.springframework.ai.embedding.EmbeddingResponse response = providerResult.response();
+            ValidatedEmbeddings validated = providerResult.validated();
             List<Embedding> embeddings = validated.embeddings();
 
             EmbeddingResponse embeddingResponse = new EmbeddingResponse(
@@ -97,7 +114,7 @@ public class QwenEmbeddingProviderClient {
                     model,
                     validated.dimension(),
                     requestContextHolder.getRequestId(),
-                    toUsage(response.getMetadata().getUsage()),
+                    toUsage(response.getMetadata() == null ? null : response.getMetadata().getUsage()),
                     mapItems(texts, embeddings)
             );
             observationService.recordSuccess(
@@ -127,7 +144,7 @@ public class QwenEmbeddingProviderClient {
     private ValidatedEmbeddings validateEmbeddings(List<String> texts, List<Embedding> embeddings, int expectedDimension) {
         if (embeddings == null || embeddings.size() != texts.size()) {
             int actualSize = embeddings == null ? 0 : embeddings.size();
-            throw new IllegalStateException(
+            throw new InvalidProviderResponseException(
                     "Embedding provider returned %d vectors for %d inputs".formatted(actualSize, texts.size())
             );
         }
@@ -136,32 +153,37 @@ public class QwenEmbeddingProviderClient {
         for (int responsePosition = 0; responsePosition < embeddings.size(); responsePosition++) {
             Embedding embedding = embeddings.get(responsePosition);
             if (embedding == null || embedding.getIndex() == null) {
-                throw new IllegalStateException("Embedding provider returned a vector without an input index");
+                throw new InvalidProviderResponseException("Embedding provider returned a vector without an input index");
             }
             int index = embedding.getIndex();
             if (index < 0 || index >= texts.size()) {
-                throw new IllegalStateException("Embedding provider returned an out-of-range input index: " + index);
+                throw new InvalidProviderResponseException("Embedding provider returned an out-of-range input index: " + index);
             }
             if (ordered.set(index, embedding) != null) {
-                throw new IllegalStateException("Embedding provider returned a duplicate input index: " + index);
+                throw new InvalidProviderResponseException("Embedding provider returned a duplicate input index: " + index);
             }
             float[] output = embedding.getOutput();
             if (output == null || output.length == 0) {
-                throw new IllegalStateException("Embedding provider returned an empty vector at index " + index);
+                throw new InvalidProviderResponseException("Embedding provider returned an empty vector at index " + index);
             }
             if (actualDimension < 0) {
                 actualDimension = output.length;
             } else if (actualDimension != output.length) {
-                throw new IllegalStateException("Embedding provider returned inconsistent vector dimensions");
+                throw new InvalidProviderResponseException("Embedding provider returned inconsistent vector dimensions");
             }
+            boolean nonZero = false;
             for (float value : output) {
                 if (!Float.isFinite(value)) {
-                    throw new IllegalStateException("Embedding provider returned a non-finite value at index " + index);
+                    throw new InvalidProviderResponseException("Embedding provider returned a non-finite value at index " + index);
                 }
+                nonZero = nonZero || value != 0.0F;
+            }
+            if (!nonZero) {
+                throw new InvalidProviderResponseException("Embedding provider returned a zero vector at index " + index);
             }
         }
         if (actualDimension != expectedDimension) {
-            throw new IllegalStateException(
+            throw new InvalidProviderResponseException(
                     "Embedding provider returned dimension %d but %d was requested".formatted(actualDimension, expectedDimension)
             );
         }
@@ -204,5 +226,11 @@ public class QwenEmbeddingProviderClient {
     }
 
     private record ValidatedEmbeddings(List<Embedding> embeddings, int dimension) {
+    }
+
+    private record ProviderEmbeddingResult(
+            org.springframework.ai.embedding.EmbeddingResponse response,
+            ValidatedEmbeddings validated
+    ) {
     }
 }

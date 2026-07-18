@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -11,6 +12,7 @@ import jakarta.validation.constraints.Positive;
 public record AiOpsResilienceConfig(
         @NotNull(message = "maxAttempts is required")
         @Positive(message = "maxAttempts must be greater than 0")
+        @Max(value = 5, message = "maxAttempts must be less than or equal to 5")
         Integer maxAttempts,
         @NotBlank(message = "waitDuration is required")
         String waitDuration,
@@ -20,6 +22,7 @@ public record AiOpsResilienceConfig(
         Float failureRateThreshold,
         @NotNull(message = "slidingWindowSize is required")
         @Positive(message = "slidingWindowSize must be greater than 0")
+        @Max(value = 1000, message = "slidingWindowSize must be less than or equal to 1000")
         Integer slidingWindowSize,
         @NotBlank(message = "openStateDuration is required")
         String openStateDuration

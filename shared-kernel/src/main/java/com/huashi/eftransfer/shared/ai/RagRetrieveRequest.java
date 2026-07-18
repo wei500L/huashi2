@@ -8,11 +8,12 @@ import java.util.List;
 
 public record RagRetrieveRequest(
         @NotBlank(message = "query must not be blank")
+        @Size(max = 32768, message = "query is too long")
         String query,
         @Size(max = 16, message = "sourceTypes size must be less than or equal to 16")
-        List<@NotBlank(message = "sourceTypes item must not be blank") String> sourceTypes,
+        List<@NotBlank(message = "sourceTypes item must not be blank") @Size(max = 64, message = "sourceTypes item is too long") String> sourceTypes,
         @Size(max = 128, message = "sourceIds size must be less than or equal to 128")
-        List<@NotBlank(message = "sourceIds item must not be blank") String> sourceIds,
+        List<@NotBlank(message = "sourceIds item must not be blank") @Size(max = 128, message = "sourceIds item is too long") String> sourceIds,
         @Size(max = 64, message = "conversationId size must be less than or equal to 64")
         String conversationId,
         @Size(max = 32, message = "messageHistory size must be less than or equal to 32")

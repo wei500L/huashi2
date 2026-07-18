@@ -3,6 +3,7 @@ package com.huashi.eftransfer.ai.modules.rag.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.modules.rag.integration.AppServerKnowledgeClient;
@@ -14,6 +15,7 @@ import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSourceTypes;
 import com.huashi.eftransfer.ai.modules.rag.support.PendingChunkEmbedding;
 import com.huashi.eftransfer.ai.modules.rag.support.ReindexMode;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
+import com.huashi.eftransfer.shared.ai.EmbeddingItem;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncItem;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncRequest;
@@ -40,13 +42,16 @@ import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 public class KnowledgeIngestionService {
@@ -64,6 +69,7 @@ public class KnowledgeIngestionService {
     private final TaskExecutor ragTaskExecutor;
     private final ObjectMapper objectMapper;
     private final AtomicBoolean failedEmbeddingRetryInProgress = new AtomicBoolean(false);
+    private final ReentrantLock ingestionLock = new ReentrantLock();
 
     public KnowledgeIngestionService(
             IngestionJobRepository ingestionJobRepository,
@@ -141,9 +147,20 @@ public class KnowledgeIngestionService {
     }
 
     private void runJob(PreparedJob job, boolean rethrowFailure) {
+        ingestionLock.lock();
+        try {
+            runJobExclusively(job, rethrowFailure);
+        } finally {
+            ingestionLock.unlock();
+        }
+    }
+
+    private void runJobExclusively(PreparedJob job, boolean rethrowFailure) {
         StatsAccumulator stats = new StatsAccumulator();
         OffsetDateTime watermark = null;
         try {
+            EmbeddingRuntimeSnapshot embeddingRuntime = captureEmbeddingRuntime();
+            stats.embeddingRuntime = embeddingRuntime;
             ingestionJobRepository.markRunning(job.jobId());
 
             if (!java.util.Collections.disjoint(job.requestedSourceTypes(), KnowledgeSourceTypes.APP_SERVER_SOURCE_TYPES)) {
@@ -153,7 +170,8 @@ public class KnowledgeIngestionService {
                         job.requestedSourceTypes(),
                         job.requestedSourceIds(),
                         job.forceReembed(),
-                        stats
+                        stats,
+                        embeddingRuntime
                 );
             }
             if (!java.util.Collections.disjoint(job.requestedSourceTypes(), KnowledgeSourceTypes.SEED_SOURCE_TYPES)) {
@@ -163,9 +181,12 @@ public class KnowledgeIngestionService {
                         job.requestedSourceTypes(),
                         job.requestedSourceIds(),
                         job.forceReembed(),
-                        stats
+                        stats,
+                        embeddingRuntime
                 );
             }
+
+            verifyEmbeddingRuntimeCurrent(embeddingRuntime);
 
             if (stats.embeddingFailures > 0) {
                 throw new IllegalStateException(
@@ -176,6 +197,8 @@ public class KnowledgeIngestionService {
             ingestionJobRepository.markSucceeded(job.jobId(), watermark, stats.toMap());
         } catch (Exception ex) {
             ingestionJobRepository.markFailed(job.jobId(), ex.getMessage(), watermark, stats.toMap());
+            log.error("event=knowledge_reindex_failed jobId={} mode={} message={}",
+                    job.jobId(), job.mode(), ex.getMessage());
             if (rethrowFailure) {
                 if (ex instanceof RuntimeException runtimeException) {
                     throw runtimeException;
@@ -191,7 +214,8 @@ public class KnowledgeIngestionService {
             Set<String> requestedSourceTypes,
             Set<String> requestedSourceIds,
             boolean forceReembed,
-            StatsAccumulator stats
+            StatsAccumulator stats,
+            EmbeddingRuntimeSnapshot embeddingRuntime
     ) {
         OffsetDateTime updatedSince = mode == ReindexMode.FULL
                 ? null
@@ -225,8 +249,15 @@ public class KnowledgeIngestionService {
                         documentHash(documentPayload),
                         requestedSourceTypes.stream()
                                 .filter(KnowledgeSourceTypes.APP_SERVER_SOURCE_TYPES::contains)
-                                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+                                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)),
+                        embeddingRuntime.model(),
+                        embeddingRuntime.dimension()
                 );
+                if (!result.applied()) {
+                    log.info("event=knowledge_document_stale_skipped sourceType={} sourceId={} sourceUpdatedAt={}",
+                            documentPayload.sourceType(), documentPayload.sourceId(), documentPayload.sourceUpdatedAt());
+                    continue;
+                }
                 pendingChunkEmbeddings.addAll(result.pendingChunkEmbeddings());
                 stats.documentsProcessed++;
                 stats.chunksProcessed += documentPayload.chunks().size();
@@ -235,7 +266,7 @@ public class KnowledgeIngestionService {
                 }
             }
 
-            embedPendingChunks(pendingChunkEmbeddings, stats);
+            embedPendingChunks(pendingChunkEmbeddings, stats, embeddingRuntime);
             syncLexicalPairEmbeddingStatuses(processedLexicalPairIds);
             cursor = response.nextCursor();
             ingestionJobRepository.updateProgress(jobId, cursor, watermark, stats.toMap());
@@ -262,7 +293,8 @@ public class KnowledgeIngestionService {
             Set<String> requestedSourceTypes,
             Set<String> requestedSourceIds,
             boolean forceReembed,
-            StatsAccumulator stats
+            StatsAccumulator stats,
+            EmbeddingRuntimeSnapshot embeddingRuntime
     ) throws IOException {
         List<SeedKnowledgeEntry> seedEntries = objectMapper.readValue(
                 new ClassPathResource("rag/seed-knowledge.json").getInputStream(),
@@ -304,14 +336,22 @@ public class KnowledgeIngestionService {
             KnowledgeStoreRepository.UpsertDocumentResult result = knowledgeStoreRepository.upsertDocument(
                     documentPayload,
                     forceReembed,
-                    documentHash(documentPayload)
+                    documentHash(documentPayload),
+                    null,
+                    embeddingRuntime.model(),
+                    embeddingRuntime.dimension()
             );
+            if (!result.applied()) {
+                log.info("event=knowledge_document_stale_skipped sourceType={} sourceId={} sourceUpdatedAt={}",
+                        documentPayload.sourceType(), documentPayload.sourceId(), documentPayload.sourceUpdatedAt());
+                continue;
+            }
             pendingChunkEmbeddings.addAll(result.pendingChunkEmbeddings());
             stats.documentsProcessed++;
             stats.chunksProcessed++;
         }
 
-        embedPendingChunks(pendingChunkEmbeddings, stats);
+        embedPendingChunks(pendingChunkEmbeddings, stats, embeddingRuntime);
         ingestionJobRepository.updateProgress(jobId, null, null, stats.toMap());
 
         if (mode == ReindexMode.FULL) {
@@ -331,7 +371,11 @@ public class KnowledgeIngestionService {
         }
     }
 
-    private void embedPendingChunks(List<PendingChunkEmbedding> pendingChunkEmbeddings, StatsAccumulator stats) {
+    private void embedPendingChunks(
+            List<PendingChunkEmbedding> pendingChunkEmbeddings,
+            StatsAccumulator stats,
+            EmbeddingRuntimeSnapshot embeddingRuntime
+    ) {
         if (pendingChunkEmbeddings.isEmpty()) {
             return;
         }
@@ -339,7 +383,7 @@ public class KnowledgeIngestionService {
         for (int start = 0; start < pendingChunkEmbeddings.size(); start += batchSize) {
             List<PendingChunkEmbedding> batch = pendingChunkEmbeddings.subList(start, Math.min(start + batchSize, pendingChunkEmbeddings.size()));
             try {
-                writeEmbeddingBatch(batch, stats);
+                writeEmbeddingBatch(batch, stats, embeddingRuntime);
             } catch (Exception ex) {
                 if (batch.size() == 1) {
                     knowledgeStoreRepository.markChunkEmbeddingFailed(
@@ -350,7 +394,7 @@ public class KnowledgeIngestionService {
                 } else {
                     for (PendingChunkEmbedding chunk : batch) {
                         try {
-                            writeEmbeddingBatch(List.of(chunk), stats);
+                            writeEmbeddingBatch(List.of(chunk), stats, embeddingRuntime);
                         } catch (Exception nestedEx) {
                             knowledgeStoreRepository.markChunkEmbeddingFailed(chunk.chunkId(), chunk.contentHash());
                             stats.embeddingFailures++;
@@ -369,14 +413,20 @@ public class KnowledgeIngestionService {
         if (!failedEmbeddingRetryInProgress.compareAndSet(false, true)) {
             return;
         }
+        if (!ingestionLock.tryLock()) {
+            failedEmbeddingRetryInProgress.set(false);
+            return;
+        }
         try {
             int limit = runtimeConfigService.current().config().rag().ingestion().resolvedFailedRetryLimit();
+            EmbeddingRuntimeSnapshot embeddingRuntime = captureEmbeddingRuntime();
             List<PendingChunkEmbedding> claimed = knowledgeStoreRepository.claimFailedChunkEmbeddings(limit);
             if (claimed.isEmpty()) {
                 return;
             }
             StatsAccumulator stats = new StatsAccumulator();
-            embedPendingChunks(claimed, stats);
+            stats.embeddingRuntime = embeddingRuntime;
+            embedPendingChunks(claimed, stats, embeddingRuntime);
             Set<String> lexicalPairIds = knowledgeStoreRepository.findLexicalPairSourceIdsForChunks(
                     claimed.stream().map(PendingChunkEmbedding::chunkId).toList()
             );
@@ -390,20 +440,25 @@ public class KnowledgeIngestionService {
         } catch (RuntimeException exception) {
             log.warn("event=failed_embedding_retry_failed message={}", exception.getMessage());
         } finally {
+            ingestionLock.unlock();
             failedEmbeddingRetryInProgress.set(false);
         }
     }
 
-    private void writeEmbeddingBatch(List<PendingChunkEmbedding> batch, StatsAccumulator stats) {
+    private void writeEmbeddingBatch(
+            List<PendingChunkEmbedding> batch,
+            StatsAccumulator stats,
+            EmbeddingRuntimeSnapshot embeddingRuntime
+    ) {
+        verifyEmbeddingRuntimeCurrent(embeddingRuntime);
         EmbeddingResponse response = aiProviderRegistry.embedBatch(new EmbeddingBatchRequest(
                 batch.stream().map(PendingChunkEmbedding::content).toList(),
+                embeddingRuntime.model(),
                 null,
-                null,
-                null
+                embeddingRuntime.dimension()
         ));
-        if (response.items() == null || response.items().size() != batch.size()) {
-            throw new IllegalStateException("Unexpected embedding batch size");
-        }
+        verifyEmbeddingRuntimeCurrent(embeddingRuntime);
+        List<EmbeddingItem> orderedItems = validateAndOrderEmbeddingResponse(response, batch, embeddingRuntime);
         List<KnowledgeStoreRepository.ChunkEmbeddingWrite> writes = new ArrayList<>(batch.size());
         for (int index = 0; index < batch.size(); index++) {
             PendingChunkEmbedding chunk = batch.get(index);
@@ -412,11 +467,103 @@ public class KnowledgeIngestionService {
                     response.model(),
                     response.dimension(),
                     chunk.contentHash(),
-                    response.items().get(index).embedding()
+                    orderedItems.get(index).embedding()
             ));
         }
         knowledgeStoreRepository.replaceChunkEmbeddings(writes);
+        verifyEmbeddingRuntimeCurrent(embeddingRuntime);
         stats.embeddedChunks += batch.size();
+        stats.embeddedChunksByProvider.merge(
+                response.provider() == null || response.provider().isBlank() ? "UNKNOWN" : response.provider(),
+                batch.size(),
+                Integer::sum
+        );
+    }
+
+    private List<EmbeddingItem> validateAndOrderEmbeddingResponse(
+            EmbeddingResponse response,
+            List<PendingChunkEmbedding> batch,
+            EmbeddingRuntimeSnapshot embeddingRuntime
+    ) {
+        if (response == null) {
+            throw new IllegalStateException("Embedding provider returned no response");
+        }
+        if (!Objects.equals(response.model(), embeddingRuntime.model())) {
+            throw new IllegalStateException(
+                    "Embedding provider returned model %s but job is pinned to %s"
+                            .formatted(response.model(), embeddingRuntime.model())
+            );
+        }
+        if (!Objects.equals(response.dimension(), embeddingRuntime.dimension())) {
+            throw new IllegalStateException(
+                    "Embedding provider returned dimension %s but job is pinned to %d"
+                            .formatted(response.dimension(), embeddingRuntime.dimension())
+            );
+        }
+        if (response.items() == null || response.items().size() != batch.size()) {
+            int actual = response.items() == null ? 0 : response.items().size();
+            throw new IllegalStateException(
+                    "Embedding provider returned %d vectors for a batch of %d".formatted(actual, batch.size())
+            );
+        }
+
+        List<EmbeddingItem> ordered = new ArrayList<>(Collections.nCopies(batch.size(), null));
+        for (EmbeddingItem item : response.items()) {
+            if (item == null || item.index() < 0 || item.index() >= batch.size()) {
+                throw new IllegalStateException("Embedding provider returned an invalid batch index");
+            }
+            if (ordered.set(item.index(), item) != null) {
+                throw new IllegalStateException("Embedding provider returned a duplicate batch index: " + item.index());
+            }
+            if (item.embedding() == null || item.embedding().size() != embeddingRuntime.dimension()) {
+                int actual = item.embedding() == null ? 0 : item.embedding().size();
+                throw new IllegalStateException(
+                        "Embedding vector dimension mismatch at index %d: expected=%d actual=%d"
+                                .formatted(item.index(), embeddingRuntime.dimension(), actual)
+                );
+            }
+            if (item.embedding().stream().anyMatch(value -> value == null || !Double.isFinite(value))) {
+                throw new IllegalStateException("Embedding vector contains a non-finite value at index " + item.index());
+            }
+            if (item.embedding().stream().noneMatch(value -> value != 0.0D)) {
+                throw new IllegalStateException("Embedding provider returned a zero vector at index " + item.index());
+            }
+        }
+        return List.copyOf(ordered);
+    }
+
+    private EmbeddingRuntimeSnapshot captureEmbeddingRuntime() {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        if (bundle == null || bundle.config() == null || bundle.config().provider() == null) {
+            throw new IllegalStateException("AI runtime configuration is unavailable for knowledge ingestion");
+        }
+        var providerConfig = bundle.config().provider();
+        if (providerConfig.providers() == null) {
+            throw new IllegalStateException("AI provider definitions are unavailable for knowledge ingestion");
+        }
+        var provider = providerConfig.providers().get(providerConfig.activeProvider());
+        if (provider == null || provider.embedding() == null
+                || provider.embedding().model() == null || provider.embedding().model().isBlank()
+                || provider.embedding().dimension() == null || provider.embedding().dimension() <= 0) {
+            throw new IllegalStateException("Active embedding runtime is incomplete for knowledge ingestion");
+        }
+        return new EmbeddingRuntimeSnapshot(
+                bundle.version(),
+                providerConfig.activeProvider(),
+                provider.embedding().model(),
+                provider.embedding().dimension()
+        );
+    }
+
+    private void verifyEmbeddingRuntimeCurrent(EmbeddingRuntimeSnapshot expected) {
+        EmbeddingRuntimeSnapshot current = captureEmbeddingRuntime();
+        if (!Objects.equals(expected.model(), current.model())
+                || expected.dimension() != current.dimension()) {
+            throw new IllegalStateException(
+                    "Embedding model space changed during ingestion from %s/%d to %s/%d; rerun the reindex job"
+                            .formatted(expected.model(), expected.dimension(), current.model(), current.dimension())
+            );
+        }
     }
 
     private void syncLexicalPairEmbeddingStatuses(Set<String> lexicalPairSourceIds) {
@@ -698,11 +845,21 @@ public class KnowledgeIngestionService {
     ) {
     }
 
+    private record EmbeddingRuntimeSnapshot(
+            Long runtimeVersion,
+            String providerName,
+            String model,
+            int dimension
+    ) {
+    }
+
     private static final class StatsAccumulator {
         private int documentsProcessed;
         private int chunksProcessed;
         private int embeddedChunks;
         private int embeddingFailures;
+        private EmbeddingRuntimeSnapshot embeddingRuntime;
+        private final Map<String, Integer> embeddedChunksByProvider = new LinkedHashMap<>();
 
         private Map<String, Object> toMap() {
             Map<String, Object> stats = new LinkedHashMap<>();
@@ -710,6 +867,13 @@ public class KnowledgeIngestionService {
             stats.put("chunksProcessed", chunksProcessed);
             stats.put("embeddedChunks", embeddedChunks);
             stats.put("embeddingFailures", embeddingFailures);
+            stats.put("embeddedChunksByProvider", Map.copyOf(embeddedChunksByProvider));
+            if (embeddingRuntime != null) {
+                stats.put("runtimeVersion", embeddingRuntime.runtimeVersion());
+                stats.put("embeddingProvider", embeddingRuntime.providerName());
+                stats.put("embeddingModel", embeddingRuntime.model());
+                stats.put("embeddingDimension", embeddingRuntime.dimension());
+            }
             return stats;
         }
     }

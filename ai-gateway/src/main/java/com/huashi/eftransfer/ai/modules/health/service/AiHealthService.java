@@ -2,11 +2,12 @@ package com.huashi.eftransfer.ai.modules.health.service;
 
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
-import com.huashi.eftransfer.ai.modules.rag.repository.IngestionJobRepository;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
 import com.huashi.eftransfer.ai.modules.internal.service.AiConfigProbeService;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -20,11 +21,12 @@ import java.util.List;
 @Service
 public class AiHealthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiHealthService.class);
+
     private final JdbcTemplate jdbcTemplate;
     private final Environment environment;
     private final AiRuntimeConfigService runtimeConfigService;
     private final KnowledgeStoreRepository knowledgeStoreRepository;
-    private final IngestionJobRepository ingestionJobRepository;
     private final AiConfigProbeService aiConfigProbeService;
 
     public AiHealthService(
@@ -32,38 +34,43 @@ public class AiHealthService {
             Environment environment,
             AiRuntimeConfigService runtimeConfigService,
             KnowledgeStoreRepository knowledgeStoreRepository,
-            IngestionJobRepository ingestionJobRepository,
             AiConfigProbeService aiConfigProbeService
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.environment = environment;
         this.runtimeConfigService = runtimeConfigService;
         this.knowledgeStoreRepository = knowledgeStoreRepository;
-        this.ingestionJobRepository = ingestionJobRepository;
         this.aiConfigProbeService = aiConfigProbeService;
     }
 
     public AiGatewayHealthResponse getHealthPayload() {
-        runtimeConfigService.retryStoredConfigSyncIfFailed();
         AiRuntimeBundle bundle = runtimeConfigService.current();
         var provider = bundle.config().provider();
         AiOpsProviderDefinition activeProvider = provider.providers().get(provider.activeProvider());
         String storedSyncStatus = runtimeConfigService.storedSyncStatus();
         boolean databaseReady = isDatabaseReady();
         String vectorVersion = fetchVectorExtensionVersion();
-        var latestSuccessfulJob = ingestionJobRepository.findLatestSuccessfulJob("KNOWLEDGE_REINDEX");
-        KnowledgeStoreRepository.KnowledgeIndexCoverage indexCoverage = activeProvider == null || activeProvider.embedding() == null
-                ? new KnowledgeStoreRepository.KnowledgeIndexCoverage(0, 0)
-                : knowledgeStoreRepository.getIndexCoverage(
+        KnowledgeStoreRepository.KnowledgeIndexCoverage indexCoverage =
+                new KnowledgeStoreRepository.KnowledgeIndexCoverage(0, 0);
+        boolean hasKnowledgeDocuments = false;
+        if (databaseReady && activeProvider != null && activeProvider.embedding() != null) {
+            try {
+                indexCoverage = knowledgeStoreRepository.getIndexCoverage(
                         activeProvider.embedding().model(),
                         activeProvider.embedding().dimension()
                 );
-        boolean vectorStoreReady = !"UNAVAILABLE".equals(vectorVersion)
-                && knowledgeStoreRepository.hasKnowledgeDocuments()
-                && latestSuccessfulJob != null
-                && embeddingFailureCount(latestSuccessfulJob.stats()) == 0
+                hasKnowledgeDocuments = knowledgeStoreRepository.hasKnowledgeDocuments();
+            } catch (RuntimeException exception) {
+                log.warn("event=ai_health_vector_store_probe_failed message={}", exception.getMessage());
+            }
+        }
+        boolean vectorStoreReady = databaseReady
+                && !"UNAVAILABLE".equals(vectorVersion)
+                && hasKnowledgeDocuments
                 && indexCoverage.isComplete();
         boolean providerConfigured = activeProvider != null
+                && activeProvider.chat() != null
+                && activeProvider.embedding() != null
                 && configured(activeProvider.chat().baseUrl())
                 && configured(activeProvider.chat().apiKey())
                 && configured(activeProvider.chat().model())
@@ -71,6 +78,7 @@ public class AiHealthService {
                 && configured(activeProvider.embedding().apiKey())
                 && configured(activeProvider.embedding().model());
         boolean rerankConfigured = activeProvider != null
+                && activeProvider.rerank() != null
                 && configured(activeProvider.rerank().baseUrl())
                 && configured(activeProvider.rerank().apiKey())
                 && configured(activeProvider.rerank().model());
@@ -94,9 +102,9 @@ public class AiHealthService {
                 storedSyncStatus,
                 provider.activeProvider(),
                 provider.fallbackProvider(),
-                activeProvider == null ? null : activeProvider.chat().model(),
-                activeProvider == null ? null : activeProvider.embedding().model(),
-                activeProvider == null ? null : activeProvider.rerank().model(),
+                activeProvider == null || activeProvider.chat() == null ? null : activeProvider.chat().model(),
+                activeProvider == null || activeProvider.embedding() == null ? null : activeProvider.embedding().model(),
+                activeProvider == null || activeProvider.rerank() == null ? null : activeProvider.rerank().model(),
                 databaseReady,
                 vectorStoreReady,
                 providerReady,
@@ -111,14 +119,6 @@ public class AiHealthService {
 
     private boolean configured(String value) {
         return value != null && !value.isBlank();
-    }
-
-    private int embeddingFailureCount(java.util.Map<String, Object> stats) {
-        if (stats == null) {
-            return 0;
-        }
-        Object value = stats.get("embeddingFailures");
-        return value instanceof Number number ? number.intValue() : 0;
     }
 
     private boolean isDatabaseReady() {

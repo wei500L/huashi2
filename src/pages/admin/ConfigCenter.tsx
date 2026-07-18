@@ -1247,20 +1247,20 @@ const providerDefinitionSchema = z.object({
   chat: z.object({
     protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
     baseUrl: absoluteUrlSchema,
-    model: requiredTextSchema,
+    model: requiredTextSchema.max(128),
     connectTimeout: durationSchema,
     readTimeout: durationSchema,
     temperature: z.number().min(0, 'temperature must be between 0 and 2').max(2, 'temperature must be between 0 and 2'),
-    maxTokens: z.number().int().positive('maxTokens must be greater than 0'),
+    maxTokens: z.number().int().positive('maxTokens must be greater than 0').max(32768),
   }),
   embedding: z.object({
     protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
     baseUrl: absoluteUrlSchema,
-    model: requiredTextSchema,
-    multimodalModel: z.string().nullable().optional(),
+    model: requiredTextSchema.max(128),
+    multimodalModel: z.string().max(128).nullable().optional(),
     connectTimeout: durationSchema,
     readTimeout: durationSchema,
-    dimension: z.number().int().positive('dimension must be greater than 0'),
+    dimension: z.number().int().positive('dimension must be greater than 0').max(4096),
   }),
   rerank: z.object({
     protocol: protocolSchema.refine(
@@ -1268,8 +1268,8 @@ const providerDefinitionSchema = z.object({
       'Unsupported protocol; expected openai-rerank or openai-chat-rerank'
     ),
     baseUrl: absoluteUrlSchema,
-    model: requiredTextSchema,
-    multimodalModel: z.string().nullable().optional(),
+    model: requiredTextSchema.max(128),
+    multimodalModel: z.string().max(128).nullable().optional(),
     connectTimeout: durationSchema,
     readTimeout: durationSchema,
   }),
@@ -1326,10 +1326,10 @@ const aiOpsDraftSchema = z.object({
     }
   }),
   resilience: z.object({
-    maxAttempts: z.number().int().positive('maxAttempts must be greater than 0'),
+    maxAttempts: z.number().int().positive('maxAttempts must be greater than 0').max(5),
     waitDuration: durationSchema,
     failureRateThreshold: z.number().gt(0).lte(100),
-    slidingWindowSize: z.number().int().positive('slidingWindowSize must be greater than 0'),
+    slidingWindowSize: z.number().int().positive('slidingWindowSize must be greater than 0').max(1000),
     openStateDuration: durationSchema,
   }),
   rag: z.object({
@@ -1339,18 +1339,18 @@ const aiOpsDraftSchema = z.object({
       readTimeout: durationSchema,
     }),
     ingestion: z.object({
-      exportPageSize: z.number().int().positive('exportPageSize must be greater than 0'),
-      embeddingBatchSize: z.number().int().positive('embeddingBatchSize must be greater than 0'),
+      exportPageSize: z.number().int().positive('exportPageSize must be greater than 0').max(1000),
+      embeddingBatchSize: z.number().int().positive('embeddingBatchSize must be greater than 0').max(128),
       failedRetryEnabled: z.boolean().nullable().optional(),
       failedRetryLimit: z.number().int().positive('failedRetryLimit must be greater than 0').max(256).nullable().optional(),
     }),
     retrieval: z.object({
-      recallTopK: z.number().int().positive('recallTopK must be greater than 0'),
+      recallTopK: z.number().int().positive('recallTopK must be greater than 0').max(128),
       recallThreshold: z.number().min(0).max(1),
-      rerankTopN: z.number().int().positive('rerankTopN must be greater than 0'),
+      rerankTopN: z.number().int().positive('rerankTopN must be greater than 0').max(128),
       rerankThreshold: z.number().min(0).max(1),
-      finalTopK: z.number().int().positive('finalTopK must be greater than 0'),
-      hnswEfSearch: z.number().int().positive('hnswEfSearch must be greater than 0'),
+      finalTopK: z.number().int().positive('finalTopK must be greater than 0').max(32),
+      hnswEfSearch: z.number().int().positive('hnswEfSearch must be greater than 0').max(1000),
     }).superRefine((retrieval, ctx) => {
       if (retrieval.rerankTopN > retrieval.recallTopK) {
         ctx.addIssue({ code: 'custom', path: ['rerankTopN'], message: 'rerankTopN must be less than or equal to recallTopK' });
@@ -2539,6 +2539,9 @@ const AdminConfigCenterPage: React.FC = () => {
     { label: 'Latency', value: `${embeddingProbeResult.latencyMs} ms` },
     { label: 'Dimension', value: `${embeddingProbeResult.dimension ?? '--'} / ${embeddingProbeResult.expectedDimension ?? '--'}` },
     { label: 'Items', value: String(embeddingProbeResult.itemCount ?? '--') },
+    { label: 'Relevant similarity', value: embeddingProbeResult.relatedSimilarity?.toFixed(4) ?? '--' },
+    { label: 'Unrelated similarity', value: embeddingProbeResult.unrelatedSimilarity?.toFixed(4) ?? '--' },
+    { label: 'Similarity margin', value: embeddingProbeResult.similarityMargin?.toFixed(4) ?? '--' },
     { label: 'Tested At', value: formatDateTime(embeddingProbeResult.testedAt) },
   ] : [];
   const rerankProbeRows: ProbeMetaRow[] = rerankProbeResult ? [

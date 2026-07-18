@@ -15,7 +15,8 @@ CREATE TABLE public.chunk_embedding (
     embedding public.vector(1024) NOT NULL,
     content_hash character varying(128) NOT NULL,
     is_current boolean DEFAULT true NOT NULL,
-    embedded_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    embedded_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT ck_chunk_embedding_dimension CHECK ((embedding_dimension = 1024) AND (public.vector_dims(embedding) = embedding_dimension))
 );
 
 
@@ -108,7 +109,8 @@ CREATE TABLE public.knowledge_chunk (
     content_hash character varying(128) NOT NULL,
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT ck_knowledge_chunk_embedding_status CHECK (embedding_status IN ('PENDING', 'EMBEDDED', 'FAILED'))
 );
 
 
@@ -238,7 +240,7 @@ CREATE UNIQUE INDEX idx_chunk_embedding_current_unique ON public.chunk_embedding
 
 
 
-CREATE INDEX idx_chunk_embedding_vector_hnsw ON public.chunk_embedding USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='128');
+CREATE INDEX idx_chunk_embedding_vector_hnsw ON public.chunk_embedding USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='128') WHERE (is_current = true);
 
 
 

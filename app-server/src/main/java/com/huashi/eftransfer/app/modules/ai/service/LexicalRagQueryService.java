@@ -44,6 +44,8 @@ public class LexicalRagQueryService {
 
     private static final List<String> SOURCE_TYPES = List.of("LEXICAL_PAIR", "LEXICAL_SENSE", "LEXICAL_EXAMPLE");
     private static final String PROMPT_FOLDER = "lexical-rag-query";
+    private static final int MAX_PROMPT_CONTEXT_CHARS = 72_000;
+    private static final int MAX_HISTORY_MESSAGE_CHARS = 8_000;
     private static final String SCHEMA_NAME = "LexicalRagAnswer";
 
     private final AiGatewayClient aiGatewayClient;
@@ -262,12 +264,21 @@ public class LexicalRagQueryService {
     ) {
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(new ChatMessage("system", aiPromptTemplateService.loadSystemPrompt(PROMPT_FOLDER, promptVersion)));
-        messages.addAll(messageHistory);
+        List<ChatMessage> boundedHistory = messageHistory.stream()
+                .filter(java.util.Objects::nonNull)
+                .filter(message -> !"system".equals(message.role()))
+                .filter(message -> message.content() != null && !message.content().isBlank())
+                .map(message -> new ChatMessage(
+                        message.role(),
+                        boundedText(message.content(), MAX_HISTORY_MESSAGE_CHARS)
+                ))
+                .toList();
         messages.add(new ChatMessage("user", aiPromptTemplateService.renderUserPrompt(
                 PROMPT_FOLDER,
                 promptVersion,
                 Map.of(
                         "QUERY", query,
+                        "HISTORY_JSON", aiJsonCodec.write(boundedHistory),
                         "CONTEXT_JSON", aiJsonCodec.write(promptPayload(query, retrieved))
                 )
         )));
@@ -280,8 +291,46 @@ public class LexicalRagQueryService {
         payload.put("grounded", retrieved.grounded());
         payload.put("uncertaintyNote", retrieved.uncertaintyNote());
         payload.put("citations", retrieved.citations());
-        payload.put("contextChunks", retrieved.contextChunks());
+        payload.put("contextChunks", boundedContextChunks(retrieved.contextChunks()));
         return payload;
+    }
+
+    private List<RagContextChunk> boundedContextChunks(List<RagContextChunk> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return List.of();
+        }
+        List<RagContextChunk> bounded = new ArrayList<>(chunks.size());
+        int remainingContextChars = MAX_PROMPT_CONTEXT_CHARS;
+        for (int index = 0; index < chunks.size(); index++) {
+            RagContextChunk chunk = chunks.get(index);
+            int remainingChunks = chunks.size() - index;
+            String content = boundedText(chunk.content(), Math.max(1, remainingContextChars / remainingChunks));
+            bounded.add(new RagContextChunk(
+                    chunk.citationId(),
+                    chunk.sourceType(),
+                    chunk.sourceId(),
+                    chunk.title(),
+                    content,
+                    chunk.snippet(),
+                    chunk.score(),
+                    Map.of()
+            ));
+            remainingContextChars = Math.max(0, remainingContextChars - content.length());
+        }
+        return List.copyOf(bounded);
+    }
+
+    private String boundedText(String value, int maxChars) {
+        if (value == null || value.isEmpty() || maxChars <= 0) {
+            return "";
+        }
+        if (value.length() <= maxChars) {
+            return value;
+        }
+        if (maxChars <= 16) {
+            return value.substring(0, maxChars);
+        }
+        return value.substring(0, maxChars - 16) + "\n...[truncated]";
     }
 
     private List<RagCitation> selectCitations(List<String> citationIds, List<RagCitation> citations) {

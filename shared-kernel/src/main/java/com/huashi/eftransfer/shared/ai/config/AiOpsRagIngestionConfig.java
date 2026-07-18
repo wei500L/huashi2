@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Max;
 public record AiOpsRagIngestionConfig(
         @NotNull(message = "exportPageSize is required")
         @Positive(message = "exportPageSize must be greater than 0")
+        @Max(value = 1000, message = "exportPageSize must be less than or equal to 1000")
         Integer exportPageSize,
         @NotNull(message = "embeddingBatchSize is required")
         @Positive(message = "embeddingBatchSize must be greater than 0")

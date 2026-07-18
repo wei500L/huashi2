@@ -13,7 +13,6 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.net.http.HttpTimeoutException;
-import java.time.Duration;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.TimeoutException;
@@ -61,6 +60,23 @@ public class ProviderErrorSupport {
                     null,
                     false,
                     "circuit_open",
+                    ex
+            );
+        }
+
+        if (cause instanceof InvalidProviderResponseException ex) {
+            return new ProviderCallException(
+                    AI_PROVIDER_UNAVAILABLE,
+                    sensitiveDataRedactor.redact(ex.getMessage()),
+                    502,
+                    operation,
+                    provider,
+                    model,
+                    fallbackRequestId,
+                    null,
+                    "invalid_response",
+                    true,
+                    "invalid_response",
                     ex
             );
         }
@@ -123,6 +139,9 @@ public class ProviderErrorSupport {
         if (cause instanceof CallNotPermittedException) {
             return false;
         }
+        if (cause instanceof InvalidProviderResponseException) {
+            return true;
+        }
         if (isTimeout(cause)) {
             return true;
         }
@@ -160,7 +179,8 @@ public class ProviderErrorSupport {
             if (cursor instanceof RestClientResponseException
                     || cursor instanceof ResourceAccessException
                     || cursor instanceof CallNotPermittedException
-                    || cursor instanceof ProviderCallException) {
+                    || cursor instanceof ProviderCallException
+                    || cursor instanceof InvalidProviderResponseException) {
                 return cursor;
             }
             cursor = cursor.getCause();

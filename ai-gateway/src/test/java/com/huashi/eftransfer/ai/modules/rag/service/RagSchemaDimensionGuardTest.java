@@ -84,6 +84,12 @@ class RagSchemaDimensionGuardTest {
             when(resultSet.getInt("embedding_dimension")).thenReturn(dimension);
             when(resultSet.getInt("hnsw_m")).thenReturn(hnswM);
             when(resultSet.getInt("hnsw_ef_construction")).thenReturn(hnswEfConstruction);
+            when(resultSet.getString("hnsw_index_definition")).thenReturn(
+                    "CREATE INDEX idx_chunk_embedding_vector_hnsw ON public.chunk_embedding "
+                            + "USING hnsw (embedding public.vector_cosine_ops) "
+                            + "WITH (m='" + hnswM + "', ef_construction='" + hnswEfConstruction + "') "
+                            + "WHERE (is_current = true)"
+            );
             return extractor.extractData(resultSet);
         });
     }

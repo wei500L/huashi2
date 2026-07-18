@@ -98,6 +98,8 @@ AI_MULTIMODAL_RERANK_MODEL=Qwen/Qwen3-VL-Reranker-8B
 AI_EMBEDDING_DIMENSION=1024
 ```
 
+`AI_MULTIMODAL_EMBEDDING_MODEL` 与 `AI_MULTIMODAL_RERANK_MODEL` 当前仅为兼容保留配置。内部请求契约尚未承载图片/视频输入，传入 `multimodal`/`vl` modality 会被明确拒绝，不能据此宣称多模态链路已经可用。
+
 JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 
 说明：

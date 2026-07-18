@@ -4,9 +4,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public record AiOpsChatConfig(
         @NotBlank(message = "protocol is required")
@@ -15,6 +17,7 @@ public record AiOpsChatConfig(
         String baseUrl,
         String apiKey,
         @NotBlank(message = "model is required")
+        @Size(max = 128, message = "model must be less than or equal to 128 characters")
         String model,
         @NotBlank(message = "connectTimeout is required")
         String connectTimeout,
@@ -26,6 +29,7 @@ public record AiOpsChatConfig(
         Double temperature,
         @NotNull(message = "maxTokens is required")
         @Positive(message = "maxTokens must be greater than 0")
+        @Max(value = 32768, message = "maxTokens must be less than or equal to 32768")
         Integer maxTokens
 ) {
     @JsonCreator

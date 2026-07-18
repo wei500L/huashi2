@@ -38,13 +38,17 @@ public record LexicalPairUpsertRequest(
         @Min(value = 1, message = "difficultyLevel must be between 1 and 5")
         @Max(value = 5, message = "difficultyLevel must be between 1 and 5")
         Integer difficultyLevel,
+        @Size(max = 4000, message = "notes must be less than or equal to 4000 characters")
         String notes,
+        @Size(max = 255, message = "source must be less than or equal to 255 characters")
         String source,
         Boolean active,
         String knowledgeStatus,
         String embeddingStatus,
+        @Size(max = 32, message = "tags size must be less than or equal to 32")
         List<@Size(max = 64, message = "tag must be less than or equal to 64 characters") String> tags,
         @Valid
+        @Size(max = 32, message = "senses size must be less than or equal to 32")
         List<LexicalPairSenseRequest> senses
 ) {
 }

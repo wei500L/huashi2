@@ -2,6 +2,7 @@ package com.huashi.eftransfer.ai.integration.provider;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huashi.eftransfer.ai.common.exception.InvalidProviderResponseException;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
 import com.huashi.eftransfer.ai.common.observability.ProviderRequestContextHolder;
 import com.huashi.eftransfer.ai.common.observability.ResilientAiExecutor;
@@ -14,13 +15,11 @@ import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.huashi.eftransfer.shared.ai.TokenUsage;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.stereotype.Component;
@@ -63,18 +62,22 @@ public class QwenChatProviderClient {
         requestContextHolder.clear();
 
         try {
-            org.springframework.ai.chat.model.ChatResponse response = resilientAiExecutor.execute(
+            ProviderChatResult providerResult = resilientAiExecutor.execute(
                     runtime,
                     "chat",
-                    () -> runtime.chatClient().prompt(toPrompt(runtime, request, model)).call().chatResponse()
+                    () -> validateChatResponse(
+                            runtime.chatClient().prompt(toPrompt(runtime, request, model)).call().chatResponse(),
+                            model
+                    )
             );
+            org.springframework.ai.chat.model.ChatResponse response = providerResult.response();
             ChatResponse chatResponse = new ChatResponse(
                     provider,
                     model,
-                    response.getResult().getOutput().getText(),
-                    normalizeFinishReason(response.getResult().getMetadata().getFinishReason()),
-                    response.getMetadata().getId() != null ? response.getMetadata().getId() : requestContextHolder.getRequestId(),
-                    toUsage(response.getMetadata().getUsage())
+                    providerResult.content(),
+                    finishReason(response),
+                    providerRequestId(response),
+                    response.getMetadata() == null ? null : toUsage(response.getMetadata().getUsage())
             );
             observationService.recordSuccess("chat", provider, model, startNanos, chatResponse.providerRequestId(), chatResponse.usage());
             return chatResponse;
@@ -98,21 +101,47 @@ public class QwenChatProviderClient {
         requestContextHolder.clear();
 
         try {
-            org.springframework.ai.chat.model.ChatResponse response = resilientAiExecutor.execute(
+            ProviderStructuredChatResult providerResult = resilientAiExecutor.execute(
                     runtime,
                     "chat",
-                    () -> runtime.chatModel().call(toStructuredPrompt(runtime, request, model))
+                    () -> {
+                        ProviderChatResult validated = validateChatResponse(
+                                runtime.chatModel().call(toStructuredPrompt(runtime, request, model)),
+                                model
+                        );
+                        try {
+                            Map<String, Object> structuredData = objectMapper.readValue(
+                                    validated.content(),
+                                    new TypeReference<Map<String, Object>>() {
+                                    }
+                            );
+                            if (structuredData == null || structuredData.isEmpty()) {
+                                throw new InvalidProviderResponseException("Structured chat provider returned an empty JSON object");
+                            }
+                            return new ProviderStructuredChatResult(
+                                    validated.response(),
+                                    validated.content(),
+                                    structuredData
+                            );
+                        } catch (InvalidProviderResponseException exception) {
+                            throw exception;
+                        } catch (Exception exception) {
+                            throw new InvalidProviderResponseException(
+                                    "Structured chat provider returned invalid JSON",
+                                    exception
+                            );
+                        }
+                    }
             );
-            String content = response.getResult().getOutput().getText();
+            org.springframework.ai.chat.model.ChatResponse response = providerResult.response();
             StructuredChatResponse structuredResponse = new StructuredChatResponse(
                     provider,
                     model,
-                    content,
-                    objectMapper.readValue(content, new TypeReference<Map<String, Object>>() {
-                    }),
-                    normalizeFinishReason(response.getResult().getMetadata().getFinishReason()),
-                    response.getMetadata().getId() != null ? response.getMetadata().getId() : requestContextHolder.getRequestId(),
-                    toUsage(response.getMetadata().getUsage())
+                    providerResult.content(),
+                    providerResult.structuredData(),
+                    finishReason(response),
+                    providerRequestId(response),
+                    response.getMetadata() == null ? null : toUsage(response.getMetadata().getUsage())
             );
             observationService.recordSuccess(
                     "chat",
@@ -166,6 +195,38 @@ public class QwenChatProviderClient {
         };
     }
 
+    private ProviderChatResult validateChatResponse(
+            org.springframework.ai.chat.model.ChatResponse response,
+            String requestedModel
+    ) {
+        if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
+            throw new InvalidProviderResponseException("Chat provider returned no result");
+        }
+        String content = response.getResult().getOutput().getText();
+        if (content == null || content.isBlank()) {
+            throw new InvalidProviderResponseException("Chat provider returned empty content");
+        }
+        String responseModel = response.getMetadata() == null ? null : response.getMetadata().getModel();
+        if (responseModel != null && !responseModel.isBlank() && !requestedModel.equals(responseModel)) {
+            throw new InvalidProviderResponseException(
+                    "Chat provider returned model %s but %s was requested".formatted(responseModel, requestedModel)
+            );
+        }
+        return new ProviderChatResult(response, content);
+    }
+
+    private String finishReason(org.springframework.ai.chat.model.ChatResponse response) {
+        return response.getResult().getMetadata() == null
+                ? null
+                : normalizeFinishReason(response.getResult().getMetadata().getFinishReason());
+    }
+
+    private String providerRequestId(org.springframework.ai.chat.model.ChatResponse response) {
+        return response.getMetadata() != null && response.getMetadata().getId() != null
+                ? response.getMetadata().getId()
+                : requestContextHolder.getRequestId();
+    }
+
     private String resolveModel(AiProviderRuntime runtime, String requestModel) {
         if (requestModel != null && !requestModel.isBlank()) {
             return requestModel;
@@ -203,5 +264,18 @@ public class QwenChatProviderClient {
 
     private String normalizeFinishReason(String finishReason) {
         return finishReason == null ? null : finishReason.toLowerCase(Locale.ROOT);
+    }
+
+    private record ProviderChatResult(
+            org.springframework.ai.chat.model.ChatResponse response,
+            String content
+    ) {
+    }
+
+    private record ProviderStructuredChatResult(
+            org.springframework.ai.chat.model.ChatResponse response,
+            String content,
+            Map<String, Object> structuredData
+    ) {
     }
 }

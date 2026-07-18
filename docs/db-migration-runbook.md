@@ -23,7 +23,12 @@ SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE();
 -- PostgreSQL
 SELECT extversion FROM pg_extension WHERE extname = 'vector';
 SELECT embedding_dimension, hnsw_m, hnsw_ef_construction FROM rag_schema_metadata WHERE id = 1;
+SELECT pg_get_expr(indexprs, indrelid), pg_get_expr(indpred, indrelid)
+FROM pg_index
+WHERE indexrelid = 'idx_chunk_embedding_vector_hnsw'::regclass;
 ```
+
+HNSW 索引的 predicate 必须包含 `is_current = true`，避免历史向量参与 ANN 候选；`chunk_embedding` 的维度约束也必须与 `rag_schema_metadata.embedding_dimension` 一致。
 
 ## 已有环境
 
@@ -35,6 +40,19 @@ SELECT embedding_dimension, hnsw_m, hnsw_ef_construction FROM rag_schema_metadat
 4. 停止写入或进入维护模式后执行 DDL。
 5. 启动服务并检查 app-server、ai-gateway、pgvector 元数据和 RAG 探针。
 6. embedding 模型、维度或指令模板有变化时，执行全量强制 reindex；完成前不得切换检索流量。
+
+本次 current-only HNSW 调整在已有库中至少需要重建索引。维护窗口内可按目标库实际结构评审并执行等价 DDL：
+
+```sql
+DROP INDEX IF EXISTS public.idx_chunk_embedding_vector_hnsw;
+CREATE INDEX idx_chunk_embedding_vector_hnsw
+    ON public.chunk_embedding
+    USING hnsw (embedding public.vector_cosine_ops)
+    WITH (m = 16, ef_construction = 128)
+    WHERE is_current = TRUE;
+```
+
+服务启动守卫会核对索引类型、距离算子、`m`、`ef_construction` 和 `is_current = TRUE` predicate；已有环境未完成该 DDL 时，ai-gateway 会拒绝以不一致索引启动。
 
 ## 回滚原则
 

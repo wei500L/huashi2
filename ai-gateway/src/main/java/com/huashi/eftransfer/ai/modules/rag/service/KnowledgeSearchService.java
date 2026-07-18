@@ -4,6 +4,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.modules.rag.repository.KnowledgeStoreRepository;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSearchCandidate;
+import com.huashi.eftransfer.ai.modules.rag.support.EmbeddingTextSupport;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievedChunk;
 import com.huashi.eftransfer.ai.modules.rag.support.RagRetrievalResult;
 import com.huashi.eftransfer.ai.modules.rag.support.RagSearchFilter;
@@ -27,8 +28,7 @@ import java.util.Map;
 public class KnowledgeSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeSearchService.class);
-    private static final String QUERY_EMBEDDING_INSTRUCTION =
-            "Given an English, French, or Chinese lexical-transfer learning question, retrieve passages that provide directly relevant lexical evidence.";
+    private static final int MAX_RERANK_DOCUMENT_CHARS = 120_000;
 
     private final AiProviderRegistry aiProviderRegistry;
     private final KnowledgeStoreRepository knowledgeStoreRepository;
@@ -49,9 +49,12 @@ public class KnowledgeSearchService {
     }
 
     public RagRetrievalResult search(String query, RagSearchFilter filter, SearchRequest searchRequest) {
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("RAG search query must not be blank");
+        }
         var retrieval = runtimeConfigService.current().config().rag().retrieval();
         EmbeddingResponse embeddingResponse = aiProviderRegistry.embed(new EmbeddingRequest(
-                toInstructionAwareQuery(query),
+                EmbeddingTextSupport.toRetrievalQuery(query),
                 null,
                 null,
                 null
@@ -140,17 +143,17 @@ public class KnowledgeSearchService {
     }
 
     private String toRerankDocument(KnowledgeSearchCandidate candidate) {
-        return """
+        String document = """
                 Title: %s
                 Source Type: %s
                 Source Id: %s
                 Content:
                 %s
                 """.formatted(candidate.title(), candidate.sourceType(), candidate.sourceId(), candidate.content());
-    }
-
-    private String toInstructionAwareQuery(String query) {
-        return "Instruct: %s\nQuery: %s".formatted(QUERY_EMBEDDING_INSTRUCTION, query);
+        if (document.length() <= MAX_RERANK_DOCUMENT_CHARS) {
+            return document;
+        }
+        return document.substring(0, MAX_RERANK_DOCUMENT_CHARS - 16) + "\n...[truncated]";
     }
 
     private Document toDocument(RagRetrievedChunk chunk) {

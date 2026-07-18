@@ -37,13 +37,9 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
 import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
-import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagAppServerConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagConfig;
-import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
-import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
-import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.slf4j.MDC;
@@ -220,7 +216,10 @@ public class AiOpsAdminService {
                     buildProbeAuditPayload(probe.provider(), probe.model(), probe.latencyMs(), probe.providerRequestId(), probe.message(), probeDetails(
                             "dimension", probe.dimension(),
                             "expectedDimension", probe.expectedDimension(),
-                            "itemCount", probe.itemCount()
+                            "itemCount", probe.itemCount(),
+                            "relatedSimilarity", probe.relatedSimilarity(),
+                            "unrelatedSimilarity", probe.unrelatedSimilarity(),
+                            "similarityMargin", probe.similarityMargin()
                     )),
                     probe.ok() ? ResultCode.SUCCESS.code() : ResultCode.AI_PROVIDER_UNAVAILABLE.code()
             );

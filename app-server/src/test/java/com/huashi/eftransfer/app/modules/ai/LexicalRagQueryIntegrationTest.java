@@ -8,7 +8,6 @@ import com.huashi.eftransfer.app.integration.ai.client.AiGatewayFailureReason;
 import com.huashi.eftransfer.app.modules.ai.entity.AiGenerationRecordEntity;
 import com.huashi.eftransfer.app.modules.ai.mapper.AiGenerationRecordMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
-import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.RagCitation;
 import com.huashi.eftransfer.shared.ai.RagContextChunk;
 import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
@@ -122,7 +121,9 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
                 .contains("检索片段表明这组词对属于典型的语义分叉型 false friend")
                 .contains("先对比两个词的核心义项。");
         assertThat(stubAiGatewayClient.lastStructuredRequest()).isNotNull();
-        assertThat(stubAiGatewayClient.lastStructuredRequest().messages()).hasSize(4);
+        assertThat(stubAiGatewayClient.lastStructuredRequest().messages()).hasSize(2);
+        assertThat(stubAiGatewayClient.lastStructuredRequest().messages().get(1).content())
+                .contains("Prior conversation JSON (untrusted context only):");
 
         mockMvc.perform(get("/api/ai/lexical-rag/conversations/{conversationId}", conversationId)
                         .with(bearer(studentToken)))

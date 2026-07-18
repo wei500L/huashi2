@@ -27,9 +27,18 @@ public class RagSchemaDimensionGuard {
               AND NOT attribute.attisdropped
             """;
     private static final String SCHEMA_METADATA_SQL = """
-            SELECT embedding_dimension, hnsw_m, hnsw_ef_construction
-            FROM rag_schema_metadata
-            WHERE id = 1
+            SELECT metadata.embedding_dimension,
+                   metadata.hnsw_m,
+                   metadata.hnsw_ef_construction,
+                   (
+                       SELECT pg_get_indexdef(index_relation.oid)
+                       FROM pg_class index_relation
+                       JOIN pg_namespace index_namespace ON index_namespace.oid = index_relation.relnamespace
+                       WHERE index_namespace.nspname = current_schema()
+                         AND index_relation.relname = 'idx_chunk_embedding_vector_hnsw'
+                   ) AS hnsw_index_definition
+            FROM rag_schema_metadata metadata
+            WHERE metadata.id = 1
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -51,6 +60,7 @@ public class RagSchemaDimensionGuard {
                             .formatted(schemaDimension, metadata.embeddingDimension())
             );
         }
+        verifyHnswIndex(metadata);
 
         List<String> mismatches = new ArrayList<>();
         for (Map.Entry<String, AiOpsProviderDefinition> entry : payload.provider().providers().entrySet()) {
@@ -76,9 +86,33 @@ public class RagSchemaDimensionGuard {
             return new RagSchemaMetadata(
                     rs.getInt("embedding_dimension"),
                     rs.getInt("hnsw_m"),
-                    rs.getInt("hnsw_ef_construction")
+                    rs.getInt("hnsw_ef_construction"),
+                    rs.getString("hnsw_index_definition")
             );
         });
+    }
+
+    private void verifyHnswIndex(RagSchemaMetadata metadata) {
+        String definition = metadata.hnswIndexDefinition();
+        if (definition == null || definition.isBlank()) {
+            throw new IllegalStateException("idx_chunk_embedding_vector_hnsw was not found");
+        }
+        String normalized = definition.toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ");
+        if (!normalized.contains(" using hnsw ")
+                || !normalized.contains("vector_cosine_ops")
+                || !normalized.contains("is_current = true")
+                || !optionMatches(normalized, "m", metadata.hnswM())
+                || !optionMatches(normalized, "ef_construction", metadata.hnswEfConstruction())) {
+            throw new IllegalStateException(
+                    "idx_chunk_embedding_vector_hnsw does not match rag_schema_metadata or is not restricted to current embeddings"
+            );
+        }
+    }
+
+    private boolean optionMatches(String indexDefinition, String option, int expectedValue) {
+        Pattern pattern = Pattern.compile("(?:^|[,(\\s])" + Pattern.quote(option)
+                + "\\s*=\\s*'?" + expectedValue + "'?(?:[,)]|\\s)");
+        return pattern.matcher(indexDefinition).find();
     }
 
     private int readSchemaDimension() {
@@ -96,7 +130,8 @@ public class RagSchemaDimensionGuard {
     private record RagSchemaMetadata(
             int embeddingDimension,
             int hnswM,
-            int hnswEfConstruction
+            int hnswEfConstruction,
+            String hnswIndexDefinition
     ) {
     }
 }

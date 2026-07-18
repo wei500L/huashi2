@@ -48,7 +48,7 @@ public class KnowledgeStoreRepository {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UpsertDocumentResult upsertDocument(KnowledgeDocumentPayload documentPayload, boolean forceReembed, String contentHash) {
-        return upsertDocument(documentPayload, forceReembed, contentHash, null);
+        return upsertDocument(documentPayload, forceReembed, contentHash, null, null, null);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -58,7 +58,19 @@ public class KnowledgeStoreRepository {
             String contentHash,
             Set<String> reconcileSourceTypes
     ) {
-        Long documentId = jdbcTemplate.queryForObject(
+        return upsertDocument(documentPayload, forceReembed, contentHash, reconcileSourceTypes, null, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public UpsertDocumentResult upsertDocument(
+            KnowledgeDocumentPayload documentPayload,
+            boolean forceReembed,
+            String contentHash,
+            Set<String> reconcileSourceTypes,
+            String expectedEmbeddingModel,
+            Integer expectedEmbeddingDimension
+    ) {
+        List<Long> documentIds = jdbcTemplate.query(
                 """
                         INSERT INTO knowledge_document (
                             source_type,
@@ -80,9 +92,14 @@ public class KnowledgeStoreRepository {
                             content_hash = EXCLUDED.content_hash,
                             metadata = EXCLUDED.metadata,
                             updated_at = CURRENT_TIMESTAMP
+                        WHERE knowledge_document.source_updated_at IS NULL
+                           OR (
+                               EXCLUDED.source_updated_at IS NOT NULL
+                               AND EXCLUDED.source_updated_at >= knowledge_document.source_updated_at
+                           )
                         RETURNING id
                         """,
-                Long.class,
+                (rs, rowNum) -> rs.getLong("id"),
                 documentPayload.sourceType(),
                 documentPayload.sourceId(),
                 documentPayload.title(),
@@ -92,9 +109,16 @@ public class KnowledgeStoreRepository {
                 writeJson(documentPayload.metadata())
         );
 
-        if (documentId == null) {
-            throw new IllegalStateException("Failed to upsert knowledge document");
+        if (documentIds.isEmpty()) {
+            Long currentDocumentId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM knowledge_document WHERE source_type = ? AND source_id = ?",
+                    Long.class,
+                    documentPayload.sourceType(),
+                    documentPayload.sourceId()
+            );
+            return new UpsertDocumentResult(currentDocumentId, List.of(), false);
         }
+        Long documentId = documentIds.getFirst();
 
         List<PendingChunkEmbedding> pendingChunkEmbeddings = new ArrayList<>();
         Set<String> activeChunkKeys = new java.util.LinkedHashSet<>();
@@ -111,8 +135,13 @@ public class KnowledgeStoreRepository {
             boolean needsEmbedding = chunkPayload.active()
                     && (forceReembed
                     || existing == null
+                    || !existing.active()
                     || !Objects.equals(chunkContentHash, existing.contentHash())
-                    || !EmbeddingStatus.EMBEDDED.name().equals(existing.embeddingStatus()));
+                    || !existing.hasCompatibleCurrentEmbedding(
+                            chunkContentHash,
+                            expectedEmbeddingModel,
+                            expectedEmbeddingDimension
+                    ));
             String embeddingStatus = chunkPayload.active()
                     ? (needsEmbedding ? EmbeddingStatus.PENDING.name() : existing.embeddingStatus())
                     : (existing == null ? EmbeddingStatus.PENDING.name() : existing.embeddingStatus());
@@ -183,7 +212,7 @@ public class KnowledgeStoreRepository {
             deactivateAllChunks(documentId);
         }
 
-        return new UpsertDocumentResult(documentId, pendingChunkEmbeddings);
+        return new UpsertDocumentResult(documentId, pendingChunkEmbeddings, true);
     }
 
     @Transactional
@@ -381,6 +410,7 @@ public class KnowledgeStoreRepository {
             int limit,
             int hnswEfSearch
     ) {
+        validateSearchEmbedding(embedding, embeddingModel, limit, hnswEfSearch);
         StringBuilder sql = new StringBuilder("""
                 SELECT kc.id,
                        kc.source_type,
@@ -489,16 +519,28 @@ public class KnowledgeStoreRepository {
     private ChunkRecord findChunk(Long documentId, String chunkKey) {
         List<ChunkRecord> chunks = jdbcTemplate.query(
                 """
-                        SELECT id, content_hash, embedding_status, embedded_at
-                        FROM knowledge_chunk
-                        WHERE document_id = ? AND chunk_key = ?
+                        SELECT kc.id,
+                               kc.content_hash,
+                               kc.embedding_status,
+                               kc.embedded_at,
+                               kc.active,
+                               ce.embedding_model,
+                               ce.embedding_dimension,
+                               ce.content_hash AS embedding_content_hash
+                        FROM knowledge_chunk kc
+                        LEFT JOIN chunk_embedding ce ON ce.chunk_id = kc.id AND ce.is_current = TRUE
+                        WHERE kc.document_id = ? AND kc.chunk_key = ?
                         LIMIT 1
                         """,
                 (rs, rowNum) -> new ChunkRecord(
                         rs.getLong("id"),
                         rs.getString("content_hash"),
                         rs.getString("embedding_status"),
-                        toOffsetDateTime(rs.getTimestamp("embedded_at"))
+                        toOffsetDateTime(rs.getTimestamp("embedded_at")),
+                        rs.getBoolean("active"),
+                        rs.getString("embedding_model"),
+                        rs.getObject("embedding_dimension", Integer.class),
+                        rs.getString("embedding_content_hash")
                 ),
                 documentId,
                 chunkKey
@@ -707,9 +749,38 @@ public class KnowledgeStoreRepository {
             if (write.embedding().stream().anyMatch(value -> value == null || !Double.isFinite(value))) {
                 throw new IllegalArgumentException("Embedding write contains a non-finite value");
             }
+            if (write.embedding().stream().noneMatch(value -> value != 0.0D)) {
+                throw new IllegalArgumentException("Embedding write contains a zero vector");
+            }
             if (write.contentHash() == null || write.contentHash().isBlank()) {
                 throw new IllegalArgumentException("Embedding write contentHash is required");
             }
+        }
+    }
+
+    private void validateSearchEmbedding(
+            List<Double> embedding,
+            String embeddingModel,
+            int limit,
+            int hnswEfSearch
+    ) {
+        if (embedding == null || embedding.isEmpty()) {
+            throw new IllegalArgumentException("Search embedding must not be empty");
+        }
+        if (embedding.stream().anyMatch(value -> value == null || !Double.isFinite(value))) {
+            throw new IllegalArgumentException("Search embedding contains a non-finite value");
+        }
+        if (embedding.stream().noneMatch(value -> value != 0.0D)) {
+            throw new IllegalArgumentException("Search embedding must not be a zero vector");
+        }
+        if (embeddingModel == null || embeddingModel.isBlank()) {
+            throw new IllegalArgumentException("Search embedding model is required");
+        }
+        if (limit <= 0) {
+            throw new IllegalArgumentException("Search result limit must be greater than zero");
+        }
+        if (hnswEfSearch <= 0) {
+            throw new IllegalArgumentException("hnsw.ef_search must be greater than zero");
         }
     }
 
@@ -757,7 +828,26 @@ public class KnowledgeStoreRepository {
         }
     }
 
-    private record ChunkRecord(Long id, String contentHash, String embeddingStatus, OffsetDateTime embeddedAt) {
+    private record ChunkRecord(
+            Long id,
+            String contentHash,
+            String embeddingStatus,
+            OffsetDateTime embeddedAt,
+            boolean active,
+            String currentEmbeddingModel,
+            Integer currentEmbeddingDimension,
+            String currentEmbeddingContentHash
+    ) {
+        private boolean hasCompatibleCurrentEmbedding(
+                String expectedContentHash,
+                String expectedModel,
+                Integer expectedDimension
+        ) {
+            return EmbeddingStatus.EMBEDDED.name().equals(embeddingStatus)
+                    && Objects.equals(expectedContentHash, currentEmbeddingContentHash)
+                    && (expectedModel == null || Objects.equals(expectedModel, currentEmbeddingModel))
+                    && (expectedDimension == null || Objects.equals(expectedDimension, currentEmbeddingDimension));
+        }
     }
 
     private record ChunkWriteState(Long chunkId, String contentHash, boolean active) {
@@ -779,7 +869,14 @@ public class KnowledgeStoreRepository {
     ) {
     }
 
-    public record UpsertDocumentResult(Long documentId, List<PendingChunkEmbedding> pendingChunkEmbeddings) {
+    public record UpsertDocumentResult(
+            Long documentId,
+            List<PendingChunkEmbedding> pendingChunkEmbeddings,
+            boolean applied
+    ) {
+        public UpsertDocumentResult(Long documentId, List<PendingChunkEmbedding> pendingChunkEmbeddings) {
+            this(documentId, pendingChunkEmbeddings, true);
+        }
     }
 
     public record KnowledgeIndexCoverage(int activeChunkCount, int searchableChunkCount) {
