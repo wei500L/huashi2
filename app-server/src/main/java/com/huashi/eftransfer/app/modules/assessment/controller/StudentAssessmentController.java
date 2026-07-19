@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.modules.assessment.controller;
 
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentHistoryPageQuery;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.SubmitAssessmentAttemptRequest;
 import com.huashi.eftransfer.app.modules.assessment.service.AssessmentService;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptDetailVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptHeartbeatVO;
@@ -73,8 +74,11 @@ public class StudentAssessmentController {
     }
 
     @PostMapping("/attempts/{attemptId}/submit")
-    public ApiResponse<AssessmentAttemptSubmitVO> submitAttempt(@PathVariable Long attemptId) {
-        return ApiResponse.success(assessmentService.submitAttempt(attemptId), MDC.get("traceId"));
+    public ApiResponse<AssessmentAttemptSubmitVO> submitAttempt(
+            @PathVariable Long attemptId,
+            @Valid @RequestBody SubmitAssessmentAttemptRequest request
+    ) {
+        return ApiResponse.success(assessmentService.submitAttempt(attemptId, request), MDC.get("traceId"));
     }
 
     @GetMapping("/attempts/{attemptId}/result")

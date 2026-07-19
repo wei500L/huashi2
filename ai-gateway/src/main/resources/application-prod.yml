@@ -23,7 +23,3 @@ ai:
   provider-endpoint-policy:
     allow-private-networks: ${AI_PROVIDER_ALLOW_PRIVATE_NETWORKS:false}
     require-https: ${AI_PROVIDER_REQUIRE_HTTPS:true}
-  embedding-space-policy:
-    enabled: true
-    model: Qwen/Qwen3-Embedding-8B
-    dimension: 1024

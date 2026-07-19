@@ -22,6 +22,11 @@ public record AssessmentAttemptResultVO(
         LocalDateTime startedAt,
         LocalDateTime expiresAt,
         LocalDateTime submittedAt,
+        String submitReason,
+        String releaseStatus,
+        LocalDateTime resultAvailableAt,
+        boolean scoreVisible,
+        boolean answerReviewVisible,
         List<AssessmentAttemptResultQuestionVO> questions
 ) {
 }

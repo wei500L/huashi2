@@ -9,6 +9,6 @@ public final class EmbeddingTextSupport {
     }
 
     public static String toRetrievalQuery(String query) {
-        return "Instruct: %s\nQuery: %s".formatted(QUERY_EMBEDDING_INSTRUCTION, query);
+        return "Instruct: %s\nQuery:%s".formatted(QUERY_EMBEDDING_INSTRUCTION, query);
     }
 }

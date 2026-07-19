@@ -2,7 +2,6 @@ package com.huashi.eftransfer.ai.modules.rag.service;
 
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsProviderDefinition;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,14 +14,8 @@ import java.util.regex.Pattern;
 @Service
 public class RagSchemaDimensionGuard {
 
-    @Value("${ai.embedding-space-policy.enabled:false}")
-    private boolean embeddingSpacePolicyEnabled;
-
-    @Value("${ai.embedding-space-policy.model:Qwen/Qwen3-Embedding-8B}")
-    private String embeddingSpacePolicyModel;
-
-    @Value("${ai.embedding-space-policy.dimension:1024}")
-    private int embeddingSpacePolicyDimension;
+    private static final String EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-8B";
+    private static final int EMBEDDING_DIMENSION = 1024;
 
     private static final Pattern VECTOR_TYPE_PATTERN = Pattern.compile("vector\\((\\d+)\\)");
     private static final String CHUNK_EMBEDDING_TYPE_SQL = """
@@ -81,7 +74,7 @@ public class RagSchemaDimensionGuard {
                 mismatches.add(entry.getKey() + "=" + dimension);
             }
             String model = definition == null || definition.embedding() == null ? null : definition.embedding().model();
-            if (embeddingSpacePolicyEnabled && !java.util.Objects.equals(embeddingSpacePolicyModel, model)) {
+            if (!java.util.Objects.equals(EMBEDDING_MODEL, model)) {
                 modelMismatches.add(entry.getKey() + "=" + model);
             }
         }
@@ -91,16 +84,16 @@ public class RagSchemaDimensionGuard {
                             .formatted(metadata.embeddingDimension(), String.join(", ", mismatches))
             );
         }
-        if (embeddingSpacePolicyEnabled && metadata.embeddingDimension() != embeddingSpacePolicyDimension) {
+        if (metadata.embeddingDimension() != EMBEDDING_DIMENSION) {
             throw new IllegalStateException(
-                    "Production embedding space requires dimension %d but pgvector schema uses %d"
-                            .formatted(embeddingSpacePolicyDimension, metadata.embeddingDimension())
+                    "Embedding space requires dimension %d but pgvector schema uses %d"
+                            .formatted(EMBEDDING_DIMENSION, metadata.embeddingDimension())
             );
         }
         if (!modelMismatches.isEmpty()) {
             throw new IllegalStateException(
-                    "Production embedding space requires model %s: %s"
-                            .formatted(embeddingSpacePolicyModel, String.join(", ", modelMismatches))
+                    "Embedding space requires model %s: %s"
+                            .formatted(EMBEDDING_MODEL, String.join(", ", modelMismatches))
             );
         }
     }

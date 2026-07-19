@@ -11,6 +11,21 @@ public interface DiagnosisItemResultMapper extends BaseMapper<DiagnosisItemResul
 
     @Update("""
             UPDATE diagnosis_item_result
+            SET stimulus_started_at = COALESCE(stimulus_started_at, #{stimulusStartedAt}),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{itemResultId}
+              AND session_id = #{sessionId}
+              AND answer_state = 'PENDING'
+              AND deleted = FALSE
+            """)
+    int markStimulusStartedIfPending(
+            @Param("itemResultId") Long itemResultId,
+            @Param("sessionId") Long sessionId,
+            @Param("stimulusStartedAt") java.time.LocalDateTime stimulusStartedAt
+    );
+
+    @Update("""
+            UPDATE diagnosis_item_result
             SET answer_state = #{answerState},
                 stimulus_started_at = COALESCE(stimulus_started_at, #{stimulusStartedAt}),
                 submitted_at = #{submittedAt},

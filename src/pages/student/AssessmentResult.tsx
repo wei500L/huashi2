@@ -4,6 +4,7 @@ import { CheckCircle2, FileText, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { getApiErrorMessage } from '@/lib/api';
 import { assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 
@@ -11,12 +12,26 @@ const StudentAssessmentResultPage: React.FC = () => {
   const { t } = useTranslation();
   const params = useParams<{ attemptId: string }>();
   const attemptId = Number(params.attemptId);
+  const isValidAttemptId = Number.isSafeInteger(attemptId) && attemptId > 0;
   const resultQuery = useQuery({
     queryKey: ['student-assessment-result', attemptId],
     queryFn: ({ signal }) => assessmentService.getStudentAttemptResult(attemptId, { signal }),
-    enabled: Number.isFinite(attemptId),
+    enabled: isValidAttemptId,
     retry: false,
+    refetchInterval: (query) => query.state.data?.releaseStatus === 'PENDING' ? 15000 : false,
   });
+
+  if (!isValidAttemptId) {
+    return (
+      <div className="rounded-[2.4rem] border border-amber-500/20 bg-amber-500/10 p-8 text-amber-800 dark:text-amber-200">
+        <div className="text-2xl font-black">结果链接无效</div>
+        <p className="mt-3 text-sm">答卷编号必须是正整数，请返回任务列表重新进入。</p>
+        <Link to="/assessments" className="mt-5 inline-flex rounded-full border border-amber-500/30 px-4 py-2 text-sm font-bold">
+          返回任务列表
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-20">
@@ -33,7 +48,10 @@ const StudentAssessmentResultPage: React.FC = () => {
 
       {resultQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {resultQuery.error.message}
+          <div>{getApiErrorMessage(resultQuery.error)}</div>
+          <button type="button" onClick={() => void resultQuery.refetch()} className="mt-4 rounded-full border border-rose-500/30 px-4 py-2 text-sm font-bold">
+            重试加载
+          </button>
         </div>
       )}
 
@@ -43,18 +61,27 @@ const StudentAssessmentResultPage: React.FC = () => {
         </div>
       )}
 
-      {resultQuery.data && (
+      {resultQuery.data?.releaseStatus === 'PENDING' && (
+        <section className="rounded-[2.4rem] border border-amber-500/20 bg-amber-500/10 p-8 text-amber-800 dark:text-amber-200">
+          <div className="text-2xl font-black">答卷已提交，结果待公布</div>
+          <p className="mt-3 text-sm leading-7">
+            本次测评将在 {formatDateTime(resultQuery.data.resultAvailableAt)} 公布成绩、正确答案和解析。
+          </p>
+        </section>
+      )}
+
+      {resultQuery.data?.releaseStatus === 'AVAILABLE' && (
         <>
           <div className="grid gap-6 md:grid-cols-4">
             <div className="rounded-[2rem] liquid-glass-panel p-6">
               <SectionEyebrow>{t('ui.meta.objectiveScore')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{resultQuery.data.totalScore}</div>
+              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{resultQuery.data.totalScore ?? 0}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.objectiveScore')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
               <SectionEyebrow>{t('ui.meta.correctRate')}</SectionEyebrow>
               <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">
-                {resultQuery.data.questionCount ? Math.round((resultQuery.data.correctCount / resultQuery.data.questionCount) * 100) : 0}%
+                {resultQuery.data.questionCount ? Math.round(((resultQuery.data.correctCount ?? 0) / resultQuery.data.questionCount) * 100) : 0}%
               </div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.correctRate')}</div>
             </div>

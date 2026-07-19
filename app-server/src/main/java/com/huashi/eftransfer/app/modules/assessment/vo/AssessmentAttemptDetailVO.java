@@ -22,6 +22,7 @@ public record AssessmentAttemptDetailVO(
         LocalDateTime expiresAt,
         LocalDateTime submittedAt,
         LocalDateTime lastSavedAt,
+        Long version,
         LocalDateTime serverTime,
         List<AssessmentAttemptQuestionVO> questions
 ) {

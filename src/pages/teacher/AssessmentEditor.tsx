@@ -11,6 +11,7 @@ import type {
   AssessmentPaperSaveRequest,
   AssessmentQuestionRequest,
   AssessmentQuestionType,
+  AssessmentResultReleasePolicy,
 } from '@/lib/contracts';
 
 type OptionDraft = {
@@ -42,6 +43,7 @@ type PublishDraft = {
   startsAt: string;
   dueAt: string;
   instructionsText: string;
+  resultReleasePolicy: AssessmentResultReleasePolicy;
 };
 
 const QUESTION_TYPE_OPTIONS: Array<{ value: AssessmentQuestionType; label: string }> = [
@@ -140,6 +142,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
     startsAt: '',
     dueAt: '',
     instructionsText: '',
+    resultReleasePolicy: 'AFTER_DUE',
   });
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -196,6 +199,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
         startsAt: publishDraft.startsAt || undefined,
         dueAt: publishDraft.dueAt || undefined,
         instructionsText: publishDraft.instructionsText.trim() || undefined,
+        resultReleasePolicy: publishDraft.resultReleasePolicy,
       }),
     onSuccess: async () => {
       setFeedback('试卷已发布到班级。');
@@ -205,6 +209,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
         startsAt: '',
         dueAt: '',
         instructionsText: '',
+        resultReleasePolicy: 'AFTER_DUE',
       });
       await queryClient.invalidateQueries({ queryKey: ['teacher-assessment-paper', paperId] });
       await queryClient.invalidateQueries({ queryKey: ['teacher-assessment-papers'] });
@@ -363,7 +368,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
               disabled={isEditLocked}
               onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, explanationText: event.target.value }))}
               className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
-              placeholder="学生交卷后可见"
+              placeholder="按发布时选择的结果公布方式向学生展示"
             />
           </label>
         </div>
@@ -657,6 +662,24 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                 </div>
 
                 <label className="block space-y-2 text-sm">
+                  <span className="text-slate-500 dark:text-white/45">结果公布方式</span>
+                  <select
+                    value={publishDraft.resultReleasePolicy}
+                    onChange={(event) => setPublishDraft((current) => ({
+                      ...current,
+                      resultReleasePolicy: event.target.value as AssessmentResultReleasePolicy,
+                    }))}
+                    className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                  >
+                    <option value="AFTER_DUE">截止后公布（正式测评）</option>
+                    <option value="IMMEDIATE">交卷后立即公布（练习）</option>
+                  </select>
+                  <span className="block text-xs text-slate-400 dark:text-white/35">
+                    截止后公布时，学生提前交卷不会看到分数、正确答案或解析。
+                  </span>
+                </label>
+
+                <label className="block space-y-2 text-sm">
                   <span className="text-slate-500 dark:text-white/45">作答说明</span>
                   <textarea
                     value={publishDraft.instructionsText}
@@ -669,7 +692,11 @@ const TeacherAssessmentEditorPage: React.FC = () => {
 
                 <button
                   type="button"
-                  disabled={publishMutation.isPending || !publishDraft.teachingClassId}
+                  disabled={
+                    publishMutation.isPending ||
+                    !publishDraft.teachingClassId ||
+                    (publishDraft.resultReleasePolicy === 'AFTER_DUE' && !publishDraft.dueAt)
+                  }
                   onClick={() => publishMutation.mutate()}
                   className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
                 >

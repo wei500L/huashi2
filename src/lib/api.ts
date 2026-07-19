@@ -180,6 +180,14 @@ const API_ERROR_MESSAGES: Record<string, string> = {
   CURRENT_PASSWORD_INCORRECT: '当前密码不正确。',
   ACCOUNT_LOCKED: '尝试次数过多，账号已被临时锁定，请稍后再试。',
   CONFLICT: '提交的信息与现有数据冲突，请检查后重试。',
+  ACTIVE_SESSION_EXISTS: '已有进行中的会话，请先继续或放弃原会话。',
+  ASSESSMENT_NOT_STARTED: '测评尚未开始，请在开始时间后重试。',
+  ASSESSMENT_CLOSED: '测评已截止，无法再开始作答。',
+  ATTEMPT_SUBMITTED: '答卷已经提交，不能继续修改。',
+  RESULT_NOT_RELEASED: '答卷已提交，结果尚未公布。',
+  VERSION_CONFLICT: '答卷已在其他页面或设备更新，请刷新后再继续。',
+  SESSION_OUT_OF_SEQUENCE: '题目顺序已变化，正在同步服务器当前题。',
+  ANSWER_ALREADY_ACCEPTED: '本题答案已经提交，正在同步下一题。',
   REGISTRATION_CONTEXT_INVALID: '邀请码验证已失效，请重新输入并验证邀请码。',
   REGISTRATION_CONTEXT_BUSY: '当前注册正在处理中，请稍后再试。',
   RATE_LIMITED: '请求过于频繁，请稍后再试。',
@@ -229,16 +237,24 @@ export async function apiPost<T>(url: string, data?: unknown, config?: AxiosRequ
 
 export async function apiPostKeepalive<T>(url: string, data?: unknown): Promise<T> {
   const session = await ensureFreshSessionForKeepalive();
-  const response = await fetch(resolveRequestUrl(url), {
-    method: 'POST',
-    keepalive: true,
-    credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-    },
-    body: JSON.stringify(data ?? {}),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8000);
+  let response: Response;
+  try {
+    response = await fetch(resolveRequestUrl(url), {
+      method: 'POST',
+      keepalive: true,
+      credentials: 'same-origin',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+      },
+      body: JSON.stringify(data ?? {}),
+    });
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const payload = await parseApiResponse<T>(response);
   if (response.status === 401 || payload?.code === 'TOKEN_EXPIRED') {
     dispatchAuthExpired();

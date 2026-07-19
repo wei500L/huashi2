@@ -13,7 +13,7 @@ public record AiOpsRagIngestionConfig(
         Integer exportPageSize,
         @NotNull(message = "embeddingBatchSize is required")
         @Positive(message = "embeddingBatchSize must be greater than 0")
-        @Max(value = 128, message = "embeddingBatchSize must be less than or equal to 128")
+        @Max(value = 32, message = "embeddingBatchSize must be less than or equal to 32")
         Integer embeddingBatchSize,
         Boolean failedRetryEnabled,
         @Positive(message = "failedRetryLimit must be greater than 0")

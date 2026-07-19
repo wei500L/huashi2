@@ -940,7 +940,7 @@ const HistoryPage: React.FC = () => {
                             onClick={() => setSelectedAssessmentAttemptId(record.attemptId)}
                             className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
                           >
-                            查看结果
+                            {record.releaseStatus === 'PENDING' ? '结果待公布' : '查看结果'}
                           </button>
                         )}
                       </div>
@@ -1004,6 +1004,14 @@ const HistoryPage: React.FC = () => {
                   回到测评继续作答
                 </button>
               </div>
+            ) : selectedAssessmentRecord?.releaseStatus === 'PENDING' ? (
+              <HistoryStatePanel
+                kind="empty"
+                title="答卷已提交，结果待公布"
+                description={`成绩、正确答案和解析将在 ${formatDateTime(selectedAssessmentRecord.resultAvailableAt)} 公布。`}
+                impact="公布前仅确认交卷状态，不展示分数或逐题正误。"
+                nextStep="到公布时间后重新打开本页即可查看结果。"
+              />
             ) : assessmentDetailQuery.isLoading ? (
               <HistoryStatePanel
                 kind="loading"
@@ -1045,7 +1053,7 @@ const HistoryPage: React.FC = () => {
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">答对率</div>
                     <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
                       {assessmentDetailQuery.data.questionCount
-                        ? `${Math.round((assessmentDetailQuery.data.correctCount / assessmentDetailQuery.data.questionCount) * 100)}%`
+                        ? `${Math.round(((assessmentDetailQuery.data.correctCount ?? 0) / assessmentDetailQuery.data.questionCount) * 100)}%`
                         : '0%'}
                     </div>
                   </div>

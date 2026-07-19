@@ -146,7 +146,7 @@ public class AiOpsAdminService {
                 sanitize(previousPayload),
                 sanitize(candidate)
         );
-        if (!changeSet.hasChanges()) {
+        if (!changeSet.hasChanges() && storedConfig != null) {
             return toView(
                     previousPayload,
                     currentRuntime == null ? blankDraftNotices(storedConfig) : currentRuntime.notices(),
@@ -182,7 +182,7 @@ public class AiOpsAdminService {
         Long actorUserId = SecurityUtils.getCurrentUserId().orElse(null);
         StoredAiOpsConfig stored = persistStoredConfig(
                 candidate,
-                safeRequest.expectedVersion(),
+                storedConfig == null ? null : safeRequest.expectedVersion(),
                 nextVersion,
                 previousVersion,
                 actorUserId,

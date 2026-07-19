@@ -241,9 +241,15 @@ public class QwenRerankClient implements RerankClient {
         JsonNode usage = response.path("usage");
         if (!usage.isMissingNode()) {
             JsonNode totalTokens = usage.path("total_tokens");
-            if (totalTokens.isInt()) {
+            if (totalTokens.isNumber()) {
                 return totalTokens.asInt();
             }
+        }
+        JsonNode tokens = response.path("meta").path("tokens");
+        if (tokens.isObject()) {
+            return tokens.path("input_tokens").asInt(0)
+                    + tokens.path("output_tokens").asInt(0)
+                    + tokens.path("image_tokens").asInt(0);
         }
         return null;
     }

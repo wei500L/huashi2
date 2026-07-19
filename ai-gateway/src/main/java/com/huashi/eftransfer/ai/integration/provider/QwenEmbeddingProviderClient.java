@@ -51,31 +51,27 @@ public class QwenEmbeddingProviderClient {
                 runtime,
                 providerName,
                 List.of(request.text()),
-                request.model(),
-                request.modality(),
-                request.dimension()
+                request.modality()
         );
     }
 
     public EmbeddingResponse embedBatch(String providerName, EmbeddingBatchRequest request) {
-        return embedInternal(providerRuntime(providerName), providerName, request.texts(), request.model(), request.modality(), request.dimension());
+        return embedInternal(providerRuntime(providerName), providerName, request.texts(), request.modality());
     }
 
     public EmbeddingResponse embedBatch(AiProviderRuntime runtime, String providerName, EmbeddingBatchRequest request) {
-        return embedInternal(runtime, providerName, request.texts(), request.model(), request.modality(), request.dimension());
+        return embedInternal(runtime, providerName, request.texts(), request.modality());
     }
 
     private EmbeddingResponse embedInternal(
             AiProviderRuntime runtime,
             String providerName,
             List<String> texts,
-            String requestModel,
-            String modality,
-            Integer requestDimension
+            String modality
     ) {
         String provider = providerName;
-        String model = resolveModel(runtime, requestModel, modality);
-        int dimension = requestDimension != null ? requestDimension : runtime.definition().embedding().dimension();
+        String model = resolveModel(runtime, modality);
+        int dimension = runtime.definition().embedding().dimension();
         long startNanos = System.nanoTime();
         requestContextHolder.clear();
 
@@ -196,13 +192,13 @@ public class QwenEmbeddingProviderClient {
                 .toList();
     }
 
-    private String resolveModel(AiProviderRuntime runtime, String requestModel, String modality) {
+    private String resolveModel(AiProviderRuntime runtime, String modality) {
         if (isMultimodal(modality)) {
             throw new IllegalArgumentException(
                     "Multimodal embedding is not supported by the current text-only request contract"
             );
         }
-        return requestModel != null && !requestModel.isBlank() ? requestModel : runtime.definition().embedding().model();
+        return runtime.definition().embedding().model();
     }
 
     private boolean isMultimodal(String modality) {

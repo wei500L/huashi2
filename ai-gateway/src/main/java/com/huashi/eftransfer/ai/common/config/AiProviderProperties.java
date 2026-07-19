@@ -152,7 +152,7 @@ public class AiProviderProperties {
 
         private Double temperature = 0.2D;
 
-        private Integer maxTokens = 2048;
+        private Integer maxTokens = 8192;
 
         public Double getTemperature() {
             return temperature;

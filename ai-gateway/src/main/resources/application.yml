@@ -81,7 +81,7 @@ ai:
           connect-timeout: ${AI_CHAT_CONNECT_TIMEOUT:PT3S}
           read-timeout: ${AI_CHAT_READ_TIMEOUT:PT30S}
           temperature: ${AI_CHAT_TEMPERATURE:0.2}
-          max-tokens: ${AI_CHAT_MAX_TOKENS:2048}
+          max-tokens: ${AI_CHAT_MAX_TOKENS:8192}
         embedding:
           base-url: ${AI_EMBEDDING_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}
           api-key: ${AI_EMBEDDING_API_KEY:${AI_OPENAI_API_KEY:}}
@@ -107,7 +107,7 @@ ai:
           connect-timeout: ${AI_FALLBACK_CHAT_CONNECT_TIMEOUT:${AI_CHAT_CONNECT_TIMEOUT:PT3S}}
           read-timeout: ${AI_FALLBACK_CHAT_READ_TIMEOUT:${AI_CHAT_READ_TIMEOUT:PT30S}}
           temperature: ${AI_FALLBACK_CHAT_TEMPERATURE:${AI_CHAT_TEMPERATURE:0.2}}
-          max-tokens: ${AI_FALLBACK_CHAT_MAX_TOKENS:${AI_CHAT_MAX_TOKENS:2048}}
+          max-tokens: ${AI_FALLBACK_CHAT_MAX_TOKENS:${AI_CHAT_MAX_TOKENS:8192}}
         embedding:
           base-url: ${AI_FALLBACK_EMBEDDING_BASE_URL:${AI_EMBEDDING_BASE_URL:${AI_OPENAI_BASE_URL:https://api.siliconflow.cn/v1}}}
           api-key: ${AI_FALLBACK_EMBEDDING_API_KEY:${AI_EMBEDDING_API_KEY:${AI_OPENAI_API_KEY:}}}

@@ -72,8 +72,8 @@ public class QwenChatProviderClient {
                         request.messages(),
                         model,
                         request.maxTokens() != null ? request.maxTokens() : defaultChat(runtime).maxTokens(),
+                        request.temperature() != null ? request.temperature() : defaultChat(runtime).temperature(),
                         request.reasoningEffort(),
-                        request.proMode(),
                         null,
                         null,
                         null
@@ -134,8 +134,8 @@ public class QwenChatProviderClient {
                         request.messages(),
                         model,
                         defaultChat(runtime).maxTokens(),
+                        request.temperature() != null ? request.temperature() : defaultChat(runtime).temperature(),
                         request.reasoningEffort(),
-                        request.proMode(),
                         request.schemaName(),
                         request.strict(),
                         request.schema()
@@ -241,8 +241,8 @@ public class QwenChatProviderClient {
             List<ChatMessage> messages,
             String model,
             Integer maxOutputTokens,
+            Double temperature,
             String reasoningEffort,
-            Boolean proMode,
             String schemaName,
             Boolean strict,
             Map<String, Object> schema
@@ -257,11 +257,11 @@ public class QwenChatProviderClient {
             if (maxOutputTokens != null) {
                 payload.put("max_output_tokens", maxOutputTokens);
             }
+            if (temperature != null) {
+                payload.put("temperature", temperature);
+            }
             Map<String, Object> reasoning = new LinkedHashMap<>();
             reasoning.put("effort", reasoningEffort == null || reasoningEffort.isBlank() ? "high" : reasoningEffort);
-            if (Boolean.TRUE.equals(proMode)) {
-                reasoning.put("mode", "pro");
-            }
             payload.put("reasoning", reasoning);
             if (schema != null && !schema.isEmpty()) {
                 payload.put("text", Map.of(
@@ -282,19 +282,23 @@ public class QwenChatProviderClient {
             if (response == null) {
                 throw new InvalidProviderResponseException("Responses provider returned no response");
             }
-            String responseModel = response.path("model").asText();
-            if (!modelsCompatible(model, responseModel)) {
+            String status = response.path("status").asText();
+            if (!"completed".equals(status)) {
+                String reason = response.path("error").path("message").asText();
+                if (reason.isBlank()) {
+                    reason = response.path("incomplete_details").path("reason").asText();
+                }
                 throw new InvalidProviderResponseException(
-                        "Responses provider returned model %s but %s was requested".formatted(responseModel, model)
+                        reason.isBlank()
+                                ? "Responses provider returned status " + status
+                                : "Responses provider returned status " + status + ": " + reason
                 );
             }
+            String responseModel = response.path("model").asText();
             String content = extractResponseText(response);
             if (content.isBlank()) {
                 throw new InvalidProviderResponseException("Responses provider returned empty content");
             }
-            String status = response.path("status").asText("completed");
-            String incompleteReason = response.path("incomplete_details").path("reason").asText();
-            String finishReason = incompleteReason.isBlank() ? status : status + ":" + incompleteReason;
             JsonNode usageNode = response.path("usage");
             TokenUsage usage = usageNode.isMissingNode() || usageNode.isNull()
                     ? null
@@ -305,9 +309,9 @@ public class QwenChatProviderClient {
                     );
             String responseId = response.path("id").asText();
             return new ResponsesResult(
-                    responseModel,
+                    responseModel.isBlank() ? model : responseModel,
                     content,
-                    finishReason,
+                    status,
                     responseId.isBlank() ? requestContextHolder.getRequestId() : responseId,
                     usage
             );
@@ -364,16 +368,6 @@ public class QwenChatProviderClient {
 
     private Integer nullableInteger(JsonNode node) {
         return node != null && node.isNumber() ? node.intValue() : null;
-    }
-
-    private boolean modelsCompatible(String requestedModel, String responseModel) {
-        if (requestedModel == null || requestedModel.isBlank() || responseModel == null || responseModel.isBlank()) {
-            return false;
-        }
-        if (requestedModel.equals(responseModel)) {
-            return true;
-        }
-        return responseModel.startsWith(requestedModel + "-");
     }
 
     private Prompt toStructuredPrompt(AiProviderRuntime runtime, StructuredChatRequest request, String model) {

@@ -55,22 +55,22 @@ export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
 }) => (
   <>
     {saveMessage && (
-      <div className="rounded-[1.6rem] border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-600 dark:text-emerald-400">
+      <div aria-live="polite" className="rounded-[1.6rem] border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-600 dark:text-emerald-400">
         {saveMessage}
       </div>
     )}
     {saveErrorMessage && (
-      <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+      <div role="alert" className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
         {saveErrorMessage}
       </div>
     )}
     {submitInfoMessage && (
-      <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-600 dark:text-amber-400">
+      <div aria-live="polite" className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-600 dark:text-amber-400">
         {submitInfoMessage}
       </div>
     )}
     {loadInfoMessage && (
-      <div className="rounded-[1.6rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
+      <div aria-live="polite" className="rounded-[1.6rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
         <div>{loadInfoMessage}</div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sky-500/10">
           <div className="h-full w-1/3 animate-pulse rounded-full bg-sky-500/70" />
@@ -78,12 +78,12 @@ export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
       </div>
     )}
     {submitErrorMessage && (
-      <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+      <div role="alert" className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
         {submitErrorMessage}
       </div>
     )}
     {loadError && (
-      <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+      <div role="alert" className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
         <div>{getApiErrorMessage(loadError)}</div>
         {onRetryLoad && (
           <button
@@ -114,12 +114,19 @@ export const SessionProgressHeader: React.FC<SessionProgressHeaderProps> = ({
   totalItems,
   gradientClassName,
 }) => (
-  <div className="flex items-center justify-between">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-white/45">
       {icon}
       <span>{label}</span>
     </div>
-    <div className="h-2 w-56 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={Math.max(1, totalItems || 0)}
+      aria-valuenow={answeredItems || 0}
+      aria-label={label}
+      className="h-2 w-full overflow-hidden rounded-full bg-slate-200 sm:w-56 dark:bg-white/10"
+    >
       <div
         className={`h-full ${gradientClassName}`}
         style={{ width: `${buildProgressPercent(answeredItems, totalItems)}%` }}

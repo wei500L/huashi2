@@ -9,14 +9,17 @@ import { buildDiagnosisHref } from '@/lib/diagnosis-launch';
 import { aiService, trainingService } from '@/lib/services';
 import { errorTypeLabel, formatDateTime, formatMaybePercent, formatMs, lexicalPairTypeLabel, trainingModeLabel } from '@/lib/format';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
+import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { buildTrainingHref, clearTrainingLaunchParams, parseTrainingLaunchNumber, type TrainingLaunchParams } from '@/lib/training-launch';
 import type {
   SessionCompletionHookStatus,
   SubmitTrainingAnswerRequest,
+  TrainingAnswerOutcomeVO,
   TrainingHistorySummaryVO,
   TrainingItemResultDetailVO,
   TrainingMode,
   TrainingOptionViewVO,
+  TrainingSessionProgressVO,
 } from '@/lib/contracts';
 import { SessionFeedbackBanners, SessionOptionButton, SessionProgressHeader, SessionSaveActions } from '@/features/session-runtime/components';
 import { HESITATION_BASELINE_MS, NEXT_ITEM_RETRY_DELAY_MS, SLOW_NEXT_ITEM_NOTICE_DELAY_MS } from '@/features/session-runtime/constants';
@@ -25,6 +28,13 @@ import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime'
 import { initialTrainingFlowState, trainingFlowReducer } from './flow';
 
 type SessionLaunchContext = Omit<TrainingLaunchParams, 'mode'>;
+type TrainingAnswerFeedback = {
+  itemResultId: number;
+  mode: TrainingMode;
+  outcome: TrainingAnswerOutcomeVO;
+  progress: TrainingSessionProgressVO;
+};
+
 const TRAINING_MODES: readonly TrainingMode[] = [
   'COGNATE_BOOST',
   'FALSE_FRIEND_DISCRIM',
@@ -44,6 +54,23 @@ function findTrainingOptionLabel(options: TrainingOptionViewVO[], answerKey?: st
     return null;
   }
   return options.find((option) => option.key === answerKey)?.label || answerKey;
+}
+
+function adaptationActionLabel(action?: string | null) {
+  switch (action) {
+    case 'ESCALATE_FALSE_FRIEND':
+      return '加强假朋友词辨析训练';
+    case 'BOOST_CONTEXT':
+      return '加强语境线索训练';
+    case 'BOOST_SPEED':
+      return '进入速度巩固训练';
+    case 'QUEUE_REVIEW':
+      return '加入后续复习';
+    case 'KEEP_STABLE':
+      return '保持当前训练节奏';
+    default:
+      return action || null;
+  }
 }
 
 function TrainingItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) {
@@ -112,15 +139,18 @@ const TrainingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(trainingFlowReducer, initialTrainingFlowState);
-  const shownAtRef = React.useRef<number>(Date.now());
+  const shownAtRef = React.useRef<number>(0);
   const answerRequestRef = React.useRef<SubmitTrainingAnswerRequest | null>(null);
   const autoStartKeyRef = React.useRef<string | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
   const [loadInfoMessage, setLoadInfoMessage] = React.useState<string | null>(null);
   const [pendingNextItemId, setPendingNextItemId] = React.useState<number | null>(null);
+  const [answerFeedback, setAnswerFeedback] = React.useState<TrainingAnswerFeedback | null>(null);
   const [completionRefreshSessionId, setCompletionRefreshSessionId] = React.useState<number | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<TrainingHistorySummaryVO | null>(null);
+  const resumeDialogRef = React.useRef<HTMLDivElement | null>(null);
+  const resumeContinueButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const requestedMode = React.useMemo(() => parseRequestedTrainingMode(searchParams.get('mode')), [searchParams]);
   const requestedSource = searchParams.get('source');
@@ -128,6 +158,14 @@ const TrainingPage: React.FC = () => {
   const requestedLexicalPairId = parseTrainingLaunchNumber(searchParams.get('lexicalPairId'));
   const requestedWrongBookId = parseTrainingLaunchNumber(searchParams.get('wrongBookId'));
   const requestedReviewScheduleId = parseTrainingLaunchNumber(searchParams.get('reviewScheduleId'));
+  const closeResumeDialog = React.useCallback(() => setResumeCandidate(null), []);
+  useBodyScrollLock(!!resumeCandidate);
+  useDialogAccessibility({
+    open: !!resumeCandidate,
+    containerRef: resumeDialogRef,
+    initialFocusRef: resumeContinueButtonRef,
+    onClose: closeResumeDialog,
+  });
   const baseLaunchParams = React.useMemo<SessionLaunchContext>(
     () => ({
       source: requestedSource,
@@ -209,9 +247,13 @@ const TrainingPage: React.FC = () => {
         reviewScheduleId: payload.reviewScheduleId,
       }),
     onSuccess: (created) => {
-      shownAtRef.current = Date.now();
       dispatch({ type: 'startSession', sessionId: created.sessionId });
       void queryClient.invalidateQueries({ queryKey: ['training-history'] });
+    },
+    onError: (error) => {
+      if (normalizeApiError(error).code === 'ACTIVE_SESSION_EXISTS') {
+        void historyQuery.refetch();
+      }
     },
   });
 
@@ -239,7 +281,10 @@ const TrainingPage: React.FC = () => {
     retry: 1,
     refetchInterval: (query) => {
       const status = query.state.data?.completionHooksStatus;
-      return status === 'DONE' || status === 'FAILED' ? false : 1500;
+      if (status === 'DONE') {
+        return false;
+      }
+      return status === 'FAILED' ? 5000 : 1500;
     },
   });
 
@@ -254,7 +299,7 @@ const TrainingPage: React.FC = () => {
       return;
     }
     if (status === 'FAILED') {
-      setCompletionRefreshSessionId(null);
+      return;
     }
   }, [completionHooksQuery.data?.completionHooksStatus, completionRefreshSessionId, invalidateCompletionDependentQueries]);
 
@@ -273,32 +318,42 @@ const TrainingPage: React.FC = () => {
     setCompletionRefreshSessionId(null);
   }, [invalidateCompletionDependentQueries, queryClient]);
 
+  const continueAfterFeedback = React.useCallback(async () => {
+    if (!answerFeedback) {
+      return;
+    }
+    const { itemResultId, progress } = answerFeedback;
+    setAnswerFeedback(null);
+    answerRequestRef.current = null;
+    if (progress.completed) {
+      setPendingNextItemId(null);
+      setSubmitInfoMessage(null);
+      markCompleted(progress.sessionId, progress.completionHooksStatus);
+      return;
+    }
+
+    setPendingNextItemId(itemResultId);
+    const refreshed = await nextItemQuery.refetch();
+    if (refreshed.error) {
+      setSubmitInfoMessage('答案已提交，但下一题加载失败。请重试加载当前题，系统不会重复计入本题。');
+      return;
+    }
+    setPendingNextItemId(null);
+    setSubmitInfoMessage(null);
+  }, [answerFeedback, markCompleted, nextItemQuery]);
+
   const answerMutation = useMutation({
     mutationFn: (payload: SubmitTrainingAnswerRequest) =>
       trainingService.submitAnswer(state.sessionId as number, payload),
-    onSuccess: async (progress, payload) => {
+    onSuccess: (submission, payload) => {
       setSubmitErrorMessage(null);
-      if (progress.completed) {
-        answerRequestRef.current = null;
-        setPendingNextItemId(null);
-        setSubmitInfoMessage(null);
-        markCompleted(progress.sessionId, progress.completionHooksStatus);
-        return;
-      }
-      shownAtRef.current = Date.now();
-      setPendingNextItemId(payload.itemResultId);
-      const refreshed = await nextItemQuery.refetch();
-      if (refreshed.error) {
-        setSubmitInfoMessage('答案已提交，但下一题加载失败。请重试加载当前题，系统不会重复计入本题。');
-        return;
-      }
-      if (refreshed.data?.readyToComplete) {
-        setPendingNextItemId(null);
-        setSubmitInfoMessage('最后一题已完成，请确认交卷。');
-        return;
-      }
-      setPendingNextItemId(null);
       setSubmitInfoMessage(null);
+      setAnswerFeedback({
+        itemResultId: payload.itemResultId,
+        mode: nextItemQuery.data?.mode || 'COGNATE_BOOST',
+        outcome: submission.outcome,
+        progress: submission.progress,
+      });
     },
     onError: async (error, payload) => {
       const refreshed = await nextItemQuery.refetch();
@@ -313,14 +368,12 @@ const TrainingPage: React.FC = () => {
         setPendingNextItemId(null);
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，请确认交卷。');
-        shownAtRef.current = Date.now();
         return;
       }
       if (refreshed.data?.item && refreshed.data.item.itemResultId !== payload.itemResultId) {
         setPendingNextItemId(null);
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，系统已同步到下一题。');
-        shownAtRef.current = Date.now();
         return;
       }
       setSubmitInfoMessage(null);
@@ -370,6 +423,13 @@ const TrainingPage: React.FC = () => {
       setSubmitErrorMessage(getApiErrorMessage(error));
     },
   });
+
+  React.useEffect(() => {
+    if (state.phase !== 'running' || !nextItemQuery.data?.readyToComplete || completeMutation.isPending) {
+      return;
+    }
+    completeMutation.mutate();
+  }, [completeMutation.isPending, completeMutation.mutate, nextItemQuery.data?.readyToComplete, state.phase]);
 
   const clearTrainingIntent = React.useCallback(() => {
     if (
@@ -471,10 +531,29 @@ const TrainingPage: React.FC = () => {
   const staleSubmittedItemVisible = !!currentItem && pendingNextItemId === currentItem.itemResultId;
   const isAnswerLocked =
     answerMutation.isPending ||
+    !!answerFeedback ||
     completeMutation.isPending ||
     abandonMutation.isPending ||
     nextItemQuery.isFetching ||
     staleSubmittedItemVisible;
+
+  React.useLayoutEffect(() => {
+    if (!currentItem) {
+      shownAtRef.current = 0;
+      return;
+    }
+    shownAtRef.current = window.performance.now();
+  }, [currentItem?.itemResultId]);
+
+  React.useEffect(() => {
+    if (!answerFeedback || answerFeedback.mode !== 'SPEED_CHALLENGE') {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void continueAfterFeedback();
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [answerFeedback, continueAfterFeedback]);
 
   React.useEffect(() => {
     if (!currentItem) {
@@ -483,6 +562,7 @@ const TrainingPage: React.FC = () => {
       return;
     }
     runtime.resetFeedback();
+    setAnswerFeedback(null);
     setLoadInfoMessage(null);
     if (answerRequestRef.current?.itemResultId !== currentItem.itemResultId) {
       answerRequestRef.current = null;
@@ -520,7 +600,8 @@ const TrainingPage: React.FC = () => {
     const existingRequest =
       answerRequestRef.current?.itemResultId === currentItem.itemResultId ? answerRequestRef.current : null;
     const request = existingRequest ?? (() => {
-      const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
+      const elapsedMs = shownAtRef.current > 0 ? window.performance.now() - shownAtRef.current : 1;
+      const reactionTimeMs = Math.min(2_147_483_647, Math.max(1, Math.round(elapsedMs)));
       return {
         itemResultId: currentItem.itemResultId,
         clientRequestId: crypto.randomUUID(),
@@ -530,7 +611,6 @@ const TrainingPage: React.FC = () => {
       } satisfies SubmitTrainingAnswerRequest;
     })();
     answerRequestRef.current = request;
-    shownAtRef.current = Date.now();
     await answerMutation.mutateAsync(request);
   };
 
@@ -538,7 +618,6 @@ const TrainingPage: React.FC = () => {
     if (!resumeCandidate) {
       return;
     }
-    shownAtRef.current = Date.now();
     dispatch({ type: 'resumeSession', sessionId: resumeCandidate.sessionId });
     setResumeCandidate(null);
   };
@@ -612,29 +691,11 @@ const TrainingPage: React.FC = () => {
         ) : nextItemQuery.data?.readyToComplete ? (
           <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
             <div className="max-w-2xl">
-              <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Ready To Submit</div>
-              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">当前训练已全部完成</h2>
+              <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Generating Summary</div>
+              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">正在生成训练总结</h2>
               <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
-                最后一题已经记录成功。确认交卷后，系统会生成本轮训练总结。
+                所有答案均已记录，系统正在完成本轮总结，请稍候。
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => void completeMutation.mutateAsync()}
-                  disabled={completeMutation.isPending}
-                  className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
-                >
-                  {completeMutation.isPending ? '正在交卷...' : '确认交卷'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleRunningAbandon()}
-                  disabled={completeMutation.isPending}
-                  className="rounded-full border border-rose-200 px-6 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
-                >
-                  放弃本次
-                </button>
-              </div>
             </div>
           </section>
         ) : !currentItem || staleSubmittedItemVisible ? (
@@ -700,7 +761,49 @@ const TrainingPage: React.FC = () => {
                 ))}
               </div>
 
-              {isAnswerLocked && (
+              {answerFeedback && (
+                <div
+                  className={`mt-6 rounded-[1.6rem] border p-5 ${
+                    answerFeedback.outcome.correct
+                      ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                      : 'border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-200'
+                  }`}
+                  aria-live="polite"
+                >
+                  <div className="text-lg font-black">
+                    {answerFeedback.outcome.correct ? '回答正确' : '回答错误'}
+                  </div>
+                  <div className="mt-3 text-sm leading-7">
+                    正确答案：{findTrainingOptionLabel(currentItem.options, answerFeedback.outcome.correctAnswerKey)}
+                  </div>
+                  {!answerFeedback.outcome.correct && answerFeedback.outcome.detectedErrorType && (
+                    <div className="mt-2 text-sm leading-7">
+                      迁移偏差：{errorTypeLabel(answerFeedback.outcome.detectedErrorType)}
+                    </div>
+                  )}
+                  {answerFeedback.outcome.explanation && (
+                    <div className="mt-2 text-sm leading-7">{answerFeedback.outcome.explanation}</div>
+                  )}
+                  {adaptationActionLabel(answerFeedback.outcome.adaptationAction) && (
+                    <div className="mt-2 text-sm font-semibold leading-7">
+                      纠偏动作：{adaptationActionLabel(answerFeedback.outcome.adaptationAction)}
+                    </div>
+                  )}
+                  {answerFeedback.mode === 'SPEED_CHALLENGE' ? (
+                    <div className="mt-3 text-xs font-semibold">即将进入下一题…</div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void continueAfterFeedback()}
+                      className="mt-4 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-bold text-white dark:bg-white dark:text-slate-900"
+                    >
+                      {answerFeedback.progress.completed ? '查看训练总结' : '下一题'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {isAnswerLocked && !answerFeedback && (
                 <div className="mt-6 text-sm text-slate-500 dark:text-white/45">系统正在提交答案并加载下一题，请稍候。</div>
               )}
             </section>
@@ -712,6 +815,13 @@ const TrainingPage: React.FC = () => {
 
   if (state.phase === 'summary') {
     const summary = summaryQuery.data;
+    const completionHooksStatus = completionHooksQuery.data?.completionHooksStatus;
+    const completionHooksPending =
+      completionRefreshSessionId != null &&
+      completionHooksStatus !== 'DONE' &&
+      completionHooksStatus !== 'FAILED';
+    const completionHooksFailed = completionHooksStatus === 'FAILED';
+    const completionHooksReady = completionRefreshSessionId == null || completionHooksStatus === 'DONE';
 
     return (
       <div className="space-y-8">
@@ -726,6 +836,18 @@ const TrainingPage: React.FC = () => {
               : t('training.summarySubtitle')
           }
         />
+
+        {completionHooksPending && (
+          <div className="rounded-[2rem] border border-sky-500/20 bg-sky-500/10 p-6 text-sm text-sky-800 dark:text-sky-200" aria-live="polite">
+            训练总结已生成，错题本、复习计划和学习档案正在更新。
+          </div>
+        )}
+
+        {completionHooksFailed && (
+          <div className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-6 text-sm text-amber-800 dark:text-amber-200" role="alert">
+            核心训练总结不受影响，但学习数据更新暂时失败，后台将自动重试。
+          </div>
+        )}
 
         {summaryQuery.error && (
           <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
@@ -777,8 +899,9 @@ const TrainingPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    disabled={!completionHooksReady}
                     onClick={() => navigate('/errors')}
-                    className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold dark:border-white/10"
+                    className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10"
                   >
                     查看错题与复习
                   </button>
@@ -1135,20 +1258,27 @@ const TrainingPage: React.FC = () => {
 
       {resumeCandidate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950">
+          <div
+            ref={resumeDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="training-resume-title"
+            tabIndex={-1}
+            className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950"
+          >
             <div className="flex items-start gap-4">
               <div className="rounded-full bg-amber-500/10 p-3 text-amber-500">
                 <AlertTriangle size={20} />
               </div>
               <div className="flex-1">
-                <div className="text-2xl font-black text-slate-900 dark:text-white">发现未完成训练</div>
+                <div id="training-resume-title" className="text-2xl font-black text-slate-900 dark:text-white">发现未完成训练</div>
                 <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/50">
                   上次保存时间：{resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。你可以继续本次训练，也可以放弃后重新开始。
                 </div>
               </div>
             </div>
             <div className="mt-8 flex flex-wrap gap-3">
-              <button type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
+              <button ref={resumeContinueButtonRef} type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
                 继续训练
               </button>
               <button

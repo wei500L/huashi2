@@ -11,6 +11,7 @@ public record AssessmentAttemptHeartbeatVO(
         LocalDateTime expiresAt,
         LocalDateTime submittedAt,
         LocalDateTime lastSavedAt,
+        Long version,
         LocalDateTime serverTime
 ) {
 }

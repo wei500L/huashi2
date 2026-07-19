@@ -69,6 +69,13 @@ function resolveAssessmentDashboardAction(item: StudentAssessmentSummaryVO, now:
   const startsAt = item.startsAt ? new Date(item.startsAt).getTime() : null;
   const dueAt = item.dueAt ? new Date(item.dueAt).getTime() : null;
   if (item.attemptStatus === 'SUBMITTED' && item.attemptId) {
+    if (item.releaseStatus === 'PENDING') {
+      return {
+        label: `结果将于 ${formatDateTime(item.resultAvailableAt)} 公布`,
+        disabled: true,
+        to: '/assessments',
+      };
+    }
     return {
       label: t('ui.actions.viewResult'),
       disabled: false,

@@ -26,7 +26,6 @@ import jakarta.validation.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -52,9 +51,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class AiRuntimeConfigService {
-
-    @Value("${ai.embedding-space-policy.enabled:false}")
-    private boolean embeddingSpacePolicyEnabled;
 
     private static final Logger log = LoggerFactory.getLogger(AiRuntimeConfigService.class);
     private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigEffectiveResponse>> EFFECTIVE_TYPE =
@@ -246,7 +242,6 @@ public class AiRuntimeConfigService {
         rejectIfOlderThanCurrent(stagedBundle.bundle());
         stagedBundles.remove(stageId);
 
-        AiRuntimeBundle previousBundle = current();
         AiRuntimeBundle activatedBundle = activate(stagedBundle.bundle());
         currentBundle.set(activatedBundle);
         storedSyncStatus.set(STORED_SYNC_STATUS_IN_SYNC);
@@ -257,13 +252,7 @@ public class AiRuntimeConfigService {
                 activatedBundle.source(),
                 activatedBundle.version(),
                 activatedBundle.appliedAt(),
-                mergeNotices(
-                        mergeNotices(validationNotices(activatedBundle.config()), applyNotices(activatedBundle.config())),
-                        embeddingTransitionNotices(
-                                previousBundle == null ? null : previousBundle.config(),
-                                activatedBundle.config()
-                        )
-                )
+                mergeNotices(validationNotices(activatedBundle.config()), applyNotices(activatedBundle.config()))
         );
         committedStages.put(stageId, new CommittedRuntimeStage(
                 response,
@@ -286,7 +275,6 @@ public class AiRuntimeConfigService {
 
     private ValidationOutcome prepareBundle(AiOpsConfigPayload payload, String source, Long version) {
         List<AiOpsConfigIssue> issues = new ArrayList<>(collectIssues(payload));
-        issues.addAll(onlineEmbeddingSpaceChangeIssues(payload));
         List<AiOpsConfigNotice> notices = validationNotices(payload);
         if (!issues.isEmpty()) {
             return new ValidationOutcome(issues, notices, null);
@@ -303,24 +291,6 @@ public class AiRuntimeConfigService {
             List<AiOpsConfigIssue> buildIssues = List.of(new AiOpsConfigIssue("config", "runtime_build_failed", ex.getMessage()));
             return new ValidationOutcome(buildIssues, notices, null);
         }
-    }
-
-    private List<AiOpsConfigIssue> onlineEmbeddingSpaceChangeIssues(AiOpsConfigPayload nextConfig) {
-        if (!embeddingSpacePolicyEnabled || currentBundle.get() == null) {
-            return List.of();
-        }
-        AiOpsEmbeddingConfig currentEmbedding = activeEmbedding(currentBundle.get().config());
-        AiOpsEmbeddingConfig nextEmbedding = activeEmbedding(nextConfig);
-        if (currentEmbedding == null || nextEmbedding == null
-                || (Objects.equals(currentEmbedding.model(), nextEmbedding.model())
-                && Objects.equals(currentEmbedding.dimension(), nextEmbedding.dimension()))) {
-            return List.of();
-        }
-        return List.of(new AiOpsConfigIssue(
-                "provider.providers." + nextConfig.provider().activeProvider() + ".embedding",
-                "online_embedding_space_change_forbidden",
-                "Embedding model and dimension are production-locked; migrate the database and run a full reindex in a maintenance release"
-        ));
     }
 
     private List<AiOpsConfigIssue> collectIssues(AiOpsConfigPayload payload) {
@@ -350,43 +320,7 @@ public class AiRuntimeConfigService {
                 "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
         ));
         notices.addAll(fallbackProviderNotices(payload));
-        AiRuntimeBundle current = currentBundle.get();
-        notices.addAll(embeddingTransitionNotices(current == null ? null : current.config(), payload));
         return List.copyOf(notices);
-    }
-
-    private List<AiOpsConfigNotice> embeddingTransitionNotices(
-            AiOpsConfigPayload currentConfig,
-            AiOpsConfigPayload nextConfig
-    ) {
-        AiOpsEmbeddingConfig currentEmbedding = activeEmbedding(currentConfig);
-        AiOpsEmbeddingConfig nextEmbedding = activeEmbedding(nextConfig);
-        if (currentEmbedding == null || nextEmbedding == null) {
-            return List.of();
-        }
-        if (Objects.equals(currentEmbedding.model(), nextEmbedding.model())
-                && Objects.equals(currentEmbedding.dimension(), nextEmbedding.dimension())) {
-            return List.of();
-        }
-        return List.of(new AiOpsConfigNotice(
-                "embedding_reindex_required",
-                NOTICE_SEVERITY_WARNING,
-                "Embedding model or dimension changed. Existing vectors are excluded from retrieval until a full RAG reindex completes.",
-                Map.of(
-                        "previousModel", String.valueOf(currentEmbedding.model()),
-                        "nextModel", String.valueOf(nextEmbedding.model()),
-                        "previousDimension", String.valueOf(currentEmbedding.dimension()),
-                        "nextDimension", String.valueOf(nextEmbedding.dimension())
-                )
-        ));
-    }
-
-    private AiOpsEmbeddingConfig activeEmbedding(AiOpsConfigPayload payload) {
-        if (payload == null || payload.provider() == null || payload.provider().providers() == null) {
-            return null;
-        }
-        var definition = payload.provider().providers().get(payload.provider().activeProvider());
-        return definition == null ? null : definition.embedding();
     }
 
     private List<AiOpsConfigNotice> applyNotices(AiOpsConfigPayload payload) {

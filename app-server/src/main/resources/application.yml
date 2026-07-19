@@ -101,6 +101,7 @@ app:
       enabled: ${APP_ASSESSMENT_TIMEOUT_ENABLED:true}
       poll-interval: ${APP_ASSESSMENT_TIMEOUT_POLL_INTERVAL:PT30S}
       batch-size: ${APP_ASSESSMENT_TIMEOUT_BATCH_SIZE:200}
+      submission-grace-period: ${APP_ASSESSMENT_SUBMISSION_GRACE_PERIOD:PT3S}
   notification:
     health-monitor:
       enabled: ${APP_NOTIFICATION_HEALTH_MONITOR_ENABLED:true}
@@ -172,8 +173,8 @@ integration:
     base-url: ${AI_GATEWAY_BASE_URL:http://localhost:8090}
     internal-token: ${PLATFORM_INTERNAL_API_TOKEN}
     connect-timeout: ${AI_GATEWAY_CONNECT_TIMEOUT:PT3S}
-    read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT5S}
-    max-attempts: ${AI_GATEWAY_MAX_ATTEMPTS:2}
+    read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT10M}
+    max-attempts: ${AI_GATEWAY_MAX_ATTEMPTS:1}
     retry-backoff: ${AI_GATEWAY_RETRY_BACKOFF:PT0.2S}
     degrade-enabled: ${AI_GATEWAY_DEGRADE_ENABLED:true}
 

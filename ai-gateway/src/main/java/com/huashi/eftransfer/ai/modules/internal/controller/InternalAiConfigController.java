@@ -47,7 +47,6 @@ public class InternalAiConfigController {
     @PostMapping("/apply")
     public ApiResponse<AiOpsConfigApplyResponse> apply(@RequestBody AiOpsConfigApplyRequest request) {
         String source = StringUtils.hasText(request.source()) ? request.source() : "ADMIN_APPLY";
-        aiConfigProbeService.requireReady(request.config());
         AiOpsConfigEffectiveResponse response = runtimeConfigService.apply(request.config(), source, request.version());
         return ApiResponse.success(
                 new AiOpsConfigApplyResponse(response.source(), response.version(), response.appliedAt(), response.notices()),

@@ -11,6 +11,8 @@ public record AssessmentPublishRequest(
         LocalDateTime startsAt,
         LocalDateTime dueAt,
         @Size(max = 1000, message = "instructionsText must be at most 1000 characters")
-        String instructionsText
+        String instructionsText,
+        @Size(max = 32, message = "resultReleasePolicy must be at most 32 characters")
+        String resultReleasePolicy
 ) {
 }

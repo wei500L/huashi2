@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.modules.diagnosis.vo;
 
+import com.huashi.eftransfer.app.common.session.SessionCompletionHookStatus;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisChartPayload;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisDistributionItem;
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisHighRiskLexicalPair;
@@ -19,6 +20,7 @@ public record DiagnosisResultDetailVO(
         Integer answeredItems,
         LocalDateTime startedAt,
         LocalDateTime completedAt,
+        SessionCompletionHookStatus completionHooksStatus,
         DiagnosisSummaryMetricsVO metrics,
         List<DiagnosisDistributionItem> errorTypeDistribution,
         List<DiagnosisHighRiskLexicalPair> highRiskLexicalPairs,

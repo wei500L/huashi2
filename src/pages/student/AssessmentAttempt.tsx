@@ -8,7 +8,12 @@ import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 import type { AssessmentAttemptDetailVO, AssessmentAttemptQuestionVO } from '@/lib/contracts';
-import { clearAssessmentDraft, readAssessmentDraft, writeAssessmentDraft } from '@/features/assessment/draftStorage';
+import {
+  clearAssessmentDraft,
+  markAssessmentDraftSaved,
+  readAssessmentDraft,
+  writeAssessmentDraft,
+} from '@/features/assessment/draftStorage';
 import { enqueueSerializedTask } from '@/features/assessment/saveQueue';
 import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
 
@@ -31,12 +36,17 @@ function buildInitialResponses(detail?: AssessmentAttemptDetailVO | null) {
   }, {});
 }
 
-function buildSavePayload(detail: AssessmentAttemptDetailVO, responsesByOrder: Record<number, string[]>) {
+function buildSavePayload(
+  detail: AssessmentAttemptDetailVO,
+  responsesByOrder: Record<number, string[]>,
+  baseVersion: number
+) {
   return {
     responses: detail.questions.map((question) => ({
       questionOrder: question.questionOrder,
       responses: responsesByOrder[question.questionOrder] || [],
     })),
+    baseVersion,
   };
 }
 
@@ -48,12 +58,10 @@ function mergeDraftResponses(detail: AssessmentAttemptDetailVO) {
   const serverResponses = buildInitialResponses(detail);
   const draft = readAssessmentDraft(detail.attemptId);
   if (!draft) {
-    return { responsesByOrder: serverResponses, restored: false };
+    return { responsesByOrder: serverResponses, restored: false, conflicted: false };
   }
-  const draftUpdatedAt = new Date(draft.updatedAt).getTime();
-  const serverSavedAt = detail.lastSavedAt ? new Date(detail.lastSavedAt).getTime() : Number.NEGATIVE_INFINITY;
-  if (!Number.isFinite(draftUpdatedAt) || draftUpdatedAt <= serverSavedAt) {
-    return { responsesByOrder: serverResponses, restored: false };
+  if (draft.baseVersion !== detail.version) {
+    return { responsesByOrder: serverResponses, restored: false, conflicted: true };
   }
   let restored = false;
   const merged = { ...serverResponses };
@@ -69,7 +77,7 @@ function mergeDraftResponses(detail: AssessmentAttemptDetailVO) {
     merged[question.questionOrder] = localResponses;
     restored = true;
   });
-  return { responsesByOrder: merged, restored };
+  return { responsesByOrder: merged, restored, conflicted: false };
 }
 
 type PersistMode = 'manual' | 'auto' | 'background';
@@ -79,6 +87,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const queryClient = useQueryClient();
   const params = useParams<{ attemptId: string }>();
   const attemptId = Number(params.attemptId);
+  const isValidAttemptId = Number.isSafeInteger(attemptId) && attemptId > 0;
   const [selectedQuestionOrder, setSelectedQuestionOrder] = React.useState(1);
   const [responsesByOrder, setResponsesByOrder] = React.useState<Record<number, string[]>>({});
   const [answeredCount, setAnsweredCount] = React.useState(0);
@@ -101,20 +110,22 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const skipAutosaveRef = React.useRef(true);
   const latestSaveRequestRef = React.useRef(0);
   const saveQueueRef = React.useRef<Promise<void>>(Promise.resolve());
+  const currentVersionRef = React.useRef(1);
+  const questionTitleRef = React.useRef<HTMLDivElement | null>(null);
   const submitDialogRef = React.useRef<HTMLDivElement | null>(null);
   const submitCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['student-assessment-attempt', attemptId],
     queryFn: ({ signal }) => assessmentService.getStudentAttempt(attemptId, { signal }),
-    enabled: Number.isFinite(attemptId),
+    enabled: isValidAttemptId,
     retry: false,
   });
 
   const heartbeatQuery = useQuery({
     queryKey: ['student-assessment-attempt-heartbeat', attemptId],
     queryFn: ({ signal }) => assessmentService.getStudentAttemptHeartbeat(attemptId, { signal }),
-    enabled: Number.isFinite(attemptId) && detailQuery.data?.attemptId === attemptId,
+    enabled: isValidAttemptId && detailQuery.data?.attemptId === attemptId,
     retry: false,
     refetchInterval: (query) => {
       if (detailQuery.data?.status !== 'IN_PROGRESS') {
@@ -137,11 +148,18 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     }
     hydratedAttemptIdRef.current = detailQuery.data.attemptId;
     const hydratedResponses = mergeDraftResponses(detailQuery.data);
+    currentVersionRef.current = detailQuery.data.version;
     setResponsesByOrder(hydratedResponses.responsesByOrder);
     setAnsweredCount(detailQuery.data.answeredCount);
     setLastSavedAt(detailQuery.data.lastSavedAt || null);
     setSelectedQuestionOrder(detailQuery.data.questions.find((question) => !question.answered)?.questionOrder || detailQuery.data.questions[0]?.questionOrder || 1);
-    setSaveNotice(hydratedResponses.restored ? '已恢复本地草稿。' : null);
+    setSaveNotice(
+      hydratedResponses.conflicted
+        ? '检测到其他页面或设备已保存更新，本地旧草稿未自动覆盖服务器答案。'
+        : hydratedResponses.restored
+          ? '已恢复本地草稿。'
+          : null
+    );
     setSaveErrorMessage(null);
     setSubmitErrorMessage(null);
     setIsSubmitting(false);
@@ -162,6 +180,9 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     setServerOffsetMs(new Date(heartbeatQuery.data.serverTime).getTime() - Date.now());
     setAnsweredCount(heartbeatQuery.data.answeredCount);
     setLastSavedAt(heartbeatQuery.data.lastSavedAt || null);
+    if (heartbeatQuery.data.status === 'IN_PROGRESS' && heartbeatQuery.data.version !== currentVersionRef.current) {
+      setSaveErrorMessage('检测到其他页面或设备更新了答卷。请刷新页面同步最新版本后再继续。');
+    }
     queryClient.setQueryData<AssessmentAttemptDetailVO | undefined>(
       ['student-assessment-attempt', attemptId],
       (current) =>
@@ -173,6 +194,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               expiresAt: heartbeatQuery.data.expiresAt,
               submittedAt: heartbeatQuery.data.submittedAt || null,
               lastSavedAt: heartbeatQuery.data.lastSavedAt || null,
+              version: heartbeatQuery.data.version,
               serverTime: heartbeatQuery.data.serverTime,
             }
           : current
@@ -212,6 +234,10 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     onClose: () => setSubmitConfirmOpen(false),
   });
 
+  React.useEffect(() => {
+    questionTitleRef.current?.focus();
+  }, [currentQuestion?.questionOrder]);
+
   const navigateToResult = React.useCallback(
     (nextAttemptId: number) => {
       clearAssessmentDraft(nextAttemptId);
@@ -235,6 +261,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                   expiresAt: refreshed.expiresAt,
                   submittedAt: refreshed.submittedAt || null,
                   lastSavedAt: refreshed.lastSavedAt || null,
+                  version: refreshed.version,
                   serverTime: refreshed.serverTime,
                 }
               : current
@@ -277,11 +304,12 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         }
 
         try {
-          const payload = buildSavePayload(detail, snapshot);
+          const payload = buildSavePayload(detail, snapshot, currentVersionRef.current);
           const progress = options?.keepalive
             ? await assessmentService.saveStudentResponsesKeepalive(attemptId, payload)
             : await assessmentService.saveStudentResponses(attemptId, payload);
 
+          currentVersionRef.current = progress.version;
           if (options?.keepalive || requestId === latestSaveRequestRef.current) {
             setAnsweredCount(progress.answeredCount);
             setLastSavedAt(progress.lastSavedAt || null);
@@ -295,6 +323,11 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               );
             }
           }
+          markAssessmentDraftSaved(attemptId, snapshot, progress.version);
+          queryClient.setQueryData<AssessmentAttemptDetailVO | undefined>(
+            ['student-assessment-attempt', attemptId],
+            (current) => current ? { ...current, version: progress.version } : current
+          );
 
           if (mode === 'manual') {
             await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
@@ -360,8 +393,25 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       setSaveNotice(reason === 'timeout' ? '作答时间已结束，系统正在自动交卷...' : '正在提交答卷，请勿关闭页面。');
 
       try {
-        await persistResponses('manual', responsesByOrder, { ignoreLock: true, silentSuccess: true });
-        const result = await assessmentService.submitStudentAttempt(attemptId);
+        const submitFinalSnapshot = (baseVersion: number) => assessmentService.submitStudentAttempt(attemptId, {
+          ...buildSavePayload(detail, responsesByOrder, baseVersion),
+          reason: reason === 'timeout' ? 'TIMEOUT' as const : 'MANUAL' as const,
+        });
+        let result: Awaited<ReturnType<typeof submitFinalSnapshot>>;
+        try {
+          result = await submitFinalSnapshot(currentVersionRef.current);
+        } catch (error) {
+          if (normalizeApiError(error).code !== 'VERSION_CONFLICT') {
+            throw error;
+          }
+          const refreshed = await assessmentService.getStudentAttemptHeartbeat(attemptId);
+          if (refreshed.status !== 'IN_PROGRESS') {
+            throw error;
+          }
+          currentVersionRef.current = refreshed.version;
+          result = await submitFinalSnapshot(refreshed.version);
+        }
+        currentVersionRef.current = result.version;
         clearAssessmentDraft(attemptId);
         await queryClient.invalidateQueries({ queryKey: ['student-assessments'] });
         await queryClient.invalidateQueries({ queryKey: ['student-assessment-history'] });
@@ -376,7 +426,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
           navigateToResult(submittedAttempt.attemptId);
           return;
         }
-        setSubmitLocked(false);
+        setSubmitLocked(reason === 'timeout');
         setIsSubmitting(false);
         setSaveNotice(null);
         setSubmitErrorMessage(
@@ -389,8 +439,24 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         );
       }
     },
-    [attemptId, detail, navigateToResult, persistResponses, queryClient, resolveSubmittedAttempt, responsesByOrder]
+    [attemptId, detail, navigateToResult, queryClient, resolveSubmittedAttempt, responsesByOrder]
   );
+
+  React.useEffect(() => {
+    if (
+      !detail ||
+      detail.status !== 'IN_PROGRESS' ||
+      remainingMs === null ||
+      remainingMs > 0 ||
+      autoSubmitTriggeredRef.current
+    ) {
+      return;
+    }
+    autoSubmitTriggeredRef.current = true;
+    setSubmitConfirmOpen(false);
+    setSubmitLocked(true);
+    void handleSubmit('timeout');
+  }, [detail, handleSubmit, remainingMs]);
 
   React.useEffect(() => {
     if (detail?.status !== 'SUBMITTED') {
@@ -428,7 +494,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const updateSingleResponse = React.useCallback((questionOrder: number, value: string) => {
     setResponsesByOrder((current) => {
       const next = { ...current, [questionOrder]: value ? [value] : [] };
-      writeAssessmentDraft(attemptId, next);
+      writeAssessmentDraft(attemptId, currentVersionRef.current, next);
       return next;
     });
     setSaveNotice(null);
@@ -441,7 +507,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       const existing = current[questionOrder] || [];
       const next = existing.includes(value) ? existing.filter((item) => item !== value) : [...existing, value];
       const merged = { ...current, [questionOrder]: next };
-      writeAssessmentDraft(attemptId, merged);
+      writeAssessmentDraft(attemptId, currentVersionRef.current, merged);
       return merged;
     });
     setSaveNotice(null);
@@ -452,7 +518,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const updateFillBlankResponse = React.useCallback((questionOrder: number, value: string) => {
     setResponsesByOrder((current) => {
       const next = { ...current, [questionOrder]: value.trim() ? [value] : [] };
-      writeAssessmentDraft(attemptId, next);
+      writeAssessmentDraft(attemptId, currentVersionRef.current, next);
       return next;
     });
     setSaveNotice(null);
@@ -463,15 +529,21 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const renderQuestionBody = (question: AssessmentAttemptQuestionVO) => {
     const responses = responsesByOrder[question.questionOrder] || [];
     if (question.questionType === 'FILL_BLANK') {
+      const inputId = `assessment-answer-${question.questionOrder}`;
       return (
-        <textarea
-          value={responses[0] || ''}
-          onChange={(event) => updateFillBlankResponse(question.questionOrder, event.target.value)}
-          rows={5}
-          disabled={!canEdit}
-          className="w-full rounded-[1.8rem] border border-slate-200 bg-white/75 px-4 py-3 text-base disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
-          placeholder="请输入答案"
-        />
+        <label htmlFor={inputId} className="block space-y-2">
+          <span className="text-sm font-semibold text-slate-700 dark:text-white/70">填写答案</span>
+          <textarea
+            id={inputId}
+            value={responses[0] || ''}
+            onChange={(event) => updateFillBlankResponse(question.questionOrder, event.target.value)}
+            rows={5}
+            maxLength={1000}
+            disabled={!canEdit}
+            className="w-full rounded-[1.8rem] border border-slate-200 bg-white/75 px-4 py-3 text-base disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
+            placeholder="请输入答案"
+          />
+        </label>
       );
     }
 
@@ -518,6 +590,18 @@ const StudentAssessmentAttemptPage: React.FC = () => {
     );
   };
 
+  if (!isValidAttemptId) {
+    return (
+      <div className="rounded-[2.4rem] border border-amber-500/20 bg-amber-500/10 p-8 text-amber-800 dark:text-amber-200">
+        <div className="text-2xl font-black">测评链接无效</div>
+        <p className="mt-3 text-sm">答卷编号必须是正整数，请返回任务列表重新进入。</p>
+        <Link to="/assessments" className="mt-5 inline-flex rounded-full border border-amber-500/30 px-4 py-2 text-sm font-bold">
+          返回任务列表
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
@@ -541,11 +625,17 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             <button
               type="button"
               disabled={!detail || detail.status !== 'IN_PROGRESS' || isSubmitting}
-              onClick={() => setSubmitConfirmOpen(true)}
+              onClick={() => {
+                if (remainingMs !== null && remainingMs <= 0) {
+                  void handleSubmit('timeout');
+                  return;
+                }
+                setSubmitConfirmOpen(true);
+              }}
               className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
             >
               <Send size={14} className="inline-block mr-2" />
-              {submitLocked && submitErrorMessage ? '重新提交' : '交卷'}
+              {submitErrorMessage ? '重新提交' : '交卷'}
             </button>
           </div>
         }
@@ -553,6 +643,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
 
       {(saveNotice || saveErrorMessage || submitErrorMessage) && (
         <div
+          aria-live="polite"
           className={`rounded-[1.8rem] px-5 py-4 text-sm ${
             submitErrorMessage || saveErrorMessage
               ? 'border border-rose-500/20 bg-rose-500/5 text-rose-500'
@@ -567,7 +658,10 @@ const StudentAssessmentAttemptPage: React.FC = () => {
 
       {detailQuery.error && (
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {getApiErrorMessage(detailQuery.error)}
+          <div>{getApiErrorMessage(detailQuery.error)}</div>
+          <button type="button" onClick={() => void detailQuery.refetch()} className="mt-4 rounded-full border border-rose-500/30 px-4 py-2 text-sm font-bold">
+            重试加载
+          </button>
         </div>
       )}
 
@@ -599,6 +693,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                   <button
                     key={question.questionOrder}
                     type="button"
+                    aria-current={selected ? 'step' : undefined}
+                    aria-label={`第 ${question.questionOrder} 题，${selected ? '当前题' : answered ? '已作答' : '未作答'}`}
                     onClick={() => setSelectedQuestionOrder(question.questionOrder)}
                     className={`rounded-2xl px-3 py-3 text-sm font-bold transition-all ${
                       selected
@@ -633,7 +729,9 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                 <SectionEyebrow>
                   第 {currentQuestion.questionOrder} 题 / 共 {detail.questionCount} 题
                 </SectionEyebrow>
-                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{assessmentQuestionTypeLabel(currentQuestion.questionType)}</div>
+                <div ref={questionTitleRef} tabIndex={-1} className="mt-3 text-3xl font-black text-slate-900 outline-none dark:text-white">
+                  {assessmentQuestionTypeLabel(currentQuestion.questionType)}
+                </div>
               </div>
               <StatusBadge label={`${currentQuestion.score} 分`} tone="neutral" className="px-4 py-2 text-sm" />
             </div>

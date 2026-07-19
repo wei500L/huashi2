@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 public record AssessmentAttemptSubmitVO(
         Long attemptId,
         AssessmentAttemptStatus status,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        Long version,
+        String submitReason
 ) {
 }

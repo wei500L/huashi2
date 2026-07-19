@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppLayout } from './components/layout';
 import { RouteSkeleton } from './components/common';
 import i18n from './lib/i18n';
@@ -53,6 +53,19 @@ const AdminLexicalPairImportsPage = React.lazy(() => import('./pages/admin/Lexic
 
 const BootScreen: React.FC = () => <RouteSkeleton />;
 
+const RouteStatusPage: React.FC<{ code: 403 | 404; title: string; description: string }> = ({ code, title, description }) => (
+  <div className="mx-auto flex min-h-[60vh] max-w-2xl items-center px-6 py-16">
+    <div className="w-full rounded-[2.6rem] liquid-glass-panel p-8 md:p-10">
+      <div className="text-sm font-black tracking-[0.24em] text-primary">{code}</div>
+      <h1 className="mt-4 text-4xl font-black text-slate-900 dark:text-white">{title}</h1>
+      <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">{description}</p>
+      <Link to="/" className="btn-liquid mt-7 inline-flex px-5 py-3 text-white">
+        返回可用工作区
+      </Link>
+    </div>
+  </div>
+);
+
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const authenticated = useAuthStore((state) => state.status === 'authenticated' && !!state.session?.accessToken);
@@ -68,24 +81,15 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const RequireCapability: React.FC<{ capability: Capability; children: React.ReactNode }> = ({ capability, children }) => {
-  const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  const activeWorkspace = useUIStore((state) => state.activeWorkspace);
-  const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return userHasCapability(user, capability) ? (
-    <>{children}</>
-  ) : (
-    <Navigate
-      to={resolveHomePathForUser({
-        user,
-        pathname: location.pathname,
-        activeWorkspace,
-        preferredWorkspaceByUser,
-      })}
-      replace
+  return userHasCapability(user, capability) ? <>{children}</> : (
+    <RouteStatusPage
+      code={403}
+      title="无权访问此页面"
+      description="当前账号没有该工作区权限。你可以返回已有权限的工作区继续使用。"
     />
   );
 };
@@ -448,9 +452,10 @@ const App: React.FC = () => {
         <Route path="teacher" element={<Navigate to="/teacher/workspace" replace />} />
         <Route path="monitor" element={<Navigate to="/teacher/interventions" replace />} />
         <Route path="settings" element={withSuspense(<SettingsPage />)} />
+        <Route path="*" element={<RouteStatusPage code={404} title="页面不存在" description="链接可能已失效，或地址输入有误。" />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<RouteStatusPage code={404} title="页面不存在" description="链接可能已失效，或地址输入有误。" />} />
     </Routes>
   );
 };

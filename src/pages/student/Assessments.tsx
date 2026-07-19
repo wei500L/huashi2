@@ -13,6 +13,14 @@ function resolveAction(item: StudentAssessmentSummaryVO, now: number, t: TFuncti
   const startsAt = item.startsAt ? new Date(item.startsAt).getTime() : null;
   const dueAt = item.dueAt ? new Date(item.dueAt).getTime() : null;
   if (item.attemptStatus === 'SUBMITTED' && item.attemptId) {
+    const resultAvailableAt = item.resultAvailableAt ? new Date(item.resultAvailableAt).getTime() : null;
+    if (item.releaseStatus === 'PENDING' && (!resultAvailableAt || resultAvailableAt > now)) {
+      return {
+        label: `已交卷，结果将于 ${formatDateTime(item.resultAvailableAt)} 公布`,
+        disabled: true,
+        icon: Clock3,
+      };
+    }
     return { label: t('ui.actions.viewResult'), disabled: false, icon: CheckCircle2 };
   }
   if (startsAt && startsAt > now) {
@@ -30,11 +38,16 @@ function resolveAction(item: StudentAssessmentSummaryVO, now: number, t: TFuncti
 const StudentAssessmentsPage: React.FC = () => {
   const { t } = useTranslation();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const now = Date.now();
+  const [now, setNow] = React.useState(Date.now());
   const assessmentsQuery = useQuery({
     queryKey: ['student-assessments'],
     queryFn: ({ signal }) => assessmentService.listStudentAssessments({ signal }),
   });
+
+  React.useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const startMutation = useMutation({
     mutationFn: (publishId: number) => assessmentService.startStudentAttempt(publishId),

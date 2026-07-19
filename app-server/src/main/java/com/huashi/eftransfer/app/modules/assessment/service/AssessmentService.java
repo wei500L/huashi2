@@ -12,6 +12,7 @@ import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentPaperSaveReque
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentPublishRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentQuestionRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.SubmitAssessmentAttemptRequest;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptAnswerEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPaperEntity;
@@ -52,6 +53,8 @@ import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentPaperStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentPublishStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentQuestionType;
+import com.huashi.eftransfer.shared.enums.AssessmentResultReleasePolicy;
+import com.huashi.eftransfer.shared.enums.AssessmentSubmitReason;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.page.PageQuery;
 import com.huashi.eftransfer.shared.page.PageResult;
@@ -91,6 +94,7 @@ public class AssessmentService {
     private final AssessmentJsonCodec assessmentJsonCodec;
     private final UserMapper userMapper;
     private final NotificationScenarioService notificationScenarioService;
+    private final AssessmentTimeoutProperties assessmentTimeoutProperties;
 
     public AssessmentService(
             AssessmentPaperMapper assessmentPaperMapper,
@@ -103,7 +107,8 @@ public class AssessmentService {
             TeachingClassService teachingClassService,
             AssessmentJsonCodec assessmentJsonCodec,
             UserMapper userMapper,
-            NotificationScenarioService notificationScenarioService
+            NotificationScenarioService notificationScenarioService,
+            AssessmentTimeoutProperties assessmentTimeoutProperties
     ) {
         this.assessmentPaperMapper = assessmentPaperMapper;
         this.assessmentQuestionMapper = assessmentQuestionMapper;
@@ -116,6 +121,7 @@ public class AssessmentService {
         this.assessmentJsonCodec = assessmentJsonCodec;
         this.userMapper = userMapper;
         this.notificationScenarioService = notificationScenarioService;
+        this.assessmentTimeoutProperties = assessmentTimeoutProperties;
     }
 
     public List<AssessmentPaperSummaryVO> listTeacherPapers() {
@@ -169,6 +175,10 @@ public class AssessmentService {
     public AssessmentPublishSummaryVO publishPaper(Long paperId, AssessmentPublishRequest request) {
         AssessmentPaperEntity paper = requireAccessiblePaper(paperId);
         validatePublishWindow(request.startsAt(), request.dueAt());
+        AssessmentResultReleasePolicy resultReleasePolicy = parseResultReleasePolicy(request.resultReleasePolicy());
+        if (resultReleasePolicy == AssessmentResultReleasePolicy.AFTER_DUE && request.dueAt() == null) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "dueAt is required when results are released after the due time", 400);
+        }
         if (loadQuestionsByPaper(paperId).isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment paper must contain questions before publishing", 409);
         }
@@ -187,6 +197,7 @@ public class AssessmentService {
         publish.setInstructionsText(normalizeOptionalText(request.instructionsText()));
         publish.setStartsAt(request.startsAt());
         publish.setDueAt(request.dueAt());
+        publish.setResultReleasePolicy(resultReleasePolicy.name());
         publish.setPublishedAt(LocalDateTime.now());
         assessmentPublishMapper.insert(publish);
         snapshotRecipients(publish);
@@ -237,6 +248,7 @@ public class AssessmentService {
         return publishes.stream()
                 .map(publish -> {
                     AssessmentAttemptEntity attempt = attemptByPublishId.get(publish.getId());
+                    AssessmentReleaseView releaseView = resolveReleaseView(publish, now);
                     String attemptStatus = attempt == null
                             ? null
                             : isAttemptExpired(attempt, publish, now)
@@ -262,7 +274,9 @@ public class AssessmentService {
                             attempt == null ? null : attempt.getAnsweredCount(),
                             attempt == null ? null : attempt.getStartedAt(),
                             attempt == null ? null : attempt.getExpiresAt(),
-                            attempt == null ? null : attempt.getSubmittedAt()
+                            attempt == null ? null : attempt.getSubmittedAt(),
+                            releaseView.status(),
+                            releaseView.availableAt()
                     );
                 })
                 .toList();
@@ -308,6 +322,7 @@ public class AssessmentService {
                         return null;
                     }
                     TeachingClassEntity teachingClass = classMap.get(publish.getTeachingClassId());
+                    AssessmentReleaseView releaseView = resolveReleaseView(publish, now);
                     return new StudentAssessmentHistorySummaryVO(
                             effectiveAttempt.getId(),
                             publish.getId(),
@@ -318,12 +333,14 @@ public class AssessmentService {
                             AssessmentAttemptStatus.fromCode(effectiveAttempt.getStatus()),
                             publish.getQuestionCountSnapshot(),
                             effectiveAttempt.getAnsweredCount(),
-                            effectiveAttempt.getObjectiveScore(),
-                            effectiveAttempt.getTotalScore(),
+                            releaseView.available() ? effectiveAttempt.getObjectiveScore() : null,
+                            releaseView.available() ? effectiveAttempt.getTotalScore() : null,
                             effectiveAttempt.getStartedAt(),
                             effectiveAttempt.getLastSavedAt(),
                             effectiveAttempt.getExpiresAt(),
-                            effectiveAttempt.getSubmittedAt()
+                            effectiveAttempt.getSubmittedAt(),
+                            releaseView.status(),
+                            releaseView.availableAt()
                     );
                 })
                 .filter(Objects::nonNull)
@@ -367,6 +384,7 @@ public class AssessmentService {
         attempt.setObjectiveScore(0);
         attempt.setTotalScore(0);
         attempt.setLastSavedAt(now);
+        attempt.setVersion(1L);
         try {
             assessmentAttemptMapper.insert(attempt);
         } catch (DataIntegrityViolationException exception) {
@@ -423,6 +441,7 @@ public class AssessmentService {
                 attempt.getExpiresAt(),
                 attempt.getSubmittedAt(),
                 attempt.getLastSavedAt(),
+                attempt.getVersion(),
                 now,
                 answers.stream().map(this::toAttemptQuestion).toList()
         );
@@ -440,6 +459,7 @@ public class AssessmentService {
                 attempt.getExpiresAt(),
                 attempt.getSubmittedAt(),
                 attempt.getLastSavedAt(),
+                attempt.getVersion(),
                 now
         );
     }
@@ -450,53 +470,47 @@ public class AssessmentService {
         LocalDateTime now = LocalDateTime.now();
         AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
-            throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt has already been submitted", 409);
+            throw new BusinessException(ResultCode.ATTEMPT_SUBMITTED, "Assessment attempt has already been submitted", 409);
         }
-
-        Map<Integer, AssessmentAttemptResponseRequest> requestByOrder = new LinkedHashMap<>();
-        for (AssessmentAttemptResponseRequest response : request.responses()) {
-            if (requestByOrder.put(response.questionOrder(), response) != null) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "Duplicate question order in responses", 400);
-            }
-        }
-
+        requireAttemptVersion(attempt, request.baseVersion());
         List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
-        Map<Integer, AssessmentAttemptAnswerEntity> answerByOrder = answers.stream()
-                .collect(Collectors.toMap(AssessmentAttemptAnswerEntity::getQuestionOrder, Function.identity(), (left, right) -> left, LinkedHashMap::new));
-
-        for (AssessmentAttemptResponseRequest response : requestByOrder.values()) {
-            AssessmentAttemptAnswerEntity answer = answerByOrder.get(response.questionOrder());
-            if (answer == null) {
-                throw new BusinessException(ResultCode.NOT_FOUND, "Assessment question was not found", 404);
-            }
-            applyResponse(answer, response.responses());
-            assessmentAttemptAnswerMapper.updateById(answer);
-        }
-
+        applyRequestedResponses(request.responses(), answers, false);
         recomputeAttemptProgress(attempt, answers, now);
         if (assessmentAttemptMapper.updateProgressIfInProgress(attempt) == 0) {
-            throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt has already been submitted", 409);
+            throw assessmentVersionConflict();
         }
-        return new AssessmentAttemptProgressVO(attempt.getId(), AssessmentAttemptStatus.fromCode(attempt.getStatus()), attempt.getAnsweredCount(), attempt.getLastSavedAt());
+        attempt.setVersion(attempt.getVersion() + 1);
+        return new AssessmentAttemptProgressVO(
+                attempt.getId(),
+                AssessmentAttemptStatus.fromCode(attempt.getStatus()),
+                attempt.getAnsweredCount(),
+                attempt.getLastSavedAt(),
+                attempt.getVersion()
+        );
     }
 
     @Transactional
-    public AssessmentAttemptSubmitVO submitAttempt(Long attemptId) {
+    public AssessmentAttemptSubmitVO submitAttempt(Long attemptId, SubmitAssessmentAttemptRequest request) {
         AttemptBundle bundle = requireAccessibleAttemptForUpdate(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now, false);
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
-            return new AssessmentAttemptSubmitVO(attempt.getId(), AssessmentAttemptStatus.fromCode(attempt.getStatus()), attempt.getSubmittedAt());
+            return toAttemptSubmitVO(attempt);
         }
-        AttemptSubmissionOutcome submission = submitAttemptInternal(attempt, now);
+        requireAttemptVersion(attempt, request.baseVersion());
+        List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
+        applyRequestedResponses(request.responses(), answers, true);
+        AssessmentSubmitReason submitReason = parseClientSubmitReason(request.reason());
+        AttemptSubmissionOutcome submission = submitAttemptInternal(attempt, now, submitReason);
         if (submission.transitioned()) {
-            notificationScenarioService.notifyAssessmentSubmitted(submission.attempt(), bundle.publish(), bundle.teachingClass(), false);
+            notificationScenarioService.notifyAssessmentSubmitted(
+                    submission.attempt(),
+                    bundle.publish(),
+                    bundle.teachingClass(),
+                    submitReason != AssessmentSubmitReason.MANUAL
+            );
         }
-        return new AssessmentAttemptSubmitVO(
-                submission.attempt().getId(),
-                AssessmentAttemptStatus.fromCode(submission.attempt().getStatus()),
-                submission.attempt().getSubmittedAt()
-        );
+        return toAttemptSubmitVO(submission.attempt());
     }
 
     @Transactional
@@ -508,8 +522,11 @@ public class AssessmentService {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment attempt is still in progress", 409);
         }
 
-        List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
-        int correctCount = (int) answers.stream().filter(answer -> Boolean.TRUE.equals(answer.getCorrect())).count();
+        AssessmentReleaseView releaseView = resolveReleaseView(bundle.publish(), now);
+        List<AssessmentAttemptAnswerEntity> answers = releaseView.available() ? loadAttemptAnswers(attempt.getId()) : List.of();
+        Integer correctCount = releaseView.available()
+                ? (int) answers.stream().filter(answer -> Boolean.TRUE.equals(answer.getCorrect())).count()
+                : null;
         return new AssessmentAttemptResultVO(
                 attempt.getId(),
                 bundle.publish().getId(),
@@ -522,11 +539,16 @@ public class AssessmentService {
                 bundle.publish().getQuestionCountSnapshot(),
                 attempt.getAnsweredCount(),
                 correctCount,
-                attempt.getObjectiveScore(),
-                attempt.getTotalScore(),
+                releaseView.available() ? attempt.getObjectiveScore() : null,
+                releaseView.available() ? attempt.getTotalScore() : null,
                 attempt.getStartedAt(),
                 attempt.getExpiresAt(),
                 attempt.getSubmittedAt(),
+                attempt.getSubmitReason(),
+                releaseView.status(),
+                releaseView.availableAt(),
+                releaseView.available(),
+                releaseView.available(),
                 answers.stream().map(this::toAttemptResultQuestion).toList()
         );
     }
@@ -600,6 +622,7 @@ public class AssessmentService {
                 publish.getInstructionsText(),
                 publish.getStartsAt(),
                 publish.getDueAt(),
+                publish.getResultReleasePolicy(),
                 publish.getPublishedAt(),
                 assignedCount,
                 notStartedCount,
@@ -712,6 +735,7 @@ public class AssessmentService {
                 publish.getInstructionsText(),
                 publish.getStartsAt(),
                 publish.getDueAt(),
+                publish.getResultReleasePolicy(),
                 publish.getPublishedAt(),
                 safeAssignedCount,
                 attemptCount,
@@ -982,6 +1006,106 @@ public class AssessmentService {
         attempt.setLastSavedAt(now);
     }
 
+    private void applyRequestedResponses(
+            List<AssessmentAttemptResponseRequest> responses,
+            List<AssessmentAttemptAnswerEntity> answers,
+            boolean requireCompleteSnapshot
+    ) {
+        Map<Integer, AssessmentAttemptResponseRequest> requestByOrder = new LinkedHashMap<>();
+        for (AssessmentAttemptResponseRequest response : responses) {
+            if (requestByOrder.put(response.questionOrder(), response) != null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Duplicate question order in responses", 400);
+            }
+        }
+        if (requireCompleteSnapshot && requestByOrder.size() != answers.size()) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Final submission must contain every assessment question", 400);
+        }
+
+        Map<Integer, AssessmentAttemptAnswerEntity> answerByOrder = answers.stream()
+                .collect(Collectors.toMap(
+                        AssessmentAttemptAnswerEntity::getQuestionOrder,
+                        Function.identity(),
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        for (AssessmentAttemptResponseRequest response : requestByOrder.values()) {
+            AssessmentAttemptAnswerEntity answer = answerByOrder.get(response.questionOrder());
+            if (answer == null) {
+                throw new BusinessException(ResultCode.NOT_FOUND, "Assessment question was not found", 404);
+            }
+            applyResponse(answer, response.responses());
+            assessmentAttemptAnswerMapper.updateById(answer);
+        }
+    }
+
+    private void requireAttemptVersion(AssessmentAttemptEntity attempt, Long baseVersion) {
+        if (!Objects.equals(attempt.getVersion(), baseVersion)) {
+            throw assessmentVersionConflict();
+        }
+    }
+
+    private BusinessException assessmentVersionConflict() {
+        return new BusinessException(
+                ResultCode.VERSION_CONFLICT,
+                "Assessment answers changed in another tab or device. Reload the latest saved version before continuing.",
+                409
+        );
+    }
+
+    private AssessmentAttemptSubmitVO toAttemptSubmitVO(AssessmentAttemptEntity attempt) {
+        return new AssessmentAttemptSubmitVO(
+                attempt.getId(),
+                AssessmentAttemptStatus.fromCode(attempt.getStatus()),
+                attempt.getSubmittedAt(),
+                attempt.getVersion(),
+                attempt.getSubmitReason()
+        );
+    }
+
+    private AssessmentSubmitReason parseClientSubmitReason(String value) {
+        AssessmentSubmitReason reason;
+        try {
+            reason = value == null || value.isBlank()
+                    ? AssessmentSubmitReason.MANUAL
+                    : AssessmentSubmitReason.fromCode(value);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, exception.getMessage(), 400);
+        }
+        if (reason == AssessmentSubmitReason.SCHEDULER) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "SCHEDULER is reserved for server-side submission", 400);
+        }
+        return reason;
+    }
+
+    private AssessmentResultReleasePolicy parseResultReleasePolicy(String value) {
+        try {
+            return value == null || value.isBlank()
+                    ? AssessmentResultReleasePolicy.AFTER_DUE
+                    : AssessmentResultReleasePolicy.fromCode(value);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, exception.getMessage(), 400);
+        }
+    }
+
+    private AssessmentReleaseView resolveReleaseView(AssessmentPublishEntity publish, LocalDateTime now) {
+        AssessmentResultReleasePolicy policy;
+        try {
+            policy = publish.getResultReleasePolicy() == null || publish.getResultReleasePolicy().isBlank()
+                    ? AssessmentResultReleasePolicy.IMMEDIATE
+                    : AssessmentResultReleasePolicy.fromCode(publish.getResultReleasePolicy());
+        } catch (IllegalArgumentException exception) {
+            policy = AssessmentResultReleasePolicy.IMMEDIATE;
+        }
+        if (policy == AssessmentResultReleasePolicy.IMMEDIATE) {
+            return new AssessmentReleaseView(true, "AVAILABLE", null);
+        }
+        LocalDateTime availableAt = publish.getDueAt() == null
+                ? null
+                : publish.getDueAt().plus(assessmentTimeoutProperties.getSubmissionGracePeriod());
+        boolean available = availableAt != null && !now.isBefore(availableAt);
+        return new AssessmentReleaseView(available, available ? "AVAILABLE" : "PENDING", availableAt);
+    }
+
     @Transactional
     public int submitExpiredAttemptsBatch(int batchSize) {
         if (batchSize <= 0) {
@@ -989,9 +1113,15 @@ public class AssessmentService {
         }
         LocalDateTime now = LocalDateTime.now();
         int submittedCount = 0;
-        for (Long attemptId : assessmentAttemptMapper.selectExpiredAttemptIds(now, batchSize)) {
+        LocalDateTime schedulerDeadline = now.minus(assessmentTimeoutProperties.getSubmissionGracePeriod());
+        for (Long attemptId : assessmentAttemptMapper.selectExpiredAttemptIds(schedulerDeadline, batchSize)) {
             AttemptBundle bundle = requireAttemptForUpdate(attemptId);
-            AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
+            AssessmentAttemptEntity effectiveAttempt = finalizeExpiredAttemptIfNecessary(
+                    attemptId,
+                    bundle,
+                    now,
+                    AssessmentSubmitReason.SCHEDULER
+            );
             if (AssessmentAttemptStatus.SUBMITTED.name().equalsIgnoreCase(effectiveAttempt.getStatus())
                     && effectiveAttempt.getSubmittedAt() != null
                     && effectiveAttempt.getSubmittedAt().equals(now)) {
@@ -1001,7 +1131,11 @@ public class AssessmentService {
         return submittedCount;
     }
 
-    private AttemptSubmissionOutcome submitAttemptInternal(AssessmentAttemptEntity attempt, LocalDateTime now) {
+    private AttemptSubmissionOutcome submitAttemptInternal(
+            AssessmentAttemptEntity attempt,
+            LocalDateTime now,
+            AssessmentSubmitReason submitReason
+    ) {
         List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
         for (AssessmentAttemptAnswerEntity answer : answers) {
             List<String> responses = assessmentJsonCodec.readStringList(answer.getResponseJson());
@@ -1011,9 +1145,11 @@ public class AssessmentService {
         recomputeAttemptProgress(attempt, answers, now);
         attempt.setStatus(AssessmentAttemptStatus.SUBMITTED.name());
         attempt.setSubmittedAt(now);
+        attempt.setSubmitReason(submitReason.name());
         if (assessmentAttemptMapper.submitIfInProgress(attempt) == 0) {
             return new AttemptSubmissionOutcome(requireAttempt(attempt.getId()).attempt(), false);
         }
+        attempt.setVersion(attempt.getVersion() + 1);
         return new AttemptSubmissionOutcome(attempt, true);
     }
 
@@ -1022,14 +1158,14 @@ public class AssessmentService {
             AttemptBundle bundle,
             LocalDateTime now
     ) {
-        return finalizeExpiredAttemptIfNecessary(attemptId, bundle, now, true);
+        return finalizeExpiredAttemptIfNecessary(attemptId, bundle, now, AssessmentSubmitReason.TIMEOUT);
     }
 
     private AssessmentAttemptEntity finalizeExpiredAttemptIfNecessary(
             Long attemptId,
             AttemptBundle bundle,
             LocalDateTime now,
-            boolean timeoutSubmitted
+            AssessmentSubmitReason submitReason
     ) {
         AssessmentAttemptEntity attempt = bundle.attempt();
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
@@ -1046,13 +1182,13 @@ public class AssessmentService {
         if (!isAttemptExpired(lockedAttempt, lockedBundle.publish(), now)) {
             return lockedAttempt;
         }
-        AttemptSubmissionOutcome submission = submitAttemptInternal(lockedAttempt, now);
+        AttemptSubmissionOutcome submission = submitAttemptInternal(lockedAttempt, now, submitReason);
         if (submission.transitioned()) {
             notificationScenarioService.notifyAssessmentSubmitted(
                     submission.attempt(),
                     lockedBundle.publish(),
                     lockedBundle.teachingClass(),
-                    timeoutSubmitted
+                    submitReason != AssessmentSubmitReason.MANUAL
             );
         }
         return submission.attempt();
@@ -1062,10 +1198,12 @@ public class AssessmentService {
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             return false;
         }
-        if (attempt.getExpiresAt() != null && !now.isBefore(attempt.getExpiresAt())) {
+        if (attempt.getExpiresAt() != null
+                && !now.isBefore(attempt.getExpiresAt().plus(assessmentTimeoutProperties.getSubmissionGracePeriod()))) {
             return true;
         }
-        return publish.getDueAt() != null && !now.isBefore(publish.getDueAt());
+        return publish.getDueAt() != null
+                && !now.isBefore(publish.getDueAt().plus(assessmentTimeoutProperties.getSubmissionGracePeriod()));
     }
 
     private void snapshotRecipients(AssessmentPublishEntity publish) {
@@ -1414,10 +1552,10 @@ public class AssessmentService {
 
     private void requirePublishAvailableForStart(AssessmentPublishEntity publish, LocalDateTime now) {
         if (publish.getStartsAt() != null && now.isBefore(publish.getStartsAt())) {
-            throw new BusinessException(ResultCode.CONFLICT, "Assessment has not started yet", 409);
+            throw new BusinessException(ResultCode.ASSESSMENT_NOT_STARTED, "Assessment has not started yet", 409);
         }
         if (publish.getDueAt() != null && !now.isBefore(publish.getDueAt())) {
-            throw new BusinessException(ResultCode.CONFLICT, "Assessment is already closed", 409);
+            throw new BusinessException(ResultCode.ASSESSMENT_CLOSED, "Assessment is already closed", 409);
         }
     }
 
@@ -1427,7 +1565,7 @@ public class AssessmentService {
             return durationExpiry;
         }
         if (!publish.getDueAt().isAfter(startedAt)) {
-            throw new BusinessException(ResultCode.CONFLICT, "Assessment is already closed", 409);
+            throw new BusinessException(ResultCode.ASSESSMENT_CLOSED, "Assessment is already closed", 409);
         }
         return publish.getDueAt();
     }
@@ -1496,6 +1634,13 @@ public class AssessmentService {
     private record AttemptSubmissionOutcome(
             AssessmentAttemptEntity attempt,
             boolean transitioned
+    ) {
+    }
+
+    private record AssessmentReleaseView(
+            boolean available,
+            String status,
+            LocalDateTime availableAt
     ) {
     }
 

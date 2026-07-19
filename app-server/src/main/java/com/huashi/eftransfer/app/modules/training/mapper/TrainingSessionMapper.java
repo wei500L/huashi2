@@ -44,6 +44,21 @@ public interface TrainingSessionMapper extends BaseMapper<TrainingSessionEntity>
 
     @Update("""
             UPDATE training_session
+            SET progress_snapshot_json = #{progressSnapshotJson},
+                last_saved_at = #{savedAt},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{sessionId}
+              AND status = 'IN_PROGRESS'
+              AND deleted = FALSE
+            """)
+    int saveProgressIfInProgress(
+            @Param("sessionId") Long sessionId,
+            @Param("progressSnapshotJson") String progressSnapshotJson,
+            @Param("savedAt") LocalDateTime savedAt
+    );
+
+    @Update("""
+            UPDATE training_session
             SET status = 'ABANDONED',
                 current_item_order = NULL,
                 last_saved_at = #{abandonedAt},

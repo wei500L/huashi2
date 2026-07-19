@@ -14,6 +14,7 @@ public class ProviderRequestCaptureInterceptor implements ClientHttpRequestInter
     private static final List<String> CANDIDATE_HEADERS = List.of(
             "x-request-id",
             "x-dashscope-request-id",
+            "x-siliconcloud-trace-id",
             "request-id"
     );
 

@@ -8,6 +8,7 @@ public record AssessmentAttemptProgressVO(
         Long attemptId,
         AssessmentAttemptStatus status,
         Integer answeredCount,
-        LocalDateTime lastSavedAt
+        LocalDateTime lastSavedAt,
+        Long version
 ) {
 }

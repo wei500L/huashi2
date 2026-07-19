@@ -19,6 +19,8 @@ public record StudentAssessmentHistorySummaryVO(
         LocalDateTime startedAt,
         LocalDateTime lastSavedAt,
         LocalDateTime expiresAt,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        String releaseStatus,
+        LocalDateTime resultAvailableAt
 ) {
 }

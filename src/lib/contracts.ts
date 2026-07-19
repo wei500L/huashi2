@@ -28,6 +28,9 @@ import type {
 export type Role = UserRole;
 export type Capability = UserCapability;
 export type SessionCompletionHookStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'FAILED';
+export type AssessmentResultReleasePolicy = 'IMMEDIATE' | 'AFTER_DUE';
+export type AssessmentResultReleaseStatus = 'AVAILABLE' | 'PENDING';
+export type AssessmentSubmitReason = 'MANUAL' | 'TIMEOUT' | 'SCHEDULER';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -751,6 +754,7 @@ export interface DiagnosisResultDetailVO {
   answeredItems: number;
   startedAt: string;
   completedAt?: string | null;
+  completionHooksStatus?: SessionCompletionHookStatus | null;
   metrics: DiagnosisSummaryMetricsVO;
   errorTypeDistribution: DiagnosisDistributionItem[];
   highRiskLexicalPairs: DiagnosisHighRiskLexicalPair[];
@@ -918,6 +922,20 @@ export interface TrainingSessionProgressVO {
   completed: boolean;
   readyToComplete: boolean;
   completionHooksStatus?: SessionCompletionHookStatus | null;
+}
+
+export interface TrainingAnswerOutcomeVO {
+  correct: boolean;
+  selectedAnswerKey: string;
+  correctAnswerKey: string;
+  detectedErrorType?: string | null;
+  explanation?: string | null;
+  adaptationAction?: string | null;
+}
+
+export interface TrainingAnswerSubmissionVO {
+  progress: TrainingSessionProgressVO;
+  outcome: TrainingAnswerOutcomeVO;
 }
 
 export interface TrainingSessionHeartbeatVO {
@@ -2206,6 +2224,7 @@ export interface AssessmentPublishRequest {
   startsAt?: string | null;
   dueAt?: string | null;
   instructionsText?: string | null;
+  resultReleasePolicy: AssessmentResultReleasePolicy;
 }
 
 export interface AssessmentAttemptResponseRequest {
@@ -2215,6 +2234,13 @@ export interface AssessmentAttemptResponseRequest {
 
 export interface SaveAssessmentResponsesRequest {
   responses: AssessmentAttemptResponseRequest[];
+  baseVersion: number;
+}
+
+export interface SubmitAssessmentAttemptRequest {
+  responses: AssessmentAttemptResponseRequest[];
+  baseVersion: number;
+  reason: Exclude<AssessmentSubmitReason, 'SCHEDULER'>;
 }
 
 export interface AssessmentOptionVO {
@@ -2245,6 +2271,7 @@ export interface AssessmentPublishSummaryVO {
   instructionsText?: string | null;
   startsAt?: string | null;
   dueAt?: string | null;
+  resultReleasePolicy: AssessmentResultReleasePolicy;
   publishedAt: string;
   assignedCount: number;
   attemptCount: number;
@@ -2299,6 +2326,8 @@ export interface StudentAssessmentSummaryVO {
   startedAt?: string | null;
   expiresAt?: string | null;
   submittedAt?: string | null;
+  releaseStatus: AssessmentResultReleaseStatus;
+  resultAvailableAt?: string | null;
 }
 
 export interface StudentAssessmentHistorySummaryVO {
@@ -2311,12 +2340,14 @@ export interface StudentAssessmentHistorySummaryVO {
   status: AssessmentAttemptStatus | string;
   questionCount: number;
   answeredCount: number;
-  objectiveScore: number;
-  totalScore: number;
+  objectiveScore?: number | null;
+  totalScore?: number | null;
   startedAt: string;
   lastSavedAt?: string | null;
   expiresAt?: string | null;
   submittedAt?: string | null;
+  releaseStatus: AssessmentResultReleaseStatus;
+  resultAvailableAt?: string | null;
 }
 
 export interface AssessmentAttemptStartVO {
@@ -2356,6 +2387,7 @@ export interface AssessmentAttemptDetailVO {
   expiresAt: string;
   submittedAt?: string | null;
   lastSavedAt?: string | null;
+  version: number;
   serverTime: string;
   questions: AssessmentAttemptQuestionVO[];
 }
@@ -2367,6 +2399,7 @@ export interface AssessmentAttemptHeartbeatVO {
   expiresAt: string;
   submittedAt?: string | null;
   lastSavedAt?: string | null;
+  version: number;
   serverTime: string;
 }
 
@@ -2375,12 +2408,15 @@ export interface AssessmentAttemptProgressVO {
   status: AssessmentAttemptStatus;
   answeredCount: number;
   lastSavedAt?: string | null;
+  version: number;
 }
 
 export interface AssessmentAttemptSubmitVO {
   attemptId: number;
   status: AssessmentAttemptStatus;
   submittedAt?: string | null;
+  version: number;
+  submitReason?: AssessmentSubmitReason | null;
 }
 
 export interface AssessmentAttemptResultQuestionVO {
@@ -2410,12 +2446,17 @@ export interface AssessmentAttemptResultVO {
   instructionsText?: string | null;
   questionCount: number;
   answeredCount: number;
-  correctCount: number;
-  objectiveScore: number;
-  totalScore: number;
+  correctCount?: number | null;
+  objectiveScore?: number | null;
+  totalScore?: number | null;
   startedAt: string;
   expiresAt: string;
   submittedAt: string;
+  submitReason?: AssessmentSubmitReason | null;
+  releaseStatus: AssessmentResultReleaseStatus;
+  resultAvailableAt?: string | null;
+  scoreVisible: boolean;
+  answerReviewVisible: boolean;
   questions: AssessmentAttemptResultQuestionVO[];
 }
 
@@ -2448,6 +2489,7 @@ export interface AssessmentPublishDetailVO {
   instructionsText?: string | null;
   startsAt?: string | null;
   dueAt?: string | null;
+  resultReleasePolicy: AssessmentResultReleasePolicy;
   publishedAt: string;
   assignedCount: number;
   notStartedCount: number;

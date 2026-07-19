@@ -41,6 +41,11 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
     @TableField("total_score")
     private Integer totalScore;
 
+    private Long version;
+
+    @TableField("submit_reason")
+    private String submitReason;
+
     public Long getPublishId() {
         return publishId;
     }
@@ -127,5 +132,21 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
 
     public void setTotalScore(Integer totalScore) {
         this.totalScore = totalScore;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
+    public String getSubmitReason() {
+        return submitReason;
+    }
+
+    public void setSubmitReason(String submitReason) {
+        this.submitReason = submitReason;
     }
 }

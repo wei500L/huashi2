@@ -65,6 +65,7 @@ import type {
   TeacherStudentDetailVO,
   TeachingClassSummaryVO,
   TrainingHistorySummaryVO,
+  TrainingAnswerSubmissionVO,
   TrainingNextItemVO,
   TrainingSessionCreatedVO,
   TrainingSessionHeartbeatVO,
@@ -122,6 +123,7 @@ import type {
   RefreshTokenRequest,
   RecommendTrainingRequest,
   SaveAssessmentResponsesRequest,
+  SubmitAssessmentAttemptRequest,
   SaveDiagnosisProgressRequest,
   SaveTrainingProgressRequest,
   StartTrainingSessionRequest,
@@ -256,7 +258,7 @@ export const trainingService = {
     return apiPostKeepalive<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/progress`, payload);
   },
   submitAnswer: (sessionId: number, payload: SubmitTrainingAnswerRequest) =>
-    apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/answers`, payload),
+    apiPost<TrainingAnswerSubmissionVO>(`/training/sessions/${sessionId}/answers`, payload),
   complete: (sessionId: number) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/complete`),
   abandon: (sessionId: number) => apiPost<TrainingSessionProgressVO>(`/training/sessions/${sessionId}/abandon`),
   getSummary: (sessionId: number, options?: RequestOptions) => apiGet<TrainingSessionSummaryVO>(`/training/sessions/${sessionId}/summary`, options),
@@ -292,8 +294,8 @@ export const assessmentService = {
     apiPost<AssessmentAttemptProgressVO>(`/student/assessments/attempts/${attemptId}/responses`, payload),
   saveStudentResponsesKeepalive: (attemptId: number, payload: SaveAssessmentResponsesRequest) =>
     apiPostKeepalive<AssessmentAttemptProgressVO>(`/student/assessments/attempts/${attemptId}/responses`, payload),
-  submitStudentAttempt: (attemptId: number) =>
-    apiPost<AssessmentAttemptSubmitVO>(`/student/assessments/attempts/${attemptId}/submit`),
+  submitStudentAttempt: (attemptId: number, payload: SubmitAssessmentAttemptRequest) =>
+    apiPost<AssessmentAttemptSubmitVO>(`/student/assessments/attempts/${attemptId}/submit`, payload),
   getStudentAttemptResult: (attemptId: number, options?: RequestOptions) =>
     apiGet<AssessmentAttemptResultVO>(`/student/assessments/attempts/${attemptId}/result`, options),
 };

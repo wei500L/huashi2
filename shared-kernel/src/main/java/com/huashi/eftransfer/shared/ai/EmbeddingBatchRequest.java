@@ -10,7 +10,7 @@ import java.util.List;
 
 public record EmbeddingBatchRequest(
         @NotEmpty(message = "texts must not be empty")
-        @Size(max = 128, message = "texts size must be less than or equal to 128")
+        @Size(max = 32, message = "texts size must be less than or equal to 32")
         List<@NotBlank(message = "text item must not be blank") @Size(max = 131072, message = "text item is too long") String> texts,
         @Size(max = 128, message = "model is too long")
         String model,

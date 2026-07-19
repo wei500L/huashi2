@@ -17,6 +17,7 @@ public record AssessmentPublishDetailVO(
         String instructionsText,
         LocalDateTime startsAt,
         LocalDateTime dueAt,
+        String resultReleasePolicy,
         LocalDateTime publishedAt,
         Integer assignedCount,
         Integer notStartedCount,

@@ -21,6 +21,8 @@ public record StudentAssessmentSummaryVO(
         Integer answeredCount,
         LocalDateTime startedAt,
         LocalDateTime expiresAt,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        String releaseStatus,
+        LocalDateTime resultAvailableAt
 ) {
 }

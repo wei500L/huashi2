@@ -58,6 +58,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,6 +78,7 @@ import java.util.stream.Collectors;
 public class DiagnosisSessionService {
 
     private static final Logger log = LoggerFactory.getLogger(DiagnosisSessionService.class);
+    private static final int HESITATION_BASELINE_MS = 1200;
 
     private final DiagnosisTemplateService diagnosisTemplateService;
     private final DiagnosisSessionMapper diagnosisSessionMapper;
@@ -146,7 +148,7 @@ public class DiagnosisSessionService {
             diagnosisSessionMapper.insert(session);
         } catch (DataIntegrityViolationException exception) {
             throw new BusinessException(
-                    ResultCode.CONFLICT,
+                    ResultCode.ACTIVE_SESSION_EXISTS,
                     "Diagnosis session already in progress. Resume the active session before starting a new one.",
                     409
             );
@@ -197,9 +199,6 @@ public class DiagnosisSessionService {
         }
         DiagnosisItemResultEntity nextItemResult = findNextPendingItem(session.getId()).orElse(null);
         if (nextItemResult == null) {
-            session.setCurrentItemOrder(null);
-            session.setLastSavedAt(LocalDateTime.now());
-            diagnosisSessionMapper.updateById(session);
             return new DiagnosisNextItemVO(
                     session.getId(),
                     parseSessionStatus(session.getStatus()),
@@ -213,12 +212,10 @@ public class DiagnosisSessionService {
         }
 
         if (nextItemResult.getStimulusStartedAt() == null) {
-            nextItemResult.setStimulusStartedAt(LocalDateTime.now());
-            diagnosisItemResultMapper.updateById(nextItemResult);
+            LocalDateTime stimulusStartedAt = LocalDateTime.now();
+            diagnosisItemResultMapper.markStimulusStartedIfPending(nextItemResult.getId(), session.getId(), stimulusStartedAt);
+            nextItemResult.setStimulusStartedAt(stimulusStartedAt);
         }
-        session.setCurrentItemOrder(nextItemResult.getPresentationOrder());
-        session.setLastSavedAt(LocalDateTime.now());
-        diagnosisSessionMapper.updateById(session);
 
         DiagnosisTemplateItemEntity templateItem = requireTemplateItem(nextItemResult.getTemplateItemId());
         LexicalPairEntity lexicalPair = requireLexicalPair(nextItemResult.getLexicalPairId());
@@ -245,7 +242,7 @@ public class DiagnosisSessionService {
                 parseSessionStatus(session.getStatus()),
                 session.getTotalItems(),
                 session.getAnsweredItems(),
-                session.getCurrentItemOrder(),
+                nextItemResult.getPresentationOrder(),
                 true,
                 false,
                 itemVO
@@ -261,8 +258,16 @@ public class DiagnosisSessionService {
         }
 
         try {
-            DiagnosisSessionEntity session = requireInProgressSession(sessionId);
+            DiagnosisSessionEntity session = requireInProgressSessionForUpdate(sessionId);
             DiagnosisItemResultEntity itemResult = requireItemResult(sessionId, request.itemResultId());
+            requireCurrentPendingItem(session, itemResult);
+            if (itemResult.getStimulusStartedAt() == null) {
+                throw new BusinessException(
+                        ResultCode.SESSION_OUT_OF_SEQUENCE,
+                        "Diagnosis stimulus must be presented before its answer is submitted",
+                        409
+                );
+            }
             validateAnswerTimings(request);
 
             DiagnosisTemplateItemEntity templateItem = requireTemplateItem(itemResult.getTemplateItemId());
@@ -270,6 +275,9 @@ public class DiagnosisSessionService {
             validateTaskSpecificAnswer(templateItem, request);
 
             DiagnosisScoringPolicy.ItemDefinition itemDefinition = toItemDefinition(templateItem, lexicalPair);
+            LocalDateTime now = LocalDateTime.now();
+            int serverReactionTimeMs = boundedElapsedMillis(itemResult.getStimulusStartedAt(), now);
+            int serverHesitationTimeMs = Math.max(0, serverReactionTimeMs - HESITATION_BASELINE_MS);
             DiagnosisScoringPolicy.ItemEvaluation evaluation;
             try {
                 evaluation = diagnosisScoringPolicy.evaluate(
@@ -277,16 +285,15 @@ public class DiagnosisSessionService {
                         new DiagnosisScoringPolicy.SubmittedAnswer(
                                 request.selectedSemanticMatch(),
                                 request.selectedAnswerKey(),
-                                request.reactionTimeMs(),
-                                request.hesitationTimeMs()
+                                serverReactionTimeMs,
+                                serverHesitationTimeMs
                         )
                 );
             } catch (IllegalArgumentException exception) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, exception.getMessage());
             }
 
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime stimulusStartedAt = itemResult.getStimulusStartedAt() == null ? now : itemResult.getStimulusStartedAt();
+            LocalDateTime stimulusStartedAt = itemResult.getStimulusStartedAt();
             DiagnosisOptionPayload selectedOption = findOptionByKey(itemDefinition.options(), evaluation.selectedAnswerKey());
             Map<String, Object> answerPayload = new LinkedHashMap<>();
             answerPayload.put("selectedSemanticMatch",
@@ -294,8 +301,11 @@ public class DiagnosisSessionService {
                             ? request.selectedSemanticMatch()
                             : selectedOption == null ? null : selectedOption.semanticMatch());
             answerPayload.put("selectedAnswerKey", evaluation.selectedAnswerKey());
-            answerPayload.put("reactionTimeMs", request.reactionTimeMs());
-            answerPayload.put("hesitationTimeMs", request.hesitationTimeMs());
+            answerPayload.put("clientReactionTimeMs", request.reactionTimeMs());
+            answerPayload.put("clientHesitationTimeMs", request.hesitationTimeMs());
+            answerPayload.put("serverReactionTimeMs", serverReactionTimeMs);
+            answerPayload.put("serverHesitationTimeMs", serverHesitationTimeMs);
+            answerPayload.put("measurementQuality", measurementQuality(request.reactionTimeMs(), serverReactionTimeMs));
             String answerPayloadJson = diagnosisJsonCodec.write(answerPayload);
 
             int updatedRows = diagnosisItemResultMapper.submitAnswer(
@@ -305,8 +315,8 @@ public class DiagnosisSessionService {
                     DiagnosisAnswerState.ANSWERED.name(),
                     stimulusStartedAt,
                     now,
-                    request.reactionTimeMs(),
-                    request.hesitationTimeMs(),
+                    serverReactionTimeMs,
+                    serverHesitationTimeMs,
                     evaluation.selectedAnswerKey(),
                     answerPayloadJson,
                     evaluation.correct(),
@@ -330,6 +340,9 @@ public class DiagnosisSessionService {
             }
 
             session = requireAccessibleSession(session.getId());
+            if (nextPendingItem.isEmpty()) {
+                session = finalizeCompletedSession(session);
+            }
             DiagnosisSessionProgressVO progress = progressVO(session);
             auditLogService.record("submit_answer", "diagnosis_item_result", String.valueOf(itemResult.getId()), request, ResultCode.SUCCESS.code());
             log.info("event=diagnosis_answer_submitted sessionId={} itemResultId={} correct={} errorType={} answeredItems={}/{}",
@@ -360,9 +373,13 @@ public class DiagnosisSessionService {
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not in progress", 409);
         }
-        session.setProgressSnapshotJson(diagnosisJsonCodec.write(request.progressSnapshot()));
-        session.setLastSavedAt(LocalDateTime.now());
-        diagnosisSessionMapper.updateById(session);
+        String progressSnapshotJson = diagnosisJsonCodec.write(request.progressSnapshot());
+        LocalDateTime savedAt = LocalDateTime.now();
+        if (diagnosisSessionMapper.saveProgressIfInProgress(sessionId, progressSnapshotJson, savedAt) == 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not in progress", 409);
+        }
+        session.setProgressSnapshotJson(progressSnapshotJson);
+        session.setLastSavedAt(savedAt);
         auditLogService.record("save_progress", "diagnosis_session", String.valueOf(sessionId), request, ResultCode.SUCCESS.code());
         log.info("event=diagnosis_progress_saved sessionId={} answeredItems={}/{}", sessionId, session.getAnsweredItems(), session.getTotalItems());
         return progressVO(session);
@@ -370,7 +387,7 @@ public class DiagnosisSessionService {
 
     @Transactional
     public DiagnosisSessionHeartbeatVO heartbeatSession(Long sessionId) {
-        DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
+        DiagnosisSessionEntity session = requireAccessibleSessionForUpdate(sessionId);
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             return heartbeatVO(session);
         }
@@ -385,7 +402,7 @@ public class DiagnosisSessionService {
 
     @Transactional
     public DiagnosisSessionProgressVO completeSession(Long sessionId) {
-        DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
+        DiagnosisSessionEntity session = requireAccessibleSessionForUpdate(sessionId);
         if (DiagnosisSessionStatus.COMPLETED.name().equals(session.getStatus())) {
             return progressVO(session);
         }
@@ -451,6 +468,7 @@ public class DiagnosisSessionService {
                 session.getAnsweredItems(),
                 session.getStartedAt(),
                 session.getCompletedAt(),
+                parseCompletionHooksStatus(session.getCompletionHooksStatus()),
                 new DiagnosisSummaryMetricsVO(
                         summary.getPositiveTransferScore().doubleValue(),
                         summary.getNegativeTransferRisk().doubleValue(),
@@ -630,24 +648,52 @@ public class DiagnosisSessionService {
         return session;
     }
 
+    private DiagnosisSessionEntity requireAccessibleSessionForUpdate(Long sessionId) {
+        DiagnosisSessionEntity session = diagnosisSessionMapper.selectByIdForUpdate(sessionId);
+        if (session == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Diagnosis session was not found", 404);
+        }
+        if (!isAdmin() && !Objects.equals(session.getOwnerUserId(), currentUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "You do not have permission to access this diagnosis session", 403);
+        }
+        return session;
+    }
+
     private void requireNoActiveSession(Long ownerUserId) {
         if (diagnosisSessionMapper.selectCount(Wrappers.<DiagnosisSessionEntity>lambdaQuery()
                 .eq(DiagnosisSessionEntity::getOwnerUserId, ownerUserId)
                 .eq(DiagnosisSessionEntity::getStatus, DiagnosisSessionStatus.IN_PROGRESS.name())) > 0) {
             throw new BusinessException(
-                    ResultCode.CONFLICT,
+                    ResultCode.ACTIVE_SESSION_EXISTS,
                     "Diagnosis session already in progress. Resume the active session before starting a new one.",
                     409
             );
         }
     }
 
-    private DiagnosisSessionEntity requireInProgressSession(Long sessionId) {
-        DiagnosisSessionEntity session = requireAccessibleSession(sessionId);
+    private DiagnosisSessionEntity requireInProgressSessionForUpdate(Long sessionId) {
+        DiagnosisSessionEntity session = requireAccessibleSessionForUpdate(sessionId);
         if (!DiagnosisSessionStatus.IN_PROGRESS.name().equals(session.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Diagnosis session is not in progress", 409);
         }
         return session;
+    }
+
+    private void requireCurrentPendingItem(
+            DiagnosisSessionEntity session,
+            DiagnosisItemResultEntity requestedItem
+    ) {
+        if (DiagnosisAnswerState.ANSWERED.name().equals(requestedItem.getAnswerState())) {
+            throw answeredItemConflict();
+        }
+        DiagnosisItemResultEntity currentItem = findNextPendingItem(session.getId()).orElse(null);
+        if (currentItem == null || !Objects.equals(currentItem.getId(), requestedItem.getId())) {
+            throw new BusinessException(
+                    ResultCode.SESSION_OUT_OF_SEQUENCE,
+                    "Only the current diagnosis item can be answered",
+                    409
+            );
+        }
     }
 
     private DiagnosisItemResultEntity requireItemResult(Long sessionId, Long itemResultId) {
@@ -763,6 +809,17 @@ public class DiagnosisSessionService {
         if (request.hesitationTimeMs() > request.reactionTimeMs()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "hesitationTimeMs must not exceed reactionTimeMs");
         }
+    }
+
+    private int boundedElapsedMillis(LocalDateTime startedAt, LocalDateTime completedAt) {
+        long elapsedMillis = Duration.between(startedAt, completedAt).toMillis();
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(1L, elapsedMillis));
+    }
+
+    private String measurementQuality(int clientReactionTimeMs, int serverReactionTimeMs) {
+        long difference = Math.abs((long) clientReactionTimeMs - serverReactionTimeMs);
+        long tolerance = Math.max(500L, Math.round(serverReactionTimeMs * 0.2));
+        return difference <= tolerance ? "VALID" : "SUSPECT";
     }
 
     private DiagnosisOptionPayload findOptionByKey(List<DiagnosisOptionPayload> options, String selectedAnswerKey) {
@@ -952,7 +1009,7 @@ public class DiagnosisSessionService {
     }
 
     private BusinessException answeredItemConflict() {
-        return new BusinessException(ResultCode.CONFLICT, "Diagnosis item has already been answered", 409);
+        return new BusinessException(ResultCode.ANSWER_ALREADY_ACCEPTED, "Diagnosis item has already been answered", 409);
     }
 
     private DiagnosisSessionLaunchContext resolveLaunchContext(CreateDiagnosisSessionRequest request) {
@@ -991,6 +1048,17 @@ public class DiagnosisSessionService {
             return DiagnosisSessionStatus.fromCode(value.trim());
         } catch (RuntimeException exception) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported diagnosisSessionStatus: " + value, 400);
+        }
+    }
+
+    private SessionCompletionHookStatus parseCompletionHooksStatus(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return SessionCompletionHookStatus.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            return SessionCompletionHookStatus.FAILED;
         }
     }
 }

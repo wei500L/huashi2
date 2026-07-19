@@ -21,6 +21,9 @@ public class AssessmentTimeoutProperties {
     @Positive
     private int batchSize = 200;
 
+    @NotNull
+    private Duration submissionGracePeriod = Duration.ofSeconds(3);
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -43,5 +46,16 @@ public class AssessmentTimeoutProperties {
 
     public void setBatchSize(int batchSize) {
         this.batchSize = batchSize;
+    }
+
+    public Duration getSubmissionGracePeriod() {
+        return submissionGracePeriod;
+    }
+
+    public void setSubmissionGracePeriod(Duration submissionGracePeriod) {
+        if (submissionGracePeriod.isNegative()) {
+            throw new IllegalArgumentException("submissionGracePeriod must not be negative");
+        }
+        this.submissionGracePeriod = submissionGracePeriod;
     }
 }

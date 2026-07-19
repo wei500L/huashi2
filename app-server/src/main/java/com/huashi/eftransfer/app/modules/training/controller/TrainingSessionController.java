@@ -6,6 +6,7 @@ import com.huashi.eftransfer.app.modules.training.dto.SubmitTrainingAnswerReques
 import com.huashi.eftransfer.app.modules.training.dto.TrainingSessionPageQuery;
 import com.huashi.eftransfer.app.modules.training.service.TrainingSessionService;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingHistorySummaryVO;
+import com.huashi.eftransfer.app.modules.training.vo.TrainingAnswerSubmissionVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingNextItemVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionCreatedVO;
 import com.huashi.eftransfer.app.modules.training.vo.TrainingSessionHeartbeatVO;
@@ -63,7 +64,7 @@ public class TrainingSessionController {
     }
 
     @PostMapping("/{sessionId}/answers")
-    public ApiResponse<TrainingSessionProgressVO> submitAnswer(
+    public ApiResponse<TrainingAnswerSubmissionVO> submitAnswer(
             @PathVariable Long sessionId,
             @Valid @RequestBody SubmitTrainingAnswerRequest request
     ) {

@@ -44,6 +44,9 @@ public class AssessmentPublishEntity extends BaseAuditEntity {
     @TableField("due_at")
     private LocalDateTime dueAt;
 
+    @TableField("result_release_policy")
+    private String resultReleasePolicy;
+
     @TableField("published_at")
     private LocalDateTime publishedAt;
 
@@ -141,6 +144,14 @@ public class AssessmentPublishEntity extends BaseAuditEntity {
 
     public void setDueAt(LocalDateTime dueAt) {
         this.dueAt = dueAt;
+    }
+
+    public String getResultReleasePolicy() {
+        return resultReleasePolicy;
+    }
+
+    public void setResultReleasePolicy(String resultReleasePolicy) {
+        this.resultReleasePolicy = resultReleasePolicy;
     }
 
     public LocalDateTime getPublishedAt() {

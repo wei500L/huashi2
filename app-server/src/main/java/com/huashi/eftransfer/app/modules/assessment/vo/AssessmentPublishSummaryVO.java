@@ -13,6 +13,7 @@ public record AssessmentPublishSummaryVO(
         String instructionsText,
         LocalDateTime startsAt,
         LocalDateTime dueAt,
+        String resultReleasePolicy,
         LocalDateTime publishedAt,
         Integer assignedCount,
         Integer attemptCount,

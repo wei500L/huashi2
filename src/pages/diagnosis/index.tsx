@@ -8,6 +8,7 @@ import { DiagnosisPdfReport } from '@/components/diagnosis/DiagnosisPdfReport';
 import { PageHeader, PanelSkeleton, SectionEyebrow } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
 import { getApiErrorMessage } from '@/lib/api';
+import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { clearDiagnosisLaunchParams, parseDiagnosisLaunchNumber } from '@/lib/diagnosis-launch';
 import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
@@ -122,7 +123,7 @@ const DiagnosisPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [state, dispatch] = React.useReducer(diagnosisFlowReducer, initialDiagnosisFlowState);
-  const shownAtRef = React.useRef<number>(Date.now());
+  const shownAtRef = React.useRef<number>(0);
   const answerRequestRef = React.useRef<SubmitDiagnosisAnswerRequest | null>(null);
   const [submitErrorMessage, setSubmitErrorMessage] = React.useState<string | null>(null);
   const [submitInfoMessage, setSubmitInfoMessage] = React.useState<string | null>(null);
@@ -133,8 +134,19 @@ const DiagnosisPage: React.FC = () => {
   const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<DiagnosisHistorySummaryVO | null>(null);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
+  const resumeDialogRef = React.useRef<HTMLDivElement | null>(null);
+  const resumeContinueButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const requestedSource = searchParams.get('source');
   const requestedSourceSummaryId = parseDiagnosisLaunchNumber(searchParams.get('sourceSummaryId'));
+
+  const closeResumeDialog = React.useCallback(() => setResumeCandidate(null), []);
+  useBodyScrollLock(!!resumeCandidate);
+  useDialogAccessibility({
+    open: !!resumeCandidate,
+    containerRef: resumeDialogRef,
+    initialFocusRef: resumeContinueButtonRef,
+    onClose: closeResumeDialog,
+  });
 
   const historyQuery = useQuery({
     queryKey: ['diagnosis-history', 'in-progress'],
@@ -176,10 +188,14 @@ const DiagnosisPage: React.FC = () => {
         sourceSummaryId: requestedSourceSummaryId,
       }),
     onSuccess: (created) => {
-      shownAtRef.current = Date.now();
       setSearchParams(clearDiagnosisLaunchParams(searchParams), { replace: true });
       dispatch({ type: 'startSession', sessionId: created.sessionId });
       void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
+    },
+    onError: (error) => {
+      if (normalizeApiError(error).code === 'ACTIVE_SESSION_EXISTS') {
+        void historyQuery.refetch();
+      }
     },
   });
 
@@ -210,7 +226,6 @@ const DiagnosisPage: React.FC = () => {
         markCompleted();
         return;
       }
-      shownAtRef.current = Date.now();
       setPendingNextItemId(payload.itemResultId);
       const refreshed = await nextItemQuery.refetch();
       if (refreshed.error) {
@@ -238,13 +253,11 @@ const DiagnosisPage: React.FC = () => {
         setPendingNextItemId(null);
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，请确认交卷。');
-        shownAtRef.current = Date.now();
         return;
       }
       if (refreshed.data?.item && refreshed.data.item.itemResultId !== payload.itemResultId) {
         setSubmitErrorMessage(null);
         setSubmitInfoMessage('答案已提交，系统已同步到下一题。');
-        shownAtRef.current = Date.now();
         return;
       }
       setSubmitInfoMessage(null);
@@ -256,6 +269,13 @@ const DiagnosisPage: React.FC = () => {
     queryKey: ['diagnosis-result', state.sessionId],
     queryFn: ({ signal }) => diagnosisSessionService.getResult(state.sessionId as number, { signal }),
     enabled: state.phase === 'result' && !!state.sessionId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.completionHooksStatus;
+      if (status === 'PENDING' || status === 'IN_PROGRESS') {
+        return 1500;
+      }
+      return status === 'FAILED' ? 5000 : false;
+    },
   });
 
   const resultSummaryId = resultQuery.data?.summaryId;
@@ -269,7 +289,10 @@ const DiagnosisPage: React.FC = () => {
   const recommendedPlanQuery = useQuery({
     queryKey: ['recommended-training-plan', resultSummaryId],
     queryFn: ({ signal }) => trainingService.getRecommendedPlan({ diagnosisSummaryId: resultSummaryId }, { signal }),
-    enabled: state.phase === 'result' && !!resultSummaryId,
+    enabled:
+      state.phase === 'result' &&
+      !!resultSummaryId &&
+      (!resultQuery.data?.completionHooksStatus || resultQuery.data.completionHooksStatus === 'DONE'),
     retry: false,
   });
 
@@ -329,6 +352,13 @@ const DiagnosisPage: React.FC = () => {
   });
 
   React.useEffect(() => {
+    if (state.phase !== 'running' || !nextItemQuery.data?.readyToComplete || completeSessionMutation.isPending) {
+      return;
+    }
+    completeSessionMutation.mutate();
+  }, [completeSessionMutation.isPending, completeSessionMutation.mutate, nextItemQuery.data?.readyToComplete, state.phase]);
+
+  React.useEffect(() => {
     if (state.phase !== 'running' || !nextItemQuery.data || nextItemQuery.data.hasNextItem) {
       return;
     }
@@ -367,6 +397,14 @@ const DiagnosisPage: React.FC = () => {
     completeSessionMutation.isPending ||
     abandonSessionMutation.isPending ||
     nextItemQuery.isFetching;
+
+  React.useLayoutEffect(() => {
+    if (!currentItem) {
+      shownAtRef.current = 0;
+      return;
+    }
+    shownAtRef.current = window.performance.now();
+  }, [currentItem?.itemResultId]);
 
   React.useEffect(() => {
     if (!currentItem) {
@@ -412,7 +450,8 @@ const DiagnosisPage: React.FC = () => {
     const existingRequest =
       answerRequestRef.current?.itemResultId === currentItem.itemResultId ? answerRequestRef.current : null;
     const request = existingRequest ?? (() => {
-      const reactionTimeMs = Math.max(1, Date.now() - shownAtRef.current);
+      const elapsedMs = shownAtRef.current > 0 ? window.performance.now() - shownAtRef.current : 1;
+      const reactionTimeMs = Math.min(2_147_483_647, Math.max(1, Math.round(elapsedMs)));
       const hesitationTimeMs = Math.max(0, reactionTimeMs - HESITATION_BASELINE_MS);
 
       if (currentItem.taskType === 'REACTION_TIME') {
@@ -435,7 +474,6 @@ const DiagnosisPage: React.FC = () => {
       } satisfies SubmitDiagnosisAnswerRequest;
     })();
     answerRequestRef.current = request;
-    shownAtRef.current = Date.now();
     await submitAnswerMutation.mutateAsync(request);
   };
 
@@ -443,7 +481,6 @@ const DiagnosisPage: React.FC = () => {
     if (!resumeCandidate) {
       return;
     }
-    shownAtRef.current = Date.now();
     dispatch({ type: 'resumeSession', sessionId: resumeCandidate.sessionId });
     setResumeCandidate(null);
   };
@@ -539,20 +576,27 @@ const DiagnosisPage: React.FC = () => {
 
         {resumeCandidate && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
-            <div className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950">
+            <div
+              ref={resumeDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="diagnosis-resume-title"
+              tabIndex={-1}
+              className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950"
+            >
               <div className="flex items-start gap-4">
                 <div className="rounded-full bg-amber-500/10 p-3 text-amber-500">
                   <AlertTriangle size={20} />
                 </div>
                 <div className="flex-1">
-                  <div className="text-2xl font-black text-slate-900 dark:text-white">发现未完成诊断</div>
+                  <div id="diagnosis-resume-title" className="text-2xl font-black text-slate-900 dark:text-white">发现未完成诊断</div>
                   <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/50">
                     上次保存时间：{resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。你可以继续答题，也可以放弃本次后重新开始。
                   </div>
                 </div>
               </div>
               <div className="mt-8 flex flex-wrap gap-3">
-                <button type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
+                <button ref={resumeContinueButtonRef} type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
                   继续答题
                 </button>
                 <button
@@ -629,29 +673,11 @@ const DiagnosisPage: React.FC = () => {
         ) : nextItemQuery.data?.readyToComplete ? (
           <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
             <div className="max-w-2xl">
-              <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Ready To Submit</div>
-              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">所有题目已完成</h2>
+              <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Generating Result</div>
+              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">正在生成诊断结果</h2>
               <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
-                最后一题已经记录完成。确认交卷后，系统会生成诊断结果页。
+                所有答案均已记录，系统正在完成评分并生成结果，请稍候。
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => void completeSessionMutation.mutateAsync()}
-                  disabled={completeSessionMutation.isPending}
-                  className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
-                >
-                  {completeSessionMutation.isPending ? '正在交卷...' : '确认交卷'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleRunningAbandon()}
-                  disabled={completeSessionMutation.isPending}
-                  className="rounded-full border border-rose-200 px-6 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
-                >
-                  放弃本次
-                </button>
-              </div>
             </div>
           </section>
         ) : !currentItem || staleSubmittedItemVisible ? (
@@ -739,6 +765,10 @@ const DiagnosisPage: React.FC = () => {
   }
 
   const result = resultQuery.data;
+  const completionHooksPending =
+    result?.completionHooksStatus === 'PENDING' || result?.completionHooksStatus === 'IN_PROGRESS';
+  const completionHooksFailed = result?.completionHooksStatus === 'FAILED';
+  const completionHooksReady = !result?.completionHooksStatus || result.completionHooksStatus === 'DONE';
   const radarOption = buildRadarOption(toDiagnosisRadarChartMetrics(result?.chartPayload.radarMetrics));
   const canExportPdf = Boolean(result) && !explanationQuery.isLoading;
   const explanationErrorMessage = explanationQuery.error ? getApiErrorMessage(explanationQuery.error) : null;
@@ -777,6 +807,18 @@ const DiagnosisPage: React.FC = () => {
         <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{reportErrorMessage}</div>
       )}
 
+      {completionHooksPending && (
+        <div className="rounded-[2rem] border border-sky-500/20 bg-sky-500/10 p-6 text-sm text-sky-800 dark:text-sky-200" aria-live="polite">
+          诊断结果已生成，学习档案和推荐训练正在更新。更新完成前暂不可开始推荐训练。
+        </div>
+      )}
+
+      {completionHooksFailed && (
+        <div className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-6 text-sm text-amber-800 dark:text-amber-200" role="alert">
+          核心诊断结果不受影响，但学习档案更新暂时失败，后台将自动重试。
+        </div>
+      )}
+
       {!result && resultQuery.isLoading ? (
         <div className="grid gap-8">
           <PanelSkeleton />
@@ -803,6 +845,7 @@ const DiagnosisPage: React.FC = () => {
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
+                      disabled={!completionHooksReady}
                       onClick={() => {
                         const recommendedMode =
                           recommendedPlanQuery.data?.suggestedSessions[0]?.mode || recommendedPlanQuery.data?.priorityMode;
@@ -818,7 +861,7 @@ const DiagnosisPage: React.FC = () => {
                         }
                         navigate(buildTrainingHref({ source: 'diagnosis-result', diagnosisSummaryId: result.summaryId }));
                       }}
-                      className="btn-liquid px-6 py-3 text-white"
+                      className="btn-liquid px-6 py-3 text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       开始推荐训练
                     </button>
