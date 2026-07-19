@@ -1047,6 +1047,10 @@ export interface AiGuidanceResponseVO {
   diagnosisInsight?: DiagnosisInsightVO | null;
   confidence: number;
   fallbackReason?: string | null;
+  grounded: boolean;
+  citationIds: string[];
+  citations: RagCitation[];
+  uncertaintyNote?: string | null;
 }
 
 export interface RecommendTrainingRequest {

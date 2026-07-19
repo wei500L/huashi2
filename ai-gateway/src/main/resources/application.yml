@@ -63,8 +63,9 @@ ai:
     providers:
       qwen:
         chat:
-          base-url: ${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
-          api-key: ${AI_OPENAI_API_KEY:}
+          protocol: ${AI_CHAT_PROTOCOL:openai-compat}
+          base-url: ${AI_CHAT_BASE_URL:${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}}
+          api-key: ${AI_CHAT_API_KEY:${AI_OPENAI_API_KEY:}}
           model: ${AI_CHAT_MODEL:qwen-max}
           connect-timeout: ${AI_CHAT_CONNECT_TIMEOUT:PT3S}
           read-timeout: ${AI_CHAT_READ_TIMEOUT:PT30S}
@@ -88,8 +89,9 @@ ai:
           read-timeout: ${AI_RERANK_READ_TIMEOUT:PT30S}
       deepseek:
         chat:
-          base-url: ${AI_FALLBACK_CHAT_BASE_URL:${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}}
-          api-key: ${AI_FALLBACK_CHAT_API_KEY:${AI_OPENAI_API_KEY:}}
+          protocol: ${AI_FALLBACK_CHAT_PROTOCOL:${AI_CHAT_PROTOCOL:openai-compat}}
+          base-url: ${AI_FALLBACK_CHAT_BASE_URL:${AI_CHAT_BASE_URL:${AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}}}
+          api-key: ${AI_FALLBACK_CHAT_API_KEY:${AI_CHAT_API_KEY:${AI_OPENAI_API_KEY:}}}
           model: ${AI_FALLBACK_CHAT_MODEL:${AI_CHAT_MODEL:qwen-max}}
           connect-timeout: ${AI_FALLBACK_CHAT_CONNECT_TIMEOUT:${AI_CHAT_CONNECT_TIMEOUT:PT3S}}
           read-timeout: ${AI_FALLBACK_CHAT_READ_TIMEOUT:${AI_CHAT_READ_TIMEOUT:PT30S}}
@@ -139,12 +141,12 @@ rag:
     failed-retry-limit: ${RAG_FAILED_RETRY_LIMIT:64}
     failed-retry-interval: ${RAG_FAILED_RETRY_INTERVAL:PT1M}
   retrieval:
-    recall-top-k: ${RAG_RECALL_TOP_K:20}
-    recall-threshold: ${RAG_RECALL_THRESHOLD:0.55}
-    rerank-top-n: ${RAG_RERANK_TOP_N:8}
+    recall-top-k: ${RAG_RECALL_TOP_K:50}
+    recall-threshold: ${RAG_RECALL_THRESHOLD:0.45}
+    rerank-top-n: ${RAG_RERANK_TOP_N:16}
     rerank-threshold: ${RAG_RERANK_THRESHOLD:0.2}
-    final-top-k: ${RAG_FINAL_TOP_K:6}
-    hnsw-ef-search: ${AI_HNSW_EF_SEARCH:64}
+    final-top-k: ${RAG_FINAL_TOP_K:8}
+    hnsw-ef-search: ${AI_HNSW_EF_SEARCH:128}
 
 platform:
   internal-api:

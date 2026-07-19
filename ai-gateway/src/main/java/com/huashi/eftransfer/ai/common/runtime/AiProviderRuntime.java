@@ -13,6 +13,7 @@ public record AiProviderRuntime(
         AiOpsProviderDefinition definition,
         ChatClient chatClient,
         OpenAiChatModel chatModel,
+        RestClient chatRestClient,
         EmbeddingModel embeddingModel,
         RestClient rerankRestClient,
         AiOpsResilienceConfig resilienceConfig,

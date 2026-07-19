@@ -156,5 +156,8 @@ Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健�
 - RabbitMQ 当前正式职责是跨服务知识同步，不承担本地 analytics 投影
 - diagnosis / training 都限制为单用户单活跃 `IN_PROGRESS` session，并支持历史查询与进度保存
 - 前端采用路由级懒加载、`echarts/core` 按需注册和手动分包，减少图表运行时膨胀
+- RAG 使用 Qwen3-Embedding-8B 单一 1024 维向量空间，并结合精确/模糊词汇召回、RRF、rerank 与生成后证据审查
+
+AI 质量优先链路与配置说明见 [AI 质量优先架构](/mnt/d/huashi2/docs/ai-quality-architecture.md)。
 
 更多本地联调、环境变量和行为说明见 [docs/local-development.md](/mnt/d/huashi2/docs/local-development.md)。

@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.modules.ai.vo;
 
+import com.huashi.eftransfer.shared.ai.RagCitation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -34,6 +35,46 @@ public record AiGuidanceResponseVO(
         @DecimalMin(value = "0.0", message = "confidence must be >= 0")
         @DecimalMax(value = "1.0", message = "confidence must be <= 1")
         double confidence,
-        String fallbackReason
+        String fallbackReason,
+        boolean grounded,
+        List<@NotBlank(message = "citationIds item must not be blank") String> citationIds,
+        List<@Valid RagCitation> citations,
+        String uncertaintyNote
 ) {
+
+    public AiGuidanceResponseVO(
+            String requestId,
+            String generationSource,
+            String promptVersion,
+            String model,
+            Long latencyMs,
+            List<AiRecommendationPathItemVO> recommendationPath,
+            List<AiFocusLexicalPairVO> focusLexicalPairs,
+            List<AiRecommendedTrainingModeVO> recommendedTrainingModes,
+            String explanation,
+            String teacherNote,
+            DiagnosisInsightVO diagnosisInsight,
+            double confidence,
+            String fallbackReason
+    ) {
+        this(
+                requestId,
+                generationSource,
+                promptVersion,
+                model,
+                latencyMs,
+                recommendationPath,
+                focusLexicalPairs,
+                recommendedTrainingModes,
+                explanation,
+                teacherNote,
+                diagnosisInsight,
+                confidence,
+                fallbackReason,
+                false,
+                List.of(),
+                List.of(),
+                null
+        );
+    }
 }

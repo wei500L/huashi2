@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.List;
 
@@ -21,6 +22,18 @@ public record ChatRequest(
         Double temperature,
         @Positive(message = "maxTokens must be greater than 0")
         @Max(value = 32768, message = "maxTokens must be less than or equal to 32768")
-        Integer maxTokens
+        Integer maxTokens,
+        @Pattern(regexp = "none|low|medium|high|xhigh|max", message = "reasoningEffort is invalid")
+        String reasoningEffort,
+        Boolean proMode
 ) {
+
+    public ChatRequest(
+            List<ChatMessage> messages,
+            String model,
+            Double temperature,
+            Integer maxTokens
+    ) {
+        this(messages, model, temperature, maxTokens, null, null);
+    }
 }

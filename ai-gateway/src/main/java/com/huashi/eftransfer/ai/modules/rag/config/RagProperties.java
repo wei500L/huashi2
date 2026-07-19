@@ -125,12 +125,12 @@ public class RagProperties {
 
     public static class Retrieval {
 
-        private int recallTopK = 20;
-        private double recallThreshold = 0.55d;
-        private int rerankTopN = 8;
+        private int recallTopK = 50;
+        private double recallThreshold = 0.45d;
+        private int rerankTopN = 16;
         private double rerankThreshold = 0.20d;
-        private int finalTopK = 6;
-        private int hnswEfSearch = 64;
+        private int finalTopK = 8;
+        private int hnswEfSearch = 128;
 
         public int getRecallTopK() {
             return recallTopK;

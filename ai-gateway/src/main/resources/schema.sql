@@ -1,4 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 
@@ -277,6 +278,14 @@ CREATE INDEX idx_knowledge_chunk_source ON public.knowledge_chunk USING btree (s
 
 
 CREATE INDEX idx_knowledge_chunk_source_active_id ON public.knowledge_chunk USING btree (source_type, active, source_id);
+
+
+
+CREATE INDEX idx_knowledge_chunk_title_trgm ON public.knowledge_chunk USING gin (lower(title) public.gin_trgm_ops) WHERE (active = true);
+
+
+
+CREATE INDEX idx_knowledge_chunk_content_trgm ON public.knowledge_chunk USING gin (lower(content) public.gin_trgm_ops) WHERE (active = true);
 
 
 

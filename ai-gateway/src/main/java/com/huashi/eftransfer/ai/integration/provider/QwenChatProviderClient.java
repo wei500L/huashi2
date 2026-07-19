@@ -15,6 +15,7 @@ import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.huashi.eftransfer.shared.ai.TokenUsage;
+import com.huashi.eftransfer.shared.ai.config.AiOpsProtocols;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -25,6 +26,7 @@ import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -62,6 +64,29 @@ public class QwenChatProviderClient {
         requestContextHolder.clear();
 
         try {
+            if (AiOpsProtocols.OPENAI_RESPONSES.equals(runtime.definition().chat().protocol())) {
+                ResponsesResult responsesResult = callResponses(
+                        runtime,
+                        request.messages(),
+                        model,
+                        request.maxTokens() != null ? request.maxTokens() : defaultChat(runtime).maxTokens(),
+                        request.reasoningEffort(),
+                        request.proMode(),
+                        null,
+                        null,
+                        null
+                );
+                ChatResponse chatResponse = new ChatResponse(
+                        provider,
+                        responsesResult.model(),
+                        responsesResult.content(),
+                        responsesResult.finishReason(),
+                        responsesResult.providerRequestId(),
+                        responsesResult.usage()
+                );
+                observationService.recordSuccess("chat", provider, model, startNanos, chatResponse.providerRequestId(), chatResponse.usage());
+                return chatResponse;
+            }
             ProviderChatResult providerResult = resilientAiExecutor.execute(
                     runtime,
                     "chat",
@@ -101,6 +126,50 @@ public class QwenChatProviderClient {
         requestContextHolder.clear();
 
         try {
+            if (AiOpsProtocols.OPENAI_RESPONSES.equals(runtime.definition().chat().protocol())) {
+                ResponsesResult responsesResult = callResponses(
+                        runtime,
+                        request.messages(),
+                        model,
+                        defaultChat(runtime).maxTokens(),
+                        request.reasoningEffort(),
+                        request.proMode(),
+                        request.schemaName(),
+                        request.strict(),
+                        request.schema()
+                );
+                Map<String, Object> structuredData;
+                try {
+                    structuredData = objectMapper.readValue(
+                            responsesResult.content(),
+                            new TypeReference<Map<String, Object>>() {
+                            }
+                    );
+                } catch (Exception exception) {
+                    throw new InvalidProviderResponseException("Responses provider returned invalid structured JSON", exception);
+                }
+                if (structuredData == null || structuredData.isEmpty()) {
+                    throw new InvalidProviderResponseException("Responses provider returned an empty JSON object");
+                }
+                StructuredChatResponse structuredResponse = new StructuredChatResponse(
+                        provider,
+                        responsesResult.model(),
+                        responsesResult.content(),
+                        structuredData,
+                        responsesResult.finishReason(),
+                        responsesResult.providerRequestId(),
+                        responsesResult.usage()
+                );
+                observationService.recordSuccess(
+                        "chat",
+                        provider,
+                        model,
+                        startNanos,
+                        structuredResponse.providerRequestId(),
+                        structuredResponse.usage()
+                );
+                return structuredResponse;
+            }
             ProviderStructuredChatResult providerResult = resilientAiExecutor.execute(
                     runtime,
                     "chat",
@@ -163,6 +232,131 @@ public class QwenChatProviderClient {
                 .temperature(request.temperature() != null ? request.temperature() : defaultChat(runtime).temperature())
                 .maxTokens(request.maxTokens() != null ? request.maxTokens() : defaultChat(runtime).maxTokens())
                 .build());
+    }
+
+    private ResponsesResult callResponses(
+            AiProviderRuntime runtime,
+            List<ChatMessage> messages,
+            String model,
+            Integer maxOutputTokens,
+            String reasoningEffort,
+            Boolean proMode,
+            String schemaName,
+            Boolean strict,
+            Map<String, Object> schema
+    ) {
+        return resilientAiExecutor.execute(runtime, "responses", () -> {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("model", model);
+            payload.put("input", messages.stream()
+                    .map(message -> Map.of("role", message.role(), "content", message.content()))
+                    .toList());
+            payload.put("store", false);
+            if (maxOutputTokens != null) {
+                payload.put("max_output_tokens", maxOutputTokens);
+            }
+            Map<String, Object> reasoning = new LinkedHashMap<>();
+            reasoning.put("effort", reasoningEffort == null || reasoningEffort.isBlank() ? "high" : reasoningEffort);
+            if (Boolean.TRUE.equals(proMode)) {
+                reasoning.put("mode", "pro");
+            }
+            payload.put("reasoning", reasoning);
+            if (schema != null && !schema.isEmpty()) {
+                payload.put("text", Map.of(
+                        "format", Map.of(
+                                "type", "json_schema",
+                                "name", schemaName,
+                                "strict", strict == null || strict,
+                                "schema", schema
+                        )
+                ));
+            }
+
+            JsonNode response = runtime.chatRestClient().post()
+                    .uri("/v1/responses")
+                    .body(payload)
+                    .retrieve()
+                    .body(JsonNode.class);
+            if (response == null) {
+                throw new InvalidProviderResponseException("Responses provider returned no response");
+            }
+            String responseModel = response.path("model").asText();
+            if (!modelsCompatible(model, responseModel)) {
+                throw new InvalidProviderResponseException(
+                        "Responses provider returned model %s but %s was requested".formatted(responseModel, model)
+                );
+            }
+            String content = extractResponseText(response);
+            if (content.isBlank()) {
+                throw new InvalidProviderResponseException("Responses provider returned empty content");
+            }
+            String status = response.path("status").asText("completed");
+            String incompleteReason = response.path("incomplete_details").path("reason").asText();
+            String finishReason = incompleteReason.isBlank() ? status : status + ":" + incompleteReason;
+            JsonNode usageNode = response.path("usage");
+            TokenUsage usage = usageNode.isMissingNode() || usageNode.isNull()
+                    ? null
+                    : new TokenUsage(
+                            nullableInteger(usageNode.get("input_tokens")),
+                            nullableInteger(usageNode.get("output_tokens")),
+                            nullableInteger(usageNode.get("total_tokens"))
+                    );
+            String responseId = response.path("id").asText();
+            return new ResponsesResult(
+                    responseModel,
+                    content,
+                    finishReason,
+                    responseId.isBlank() ? requestContextHolder.getRequestId() : responseId,
+                    usage
+            );
+        });
+    }
+
+    private String extractResponseText(JsonNode response) {
+        JsonNode directOutputText = response.get("output_text");
+        if (directOutputText != null && directOutputText.isTextual()) {
+            return directOutputText.asText();
+        }
+        StringBuilder content = new StringBuilder();
+        JsonNode output = response.path("output");
+        if (!output.isArray()) {
+            return "";
+        }
+        for (JsonNode item : output) {
+            if (!"message".equals(item.path("type").asText())) {
+                continue;
+            }
+            JsonNode contentItems = item.path("content");
+            if (!contentItems.isArray()) {
+                continue;
+            }
+            for (JsonNode contentItem : contentItems) {
+                String type = contentItem.path("type").asText();
+                if ("refusal".equals(type)) {
+                    throw new InvalidProviderResponseException(
+                            "Responses provider refused the request: " + contentItem.path("refusal").asText()
+                    );
+                }
+                if ("output_text".equals(type) && contentItem.path("text").isTextual()) {
+                    content.append(contentItem.path("text").asText());
+                }
+            }
+        }
+        return content.toString();
+    }
+
+    private Integer nullableInteger(JsonNode node) {
+        return node != null && node.isNumber() ? node.intValue() : null;
+    }
+
+    private boolean modelsCompatible(String requestedModel, String responseModel) {
+        if (requestedModel == null || requestedModel.isBlank() || responseModel == null || responseModel.isBlank()) {
+            return false;
+        }
+        if (requestedModel.equals(responseModel)) {
+            return true;
+        }
+        return requestedModel.matches("gpt-\\d+\\.\\d+") && responseModel.startsWith(requestedModel + "-");
     }
 
     private Prompt toStructuredPrompt(AiProviderRuntime runtime, StructuredChatRequest request, String model) {
@@ -276,6 +470,15 @@ public class QwenChatProviderClient {
             org.springframework.ai.chat.model.ChatResponse response,
             String content,
             Map<String, Object> structuredData
+    ) {
+    }
+
+    private record ResponsesResult(
+            String model,
+            String content,
+            String finishReason,
+            String providerRequestId,
+            TokenUsage usage
     ) {
     }
 }

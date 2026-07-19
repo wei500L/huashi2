@@ -9,6 +9,7 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -27,6 +28,9 @@ public record AiStructuredGuidancePayload(
         DiagnosisInsightVO diagnosisInsight,
         @DecimalMin(value = "0.0", message = "confidence must be >= 0")
         @DecimalMax(value = "1.0", message = "confidence must be <= 1")
-        double confidence
+        double confidence,
+        @NotNull(message = "citationIds must not be null")
+        List<@NotBlank(message = "citationIds item must not be blank") String> citationIds,
+        String uncertaintyNote
 ) {
 }

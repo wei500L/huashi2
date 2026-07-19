@@ -141,7 +141,7 @@ public final class AiOpsConfigSemanticValidator {
         if (definition.chat() == null) {
             issues.add(issue(prefix + ".chat", "chat_section_required", "chat section is required"));
         } else {
-            validateProtocol(prefix + ".chat.protocol", definition.chat().protocol(), AiOpsProtocols.OPENAI_COMPAT, issues);
+            validateChatProtocol(prefix + ".chat.protocol", definition.chat().protocol(), issues);
             validateUrl(prefix + ".chat.baseUrl", definition.chat().baseUrl(), issues);
             requireText(prefix + ".chat.apiKey", definition.chat().apiKey(), issues);
             validateDuration(prefix + ".chat.connectTimeout", definition.chat().connectTimeout(), issues);
@@ -240,6 +240,25 @@ public final class AiOpsConfigSemanticValidator {
                     Map.of("actual", actual, "expected", expected)
             ));
         }
+    }
+
+    private static void validateChatProtocol(String field, String actual, List<AiOpsConfigIssue> issues) {
+        if (!hasText(actual)) {
+            return;
+        }
+        if (AiOpsProtocols.OPENAI_COMPAT.equals(actual)
+                || AiOpsProtocols.OPENAI_RESPONSES.equals(actual)) {
+            return;
+        }
+        issues.add(issue(
+                field,
+                "unsupported_protocol",
+                "Unsupported chat protocol '" + actual + "'",
+                Map.of(
+                        "actual", actual,
+                        "expected", List.of(AiOpsProtocols.OPENAI_COMPAT, AiOpsProtocols.OPENAI_RESPONSES)
+                )
+        ));
     }
 
     private static void validateRerankProtocol(String field, String actual, List<AiOpsConfigIssue> issues) {

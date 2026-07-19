@@ -447,6 +447,62 @@ public class KnowledgeStoreRepository {
         return jdbcTemplate.execute((Connection connection) -> executeSimilaritySearch(connection, sql.toString(), params, hnswEfSearch));
     }
 
+    public List<KnowledgeSearchCandidate> lexicalSearch(
+            String term,
+            RagSearchFilter filter,
+            int limit
+    ) {
+        if (term == null || term.isBlank()) {
+            return List.of();
+        }
+        String normalizedTerm = term.trim().toLowerCase(Locale.ROOT);
+        String containsPattern = "%" + escapeLikePattern(normalizedTerm) + "%";
+        StringBuilder sql = new StringBuilder("""
+                SELECT kc.id,
+                       kc.source_type,
+                       kc.source_id,
+                       kc.title,
+                       kc.content,
+                       kc.metadata::text AS metadata_json,
+                       CASE
+                           WHEN LOWER(kc.title) = ? THEN 1.0
+                           WHEN LOWER(kc.title) LIKE ? ESCAPE '\\' THEN 0.98
+                           WHEN LOWER(kc.content) LIKE ? ESCAPE '\\' THEN 0.92
+                           ELSE LEAST(0.89, GREATEST(
+                               similarity(LOWER(kc.title), ?),
+                               word_similarity(?, LOWER(kc.title || ' ' || kc.content))
+                           ))
+                       END AS similarity_score
+                FROM knowledge_chunk kc
+                JOIN knowledge_document kd ON kd.id = kc.document_id
+                WHERE kc.active = TRUE
+                  AND kd.active = TRUE
+                  AND (
+                      LOWER(kc.title) = ?
+                      OR LOWER(kc.title) LIKE ? ESCAPE '\\'
+                      OR LOWER(kc.content) LIKE ? ESCAPE '\\'
+                      OR similarity(LOWER(kc.title), ?) >= 0.30
+                      OR word_similarity(?, LOWER(kc.title || ' ' || kc.content)) >= 0.30
+                  )
+                """);
+        List<Object> params = new ArrayList<>();
+        params.add(normalizedTerm);
+        params.add(containsPattern);
+        params.add(containsPattern);
+        params.add(normalizedTerm);
+        params.add(normalizedTerm);
+        params.add(normalizedTerm);
+        params.add(containsPattern);
+        params.add(containsPattern);
+        params.add(normalizedTerm);
+        params.add(normalizedTerm);
+        appendInClause(sql, params, "kc.source_type", filter.sourceTypes());
+        appendInClause(sql, params, "kc.source_id", filter.sourceIds());
+        sql.append(" ORDER BY similarity_score DESC, kc.id LIMIT ?");
+        params.add(Math.max(1, Math.min(limit, 128)));
+        return jdbcTemplate.query(sql.toString(), this::mapSearchCandidate, params.toArray());
+    }
+
     public void deactivateDocumentsNotIn(String documentSourceType, Set<String> seenSourceIds) {
         if (seenSourceIds == null || seenSourceIds.isEmpty()) {
             jdbcTemplate.update("UPDATE knowledge_document SET active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE source_type = ?", documentSourceType);
@@ -635,6 +691,12 @@ public class KnowledgeStoreRepository {
                 .append(String.join(", ", java.util.Collections.nCopies(values.size(), "?")))
                 .append(")");
         params.addAll(values);
+    }
+
+    private String escapeLikePattern(String value) {
+        return value.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     private Map<String, Object> readJsonMap(String value) {

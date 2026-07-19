@@ -49,7 +49,10 @@ const providerKeyPattern = /^[a-z0-9_-]+$/;
 const protocolSchema = z.enum(AiOpsProtocolValues);
 const rerankProtocolValues = ['openai-rerank', 'openai-chat-rerank'] as const satisfies readonly AiOpsProtocol[];
 const providerProtocolOptions = {
-  chat: [{ value: 'openai-compat', label: 'openai-compat' }],
+  chat: [
+    { value: 'openai-compat', label: 'openai-compat' },
+    { value: 'openai-responses', label: 'openai-responses' },
+  ],
   embedding: [{ value: 'openai-compat', label: 'openai-compat' }],
   rerank: rerankProtocolValues.map((value) => ({ value, label: value })),
 } as const;
@@ -1886,12 +1889,12 @@ const configPresets: ConfigPreset[] = [
         },
         retrieval: {
           ...current.rag.retrieval,
-          recallTopK: 32,
-          recallThreshold: 0.25,
+          recallTopK: 50,
+          recallThreshold: 0.45,
           rerankTopN: 16,
-          rerankThreshold: 0.12,
+          rerankThreshold: 0.2,
           finalTopK: 8,
-          hnswEfSearch: 96,
+          hnswEfSearch: 128,
         },
       },
     }),

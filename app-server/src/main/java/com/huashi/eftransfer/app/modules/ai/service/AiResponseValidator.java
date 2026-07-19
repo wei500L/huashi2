@@ -27,6 +27,32 @@ public class AiResponseValidator {
         return validatePayload(structuredData, AiStructuredGuidancePayload.class);
     }
 
+    public AiStructuredGuidancePayload validateGuidance(
+            Map<String, Object> structuredData,
+            Set<String> availableCitationIds
+    ) {
+        AiStructuredGuidancePayload payload = validatePayload(structuredData, AiStructuredGuidancePayload.class);
+        Set<String> citationIds = payload.citationIds().stream()
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (citationIds.size() != payload.citationIds().size()) {
+            throw new IllegalStateException("citationIds must not contain duplicates");
+        }
+        Set<String> available = availableCitationIds == null ? Set.of() : availableCitationIds;
+        if (!available.containsAll(citationIds)) {
+            throw new IllegalStateException("citationIds must reference retrieved citations only");
+        }
+        if (!available.isEmpty() && citationIds.isEmpty()) {
+            throw new IllegalStateException("citationIds must not be empty when grounded context is available");
+        }
+        String combinedText = payload.explanation() + "\n" + payload.teacherNote();
+        boolean allInlineReferenced = citationIds.stream()
+                .allMatch(citationId -> combinedText.contains("[" + citationId + "]"));
+        if (!allInlineReferenced) {
+            throw new IllegalStateException("explanation or teacherNote must include every selected inline citation");
+        }
+        return payload;
+    }
+
     public LexicalStructuredAnswerPayload validateLexicalRagAnswer(
             Map<String, Object> structuredData,
             Set<String> availableCitationIds

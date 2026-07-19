@@ -93,7 +93,12 @@ public class AiOutputSchemaFactory {
                                 ),
                                 "required", List.of("strengths", "weaknesses", "suggestions")
                         ),
-                        "confidence", Map.of("type", "number")
+                        "confidence", Map.of("type", "number"),
+                        "citationIds", Map.of(
+                                "type", "array",
+                                "items", Map.of("type", "string")
+                        ),
+                        "uncertaintyNote", Map.of("type", "string")
                 ),
                 "required", List.of(
                         "recommendationPath",
@@ -101,7 +106,9 @@ public class AiOutputSchemaFactory {
                         "recommendedTrainingModes",
                         "explanation",
                         "teacherNote",
-                        "confidence"
+                        "confidence",
+                        "citationIds",
+                        "uncertaintyNote"
                 )
         );
     }
@@ -132,6 +139,22 @@ public class AiOutputSchemaFactory {
                         "confidence",
                         "citationIds"
                 )
+        );
+    }
+
+    public Map<String, Object> groundingVerificationSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "properties", Map.of(
+                        "supported", Map.of("type", "boolean"),
+                        "unsupportedClaims", Map.of(
+                                "type", "array",
+                                "items", Map.of("type", "string")
+                        ),
+                        "uncertaintyNote", Map.of("type", "string")
+                ),
+                "required", List.of("supported", "unsupportedClaims", "uncertaintyNote")
         );
     }
 }

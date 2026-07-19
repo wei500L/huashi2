@@ -184,7 +184,7 @@ public class AiRuntimeBundleFactory {
         AiOpsEmbeddingConfig embeddingConfig = definition.embedding();
         AiOpsRerankConfig rerankConfig = definition.rerank();
 
-        requireSupportedProtocol(providerName, "chat", chatConfig.protocol(), AiOpsProtocols.OPENAI_COMPAT);
+        requireSupportedChatProtocol(providerName, chatConfig.protocol());
         requireSupportedProtocol(providerName, "embedding", embeddingConfig.protocol(), AiOpsProtocols.OPENAI_COMPAT);
         requireSupportedRerankProtocol(providerName, rerankConfig.protocol());
 
@@ -207,6 +207,12 @@ public class AiRuntimeBundleFactory {
                         .build())
                 .retryTemplate(singleAttemptRetryTemplate())
                 .build();
+        RestClient chatRestClient = providerRestClientBuilder(
+                normalizeOpenAiBaseUrl(chatConfig.baseUrl()),
+                chatConfig.apiKey(),
+                parseDuration(chatConfig.connectTimeout()),
+                parseDuration(chatConfig.readTimeout())
+        ).build();
 
         OpenAiApi embeddingApi = OpenAiApi.builder()
                 .baseUrl(normalizeOpenAiBaseUrl(embeddingConfig.baseUrl()))
@@ -249,6 +255,7 @@ public class AiRuntimeBundleFactory {
                 definition,
                 org.springframework.ai.chat.client.ChatClient.builder(chatModel).build(),
                 chatModel,
+                chatRestClient,
                 embeddingModel,
                 rerankBuilder.build(),
                 resilience,
@@ -434,6 +441,17 @@ public class AiRuntimeBundleFactory {
         throw new IllegalArgumentException(
                 "Unsupported rerank protocol '" + actual + "' for provider " + providerName
                         + "; expected one of " + AiOpsProtocols.OPENAI_RERANK + ", " + AiOpsProtocols.OPENAI_CHAT_RERANK
+        );
+    }
+
+    private void requireSupportedChatProtocol(String providerName, String actual) {
+        if (AiOpsProtocols.OPENAI_COMPAT.equals(actual)
+                || AiOpsProtocols.OPENAI_RESPONSES.equals(actual)) {
+            return;
+        }
+        throw new IllegalArgumentException(
+                "provider " + providerName + " chat protocol is " + actual
+                        + "; expected one of " + AiOpsProtocols.OPENAI_COMPAT + ", " + AiOpsProtocols.OPENAI_RESPONSES
         );
     }
 }

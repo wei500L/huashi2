@@ -6,6 +6,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,20 @@ public record StructuredChatRequest(
         Boolean strict,
         @NotEmpty(message = "schema must not be empty")
         @Size(max = 256, message = "schema has too many top-level fields")
-        Map<String, Object> schema
+        Map<String, Object> schema,
+        @Pattern(regexp = "none|low|medium|high|xhigh|max", message = "reasoningEffort is invalid")
+        String reasoningEffort,
+        Boolean proMode
 ) {
+
+    public StructuredChatRequest(
+            List<ChatMessage> messages,
+            String model,
+            Double temperature,
+            String schemaName,
+            Boolean strict,
+            Map<String, Object> schema
+    ) {
+        this(messages, model, temperature, schemaName, strict, schema, null, null);
+    }
 }
