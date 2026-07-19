@@ -7,6 +7,7 @@ import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AdminAiChatProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiConfigDriftVO;
@@ -161,11 +162,11 @@ public class AiOpsAdminService {
         try {
             remoteValidation = aiGatewayClient.validateConfig(candidate);
         } catch (RuntimeException ex) {
-            notices.add(notice(
-                    "runtime_validation_unavailable",
-                    "warning",
-                    "ai-gateway runtime validation is unavailable. Local schema validation passed; runtime build confirmation is pending."
-            ));
+            throw new BusinessException(
+                    ResultCode.AI_PROVIDER_UNAVAILABLE,
+                    "ai-gateway runtime validation is unavailable; AI config was not published",
+                    503
+            );
         }
         if (remoteValidation != null) {
             if (!remoteValidation.valid()) {
@@ -173,6 +174,8 @@ public class AiOpsAdminService {
             }
             notices = mergeNotices(notices, remoteValidation.notices());
         }
+
+        requireLiveProviderPreflight(candidate);
 
         Long previousVersion = currentVersion(currentRuntime, storedConfig);
         Long nextVersion = nextVersion(currentRuntime == null ? null : currentRuntime.version(), storedSnapshot.map(StoredAiOpsConfig::version).orElse(null));
@@ -196,6 +199,38 @@ public class AiOpsAdminService {
                         "ai-gateway health is unavailable",
                         503
                 ));
+    }
+
+    public AdminAiChatProbeVO probeChat(AdminAiConfigSaveRequest request) {
+        AiOpsConfigPayload candidate = buildProbeCandidate(request);
+        Map<String, Object> auditPayload = new LinkedHashMap<>();
+        auditPayload.put("configKey", AiOpsConfigStorageService.CONFIG_KEY);
+        try {
+            AiGatewayCallResult<AdminAiChatProbeVO> result = aiGatewayClient.probeChatConfig(candidate);
+            if (!result.success() || result.data() == null) {
+                auditPayload.put("message", result.failureMessage());
+                throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, result.failureMessage(), 503);
+            }
+            AdminAiChatProbeVO probe = result.data();
+            auditLogService.record(
+                    "ai_ops_chat_probe",
+                    "admin_ai_config",
+                    AiOpsConfigStorageService.CONFIG_KEY,
+                    buildProbeAuditPayload(probe.provider(), probe.model(), probe.latencyMs(), probe.providerRequestId(), probe.message(), probeDetails(
+                            "protocol", probe.protocol(),
+                            "structuredOutputValid", probe.structuredOutputValid(),
+                            "providersChecked", probe.providersChecked()
+                    )),
+                    probe.ok() ? ResultCode.SUCCESS.code() : ResultCode.AI_PROVIDER_UNAVAILABLE.code()
+            );
+            return probe;
+        } catch (BusinessException exception) {
+            recordProbeFailure("ai_ops_chat_probe", auditPayload, exception);
+            throw exception;
+        } catch (RuntimeException exception) {
+            recordProbeFailure("ai_ops_chat_probe", auditPayload, exception);
+            throw exception;
+        }
     }
 
     public AdminAiEmbeddingProbeVO probeEmbedding(AdminAiConfigSaveRequest request) {
@@ -405,6 +440,37 @@ public class AiOpsAdminService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "AI ops config validation failed", 400);
         }
         return candidate;
+    }
+
+    private void requireLiveProviderPreflight(AiOpsConfigPayload candidate) {
+        AiGatewayCallResult<AdminAiChatProbeVO> chatResult = aiGatewayClient.probeChatConfig(candidate);
+        if (!chatResult.success() || chatResult.data() == null || !chatResult.data().ok()) {
+            throw providerPreflightFailure("Chat", chatResult.failureMessage(),
+                    chatResult.data() == null ? null : chatResult.data().message());
+        }
+
+        AiGatewayCallResult<AdminAiEmbeddingProbeVO> embeddingResult = aiGatewayClient.probeEmbeddingConfig(candidate);
+        if (!embeddingResult.success() || embeddingResult.data() == null || !embeddingResult.data().ok()) {
+            throw providerPreflightFailure("Embedding", embeddingResult.failureMessage(),
+                    embeddingResult.data() == null ? null : embeddingResult.data().message());
+        }
+
+        AiGatewayCallResult<AdminAiRerankProbeVO> rerankResult = aiGatewayClient.probeRerankConfig(candidate);
+        if (!rerankResult.success() || rerankResult.data() == null || !rerankResult.data().ok()) {
+            throw providerPreflightFailure("Rerank", rerankResult.failureMessage(),
+                    rerankResult.data() == null ? null : rerankResult.data().message());
+        }
+    }
+
+    private BusinessException providerPreflightFailure(String capability, String callFailure, String probeFailure) {
+        String reason = StringUtils.hasText(probeFailure)
+                ? probeFailure
+                : (StringUtils.hasText(callFailure) ? callFailure : "probe failed");
+        return new BusinessException(
+                ResultCode.AI_PROVIDER_UNAVAILABLE,
+                capability + " provider preflight failed; AI config was not published: " + reason,
+                503
+        );
     }
 
     private void validateExpectedVersion(String expectedVersion, Long currentVersion) {

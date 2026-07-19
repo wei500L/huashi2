@@ -29,6 +29,11 @@ spring:
       pgvector:
         initialize-schema: false
         dimensions: ${AI_EMBEDDING_DIMENSION:1024}
+  task:
+    scheduling:
+      pool:
+        size: ${AI_SCHEDULING_POOL_SIZE:3}
+      thread-name-prefix: ai-scheduler-
 
 management:
   server:
@@ -57,6 +62,12 @@ ai:
   runtime:
     sync-retry-initial-delay: ${AI_RUNTIME_SYNC_RETRY_INITIAL_DELAY:PT10S}
     sync-retry-interval: ${AI_RUNTIME_SYNC_RETRY_INTERVAL:PT10S}
+  provider-probes:
+    initial-delay: ${AI_PROVIDER_PROBE_INITIAL_DELAY:PT15S}
+    interval: ${AI_PROVIDER_PROBE_INTERVAL:PT10M}
+  provider-endpoint-policy:
+    allow-private-networks: ${AI_PROVIDER_ALLOW_PRIVATE_NETWORKS:true}
+    require-https: ${AI_PROVIDER_REQUIRE_HTTPS:false}
   provider:
     active-provider: ${AI_PROVIDER:qwen}
     fallback-provider: ${AI_FALLBACK_PROVIDER:deepseek}

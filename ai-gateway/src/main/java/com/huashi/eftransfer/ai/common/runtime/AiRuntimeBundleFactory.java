@@ -3,6 +3,7 @@ package com.huashi.eftransfer.ai.common.runtime;
 import com.huashi.eftransfer.ai.common.config.AiProviderProperties;
 import com.huashi.eftransfer.ai.common.config.AiResilienceProperties;
 import com.huashi.eftransfer.ai.common.exception.ProviderErrorSupport;
+import com.huashi.eftransfer.ai.common.security.AiProviderEndpointPolicy;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
@@ -52,18 +53,31 @@ public class AiRuntimeBundleFactory {
     private final ClientHttpRequestInterceptor providerRequestCaptureInterceptor;
     private final ProviderErrorSupport providerErrorSupport;
     private final AiCircuitBreakerManager circuitBreakerManager;
+    private final AiProviderEndpointPolicy providerEndpointPolicy;
 
     @Autowired
     public AiRuntimeBundleFactory(
             RestClient.Builder restClientBuilder,
             ClientHttpRequestInterceptor providerRequestCaptureInterceptor,
             ProviderErrorSupport providerErrorSupport,
-            AiCircuitBreakerManager circuitBreakerManager
+            AiCircuitBreakerManager circuitBreakerManager,
+            AiProviderEndpointPolicy providerEndpointPolicy
     ) {
         this.restClientBuilder = restClientBuilder;
         this.providerRequestCaptureInterceptor = providerRequestCaptureInterceptor;
         this.providerErrorSupport = providerErrorSupport;
         this.circuitBreakerManager = circuitBreakerManager;
+        this.providerEndpointPolicy = providerEndpointPolicy;
+    }
+
+    public AiRuntimeBundleFactory(
+            RestClient.Builder restClientBuilder,
+            ClientHttpRequestInterceptor providerRequestCaptureInterceptor,
+            ProviderErrorSupport providerErrorSupport,
+            AiCircuitBreakerManager circuitBreakerManager
+    ) {
+        this(restClientBuilder, providerRequestCaptureInterceptor, providerErrorSupport, circuitBreakerManager,
+                new AiProviderEndpointPolicy(true, false));
     }
 
     public AiRuntimeBundleFactory(
@@ -71,7 +85,8 @@ public class AiRuntimeBundleFactory {
             ClientHttpRequestInterceptor providerRequestCaptureInterceptor,
             ProviderErrorSupport providerErrorSupport
     ) {
-        this(restClientBuilder, providerRequestCaptureInterceptor, providerErrorSupport, new AiCircuitBreakerManager(providerErrorSupport));
+        this(restClientBuilder, providerRequestCaptureInterceptor, providerErrorSupport,
+                new AiCircuitBreakerManager(providerErrorSupport), new AiProviderEndpointPolicy(true, false));
     }
 
     public AiRuntimeBundle fromProperties(
@@ -180,6 +195,7 @@ public class AiRuntimeBundleFactory {
             AiOpsProviderDefinition definition,
             AiOpsResilienceConfig resilience
     ) {
+        providerEndpointPolicy.verify(providerName, definition);
         AiOpsChatConfig chatConfig = definition.chat();
         AiOpsEmbeddingConfig embeddingConfig = definition.embedding();
         AiOpsRerankConfig rerankConfig = definition.rerank();

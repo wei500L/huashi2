@@ -2,6 +2,7 @@ package com.huashi.eftransfer.ai.modules.internal.controller;
 
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.modules.internal.service.AiConfigProbeService;
+import com.huashi.eftransfer.shared.ai.AdminAiChatProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigApplyRequest;
@@ -46,6 +47,7 @@ public class InternalAiConfigController {
     @PostMapping("/apply")
     public ApiResponse<AiOpsConfigApplyResponse> apply(@RequestBody AiOpsConfigApplyRequest request) {
         String source = StringUtils.hasText(request.source()) ? request.source() : "ADMIN_APPLY";
+        aiConfigProbeService.requireReady(request.config());
         AiOpsConfigEffectiveResponse response = runtimeConfigService.apply(request.config(), source, request.version());
         return ApiResponse.success(
                 new AiOpsConfigApplyResponse(response.source(), response.version(), response.appliedAt(), response.notices()),
@@ -56,6 +58,7 @@ public class InternalAiConfigController {
     @PostMapping("/stage")
     public ApiResponse<AiOpsConfigStageResponse> stage(@RequestBody AiOpsConfigStageRequest request) {
         String source = StringUtils.hasText(request.source()) ? request.source() : "ADMIN_STAGE";
+        aiConfigProbeService.requireReady(request.config());
         return ApiResponse.success(runtimeConfigService.stage(request.config(), source, request.version()), MDC.get("traceId"));
     }
 
@@ -67,6 +70,11 @@ public class InternalAiConfigController {
     @PostMapping("/probes/embedding")
     public ApiResponse<AdminAiEmbeddingProbeVO> probeEmbedding(@RequestBody AiOpsConfigPayload request) {
         return ApiResponse.success(aiConfigProbeService.probeEmbedding(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/probes/chat")
+    public ApiResponse<AdminAiChatProbeVO> probeChat(@RequestBody AiOpsConfigPayload request) {
+        return ApiResponse.success(aiConfigProbeService.probeChat(request), MDC.get("traceId"));
     }
 
     @PostMapping("/probes/rerank")

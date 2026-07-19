@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.integration.ai.client;
 import com.huashi.eftransfer.app.common.config.AiGatewayClientProperties;
 import com.huashi.eftransfer.app.common.trace.TraceIdSupport;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AdminAiChatProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.shared.ai.ChatRequest;
@@ -57,6 +58,9 @@ public class AiGatewayClient {
 
     private static final Logger log = LoggerFactory.getLogger(AiGatewayClient.class);
     private static final ParameterizedTypeReference<ApiResponse<AiGatewayHealthResponse>> HEALTH_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<AdminAiChatProbeVO>> CHAT_PROBE_TYPE =
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<AdminAiEmbeddingProbeVO>> EMBEDDING_PROBE_TYPE =
@@ -160,6 +164,10 @@ public class AiGatewayClient {
 
     public AiGatewayCallResult<AdminAiEmbeddingProbeVO> probeEmbeddingConfig(AiOpsConfigPayload payload) {
         return post("/internal/ai/config/probes/embedding", payload, EMBEDDING_PROBE_TYPE);
+    }
+
+    public AiGatewayCallResult<AdminAiChatProbeVO> probeChatConfig(AiOpsConfigPayload payload) {
+        return post("/internal/ai/config/probes/chat", payload, CHAT_PROBE_TYPE);
     }
 
     public AiGatewayCallResult<AdminAiRerankProbeVO> probeRerankConfig(AiOpsConfigPayload payload) {

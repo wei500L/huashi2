@@ -4,16 +4,22 @@ import com.huashi.eftransfer.ai.common.runtime.AiProviderRuntime;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundle;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeBundleFactory;
 import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
+import com.huashi.eftransfer.ai.integration.provider.QwenChatProviderClient;
 import com.huashi.eftransfer.ai.integration.provider.QwenEmbeddingProviderClient;
 import com.huashi.eftransfer.ai.integration.provider.QwenRerankClient;
 import com.huashi.eftransfer.ai.modules.rag.support.EmbeddingTextSupport;
+import com.huashi.eftransfer.shared.ai.AdminAiChatProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
+import com.huashi.eftransfer.shared.ai.ChatMessage;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
 import com.huashi.eftransfer.shared.ai.RerankItem;
 import com.huashi.eftransfer.shared.ai.RerankRequest;
 import com.huashi.eftransfer.shared.ai.RerankResponse;
+import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
+import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
+import com.huashi.eftransfer.shared.ai.config.AiOpsChatConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigIssue;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigPayload;
 import com.huashi.eftransfer.shared.ai.config.AiOpsConfigValidationResponse;
@@ -21,6 +27,9 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsEmbeddingConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -29,14 +38,20 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class AiConfigProbeService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiConfigProbeService.class);
     private static final double MIN_PROVIDER_VECTOR_COMPATIBILITY = 0.995D;
+
+    private static final String CHAT_PROBE_STATUS = "ok";
 
     private static final String EMBEDDING_PROBE_QUERY = "What are false friends in English-French vocabulary learning?";
     private static final String EMBEDDING_PROBE_RELEVANT_DOCUMENT =
@@ -52,25 +67,156 @@ public class AiConfigProbeService {
 
     private final AiRuntimeConfigService runtimeConfigService;
     private final AiRuntimeBundleFactory bundleFactory;
+    private final QwenChatProviderClient chatProviderClient;
     private final QwenEmbeddingProviderClient embeddingProviderClient;
     private final QwenRerankClient rerankClient;
+    private final ConcurrentMap<String, ChatProbeState> chatProbeStates = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, EmbeddingProbeState> embeddingProbeStates = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, RerankProbeState> rerankProbeStates = new ConcurrentHashMap<>();
+    private final AtomicReference<EmbeddingCompatibilityProbeState> embeddingCompatibilityProbeState = new AtomicReference<>();
+    private final AtomicBoolean scheduledProbeInProgress = new AtomicBoolean(false);
 
     public AiConfigProbeService(
             AiRuntimeConfigService runtimeConfigService,
             AiRuntimeBundleFactory bundleFactory,
+            QwenChatProviderClient chatProviderClient,
             QwenEmbeddingProviderClient embeddingProviderClient,
             QwenRerankClient rerankClient
     ) {
         this.runtimeConfigService = runtimeConfigService;
         this.bundleFactory = bundleFactory;
+        this.chatProviderClient = chatProviderClient;
         this.embeddingProviderClient = embeddingProviderClient;
         this.rerankClient = rerankClient;
     }
 
-    public AdminAiEmbeddingProbeVO probeEmbedding(AiOpsConfigPayload payload) {
+    public AdminAiChatProbeVO probeChat(AiOpsConfigPayload payload) {
+        return probeChat(buildProbeBundle(payload), payload);
+    }
+
+    public void requireReady(AiOpsConfigPayload payload) {
         AiRuntimeBundle bundle = buildProbeBundle(payload);
+        AdminAiChatProbeVO chat = probeChat(bundle, payload);
+        if (!chat.ok()) {
+            throw preflightFailure("Chat", chat.message());
+        }
+        AdminAiEmbeddingProbeVO embedding = probeEmbedding(bundle, payload);
+        if (!embedding.ok()) {
+            throw preflightFailure("Embedding", embedding.message());
+        }
+        AdminAiRerankProbeVO rerank = probeRerank(bundle, payload);
+        if (!rerank.ok()) {
+            throw preflightFailure("Rerank", rerank.message());
+        }
+    }
+
+    private BusinessException preflightFailure(String capability, String reason) {
+        return new BusinessException(
+                ResultCode.AI_PROVIDER_UNAVAILABLE,
+                capability + " provider preflight failed; runtime config was not activated: " + reason,
+                503
+        );
+    }
+
+    private AdminAiChatProbeVO probeChat(AiRuntimeBundle bundle, AiOpsConfigPayload payload) {
+        List<String> providerNames = providerNames(payload);
+        List<AdminAiChatProbeVO> results = new ArrayList<>(providerNames.size());
+        for (String providerName : providerNames) {
+            results.add(probeChatProvider(bundle, providerName));
+        }
+        AdminAiChatProbeVO activeResult = results.getFirst();
+        boolean ok = results.stream().allMatch(AdminAiChatProbeVO::ok);
+        return new AdminAiChatProbeVO(
+                ok,
+                probeSummary(
+                        "Chat",
+                        providerNames,
+                        results.stream().map(AdminAiChatProbeVO::ok).toList(),
+                        results.stream().map(AdminAiChatProbeVO::message).toList()
+                ),
+                String.join(" -> ", providerNames),
+                activeResult.model(),
+                activeResult.protocol(),
+                results.stream().mapToLong(AdminAiChatProbeVO::latencyMs).sum(),
+                activeResult.providerRequestId(),
+                OffsetDateTime.now(),
+                results.stream().allMatch(AdminAiChatProbeVO::structuredOutputValid),
+                providerNames.size()
+        );
+    }
+
+    private AdminAiChatProbeVO probeChatProvider(AiRuntimeBundle bundle, String providerName) {
+        AiProviderRuntime runtime = requireProviderRuntime(bundle, providerName);
+        AiOpsChatConfig config = runtime.definition().chat();
+        long startedAt = System.nanoTime();
+        try {
+            StructuredChatResponse response = chatProviderClient.structuredChat(
+                    runtime,
+                    providerName,
+                    new StructuredChatRequest(
+                            List.of(
+                                    new ChatMessage("system", "Return only the JSON object required by the schema."),
+                                    new ChatMessage("user", "Respond with status ok to confirm structured generation readiness.")
+                            ),
+                            null,
+                            0.0D,
+                            "AiConfigProbe",
+                            Boolean.TRUE,
+                            Map.of(
+                                    "type", "object",
+                                    "additionalProperties", false,
+                                    "properties", Map.of(
+                                            "status", Map.of("type", "string", "enum", List.of(CHAT_PROBE_STATUS))
+                                    ),
+                                    "required", List.of("status")
+                            ),
+                            "low",
+                            Boolean.FALSE
+                    )
+            );
+            boolean structuredOutputValid = response != null
+                    && response.structuredData() != null
+                    && CHAT_PROBE_STATUS.equals(response.structuredData().get("status"));
+            boolean ok = structuredOutputValid
+                    && StringUtils.hasText(response.model())
+                    && StringUtils.hasText(response.rawContent());
+            AdminAiChatProbeVO result = new AdminAiChatProbeVO(
+                    ok,
+                    ok ? "Chat structured-output probe succeeded" : "Chat probe returned an invalid structured payload",
+                    providerName,
+                    response == null ? config.model() : response.model(),
+                    config.protocol(),
+                    elapsedMillis(startedAt),
+                    response == null ? null : response.providerRequestId(),
+                    OffsetDateTime.now(),
+                    structuredOutputValid,
+                    1
+            );
+            chatProbeStates.put(providerName, new ChatProbeState(providerName, config, ok, result.testedAt()));
+            return result;
+        } catch (RuntimeException exception) {
+            AdminAiChatProbeVO result = new AdminAiChatProbeVO(
+                    false,
+                    summarizeFailure(exception),
+                    providerName,
+                    config.model(),
+                    config.protocol(),
+                    elapsedMillis(startedAt),
+                    null,
+                    OffsetDateTime.now(),
+                    false,
+                    1
+            );
+            chatProbeStates.put(providerName, new ChatProbeState(providerName, config, false, result.testedAt()));
+            return result;
+        }
+    }
+
+    public AdminAiEmbeddingProbeVO probeEmbedding(AiOpsConfigPayload payload) {
+        return probeEmbedding(buildProbeBundle(payload), payload);
+    }
+
+    private AdminAiEmbeddingProbeVO probeEmbedding(AiRuntimeBundle bundle, AiOpsConfigPayload payload) {
         List<String> providerNames = providerNames(payload);
         List<EmbeddingProbeExecution> executions = new ArrayList<>(providerNames.size());
         for (String providerName : providerNames) {
@@ -82,6 +228,14 @@ public class AiConfigProbeService {
         boolean providersCompatible = executions.size() < 2
                 || (providerCompatibility != null && providerCompatibility >= MIN_PROVIDER_VECTOR_COMPATIBILITY);
         boolean ok = executions.stream().allMatch(execution -> execution.result().ok()) && providersCompatible;
+        embeddingCompatibilityProbeState.set(new EmbeddingCompatibilityProbeState(
+                providerNames,
+                providerNames.stream()
+                        .map(name -> payload.provider().providers().get(name).embedding())
+                        .toList(),
+                ok,
+                OffsetDateTime.now()
+        ));
         String message = probeSummary(
                 "Embedding",
                 providerNames,
@@ -195,7 +349,10 @@ public class AiConfigProbeService {
     }
 
     public AdminAiRerankProbeVO probeRerank(AiOpsConfigPayload payload) {
-        AiRuntimeBundle bundle = buildProbeBundle(payload);
+        return probeRerank(buildProbeBundle(payload), payload);
+    }
+
+    private AdminAiRerankProbeVO probeRerank(AiRuntimeBundle bundle, AiOpsConfigPayload payload) {
         List<String> providerNames = providerNames(payload);
         List<AdminAiRerankProbeVO> results = new ArrayList<>(providerNames.size());
         for (String providerName : providerNames) {
@@ -300,9 +457,58 @@ public class AiConfigProbeService {
         return state != null && state.matches(providerName, config) && state.isRecentAndSuccessful();
     }
 
+    public boolean isEmbeddingSpaceReady(AiOpsConfigPayload payload) {
+        if (payload == null || payload.provider() == null || payload.provider().providers() == null) {
+            return false;
+        }
+        List<String> providerNames = providerNames(payload);
+        List<AiOpsEmbeddingConfig> configs = providerNames.stream()
+                .map(name -> payload.provider().providers().get(name))
+                .map(definition -> definition == null ? null : definition.embedding())
+                .toList();
+        EmbeddingCompatibilityProbeState state = embeddingCompatibilityProbeState.get();
+        return state != null && state.matches(providerNames, configs) && state.isRecentAndSuccessful();
+    }
+
+    public boolean isChatReady(String providerName, AiOpsChatConfig config) {
+        ChatProbeState state = chatProbeStates.get(providerName);
+        return state != null && state.matches(providerName, config) && state.isRecentAndSuccessful();
+    }
+
     public boolean isRerankReady(String providerName, AiOpsRerankConfig config) {
         RerankProbeState state = rerankProbeStates.get(providerName);
         return state != null && state.matches(providerName, config) && state.isRecentAndSuccessful();
+    }
+
+    @Scheduled(
+            initialDelayString = "${ai.provider-probes.initial-delay:PT15S}",
+            fixedDelayString = "${ai.provider-probes.interval:PT10M}"
+    )
+    public void refreshCurrentProviderReadiness() {
+        if (!scheduledProbeInProgress.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            AiRuntimeBundle bundle = runtimeConfigService.current();
+            AiOpsConfigPayload payload = bundle.config();
+            refreshProbe("chat", () -> probeChat(bundle, payload).ok());
+            refreshProbe("embedding", () -> probeEmbedding(bundle, payload).ok());
+            refreshProbe("rerank", () -> probeRerank(bundle, payload).ok());
+        } finally {
+            scheduledProbeInProgress.set(false);
+        }
+    }
+
+    private void refreshProbe(String capability, java.util.function.BooleanSupplier probe) {
+        try {
+            boolean ready = probe.getAsBoolean();
+            if (!ready) {
+                log.warn("event=ai_provider_scheduled_probe_failed capability={}", capability);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("event=ai_provider_scheduled_probe_failed capability={} message={}",
+                    capability, summarizeFailure(exception));
+        }
     }
 
     private AiRuntimeBundle buildProbeBundle(AiOpsConfigPayload payload) {
@@ -441,10 +647,42 @@ public class AiConfigProbeService {
         }
     }
 
+    private record ChatProbeState(
+            String providerName,
+            AiOpsChatConfig config,
+            boolean successful,
+            OffsetDateTime checkedAt
+    ) {
+        private boolean matches(String currentProvider, AiOpsChatConfig currentConfig) {
+            return Objects.equals(providerName, currentProvider)
+                    && Objects.equals(config, currentConfig);
+        }
+
+        private boolean isRecentAndSuccessful() {
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+        }
+    }
+
     private record EmbeddingProbeExecution(
             AdminAiEmbeddingProbeVO result,
             List<List<Double>> vectors
     ) {
+    }
+
+    private record EmbeddingCompatibilityProbeState(
+            List<String> providerNames,
+            List<AiOpsEmbeddingConfig> configs,
+            boolean successful,
+            OffsetDateTime checkedAt
+    ) {
+        private boolean matches(List<String> currentProviders, List<AiOpsEmbeddingConfig> currentConfigs) {
+            return Objects.equals(providerNames, currentProviders)
+                    && Objects.equals(configs, currentConfigs);
+        }
+
+        private boolean isRecentAndSuccessful() {
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+        }
     }
 
     private record RerankProbeState(

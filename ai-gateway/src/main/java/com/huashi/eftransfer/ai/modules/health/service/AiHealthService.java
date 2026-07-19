@@ -88,15 +88,24 @@ public class AiHealthService {
                 && configured(fallbackProvider.embedding().baseUrl())
                 && configured(fallbackProvider.embedding().apiKey())
                 && configured(fallbackProvider.embedding().model());
+        boolean fallbackChatConfigured = fallbackProvider != null
+                && fallbackProvider.chat() != null
+                && configured(fallbackProvider.chat().baseUrl())
+                && configured(fallbackProvider.chat().apiKey())
+                && configured(fallbackProvider.chat().model());
         boolean fallbackRerankConfigured = fallbackProvider != null
                 && fallbackProvider.rerank() != null
                 && configured(fallbackProvider.rerank().baseUrl())
                 && configured(fallbackProvider.rerank().apiKey())
                 && configured(fallbackProvider.rerank().model());
         boolean providerReady = providerConfigured
+                && fallbackChatConfigured
                 && fallbackEmbeddingConfigured
+                && aiConfigProbeService.isChatReady(provider.activeProvider(), activeProvider.chat())
+                && aiConfigProbeService.isChatReady(provider.fallbackProvider(), fallbackProvider.chat())
                 && aiConfigProbeService.isEmbeddingReady(provider.activeProvider(), activeProvider.embedding())
-                && aiConfigProbeService.isEmbeddingReady(provider.fallbackProvider(), fallbackProvider.embedding());
+                && aiConfigProbeService.isEmbeddingReady(provider.fallbackProvider(), fallbackProvider.embedding())
+                && aiConfigProbeService.isEmbeddingSpaceReady(bundle.config());
         boolean rerankReady = rerankConfigured
                 && fallbackRerankConfigured
                 && aiConfigProbeService.isRerankReady(provider.activeProvider(), activeProvider.rerank())

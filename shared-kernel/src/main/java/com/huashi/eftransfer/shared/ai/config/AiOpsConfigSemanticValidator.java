@@ -314,6 +314,16 @@ public final class AiOpsConfigSemanticValidator {
             URI uri = URI.create(value);
             if (!hasText(uri.getScheme()) || !hasText(uri.getHost())) {
                 issues.add(issue(field, "absolute_url_required", "must be an absolute URL"));
+                return;
+            }
+            if (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme())) {
+                issues.add(issue(field, "http_url_required", "must use http or https"));
+            }
+            if (uri.getUserInfo() != null) {
+                issues.add(issue(field, "url_user_info_forbidden", "must not include user information"));
+            }
+            if (uri.getQuery() != null || uri.getFragment() != null) {
+                issues.add(issue(field, "url_query_or_fragment_forbidden", "must not include a query string or fragment"));
             }
         } catch (Exception ex) {
             issues.add(issue(field, "invalid_url", "must be a valid URL"));

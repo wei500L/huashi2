@@ -7,6 +7,7 @@ import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminAiRuntimeSyncRequest
 import com.huashi.eftransfer.app.modules.opsconfig.dto.AdminOutboxRecordVO;
 import com.huashi.eftransfer.app.modules.opsconfig.service.AiOpsAdminService;
 import com.huashi.eftransfer.shared.ai.AiGatewayHealthResponse;
+import com.huashi.eftransfer.shared.ai.AdminAiChatProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiEmbeddingProbeVO;
 import com.huashi.eftransfer.shared.ai.AdminAiRerankProbeVO;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
@@ -65,6 +66,11 @@ public class AdminAiConfigController {
     @PostMapping("/probes/embedding")
     public ApiResponse<AdminAiEmbeddingProbeVO> probeEmbedding(@Valid @RequestBody AdminAiConfigSaveRequest request) {
         return ApiResponse.success(aiOpsAdminService.probeEmbedding(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/probes/chat")
+    public ApiResponse<AdminAiChatProbeVO> probeChat(@Valid @RequestBody AdminAiConfigSaveRequest request) {
+        return ApiResponse.success(aiOpsAdminService.probeChat(request), MDC.get("traceId"));
     }
 
     @PostMapping("/probes/rerank")
