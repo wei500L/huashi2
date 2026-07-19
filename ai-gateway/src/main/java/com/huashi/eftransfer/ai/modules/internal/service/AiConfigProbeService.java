@@ -25,13 +25,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Service
 public class AiConfigProbeService {
+
+    private static final double MIN_PROVIDER_VECTOR_COMPATIBILITY = 0.995D;
 
     private static final String EMBEDDING_PROBE_QUERY = "What are false friends in English-French vocabulary learning?";
     private static final String EMBEDDING_PROBE_RELEVANT_DOCUMENT =
@@ -49,8 +54,8 @@ public class AiConfigProbeService {
     private final AiRuntimeBundleFactory bundleFactory;
     private final QwenEmbeddingProviderClient embeddingProviderClient;
     private final QwenRerankClient rerankClient;
-    private final AtomicReference<EmbeddingProbeState> embeddingProbeState = new AtomicReference<>();
-    private final AtomicReference<RerankProbeState> rerankProbeState = new AtomicReference<>();
+    private final ConcurrentMap<String, EmbeddingProbeState> embeddingProbeStates = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RerankProbeState> rerankProbeStates = new ConcurrentHashMap<>();
 
     public AiConfigProbeService(
             AiRuntimeConfigService runtimeConfigService,
@@ -66,8 +71,50 @@ public class AiConfigProbeService {
 
     public AdminAiEmbeddingProbeVO probeEmbedding(AiOpsConfigPayload payload) {
         AiRuntimeBundle bundle = buildProbeBundle(payload);
-        String providerName = payload.provider().activeProvider();
-        AiProviderRuntime runtime = requireActiveRuntime(bundle, providerName);
+        List<String> providerNames = providerNames(payload);
+        List<EmbeddingProbeExecution> executions = new ArrayList<>(providerNames.size());
+        for (String providerName : providerNames) {
+            executions.add(probeEmbeddingProvider(bundle, providerName));
+        }
+        EmbeddingProbeExecution activeExecution = executions.getFirst();
+        AdminAiEmbeddingProbeVO activeResult = activeExecution.result();
+        Double providerCompatibility = providerCompatibility(executions);
+        boolean providersCompatible = executions.size() < 2
+                || (providerCompatibility != null && providerCompatibility >= MIN_PROVIDER_VECTOR_COMPATIBILITY);
+        boolean ok = executions.stream().allMatch(execution -> execution.result().ok()) && providersCompatible;
+        String message = probeSummary(
+                "Embedding",
+                providerNames,
+                executions.stream().map(EmbeddingProbeExecution::result).map(AdminAiEmbeddingProbeVO::ok).toList(),
+                executions.stream().map(EmbeddingProbeExecution::result).map(AdminAiEmbeddingProbeVO::message).toList()
+        );
+        if (!providersCompatible) {
+            message += providerCompatibility == null
+                    ? "; provider vector compatibility could not be verified"
+                    : "; provider vector compatibility %.6f is below %.3f"
+                    .formatted(providerCompatibility, MIN_PROVIDER_VECTOR_COMPATIBILITY);
+        }
+        return new AdminAiEmbeddingProbeVO(
+                ok,
+                message,
+                String.join(" -> ", providerNames),
+                activeResult.model(),
+                executions.stream().mapToLong(execution -> execution.result().latencyMs()).sum(),
+                activeResult.providerRequestId(),
+                OffsetDateTime.now(),
+                activeResult.dimension(),
+                activeResult.expectedDimension(),
+                activeResult.itemCount(),
+                activeResult.relatedSimilarity(),
+                activeResult.unrelatedSimilarity(),
+                activeResult.similarityMargin(),
+                providerCompatibility,
+                providerNames.size()
+        );
+    }
+
+    private EmbeddingProbeExecution probeEmbeddingProvider(AiRuntimeBundle bundle, String providerName) {
+        AiProviderRuntime runtime = requireProviderRuntime(bundle, providerName);
         Integer expectedDimension = runtime.definition().embedding().dimension();
         long startedAt = System.nanoTime();
         try {
@@ -111,13 +158,16 @@ public class AiConfigProbeService {
                     unrelatedSimilarity,
                     similarityMargin
             );
-            embeddingProbeState.set(new EmbeddingProbeState(
+            embeddingProbeStates.put(providerName, new EmbeddingProbeState(
                     providerName,
                     runtime.definition().embedding(),
                     ok,
                     result.testedAt()
             ));
-            return result;
+            List<List<Double>> vectors = response.items() == null
+                    ? List.of()
+                    : response.items().stream().map(item -> item.embedding()).toList();
+            return new EmbeddingProbeExecution(result, vectors);
         } catch (RuntimeException exception) {
             AdminAiEmbeddingProbeVO result = new AdminAiEmbeddingProbeVO(
                     false,
@@ -134,20 +184,49 @@ public class AiConfigProbeService {
                     null,
                     null
             );
-            embeddingProbeState.set(new EmbeddingProbeState(
+            embeddingProbeStates.put(providerName, new EmbeddingProbeState(
                     providerName,
                     runtime.definition().embedding(),
                     false,
                     result.testedAt()
             ));
-            return result;
+            return new EmbeddingProbeExecution(result, List.of());
         }
     }
 
     public AdminAiRerankProbeVO probeRerank(AiOpsConfigPayload payload) {
         AiRuntimeBundle bundle = buildProbeBundle(payload);
-        String providerName = payload.provider().activeProvider();
-        AiProviderRuntime runtime = requireActiveRuntime(bundle, providerName);
+        List<String> providerNames = providerNames(payload);
+        List<AdminAiRerankProbeVO> results = new ArrayList<>(providerNames.size());
+        for (String providerName : providerNames) {
+            results.add(probeRerankProvider(bundle, providerName));
+        }
+        AdminAiRerankProbeVO activeResult = results.getFirst();
+        boolean ok = results.stream().allMatch(AdminAiRerankProbeVO::ok);
+        return new AdminAiRerankProbeVO(
+                ok,
+                probeSummary(
+                        "Rerank",
+                        providerNames,
+                        results.stream().map(AdminAiRerankProbeVO::ok).toList(),
+                        results.stream().map(AdminAiRerankProbeVO::message).toList()
+                ),
+                String.join(" -> ", providerNames),
+                activeResult.model(),
+                results.stream().mapToLong(AdminAiRerankProbeVO::latencyMs).sum(),
+                activeResult.providerRequestId(),
+                OffsetDateTime.now(),
+                activeResult.documentsCount(),
+                activeResult.returnedCount(),
+                activeResult.ordered(),
+                activeResult.topDocumentIndex(),
+                activeResult.topScore(),
+                providerNames.size()
+        );
+    }
+
+    private AdminAiRerankProbeVO probeRerankProvider(AiRuntimeBundle bundle, String providerName) {
+        AiProviderRuntime runtime = requireProviderRuntime(bundle, providerName);
         long startedAt = System.nanoTime();
         try {
             RerankResponse response = rerankClient.rerank(
@@ -184,7 +263,7 @@ public class AiConfigProbeService {
                     topDocumentIndex,
                     topScore
             );
-            rerankProbeState.set(new RerankProbeState(
+            rerankProbeStates.put(providerName, new RerankProbeState(
                     providerName,
                     runtime.definition().rerank(),
                     ok,
@@ -206,7 +285,7 @@ public class AiConfigProbeService {
                     null,
                     null
             );
-            rerankProbeState.set(new RerankProbeState(
+            rerankProbeStates.put(providerName, new RerankProbeState(
                     providerName,
                     runtime.definition().rerank(),
                     false,
@@ -217,12 +296,12 @@ public class AiConfigProbeService {
     }
 
     public boolean isEmbeddingReady(String providerName, AiOpsEmbeddingConfig config) {
-        EmbeddingProbeState state = embeddingProbeState.get();
+        EmbeddingProbeState state = embeddingProbeStates.get(providerName);
         return state != null && state.matches(providerName, config) && state.isRecentAndSuccessful();
     }
 
     public boolean isRerankReady(String providerName, AiOpsRerankConfig config) {
-        RerankProbeState state = rerankProbeState.get();
+        RerankProbeState state = rerankProbeStates.get(providerName);
         return state != null && state.matches(providerName, config) && state.isRecentAndSuccessful();
     }
 
@@ -234,12 +313,64 @@ public class AiConfigProbeService {
         return bundleFactory.build(payload, "PROBE", runtimeConfigService.current().version());
     }
 
-    private AiProviderRuntime requireActiveRuntime(AiRuntimeBundle bundle, String providerName) {
+    private AiProviderRuntime requireProviderRuntime(AiRuntimeBundle bundle, String providerName) {
         AiProviderRuntime runtime = bundle.providerRuntime(providerName);
         if (runtime == null) {
             throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE, "No configured AI provider runtime found for " + providerName, 503);
         }
         return runtime;
+    }
+
+    private List<String> providerNames(AiOpsConfigPayload payload) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        if (payload != null && payload.provider() != null) {
+            if (StringUtils.hasText(payload.provider().activeProvider())) {
+                names.add(payload.provider().activeProvider());
+            }
+            if (StringUtils.hasText(payload.provider().fallbackProvider())) {
+                names.add(payload.provider().fallbackProvider());
+            }
+        }
+        if (names.isEmpty()) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "At least one AI provider is required for probing", 400);
+        }
+        return List.copyOf(names);
+    }
+
+    private String probeSummary(
+            String capability,
+            List<String> providerNames,
+            List<Boolean> statuses,
+            List<String> messages
+    ) {
+        List<String> parts = new ArrayList<>(providerNames.size());
+        for (int index = 0; index < providerNames.size(); index++) {
+            String status = Boolean.TRUE.equals(statuses.get(index)) ? "ok" : messages.get(index);
+            parts.add(providerNames.get(index) + "=" + status);
+        }
+        return capability + " probes: " + String.join("; ", parts);
+    }
+
+    private Double providerCompatibility(List<EmbeddingProbeExecution> executions) {
+        if (executions.size() < 2 || executions.stream().anyMatch(execution -> !execution.result().ok())) {
+            return null;
+        }
+        List<List<Double>> baseline = executions.getFirst().vectors();
+        double minimum = 1.0D;
+        for (int providerIndex = 1; providerIndex < executions.size(); providerIndex++) {
+            List<List<Double>> candidate = executions.get(providerIndex).vectors();
+            if (candidate.size() != baseline.size()) {
+                return null;
+            }
+            for (int vectorIndex = 0; vectorIndex < baseline.size(); vectorIndex++) {
+                Double similarity = cosineSimilarity(baseline.get(vectorIndex), candidate.get(vectorIndex));
+                if (similarity == null) {
+                    return null;
+                }
+                minimum = Math.min(minimum, similarity);
+            }
+        }
+        return minimum;
     }
 
     private String firstIssueMessage(AiOpsConfigValidationResponse validation) {
@@ -308,6 +439,12 @@ public class AiConfigProbeService {
         private boolean isRecentAndSuccessful() {
             return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
         }
+    }
+
+    private record EmbeddingProbeExecution(
+            AdminAiEmbeddingProbeVO result,
+            List<List<Double>> vectors
+    ) {
     }
 
     private record RerankProbeState(

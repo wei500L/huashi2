@@ -71,6 +71,9 @@ cp .env.example .env
 - `APP_DEMO_DATA_ENABLED`
 - `AI_OPENAI_API_KEY`
 - `AI_OPENAI_BASE_URL`
+- `AI_CHAT_PROTOCOL`
+- `AI_CHAT_BASE_URL`
+- `AI_CHAT_API_KEY`
 - `AI_CHAT_MODEL`
 - `AI_EMBEDDING_BASE_URL`
 - `AI_EMBEDDING_MODEL`
@@ -86,7 +89,9 @@ cp .env.example .env
 开发服务器推荐 AI 配置（密钥通过服务器环境变量注入，不要提交到仓库）：
 
 ```bash
-AI_OPENAI_BASE_URL=https://elysiver.h-e.top/v1
+AI_CHAT_PROTOCOL=openai-compat
+AI_CHAT_BASE_URL=https://xxxx.com/v1
+AI_CHAT_API_KEY=replace-with-chat-provider-key
 AI_CHAT_MODEL=glm-5
 AI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
 AI_EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B
@@ -97,6 +102,8 @@ AI_RERANK_MODEL=Qwen/Qwen3-Reranker-8B
 AI_MULTIMODAL_RERANK_MODEL=Qwen/Qwen3-VL-Reranker-8B
 AI_EMBEDDING_DIMENSION=1024
 ```
+
+如上游提供 Responses 兼容接口，把 `AI_CHAT_PROTOCOL` 改为 `openai-responses`。网关会在当前 provider 的 `AI_CHAT_BASE_URL` 后追加 `/responses`，例如 `https://xxxx.com/v1` 对应 `https://xxxx.com/v1/responses`；鉴权始终使用该 provider 自己的 `AI_CHAT_API_KEY`。
 
 `AI_MULTIMODAL_EMBEDDING_MODEL` 与 `AI_MULTIMODAL_RERANK_MODEL` 当前仅为兼容保留配置。内部请求契约尚未承载图片/视频输入，传入 `multimodal`/`vl` modality 会被明确拒绝，不能据此宣称多模态链路已经可用。
 
@@ -115,6 +122,7 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 - 默认登录锁定策略由 `APP_AUTH_LOCKOUT_*` 控制，默认值是 5 次失败锁定 15 分钟
 - `app-server` / `ai-gateway` 在 `local` / `dev` 会执行各自的 `schema.sql` 建表；`prod` 不自动初始化
 - `AI_EMBEDDING_DIMENSION` 与 pgvector schema 固定为 `1024`；修改维度前先更新 `ai-gateway/src/main/resources/schema.sql` 并重建数据库
+- `prod` 环境会拒绝在线修改 Embedding 模型或维度；迁移向量空间必须通过维护版本完成 schema 重建与全量 reindex
 
 如果你想直接跑通“导入词对 -> 继续接到模板 / 词表 / RAG”的完整流程，优先看：
 

@@ -12,6 +12,8 @@
 
 Embedding 的 active/fallback provider 必须使用相同模型和相同维度。更换 Embedding 模型后必须执行完整 RAG reindex。
 
+生产环境把该空间标识为 `qwen3-embedding-8b@1024/v1`，管理端不能在线修改模型或维度。跨供应商 fallback 只有在双 provider 探针成功且对应向量余弦兼容度不低于 0.995 时才视为就绪。未来迁移空间必须通过维护版本修改策略与 schema，并在恢复流量前完成全量 reindex。
+
 ## 检索链路
 
 单次查询执行以下流程：
@@ -54,13 +56,15 @@ AI_HNSW_EF_SEARCH=128
 
 ## Responses API 配置
 
-需要使用 Responses API 时，为 active provider 配置：
+需要使用 Responses API 时，为每个 provider 独立配置协议、URL、Key 与模型。URL 可以是任意兼容服务地址；填写 `https://xxxx.com/v1` 时，网关请求 `https://xxxx.com/v1/responses`：
+
+请求体与 `/responses` 路径遵循 [OpenAI Responses Create API](https://developers.openai.com/api/reference/resources/responses/methods/create/)，兼容服务需要实现同一契约。
 
 ```env
 AI_CHAT_PROTOCOL=openai-responses
-AI_CHAT_BASE_URL=https://api.openai.com/v1
-AI_CHAT_API_KEY=replace-with-openai-api-key
-AI_CHAT_MODEL=gpt-5.6-sol
+AI_CHAT_BASE_URL=https://xxxx.com/v1
+AI_CHAT_API_KEY=replace-with-provider-api-key
+AI_CHAT_MODEL=replace-with-responses-compatible-model
 ```
 
 Embedding 与 Chat 使用独立的 URL 和密钥，因此 Chat 切换为 OpenAI Responses 不会改变 Qwen3 Embedding：

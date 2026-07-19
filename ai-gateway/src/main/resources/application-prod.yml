@@ -18,3 +18,9 @@ logging:
   level:
     root: WARN
     com.huashi.eftransfer: INFO
+
+ai:
+  embedding-space-policy:
+    enabled: true
+    model: Qwen/Qwen3-Embedding-8B
+    dimension: 1024

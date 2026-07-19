@@ -26,6 +26,7 @@ import jakarta.validation.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -51,6 +52,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class AiRuntimeConfigService {
+
+    @Value("${ai.embedding-space-policy.enabled:false}")
+    private boolean embeddingSpacePolicyEnabled;
 
     private static final Logger log = LoggerFactory.getLogger(AiRuntimeConfigService.class);
     private static final ParameterizedTypeReference<ApiResponse<AiOpsConfigEffectiveResponse>> EFFECTIVE_TYPE =
@@ -281,7 +285,8 @@ public class AiRuntimeConfigService {
     }
 
     private ValidationOutcome prepareBundle(AiOpsConfigPayload payload, String source, Long version) {
-        List<AiOpsConfigIssue> issues = collectIssues(payload);
+        List<AiOpsConfigIssue> issues = new ArrayList<>(collectIssues(payload));
+        issues.addAll(onlineEmbeddingSpaceChangeIssues(payload));
         List<AiOpsConfigNotice> notices = validationNotices(payload);
         if (!issues.isEmpty()) {
             return new ValidationOutcome(issues, notices, null);
@@ -298,6 +303,24 @@ public class AiRuntimeConfigService {
             List<AiOpsConfigIssue> buildIssues = List.of(new AiOpsConfigIssue("config", "runtime_build_failed", ex.getMessage()));
             return new ValidationOutcome(buildIssues, notices, null);
         }
+    }
+
+    private List<AiOpsConfigIssue> onlineEmbeddingSpaceChangeIssues(AiOpsConfigPayload nextConfig) {
+        if (!embeddingSpacePolicyEnabled || currentBundle.get() == null) {
+            return List.of();
+        }
+        AiOpsEmbeddingConfig currentEmbedding = activeEmbedding(currentBundle.get().config());
+        AiOpsEmbeddingConfig nextEmbedding = activeEmbedding(nextConfig);
+        if (currentEmbedding == null || nextEmbedding == null
+                || (Objects.equals(currentEmbedding.model(), nextEmbedding.model())
+                && Objects.equals(currentEmbedding.dimension(), nextEmbedding.dimension()))) {
+            return List.of();
+        }
+        return List.of(new AiOpsConfigIssue(
+                "provider.providers." + nextConfig.provider().activeProvider() + ".embedding",
+                "online_embedding_space_change_forbidden",
+                "Embedding model and dimension are production-locked; migrate the database and run a full reindex in a maintenance release"
+        ));
     }
 
     private List<AiOpsConfigIssue> collectIssues(AiOpsConfigPayload payload) {

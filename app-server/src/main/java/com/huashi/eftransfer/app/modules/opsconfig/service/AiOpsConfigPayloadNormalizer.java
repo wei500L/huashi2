@@ -12,6 +12,7 @@ import com.huashi.eftransfer.shared.ai.config.AiOpsRagIngestionConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRagRetrievalConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsRerankConfig;
 import com.huashi.eftransfer.shared.ai.config.AiOpsResilienceConfig;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -20,6 +21,15 @@ import java.util.Map;
 
 @Component
 public class AiOpsConfigPayloadNormalizer {
+
+    @Value("${app.ai.embedding-policy.enabled:false}")
+    private boolean embeddingPolicyEnabled;
+
+    @Value("${app.ai.embedding-policy.model:Qwen/Qwen3-Embedding-8B}")
+    private String embeddingPolicyModel;
+
+    @Value("${app.ai.embedding-policy.dimension:1024}")
+    private Integer embeddingPolicyDimension;
 
     public AiOpsConfigPayload normalize(AiOpsConfigPayload payload) {
         if (payload == null) {
@@ -105,17 +115,26 @@ public class AiOpsConfigPayloadNormalizer {
 
     private AiOpsEmbeddingConfig normalizeEmbeddingConfig(AiOpsEmbeddingConfig config) {
         if (config == null) {
-            return new AiOpsEmbeddingConfig(AiOpsProtocols.OPENAI_COMPAT, null, null, null, null, null, null);
+            return new AiOpsEmbeddingConfig(
+                    AiOpsProtocols.OPENAI_COMPAT,
+                    null,
+                    null,
+                    embeddingPolicyEnabled ? embeddingPolicyModel : null,
+                    null,
+                    null,
+                    null,
+                    embeddingPolicyEnabled ? embeddingPolicyDimension : null
+            );
         }
         return new AiOpsEmbeddingConfig(
                 defaultProtocol(config.protocol(), AiOpsProtocols.OPENAI_COMPAT),
                 config.baseUrl(),
                 config.apiKey(),
-                config.model(),
+                embeddingPolicyEnabled ? embeddingPolicyModel : config.model(),
                 config.multimodalModel(),
                 normalizeTimeout(config.connectTimeout(), config.readTimeout()),
                 normalizeTimeout(config.readTimeout(), config.connectTimeout()),
-                config.dimension()
+                embeddingPolicyEnabled ? embeddingPolicyDimension : config.dimension()
         );
     }
 

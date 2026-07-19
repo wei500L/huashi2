@@ -2133,6 +2133,8 @@ export interface AdminAiEmbeddingProbeVO {
   relatedSimilarity?: number | null;
   unrelatedSimilarity?: number | null;
   similarityMargin?: number | null;
+  providerCompatibility?: number | null;
+  providersChecked?: number | null;
 }
 
 export interface AdminAiRerankProbeVO {
@@ -2148,6 +2150,7 @@ export interface AdminAiRerankProbeVO {
   ordered: boolean;
   topDocumentIndex?: number | null;
   topScore?: number | null;
+  providersChecked?: number | null;
 }
 
 export interface RagReindexRequest {

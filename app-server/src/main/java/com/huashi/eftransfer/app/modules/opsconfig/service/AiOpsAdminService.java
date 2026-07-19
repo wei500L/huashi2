@@ -219,7 +219,9 @@ public class AiOpsAdminService {
                             "itemCount", probe.itemCount(),
                             "relatedSimilarity", probe.relatedSimilarity(),
                             "unrelatedSimilarity", probe.unrelatedSimilarity(),
-                            "similarityMargin", probe.similarityMargin()
+                            "similarityMargin", probe.similarityMargin(),
+                            "providerCompatibility", probe.providerCompatibility(),
+                            "providersChecked", probe.providersChecked()
                     )),
                     probe.ok() ? ResultCode.SUCCESS.code() : ResultCode.AI_PROVIDER_UNAVAILABLE.code()
             );
@@ -253,7 +255,8 @@ public class AiOpsAdminService {
                             "returnedCount", probe.returnedCount(),
                             "ordered", probe.ordered(),
                             "topDocumentIndex", probe.topDocumentIndex(),
-                            "topScore", probe.topScore()
+                            "topScore", probe.topScore(),
+                            "providersChecked", probe.providersChecked()
                     )),
                     probe.ok() ? ResultCode.SUCCESS.code() : ResultCode.AI_PROVIDER_UNAVAILABLE.code()
             );

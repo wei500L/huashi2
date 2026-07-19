@@ -47,12 +47,10 @@ type SecretEditorMap = {
 
 const providerKeyPattern = /^[a-z0-9_-]+$/;
 const protocolSchema = z.enum(AiOpsProtocolValues);
+const chatProtocolValues = ['openai-compat', 'openai-responses'] as const satisfies readonly AiOpsProtocol[];
 const rerankProtocolValues = ['openai-rerank', 'openai-chat-rerank'] as const satisfies readonly AiOpsProtocol[];
 const providerProtocolOptions = {
-  chat: [
-    { value: 'openai-compat', label: 'openai-compat' },
-    { value: 'openai-responses', label: 'openai-responses' },
-  ],
+  chat: chatProtocolValues.map((value) => ({ value, label: value })),
   embedding: [{ value: 'openai-compat', label: 'openai-compat' }],
   rerank: rerankProtocolValues.map((value) => ({ value, label: value })),
 } as const;
@@ -1085,6 +1083,8 @@ function translateConfigIssue(issue: AiOpsConfigIssue): string {
       return '所有 active/fallback provider 必须使用同一个 embedding 模型，避免跨向量空间检索。';
     case 'embedding_space_multimodal_model_mismatch':
       return '所有 active/fallback provider 必须使用同一个多模态 embedding 模型。';
+    case 'online_embedding_space_change_forbidden':
+      return '生产向量空间已锁定为 Qwen3-Embedding-8B / 1024 维，不能通过管理端在线切换；请走维护版本与全量 reindex。';
     case 'rerank_top_n_exceeds_recall_top_k':
       return '重排 Top N 不能大于 Recall Top K。';
     case 'final_top_k_exceeds_rerank_top_n':
@@ -1248,7 +1248,10 @@ const durationSchema = requiredTextSchema.superRefine((value, ctx) => {
 
 const providerDefinitionSchema = z.object({
   chat: z.object({
-    protocol: protocolSchema.refine((value) => value === 'openai-compat', 'Unsupported protocol \'openai-compat\''),
+    protocol: protocolSchema.refine(
+      (value) => chatProtocolValues.includes(value as (typeof chatProtocolValues)[number]),
+      'Unsupported protocol; expected openai-compat or openai-responses'
+    ),
     baseUrl: absoluteUrlSchema,
     model: requiredTextSchema.max(128),
     connectTimeout: durationSchema,
@@ -2545,6 +2548,8 @@ const AdminConfigCenterPage: React.FC = () => {
     { label: 'Relevant similarity', value: embeddingProbeResult.relatedSimilarity?.toFixed(4) ?? '--' },
     { label: 'Unrelated similarity', value: embeddingProbeResult.unrelatedSimilarity?.toFixed(4) ?? '--' },
     { label: 'Similarity margin', value: embeddingProbeResult.similarityMargin?.toFixed(4) ?? '--' },
+    { label: 'Provider compatibility', value: embeddingProbeResult.providerCompatibility?.toFixed(4) ?? '--' },
+    { label: 'Providers checked', value: String(embeddingProbeResult.providersChecked ?? '--') },
     { label: 'Tested At', value: formatDateTime(embeddingProbeResult.testedAt) },
   ] : [];
   const rerankProbeRows: ProbeMetaRow[] = rerankProbeResult ? [
@@ -2553,6 +2558,7 @@ const AdminConfigCenterPage: React.FC = () => {
     { label: 'Latency', value: `${rerankProbeResult.latencyMs} ms` },
     { label: 'Returned', value: `${rerankProbeResult.returnedCount ?? '--'} / ${rerankProbeResult.documentsCount ?? '--'}` },
     { label: 'Top Result', value: rerankProbeResult.topDocumentIndex == null ? '--' : `doc #${rerankProbeResult.topDocumentIndex}` },
+    { label: 'Providers checked', value: String(rerankProbeResult.providersChecked ?? '--') },
     { label: 'Tested At', value: formatDateTime(rerankProbeResult.testedAt) },
   ] : [];
   const reindexStatusMeta = buildReindexStatusMeta(reindexJobQuery.data);
@@ -2982,7 +2988,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   </div>
 
                   <FieldGrid>
-                  <FieldCard label="Chat 协议" hint="当前后端仅支持 OpenAI 兼容协议的 Chat 接口。">
+                  <FieldCard label="Chat 协议" hint="支持 Chat Completions 兼容协议和 Responses 协议；两者都使用当前 provider 自己的 URL 与 Key。">
                     <SelectInput
                       value={definition.chat.protocol}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({
@@ -2993,7 +2999,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       options={providerProtocolOptions.chat}
                     />
                   </FieldCard>
-                  <FieldCard label="Chat 接口地址" hint="用于文本生成。应填写模型服务的根地址或兼容 OpenAI 的 base URL，不会因为 provider key 而被固定到某家厂商。">
+                  <FieldCard label="Chat 接口地址" hint="填写当前服务商的 API base URL，例如 https://xxxx.com/v1。Responses 会在该地址后追加 /responses，不绑定 OpenAI 官方域名。">
                     <TextInput
                       value={definition.chat.baseUrl}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, chat: { ...current.chat, baseUrl: value } }))}
@@ -3122,11 +3128,11 @@ const AdminConfigCenterPage: React.FC = () => {
                       />
                     </div>
                   </FieldCard>
-                  <FieldCard label="Embedding 模型名" hint="必须和当前向量维度配置匹配，否则向量入库会失败。">
+                  <FieldCard label="Embedding 模型名" hint="产品向量空间固定为 Qwen/Qwen3-Embedding-8B；如需迁移模型，应通过数据库重建与全量 reindex 发布。">
                     <TextInput
                       value={definition.embedding.model}
                       onChange={(value) => updateProviderDefinition(providerName, (current) => ({ ...current, embedding: { ...current.embedding, model: value } }))}
-                      disabled={!editing}
+                      disabled
                       placeholder="embedding-model-id"
                     />
                   </FieldCard>
@@ -3146,7 +3152,7 @@ const AdminConfigCenterPage: React.FC = () => {
                       placeholder="PT30S"
                     />
                   </FieldCard>
-                  <FieldCard label="向量维度" hint="所有 provider 的 embedding 维度必须一致，并且需要先完成数据库迁移后才能切换。">
+                  <FieldCard label="向量维度" hint="产品向量空间固定为 1024 维，管理端不允许在线修改。">
                     <TextInput
                       type="number"
                       value={definition.embedding.dimension}
@@ -3154,7 +3160,7 @@ const AdminConfigCenterPage: React.FC = () => {
                         ...current,
                         embedding: { ...current.embedding, dimension: parseNullableInteger(value) },
                       }))}
-                      disabled={!editing}
+                      disabled
                     />
                   </FieldCard>
                   </FieldGrid>

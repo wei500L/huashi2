@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.ai.integration.provider;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huashi.eftransfer.ai.common.exception.InvalidProviderResponseException;
 import com.huashi.eftransfer.ai.common.observability.AiProviderObservationService;
@@ -25,6 +26,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -273,7 +275,7 @@ public class QwenChatProviderClient {
             }
 
             JsonNode response = runtime.chatRestClient().post()
-                    .uri("/v1/responses")
+                    .uri(responsesEndpoint(runtime))
                     .body(payload)
                     .retrieve()
                     .body(JsonNode.class);
@@ -310,6 +312,21 @@ public class QwenChatProviderClient {
                     usage
             );
         });
+    }
+
+    private URI responsesEndpoint(AiProviderRuntime runtime) {
+        String baseUrl = defaultChat(runtime).baseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalArgumentException("Responses baseUrl must not be blank");
+        }
+        String normalized = baseUrl.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        if (normalized.endsWith("/responses")) {
+            return URI.create(normalized);
+        }
+        return URI.create(normalized + "/responses");
     }
 
     private String extractResponseText(JsonNode response) {
@@ -356,7 +373,7 @@ public class QwenChatProviderClient {
         if (requestedModel.equals(responseModel)) {
             return true;
         }
-        return requestedModel.matches("gpt-\\d+\\.\\d+") && responseModel.startsWith(requestedModel + "-");
+        return responseModel.startsWith(requestedModel + "-");
     }
 
     private Prompt toStructuredPrompt(AiProviderRuntime runtime, StructuredChatRequest request, String model) {

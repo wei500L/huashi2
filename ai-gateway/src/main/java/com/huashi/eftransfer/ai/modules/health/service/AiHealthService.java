@@ -47,6 +47,7 @@ public class AiHealthService {
         AiRuntimeBundle bundle = runtimeConfigService.current();
         var provider = bundle.config().provider();
         AiOpsProviderDefinition activeProvider = provider.providers().get(provider.activeProvider());
+        AiOpsProviderDefinition fallbackProvider = provider.providers().get(provider.fallbackProvider());
         String storedSyncStatus = runtimeConfigService.storedSyncStatus();
         boolean databaseReady = isDatabaseReady();
         String vectorVersion = fetchVectorExtensionVersion();
@@ -82,10 +83,24 @@ public class AiHealthService {
                 && configured(activeProvider.rerank().baseUrl())
                 && configured(activeProvider.rerank().apiKey())
                 && configured(activeProvider.rerank().model());
+        boolean fallbackEmbeddingConfigured = fallbackProvider != null
+                && fallbackProvider.embedding() != null
+                && configured(fallbackProvider.embedding().baseUrl())
+                && configured(fallbackProvider.embedding().apiKey())
+                && configured(fallbackProvider.embedding().model());
+        boolean fallbackRerankConfigured = fallbackProvider != null
+                && fallbackProvider.rerank() != null
+                && configured(fallbackProvider.rerank().baseUrl())
+                && configured(fallbackProvider.rerank().apiKey())
+                && configured(fallbackProvider.rerank().model());
         boolean providerReady = providerConfigured
-                && aiConfigProbeService.isEmbeddingReady(provider.activeProvider(), activeProvider.embedding());
+                && fallbackEmbeddingConfigured
+                && aiConfigProbeService.isEmbeddingReady(provider.activeProvider(), activeProvider.embedding())
+                && aiConfigProbeService.isEmbeddingReady(provider.fallbackProvider(), fallbackProvider.embedding());
         boolean rerankReady = rerankConfigured
-                && aiConfigProbeService.isRerankReady(provider.activeProvider(), activeProvider.rerank());
+                && fallbackRerankConfigured
+                && aiConfigProbeService.isRerankReady(provider.activeProvider(), activeProvider.rerank())
+                && aiConfigProbeService.isRerankReady(provider.fallbackProvider(), fallbackProvider.rerank());
         AppServerProbe appServerProbe = probeAppServer(bundle);
         List<String> profiles = Arrays.asList(environment.getActiveProfiles());
         boolean storedSyncHealthy = !AiRuntimeConfigService.STORED_SYNC_STATUS_SYNC_FAILED.equals(storedSyncStatus);
