@@ -15,6 +15,7 @@ public record AssessmentAttemptResultQuestionVO(
         List<String> correctAnswers,
         Boolean correct,
         Integer scoreAwarded,
-        String explanationText
+        String explanationText,
+        String justificationText
 ) {
 }

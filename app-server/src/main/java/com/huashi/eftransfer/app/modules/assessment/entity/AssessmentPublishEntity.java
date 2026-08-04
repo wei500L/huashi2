@@ -15,6 +15,9 @@ public class AssessmentPublishEntity extends BaseAuditEntity {
     @TableField("teaching_class_id")
     private Long teachingClassId;
 
+    @TableField("delivery_mode")
+    private String deliveryMode;
+
     @TableField("published_by")
     private Long publishedBy;
 
@@ -64,6 +67,14 @@ public class AssessmentPublishEntity extends BaseAuditEntity {
 
     public void setTeachingClassId(Long teachingClassId) {
         this.teachingClassId = teachingClassId;
+    }
+
+    public String getDeliveryMode() {
+        return deliveryMode;
+    }
+
+    public void setDeliveryMode(String deliveryMode) {
+        this.deliveryMode = deliveryMode;
     }
 
     public Long getPublishedBy() {

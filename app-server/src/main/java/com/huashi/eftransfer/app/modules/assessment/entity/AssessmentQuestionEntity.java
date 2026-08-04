@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.huashi.eftransfer.app.common.persistence.BaseAuditEntity;
 
+import java.math.BigDecimal;
+
 @TableName("assessment_question")
 public class AssessmentQuestionEntity extends BaseAuditEntity {
 
@@ -32,6 +34,35 @@ public class AssessmentQuestionEntity extends BaseAuditEntity {
     private String explanationText;
 
     private Integer score;
+
+    @TableField("question_version_id")
+    private Long questionVersionId;
+
+    @TableField("section_code")
+    private String sectionCode;
+
+    @TableField("required_answer")
+    private Boolean requiredAnswer;
+
+    private BigDecimal weight;
+
+    @TableField("transfer_category")
+    private String transferCategory;
+
+    @TableField("context_level")
+    private String contextLevel;
+
+    @TableField("construct_code")
+    private String constructCode;
+
+    @TableField("target_word")
+    private String targetWord;
+
+    @TableField("option_explanations_json")
+    private String optionExplanationsJson;
+
+    @TableField("display_condition_json")
+    private String displayConditionJson;
 
     public Long getPaperId() {
         return paperId;
@@ -104,4 +135,25 @@ public class AssessmentQuestionEntity extends BaseAuditEntity {
     public void setScore(Integer score) {
         this.score = score;
     }
+
+    public Long getQuestionVersionId() { return questionVersionId; }
+    public void setQuestionVersionId(Long questionVersionId) { this.questionVersionId = questionVersionId; }
+    public String getSectionCode() { return sectionCode; }
+    public void setSectionCode(String sectionCode) { this.sectionCode = sectionCode; }
+    public Boolean getRequiredAnswer() { return requiredAnswer; }
+    public void setRequiredAnswer(Boolean requiredAnswer) { this.requiredAnswer = requiredAnswer; }
+    public BigDecimal getWeight() { return weight; }
+    public void setWeight(BigDecimal weight) { this.weight = weight; }
+    public String getTransferCategory() { return transferCategory; }
+    public void setTransferCategory(String transferCategory) { this.transferCategory = transferCategory; }
+    public String getContextLevel() { return contextLevel; }
+    public void setContextLevel(String contextLevel) { this.contextLevel = contextLevel; }
+    public String getConstructCode() { return constructCode; }
+    public void setConstructCode(String constructCode) { this.constructCode = constructCode; }
+    public String getTargetWord() { return targetWord; }
+    public void setTargetWord(String targetWord) { this.targetWord = targetWord; }
+    public String getOptionExplanationsJson() { return optionExplanationsJson; }
+    public void setOptionExplanationsJson(String optionExplanationsJson) { this.optionExplanationsJson = optionExplanationsJson; }
+    public String getDisplayConditionJson() { return displayConditionJson; }
+    public void setDisplayConditionJson(String displayConditionJson) { this.displayConditionJson = displayConditionJson; }
 }

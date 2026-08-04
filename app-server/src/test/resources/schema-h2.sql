@@ -184,7 +184,8 @@ CREATE TABLE assessment_attempt (
   id bigint NOT NULL AUTO_INCREMENT,
   publish_id bigint NOT NULL,
   paper_id bigint NOT NULL,
-  student_user_id bigint NOT NULL,
+  student_user_id bigint DEFAULT NULL,
+  participant_id bigint DEFAULT NULL,
   status varchar(32) NOT NULL DEFAULT 'IN_PROGRESS',
   started_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expires_at timestamp NOT NULL,
@@ -220,6 +221,11 @@ CREATE TABLE assessment_attempt_answer (
   explanation_text_snapshot varchar(1000) DEFAULT NULL,
   question_score int NOT NULL DEFAULT '0',
   response_json longtext,
+  justification_text varchar(2000) DEFAULT NULL,
+  first_presented_at timestamp NULL DEFAULT NULL,
+  first_answered_at timestamp NULL DEFAULT NULL,
+  effective_duration_ms bigint NOT NULL DEFAULT 0,
+  response_change_count int NOT NULL DEFAULT 0,
   answered tinyint(1) NOT NULL DEFAULT '0',
   correct tinyint(1) DEFAULT NULL,
   score_awarded int DEFAULT NULL,
@@ -257,7 +263,8 @@ CREATE TABLE assessment_paper (
 CREATE TABLE assessment_publish (
   id bigint NOT NULL AUTO_INCREMENT,
   paper_id bigint NOT NULL,
-  teaching_class_id bigint NOT NULL,
+  teaching_class_id bigint DEFAULT NULL,
+  delivery_mode varchar(32) NOT NULL DEFAULT 'CLASS',
   published_by bigint NOT NULL,
   status varchar(32) NOT NULL DEFAULT 'PUBLISHED',
   paper_title_snapshot varchar(255) NOT NULL,
@@ -310,6 +317,16 @@ CREATE TABLE assessment_question (
   correct_answer_json longtext NOT NULL,
   explanation_text varchar(1000) DEFAULT NULL,
   score int NOT NULL DEFAULT '10',
+  question_version_id bigint DEFAULT NULL,
+  section_code varchar(64) DEFAULT NULL,
+  required_answer tinyint(1) NOT NULL DEFAULT '1',
+  weight decimal(10,4) NOT NULL DEFAULT '1.0000',
+  transfer_category varchar(32) DEFAULT NULL,
+  context_level varchar(32) DEFAULT NULL,
+  construct_code varchar(64) DEFAULT NULL,
+  target_word varchar(255) DEFAULT NULL,
+  option_explanations_json longtext,
+  display_condition_json longtext,
   created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by bigint DEFAULT NULL,
   updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -317,6 +334,329 @@ CREATE TABLE assessment_question (
   deleted tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (id),
   KEY idx_assessment_question_paper_order (paper_id,sort_order)
+);
+CREATE TABLE assessment_question_bank (
+  id bigint NOT NULL AUTO_INCREMENT,
+  bank_code varchar(64) NOT NULL,
+  name varchar(255) NOT NULL,
+  description varchar(1000) DEFAULT NULL,
+  owner_user_id bigint NOT NULL,
+  visibility varchar(32) NOT NULL DEFAULT 'SHARED',
+  status varchar(32) NOT NULL DEFAULT 'ACTIVE',
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_question_bank_code (bank_code),
+  KEY idx_assessment_question_bank_owner_status (owner_user_id,status,updated_at)
+);
+CREATE TABLE assessment_question_version (
+  id bigint NOT NULL AUTO_INCREMENT,
+  question_bank_id bigint NOT NULL,
+  question_code varchar(64) NOT NULL,
+  version_no int NOT NULL,
+  question_type varchar(48) NOT NULL,
+  stem_text longtext,
+  prompt_text longtext,
+  options_json longtext,
+  correct_answer_json longtext,
+  explanation_text longtext,
+  option_explanations_json longtext,
+  required_answer tinyint(1) NOT NULL DEFAULT '1',
+  weight decimal(10,4) NOT NULL DEFAULT '1.0000',
+  transfer_category varchar(32) DEFAULT NULL,
+  context_level varchar(32) DEFAULT NULL,
+  construct_code varchar(64) DEFAULT NULL,
+  target_word varchar(255) DEFAULT NULL,
+  display_condition_json longtext,
+  source_reference varchar(512) DEFAULT NULL,
+  content_hash char(64) NOT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_question_version_code (question_bank_id,question_code,version_no),
+  UNIQUE KEY uk_assessment_question_version_hash (question_bank_id,content_hash),
+  KEY idx_assessment_question_version_tags (transfer_category,context_level,construct_code)
+);
+CREATE TABLE assessment_questionnaire (
+  id bigint NOT NULL AUTO_INCREMENT,
+  questionnaire_code varchar(64) NOT NULL,
+  title varchar(255) NOT NULL,
+  description varchar(1000) DEFAULT NULL,
+  owner_user_id bigint NOT NULL,
+  status varchar(32) NOT NULL DEFAULT 'DRAFT',
+  latest_version_no int NOT NULL DEFAULT '0',
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_questionnaire_code (questionnaire_code),
+  KEY idx_assessment_questionnaire_owner_status (owner_user_id,status,updated_at)
+);
+CREATE TABLE assessment_questionnaire_version (
+  id bigint NOT NULL AUTO_INCREMENT,
+  questionnaire_id bigint NOT NULL,
+  paper_id bigint NOT NULL,
+  version_no int NOT NULL,
+  status varchar(32) NOT NULL DEFAULT 'DRAFT',
+  scoring_version varchar(64) NOT NULL DEFAULT 'SCORING_V1',
+  ai_prompt_version varchar(64) NOT NULL DEFAULT 'assessment-analysis/v1',
+  source_package_code varchar(64) DEFAULT NULL,
+  published_at timestamp NULL DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_questionnaire_version_no (questionnaire_id,version_no),
+  UNIQUE KEY uk_assessment_questionnaire_version_paper (paper_id),
+  KEY idx_assessment_questionnaire_version_status (questionnaire_id,status,version_no)
+);
+CREATE TABLE assessment_questionnaire_section (
+  id bigint NOT NULL AUTO_INCREMENT,
+  questionnaire_version_id bigint NOT NULL,
+  section_code varchar(64) NOT NULL,
+  title varchar(255) NOT NULL,
+  description varchar(1000) DEFAULT NULL,
+  shared_material longtext,
+  sort_order int NOT NULL,
+  formal_section tinyint(1) NOT NULL DEFAULT '1',
+  scored_item_count int NOT NULL DEFAULT '0',
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_questionnaire_section_code (questionnaire_version_id,section_code),
+  UNIQUE KEY uk_assessment_questionnaire_section_order (questionnaire_version_id,sort_order)
+);
+CREATE TABLE assessment_questionnaire_item (
+  id bigint NOT NULL AUTO_INCREMENT,
+  questionnaire_version_id bigint NOT NULL,
+  section_id bigint NOT NULL,
+  assessment_question_id bigint NOT NULL,
+  question_version_id bigint DEFAULT NULL,
+  item_code varchar(64) NOT NULL,
+  required_answer tinyint(1) NOT NULL DEFAULT '1',
+  scored tinyint(1) NOT NULL DEFAULT '1',
+  weight decimal(10,4) NOT NULL DEFAULT '1.0000',
+  transfer_category varchar(32) DEFAULT NULL,
+  context_level varchar(32) DEFAULT NULL,
+  construct_code varchar(64) DEFAULT NULL,
+  target_word varchar(255) DEFAULT NULL,
+  option_explanations_json longtext,
+  display_condition_json longtext,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_questionnaire_item_code (questionnaire_version_id,item_code),
+  UNIQUE KEY uk_assessment_questionnaire_item_question (assessment_question_id),
+  KEY idx_assessment_questionnaire_item_section (section_id,assessment_question_id),
+  KEY fk_assessment_questionnaire_item_qversion (question_version_id)
+);
+CREATE TABLE assessment_public_release (
+  id bigint NOT NULL AUTO_INCREMENT,
+  publish_id bigint NOT NULL,
+  release_code varchar(32) NOT NULL,
+  code_count int NOT NULL,
+  session_ttl_hours int NOT NULL DEFAULT '12',
+  status varchar(32) NOT NULL DEFAULT 'PUBLISHED',
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_public_release_publish (publish_id),
+  UNIQUE KEY uk_assessment_public_release_code (release_code)
+);
+CREATE TABLE assessment_participation_code (
+  id bigint NOT NULL AUTO_INCREMENT,
+  public_release_id bigint NOT NULL,
+  code_digest char(64) NOT NULL,
+  status varchar(32) NOT NULL DEFAULT 'UNUSED',
+  export_batch_id varchar(64) DEFAULT NULL,
+  exported_at timestamp NULL DEFAULT NULL,
+  first_verified_at timestamp NULL DEFAULT NULL,
+  last_verified_at timestamp NULL DEFAULT NULL,
+  submitted_at timestamp NULL DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_participation_code_digest (code_digest),
+  KEY idx_assessment_participation_code_release_status (public_release_id,status,id)
+);
+CREATE TABLE assessment_participant (
+  id bigint NOT NULL AUTO_INCREMENT,
+  publish_id bigint NOT NULL,
+  participant_type varchar(32) NOT NULL,
+  user_id bigint DEFAULT NULL,
+  participation_code_id bigint DEFAULT NULL,
+  attempt_id bigint DEFAULT NULL,
+  sensitive_profile_ciphertext longtext,
+  sensitive_profile_iv varchar(128) DEFAULT NULL,
+  sensitive_profile_key_version varchar(64) DEFAULT NULL,
+  consented_at timestamp NULL DEFAULT NULL,
+  anonymized_at timestamp NULL DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_participant_publish_user (publish_id,user_id),
+  UNIQUE KEY uk_assessment_participant_publish_code (publish_id,participation_code_id),
+  UNIQUE KEY uk_assessment_participant_attempt (attempt_id),
+  KEY idx_assessment_participant_publish_type (publish_id,participant_type,id)
+);
+CREATE TABLE assessment_participant_session (
+  id bigint NOT NULL AUTO_INCREMENT,
+  participant_id bigint NOT NULL,
+  session_token_digest char(64) NOT NULL,
+  expires_at timestamp NOT NULL,
+  last_seen_at timestamp NULL DEFAULT NULL,
+  revoked_at timestamp NULL DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_participant_session_token (session_token_digest),
+  KEY idx_assessment_participant_session_expiry (participant_id,expires_at,revoked_at)
+);
+CREATE TABLE assessment_question_bank_import (
+  id bigint NOT NULL AUTO_INCREMENT,
+  question_bank_id bigint DEFAULT NULL,
+  import_key varchar(64) NOT NULL,
+  source_file_name varchar(255) NOT NULL,
+  source_format varchar(16) NOT NULL,
+  source_sha256 char(64) NOT NULL,
+  status varchar(32) NOT NULL DEFAULT 'UPLOADED',
+  source_payload_json longtext NOT NULL,
+  preflight_summary_json longtext,
+  differences_json longtext,
+  errors_json longtext,
+  confirmed_by bigint DEFAULT NULL,
+  confirmed_at timestamp NULL DEFAULT NULL,
+  committed_by bigint DEFAULT NULL,
+  committed_at timestamp NULL DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_question_bank_import_key (import_key),
+  KEY idx_assessment_question_bank_import_status (status,created_at),
+  KEY fk_assessment_question_bank_import_bank (question_bank_id)
+);
+CREATE TABLE assessment_content_review_issue (
+  id bigint NOT NULL AUTO_INCREMENT,
+  import_id bigint NOT NULL,
+  question_version_id bigint DEFAULT NULL,
+  issue_code varchar(64) NOT NULL,
+  severity varchar(32) NOT NULL DEFAULT 'REVIEW_REQUIRED',
+  status varchar(32) NOT NULL DEFAULT 'OPEN',
+  source_reference varchar(512) DEFAULT NULL,
+  description varchar(2000) NOT NULL,
+  source_value_json longtext,
+  candidate_value_json longtext,
+  resolved_by bigint DEFAULT NULL,
+  resolved_at timestamp NULL DEFAULT NULL,
+  resolution_note varchar(2000) DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  KEY idx_assessment_content_review_issue_import (import_id,status,severity),
+  KEY fk_assessment_content_review_issue_question (question_version_id)
+);
+CREATE TABLE assessment_timing_event (
+  id bigint NOT NULL AUTO_INCREMENT,
+  attempt_id bigint NOT NULL,
+  question_id bigint NOT NULL,
+  client_event_id varchar(64) NOT NULL,
+  event_type varchar(32) NOT NULL,
+  effective_delta_ms int NOT NULL DEFAULT '0',
+  client_occurred_at timestamp NULL DEFAULT NULL,
+  first_presented_at timestamp NULL DEFAULT NULL,
+  first_answered_at timestamp NULL DEFAULT NULL,
+  modification_count int NOT NULL DEFAULT '0',
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_timing_event_client (attempt_id,client_event_id),
+  KEY idx_assessment_timing_event_question (attempt_id,question_id,created_at),
+  CONSTRAINT ck_assessment_timing_event_delta CHECK (effective_delta_ms >= 0 AND effective_delta_ms <= 30000)
+);
+CREATE TABLE assessment_metric_snapshot (
+  id bigint NOT NULL AUTO_INCREMENT,
+  attempt_id bigint NOT NULL,
+  metric_version varchar(64) NOT NULL,
+  scoring_version varchar(64) NOT NULL DEFAULT 'SCORING_V1',
+  raw_score decimal(12,4) NOT NULL,
+  max_score decimal(12,4) NOT NULL,
+  percentage_score decimal(8,4) DEFAULT NULL,
+  metrics_json longtext NOT NULL,
+  quality_flags_json longtext NOT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_metric_snapshot_version (attempt_id,metric_version),
+  KEY idx_assessment_metric_snapshot_attempt (attempt_id,created_at)
+);
+CREATE TABLE assessment_ai_analysis (
+  id bigint NOT NULL AUTO_INCREMENT,
+  attempt_id bigint NOT NULL,
+  metric_snapshot_id bigint NOT NULL,
+  prompt_version varchar(64) NOT NULL,
+  idempotency_key varchar(191) NOT NULL,
+  status varchar(32) NOT NULL DEFAULT 'PENDING',
+  retry_count int NOT NULL DEFAULT '0',
+  model_name varchar(128) DEFAULT NULL,
+  prompt_tokens int DEFAULT NULL,
+  completion_tokens int DEFAULT NULL,
+  analysis_json longtext,
+  rule_fallback_json longtext,
+  raw_response longtext,
+  fallback_reason varchar(1000) DEFAULT NULL,
+  generation_record_id bigint DEFAULT NULL,
+  next_retry_at timestamp NULL DEFAULT NULL,
+  completed_at timestamp NULL DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_assessment_ai_analysis_idempotency (idempotency_key),
+  UNIQUE KEY uk_assessment_ai_analysis_version (attempt_id,metric_snapshot_id,prompt_version),
+  KEY idx_assessment_ai_analysis_status_retry (status,next_retry_at,retry_count),
+  KEY fk_assessment_ai_analysis_generation (generation_record_id)
 );
 CREATE TABLE audit_log (
   id bigint NOT NULL AUTO_INCREMENT,
@@ -1180,6 +1520,35 @@ ALTER TABLE assessment_publish_recipient ADD CONSTRAINT fk_assessment_publish_re
 ALTER TABLE assessment_publish_recipient ADD CONSTRAINT fk_assessment_publish_recipient_publish_id FOREIGN KEY (publish_id) REFERENCES assessment_publish (id);
 ALTER TABLE assessment_publish_recipient ADD CONSTRAINT fk_assessment_publish_recipient_student_user_id FOREIGN KEY (student_user_id) REFERENCES users (id);
 ALTER TABLE assessment_question ADD CONSTRAINT fk_assessment_question_paper_id FOREIGN KEY (paper_id) REFERENCES assessment_paper (id);
+ALTER TABLE assessment_question_bank ADD CONSTRAINT fk_assessment_question_bank_owner FOREIGN KEY (owner_user_id) REFERENCES users (id);
+ALTER TABLE assessment_question_version ADD CONSTRAINT fk_assessment_question_version_bank FOREIGN KEY (question_bank_id) REFERENCES assessment_question_bank (id);
+ALTER TABLE assessment_questionnaire ADD CONSTRAINT fk_assessment_questionnaire_owner FOREIGN KEY (owner_user_id) REFERENCES users (id);
+ALTER TABLE assessment_questionnaire_version ADD CONSTRAINT fk_assessment_questionnaire_version_questionnaire FOREIGN KEY (questionnaire_id) REFERENCES assessment_questionnaire (id);
+ALTER TABLE assessment_questionnaire_version ADD CONSTRAINT fk_assessment_questionnaire_version_paper FOREIGN KEY (paper_id) REFERENCES assessment_paper (id);
+ALTER TABLE assessment_questionnaire_section ADD CONSTRAINT fk_assessment_questionnaire_section_version FOREIGN KEY (questionnaire_version_id) REFERENCES assessment_questionnaire_version (id);
+ALTER TABLE assessment_questionnaire_item ADD CONSTRAINT fk_assessment_questionnaire_item_version FOREIGN KEY (questionnaire_version_id) REFERENCES assessment_questionnaire_version (id);
+ALTER TABLE assessment_questionnaire_item ADD CONSTRAINT fk_assessment_questionnaire_item_section FOREIGN KEY (section_id) REFERENCES assessment_questionnaire_section (id);
+ALTER TABLE assessment_questionnaire_item ADD CONSTRAINT fk_assessment_questionnaire_item_question FOREIGN KEY (assessment_question_id) REFERENCES assessment_question (id);
+ALTER TABLE assessment_questionnaire_item ADD CONSTRAINT fk_assessment_questionnaire_item_qversion FOREIGN KEY (question_version_id) REFERENCES assessment_question_version (id);
+ALTER TABLE assessment_public_release ADD CONSTRAINT fk_assessment_public_release_publish FOREIGN KEY (publish_id) REFERENCES assessment_publish (id);
+ALTER TABLE assessment_participation_code ADD CONSTRAINT fk_assessment_participation_code_release FOREIGN KEY (public_release_id) REFERENCES assessment_public_release (id);
+ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_publish FOREIGN KEY (publish_id) REFERENCES assessment_publish (id);
+ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_user FOREIGN KEY (user_id) REFERENCES users (id);
+ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_code FOREIGN KEY (participation_code_id) REFERENCES assessment_participation_code (id);
+ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_attempt FOREIGN KEY (attempt_id) REFERENCES assessment_attempt (id);
+ALTER TABLE assessment_participant_session ADD CONSTRAINT fk_assessment_participant_session_participant FOREIGN KEY (participant_id) REFERENCES assessment_participant (id);
+ALTER TABLE assessment_question_bank_import ADD CONSTRAINT fk_assessment_question_bank_import_bank FOREIGN KEY (question_bank_id) REFERENCES assessment_question_bank (id);
+ALTER TABLE assessment_question_bank_import ADD CONSTRAINT fk_assessment_question_bank_import_confirmed FOREIGN KEY (confirmed_by) REFERENCES users (id);
+ALTER TABLE assessment_question_bank_import ADD CONSTRAINT fk_assessment_question_bank_import_committed FOREIGN KEY (committed_by) REFERENCES users (id);
+ALTER TABLE assessment_content_review_issue ADD CONSTRAINT fk_assessment_content_review_issue_import FOREIGN KEY (import_id) REFERENCES assessment_question_bank_import (id);
+ALTER TABLE assessment_content_review_issue ADD CONSTRAINT fk_assessment_content_review_issue_question FOREIGN KEY (question_version_id) REFERENCES assessment_question_version (id);
+ALTER TABLE assessment_content_review_issue ADD CONSTRAINT fk_assessment_content_review_issue_resolver FOREIGN KEY (resolved_by) REFERENCES users (id);
+ALTER TABLE assessment_timing_event ADD CONSTRAINT fk_assessment_timing_event_attempt FOREIGN KEY (attempt_id) REFERENCES assessment_attempt (id);
+ALTER TABLE assessment_timing_event ADD CONSTRAINT fk_assessment_timing_event_question FOREIGN KEY (question_id) REFERENCES assessment_question (id);
+ALTER TABLE assessment_metric_snapshot ADD CONSTRAINT fk_assessment_metric_snapshot_attempt FOREIGN KEY (attempt_id) REFERENCES assessment_attempt (id);
+ALTER TABLE assessment_ai_analysis ADD CONSTRAINT fk_assessment_ai_analysis_attempt FOREIGN KEY (attempt_id) REFERENCES assessment_attempt (id);
+ALTER TABLE assessment_ai_analysis ADD CONSTRAINT fk_assessment_ai_analysis_metric FOREIGN KEY (metric_snapshot_id) REFERENCES assessment_metric_snapshot (id);
+ALTER TABLE assessment_ai_analysis ADD CONSTRAINT fk_assessment_ai_analysis_generation FOREIGN KEY (generation_record_id) REFERENCES ai_generation_record (id);
 ALTER TABLE class_analytics_daily_aggregate ADD CONSTRAINT fk_class_analytics_daily_aggregate_class_id FOREIGN KEY (teaching_class_id) REFERENCES teaching_class (id);
 ALTER TABLE diagnosis_item_result ADD CONSTRAINT fk_diagnosis_item_result_lexical_pair_id FOREIGN KEY (lexical_pair_id) REFERENCES lexical_pair (id);
 ALTER TABLE diagnosis_item_result ADD CONSTRAINT fk_diagnosis_item_result_session_id FOREIGN KEY (session_id) REFERENCES diagnosis_session (id);

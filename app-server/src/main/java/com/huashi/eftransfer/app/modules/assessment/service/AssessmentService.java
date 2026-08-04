@@ -18,6 +18,8 @@ import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptEnti
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPaperEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPublishEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPublishRecipientEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPublicReleaseEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipationCodeEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentQuestionEntity;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptAnswerMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptMapper;
@@ -25,7 +27,10 @@ import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPaperMapper
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublishMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublishRecipientMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentQuestionMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublicReleaseMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipationCodeMapper;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentJsonCodec;
+import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantCodeCodec;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentOptionPayload;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptDetailVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptHeartbeatVO;
@@ -50,6 +55,7 @@ import com.huashi.eftransfer.app.modules.user.entity.UserEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
+import com.huashi.eftransfer.shared.enums.AssessmentDeliveryMode;
 import com.huashi.eftransfer.shared.enums.AssessmentPaperStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentPublishStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentQuestionType;
@@ -64,6 +70,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -74,6 +81,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -95,6 +103,9 @@ public class AssessmentService {
     private final UserMapper userMapper;
     private final NotificationScenarioService notificationScenarioService;
     private final AssessmentTimeoutProperties assessmentTimeoutProperties;
+    private final AssessmentPublicReleaseMapper assessmentPublicReleaseMapper;
+    private final AssessmentParticipationCodeMapper assessmentParticipationCodeMapper;
+    private final AssessmentParticipantCodeCodec assessmentParticipantCodeCodec;
 
     public AssessmentService(
             AssessmentPaperMapper assessmentPaperMapper,
@@ -108,7 +119,10 @@ public class AssessmentService {
             AssessmentJsonCodec assessmentJsonCodec,
             UserMapper userMapper,
             NotificationScenarioService notificationScenarioService,
-            AssessmentTimeoutProperties assessmentTimeoutProperties
+            AssessmentTimeoutProperties assessmentTimeoutProperties,
+            AssessmentPublicReleaseMapper assessmentPublicReleaseMapper,
+            AssessmentParticipationCodeMapper assessmentParticipationCodeMapper,
+            AssessmentParticipantCodeCodec assessmentParticipantCodeCodec
     ) {
         this.assessmentPaperMapper = assessmentPaperMapper;
         this.assessmentQuestionMapper = assessmentQuestionMapper;
@@ -122,6 +136,9 @@ public class AssessmentService {
         this.userMapper = userMapper;
         this.notificationScenarioService = notificationScenarioService;
         this.assessmentTimeoutProperties = assessmentTimeoutProperties;
+        this.assessmentPublicReleaseMapper = assessmentPublicReleaseMapper;
+        this.assessmentParticipationCodeMapper = assessmentParticipationCodeMapper;
+        this.assessmentParticipantCodeCodec = assessmentParticipantCodeCodec;
     }
 
     public List<AssessmentPaperSummaryVO> listTeacherPapers() {
@@ -182,11 +199,22 @@ public class AssessmentService {
         if (loadQuestionsByPaper(paperId).isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment paper must contain questions before publishing", 409);
         }
-        TeachingClassEntity teachingClass = teachingClassService.requireAccessibleClass(request.teachingClassId());
+        AssessmentDeliveryMode deliveryMode = parseDeliveryMode(request.deliveryMode());
+        TeachingClassEntity teachingClass = null;
+        if (deliveryMode == AssessmentDeliveryMode.CLASS) {
+            if (request.teachingClassId() == null) {
+                throw new BusinessException(ResultCode.VALIDATION_ERROR, "teachingClassId is required for CLASS delivery", 400);
+            }
+            teachingClass = teachingClassService.requireAccessibleClass(request.teachingClassId());
+        } else if (request.participantCodeCount() == null || request.participantCodeCount() < 1 || request.participantCodeCount() > 5000) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR,
+                    "participantCodeCount must be between 1 and 5000 for PUBLIC_CODE delivery", 400);
+        }
 
         AssessmentPublishEntity publish = new AssessmentPublishEntity();
         publish.setPaperId(paper.getId());
-        publish.setTeachingClassId(teachingClass.getId());
+        publish.setTeachingClassId(teachingClass == null ? null : teachingClass.getId());
+        publish.setDeliveryMode(deliveryMode.name());
         publish.setPublishedBy(currentUserId());
         publish.setStatus(AssessmentPublishStatus.PUBLISHED.name());
         publish.setPaperTitleSnapshot(paper.getTitle());
@@ -200,17 +228,31 @@ public class AssessmentService {
         publish.setResultReleasePolicy(resultReleasePolicy.name());
         publish.setPublishedAt(LocalDateTime.now());
         assessmentPublishMapper.insert(publish);
-        snapshotRecipients(publish);
+
+        List<String> generatedCodes = List.of();
+        String releaseCode = null;
+        if (deliveryMode == AssessmentDeliveryMode.CLASS) {
+            snapshotRecipients(publish);
+        } else {
+            releaseCode = generatePublicReleaseCode();
+            generatedCodes = createPublicRelease(publish, releaseCode, request.participantCodeCount());
+        }
 
         paper.setStatus(AssessmentPaperStatus.PUBLISHED.name());
         paper.setLatestPublishAt(publish.getPublishedAt());
         assessmentPaperMapper.updateById(paper);
 
-        List<AssessmentPublishRecipientEntity> recipients = loadRecipientsByPublish(publish.getId());
-        notificationScenarioService.notifyAssessmentPublished(publish, teachingClass, recipients);
+        List<AssessmentPublishRecipientEntity> recipients = deliveryMode == AssessmentDeliveryMode.CLASS
+                ? loadRecipientsByPublish(publish.getId()) : List.of();
+        if (deliveryMode == AssessmentDeliveryMode.CLASS) {
+            notificationScenarioService.notifyAssessmentPublished(publish, teachingClass, recipients);
+        }
 
         int assignedCount = recipients.size();
-        return buildPublishSummary(publish, teachingClass.getClassName(), assignedCount, 0, 0);
+        AssessmentPublishSummaryVO summary = buildPublishSummary(
+                publish, teachingClass == null ? "公开参与" : teachingClass.getClassName(),
+                deliveryMode == AssessmentDeliveryMode.PUBLIC_CODE ? request.participantCodeCount() : assignedCount, 0, 0);
+        return summary.withPublicDelivery(deliveryMode.name(), releaseCode, generatedCodes);
     }
 
     public List<StudentAssessmentSummaryVO> listStudentAssessments() {
@@ -472,7 +514,9 @@ public class AssessmentService {
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             throw new BusinessException(ResultCode.ATTEMPT_SUBMITTED, "Assessment attempt has already been submitted", 409);
         }
-        requireAttemptVersion(attempt, request.baseVersion());
+        if (request.baseVersion() != null) {
+            requireAttemptVersion(attempt, request.baseVersion());
+        }
         List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
         applyRequestedResponses(request.responses(), answers, false);
         recomputeAttemptProgress(attempt, answers, now);
@@ -493,14 +537,26 @@ public class AssessmentService {
     public AssessmentAttemptSubmitVO submitAttempt(Long attemptId, SubmitAssessmentAttemptRequest request) {
         AttemptBundle bundle = requireAccessibleAttemptForUpdate(attemptId);
         LocalDateTime now = LocalDateTime.now();
-        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(attemptId, bundle, now);
+        SubmitAssessmentAttemptRequest effectiveRequest = request == null
+                ? new SubmitAssessmentAttemptRequest(List.of(), null, AssessmentSubmitReason.MANUAL.name())
+                : request;
+        AssessmentSubmitReason submitReason = parseClientSubmitReason(effectiveRequest.reason());
+        AssessmentAttemptEntity attempt = finalizeExpiredAttemptIfNecessary(
+                attemptId,
+                bundle,
+                now,
+                submitReason
+        );
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equalsIgnoreCase(attempt.getStatus())) {
             return toAttemptSubmitVO(attempt);
         }
-        requireAttemptVersion(attempt, request.baseVersion());
+        if (effectiveRequest.baseVersion() != null) {
+            requireAttemptVersion(attempt, effectiveRequest.baseVersion());
+        }
         List<AssessmentAttemptAnswerEntity> answers = loadAttemptAnswers(attempt.getId());
-        applyRequestedResponses(request.responses(), answers, true);
-        AssessmentSubmitReason submitReason = parseClientSubmitReason(request.reason());
+        if (!effectiveRequest.responses().isEmpty()) {
+            applyRequestedResponses(effectiveRequest.responses(), answers, true);
+        }
         AttemptSubmissionOutcome submission = submitAttemptInternal(attempt, now, submitReason);
         if (submission.transitioned()) {
             notificationScenarioService.notifyAssessmentSubmitted(
@@ -788,6 +844,7 @@ public class AssessmentService {
                         .toList(),
                 answer.getQuestionScore(),
                 assessmentJsonCodec.readStringList(answer.getResponseJson()),
+                answer.getJustificationText(),
                 Boolean.TRUE.equals(answer.getAnswered())
         );
     }
@@ -808,7 +865,8 @@ public class AssessmentService {
                 assessmentJsonCodec.readStringList(answer.getCorrectAnswerJson()),
                 answer.getCorrect(),
                 answer.getScoreAwarded(),
-                answer.getExplanationTextSnapshot()
+                answer.getExplanationTextSnapshot(),
+                answer.getJustificationText()
         );
     }
 
@@ -828,6 +886,16 @@ public class AssessmentService {
             entity.setCorrectAnswerJson(assessmentJsonCodec.write(question.correctAnswers()));
             entity.setExplanationText(question.explanationText());
             entity.setScore(question.score());
+            entity.setQuestionVersionId(question.questionVersionId());
+            entity.setSectionCode(question.sectionCode());
+            entity.setRequiredAnswer(question.requiredAnswer());
+            entity.setWeight(question.weight());
+            entity.setTransferCategory(question.transferCategory());
+            entity.setContextLevel(question.contextLevel());
+            entity.setConstructCode(question.constructCode());
+            entity.setTargetWord(question.targetWord());
+            entity.setOptionExplanationsJson(question.optionExplanations().isEmpty() ? null : assessmentJsonCodec.write(question.optionExplanations()));
+            entity.setDisplayConditionJson(question.displayCondition().isEmpty() ? null : assessmentJsonCodec.write(question.displayCondition()));
             assessmentQuestionMapper.insert(entity);
         }
     }
@@ -839,17 +907,39 @@ public class AssessmentService {
             String stemText = normalizeRequiredText(question.stemText(), "stemText");
             String promptText = normalizeOptionalText(question.promptText());
             String explanationText = normalizeOptionalText(question.explanationText());
+            List<String> rawCorrectAnswers = question.correctAnswers() == null ? List.of() : question.correctAnswers();
+            BigDecimal weight = question.weight() == null || question.weight().signum() <= 0 ? BigDecimal.ONE : question.weight();
+            boolean requiredAnswer = question.requiredAnswer() == null || question.requiredAnswer();
 
-            if (questionType == AssessmentQuestionType.FILL_BLANK) {
-                List<String> correctAnswers = normalizeFillBlankAnswers(question.correctAnswers());
+            if (questionType == AssessmentQuestionType.INSTRUCTION
+                    || questionType == AssessmentQuestionType.SHORT_TEXT
+                    || questionType == AssessmentQuestionType.NUMBER) {
                 normalizedQuestions.add(new NormalizedQuestion(
                         questionType,
                         stemText,
                         promptText,
                         List.of(),
-                        correctAnswers,
+                        List.of(),
                         explanationText,
-                        question.score()
+                        question.score(),
+                        question.questionVersionId(), normalizeOptionalText(question.sectionCode()), requiredAnswer, weight,
+                        normalizeOptionalText(question.transferCategory()), normalizeOptionalText(question.contextLevel()),
+                        normalizeOptionalText(question.constructCode()), normalizeOptionalText(question.targetWord()),
+                        question.optionExplanations() == null ? Map.of() : Map.copyOf(question.optionExplanations()),
+                        question.displayCondition() == null ? Map.of() : Map.copyOf(question.displayCondition())
+                ));
+                continue;
+            }
+
+            if (questionType == AssessmentQuestionType.FILL_BLANK) {
+                List<String> correctAnswers = normalizeFillBlankAnswers(rawCorrectAnswers);
+                normalizedQuestions.add(new NormalizedQuestion(
+                        questionType, stemText, promptText, List.of(), correctAnswers, explanationText, question.score(),
+                        question.questionVersionId(), normalizeOptionalText(question.sectionCode()), requiredAnswer, weight,
+                        normalizeOptionalText(question.transferCategory()), normalizeOptionalText(question.contextLevel()),
+                        normalizeOptionalText(question.constructCode()), normalizeOptionalText(question.targetWord()),
+                        question.optionExplanations() == null ? Map.of() : Map.copyOf(question.optionExplanations()),
+                        question.displayCondition() == null ? Map.of() : Map.copyOf(question.displayCondition())
                 ));
                 continue;
             }
@@ -862,8 +952,11 @@ public class AssessmentService {
                             (left, right) -> left,
                             LinkedHashMap::new
                     ));
-            List<String> correctAnswers = normalizeChoiceCorrectAnswers(question.correctAnswers(), canonicalOptionKeys);
-            if (questionType == AssessmentQuestionType.SINGLE_CHOICE && correctAnswers.size() != 1) {
+            List<String> correctAnswers = normalizeChoiceCorrectAnswers(rawCorrectAnswers, canonicalOptionKeys);
+            if ((questionType == AssessmentQuestionType.SINGLE_CHOICE
+                    || questionType == AssessmentQuestionType.INFORMED_CONSENT
+                    || questionType == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION)
+                    && correctAnswers.size() != 1) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question must contain exactly one correct answer", 400);
             }
             normalizedQuestions.add(new NormalizedQuestion(
@@ -873,7 +966,12 @@ public class AssessmentService {
                     options,
                     correctAnswers,
                     explanationText,
-                    question.score()
+                    question.score(),
+                    question.questionVersionId(), normalizeOptionalText(question.sectionCode()), requiredAnswer, weight,
+                    normalizeOptionalText(question.transferCategory()), normalizeOptionalText(question.contextLevel()),
+                    normalizeOptionalText(question.constructCode()), normalizeOptionalText(question.targetWord()),
+                    question.optionExplanations() == null ? Map.of() : Map.copyOf(question.optionExplanations()),
+                    question.displayCondition() == null ? Map.of() : Map.copyOf(question.displayCondition())
             ));
         }
         return normalizedQuestions;
@@ -917,17 +1015,35 @@ public class AssessmentService {
         return List.copyOf(normalizedAnswers);
     }
 
-    private void applyResponse(AssessmentAttemptAnswerEntity answer, List<String> rawResponses) {
+    private void applyResponse(
+            AssessmentAttemptAnswerEntity answer,
+            List<String> rawResponses,
+            String rawJustificationText,
+            boolean requireComplete
+    ) {
         AssessmentQuestionType questionType = parseQuestionType(answer.getQuestionType());
         List<String> normalizedResponses = normalizeAttemptResponses(questionType, rawResponses, answer.getOptionsJsonSnapshot());
         List<String> correctAnswers = assessmentJsonCodec.readStringList(answer.getCorrectAnswerJson());
         boolean answered = !normalizedResponses.isEmpty();
+        String justificationText = normalizeOptionalText(rawJustificationText);
+        if (requireComplete
+                && "TRUE_FALSE_WITH_JUSTIFICATION".equals(questionType.name())
+                && normalizedResponses.stream().anyMatch("F"::equalsIgnoreCase)
+                && justificationText == null) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR,
+                    "A justification is required when a true/false answer is F", 400);
+        }
         Boolean correct = answered ? isResponseCorrect(questionType, normalizedResponses, correctAnswers) : null;
 
         answer.setResponseJson(answered ? assessmentJsonCodec.write(normalizedResponses) : null);
+        answer.setJustificationText(justificationText);
         answer.setAnswered(answered);
         answer.setCorrect(correct);
         answer.setScoreAwarded(Boolean.TRUE.equals(correct) ? answer.getQuestionScore() : answered ? 0 : null);
+    }
+
+    private void applyResponse(AssessmentAttemptAnswerEntity answer, List<String> rawResponses) {
+        applyResponse(answer, rawResponses, answer.getJustificationText(), false);
     }
 
     private List<String> normalizeAttemptResponses(
@@ -938,7 +1054,12 @@ public class AssessmentService {
         if (rawResponses == null || rawResponses.isEmpty()) {
             return List.of();
         }
-        if (questionType == AssessmentQuestionType.FILL_BLANK) {
+        if (questionType == AssessmentQuestionType.INSTRUCTION) {
+            return List.of();
+        }
+        if (questionType == AssessmentQuestionType.FILL_BLANK
+                || questionType == AssessmentQuestionType.SHORT_TEXT
+                || questionType == AssessmentQuestionType.NUMBER) {
             LinkedHashSet<String> values = rawResponses.stream()
                     .map(this::normalizeOptionalText)
                     .filter(Objects::nonNull)
@@ -965,7 +1086,10 @@ public class AssessmentService {
             }
             values.add(canonicalKey);
         }
-        if (questionType == AssessmentQuestionType.SINGLE_CHOICE && values.size() > 1) {
+        if ((questionType == AssessmentQuestionType.SINGLE_CHOICE
+                || questionType == AssessmentQuestionType.INFORMED_CONSENT
+                || questionType == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION)
+                && values.size() > 1) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question accepts only one response", 400);
         }
         return List.copyOf(values);
@@ -1033,8 +1157,8 @@ public class AssessmentService {
             if (answer == null) {
                 throw new BusinessException(ResultCode.NOT_FOUND, "Assessment question was not found", 404);
             }
-            applyResponse(answer, response.responses());
-            assessmentAttemptAnswerMapper.updateById(answer);
+            applyResponse(answer, response.responses(), response.justificationText(), requireCompleteSnapshot);
+            assessmentAttemptAnswerMapper.updateResponseSnapshot(answer);
         }
     }
 
@@ -1140,7 +1264,7 @@ public class AssessmentService {
         for (AssessmentAttemptAnswerEntity answer : answers) {
             List<String> responses = assessmentJsonCodec.readStringList(answer.getResponseJson());
             applyResponse(answer, responses);
-            assessmentAttemptAnswerMapper.updateById(answer);
+            assessmentAttemptAnswerMapper.updateResponseSnapshot(answer);
         }
         recomputeAttemptProgress(attempt, answers, now);
         attempt.setStatus(AssessmentAttemptStatus.SUBMITTED.name());
@@ -1587,6 +1711,48 @@ public class AssessmentService {
         }
     }
 
+    private AssessmentDeliveryMode parseDeliveryMode(String value) {
+        if (value == null || value.isBlank()) {
+            return AssessmentDeliveryMode.CLASS;
+        }
+        try {
+            return AssessmentDeliveryMode.fromCode(value);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Unsupported assessment delivery mode", 400);
+        }
+    }
+
+    private List<String> createPublicRelease(AssessmentPublishEntity publish, String releaseCode, int codeCount) {
+        AssessmentPublicReleaseEntity release = new AssessmentPublicReleaseEntity();
+        release.setPublishId(publish.getId());
+        release.setReleaseCode(releaseCode);
+        release.setCodeCount(codeCount);
+        release.setSessionTtlHours(12);
+        release.setStatus(AssessmentPublishStatus.PUBLISHED.name());
+        assessmentPublicReleaseMapper.insert(release);
+
+        String exportBatchId = UUID.randomUUID().toString();
+        LocalDateTime exportedAt = LocalDateTime.now();
+        LinkedHashSet<String> plainCodes = new LinkedHashSet<>();
+        while (plainCodes.size() < codeCount) {
+            plainCodes.add(assessmentParticipantCodeCodec.generate());
+        }
+        for (String plainCode : plainCodes) {
+            AssessmentParticipationCodeEntity entity = new AssessmentParticipationCodeEntity();
+            entity.setPublicReleaseId(release.getId());
+            entity.setCodeDigest(assessmentParticipantCodeCodec.digest(plainCode));
+            entity.setStatus("UNUSED");
+            entity.setExportBatchId(exportBatchId);
+            entity.setExportedAt(exportedAt);
+            assessmentParticipationCodeMapper.insert(entity);
+        }
+        return List.copyOf(plainCodes);
+    }
+
+    private String generatePublicReleaseCode() {
+        return "RES-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+    }
+
     private String normalizeRequiredText(String value, String fieldName) {
         String normalized = normalizeOptionalText(value);
         if (normalized == null) {
@@ -1660,7 +1826,17 @@ public class AssessmentService {
             List<AssessmentOptionPayload> options,
             List<String> correctAnswers,
             String explanationText,
-            Integer score
+            Integer score,
+            Long questionVersionId,
+            String sectionCode,
+            Boolean requiredAnswer,
+            BigDecimal weight,
+            String transferCategory,
+            String contextLevel,
+            String constructCode,
+            String targetWord,
+            Map<String, String> optionExplanations,
+            Map<String, Object> displayCondition
     ) {
     }
 }

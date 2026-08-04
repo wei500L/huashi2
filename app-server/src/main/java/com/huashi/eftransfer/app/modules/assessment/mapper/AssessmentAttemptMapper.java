@@ -25,7 +25,7 @@ public interface AssessmentAttemptMapper extends BaseMapper<AssessmentAttemptEnt
     List<Long> selectExpiredAttemptIds(@Param("deadline") LocalDateTime deadline, @Param("limit") int limit);
 
     @Select("""
-            SELECT id, publish_id, paper_id, student_user_id, status, started_at, expires_at, submitted_at,
+            SELECT id, publish_id, paper_id, student_user_id, participant_id, status, started_at, expires_at, submitted_at,
                    last_saved_at, answered_count, objective_score, total_score, version, submit_reason, created_at, created_by,
                    updated_at, updated_by, deleted
             FROM assessment_attempt

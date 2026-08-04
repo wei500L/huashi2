@@ -60,6 +60,7 @@ public class SecurityConfig {
                             "/api/auth/register/context",
                             "/api/auth/refresh",
                             "/api/auth/account-actions/**",
+                            "/api/public/assessments/**",
                             "/ws/**",
                             "/internal/**",
                             "/actuator/health"

@@ -111,6 +111,19 @@ import type {
   AssessmentPublishDetailVO,
   AssessmentPublishRequest,
   AssessmentPublishSummaryVO,
+  PublicAssessmentAttemptVO,
+  PublicAssessmentMetadataVO,
+  PublicAssessmentProgressVO,
+  PublicAssessmentResultVO,
+  PublicAssessmentSaveRequest,
+  PublicAssessmentSessionVO,
+  PublicAssessmentSubmitRequest,
+  PublicAssessmentSubmitVO,
+  PublicAssessmentTimingRequest,
+  PublicAssessmentVerifyRequest,
+  QuestionBankImportPreflightVO,
+  QuestionBankItemSummaryVO,
+  QuestionBankListParams,
   ChangePasswordRequest,
   CompleteAccountActionRequest,
   AdminOutboxRecordVO,
@@ -265,6 +278,15 @@ export const trainingService = {
 };
 
 export const assessmentService = {
+  listQuestionBankItems: (params: QuestionBankListParams, options?: RequestOptions) =>
+    apiGet<PageResult<QuestionBankItemSummaryVO>>('/teacher/assessments/question-bank', { ...options, params }),
+  downloadQuestionBankImportTemplate: (options?: RequestOptions) =>
+    apiDownload('/teacher/assessments/question-bank/import-template.xlsx', options),
+  preflightQuestionBankImport: (file: File, options?: RequestOptions) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiUpload<QuestionBankImportPreflightVO>('/teacher/assessments/question-bank/imports/preflight', formData, options);
+  },
   listTeacherPapers: (options?: RequestOptions) => apiGet<AssessmentPaperSummaryVO[]>('/teacher/assessments/papers', options),
   getTeacherPaper: (paperId: number, options?: RequestOptions) =>
     apiGet<AssessmentPaperDetailVO>(`/teacher/assessments/papers/${paperId}`, options),
@@ -298,6 +320,30 @@ export const assessmentService = {
     apiPost<AssessmentAttemptSubmitVO>(`/student/assessments/attempts/${attemptId}/submit`, payload),
   getStudentAttemptResult: (attemptId: number, options?: RequestOptions) =>
     apiGet<AssessmentAttemptResultVO>(`/student/assessments/attempts/${attemptId}/result`, options),
+};
+
+const publicAssessmentPath = (releaseCode: string) =>
+  `/public/assessments/${encodeURIComponent(releaseCode.trim())}`;
+const publicAssessmentOptions = (options?: RequestOptions): AxiosRequestConfig => ({
+  ...options,
+  withCredentials: true,
+});
+
+export const publicAssessmentService = {
+  getMetadata: (releaseCode: string, options?: RequestOptions) =>
+    apiGet<PublicAssessmentMetadataVO>(publicAssessmentPath(releaseCode), publicAssessmentOptions(options)),
+  verifyCode: (releaseCode: string, payload: PublicAssessmentVerifyRequest) =>
+    apiPost<PublicAssessmentSessionVO>(`${publicAssessmentPath(releaseCode)}/verify`, payload, publicAssessmentOptions()),
+  getAttempt: (releaseCode: string, options?: RequestOptions) =>
+    apiGet<PublicAssessmentAttemptVO>(`${publicAssessmentPath(releaseCode)}/attempt`, publicAssessmentOptions(options)),
+  saveResponses: (releaseCode: string, payload: PublicAssessmentSaveRequest) =>
+    apiPost<PublicAssessmentProgressVO>(`${publicAssessmentPath(releaseCode)}/responses`, payload, publicAssessmentOptions()),
+  recordTiming: (releaseCode: string, payload: PublicAssessmentTimingRequest) =>
+    apiPost<void>(`${publicAssessmentPath(releaseCode)}/timing`, payload, publicAssessmentOptions()),
+  submit: (releaseCode: string, payload: PublicAssessmentSubmitRequest) =>
+    apiPost<PublicAssessmentSubmitVO>(`${publicAssessmentPath(releaseCode)}/submit`, payload, publicAssessmentOptions()),
+  getResult: (releaseCode: string, options?: RequestOptions) =>
+    apiGet<PublicAssessmentResultVO>(`${publicAssessmentPath(releaseCode)}/result`, publicAssessmentOptions(options)),
 };
 
 export const aiService = {

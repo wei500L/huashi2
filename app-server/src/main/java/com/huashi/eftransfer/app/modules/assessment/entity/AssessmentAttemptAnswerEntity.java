@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.huashi.eftransfer.app.common.persistence.BaseAuditEntity;
 
+import java.time.LocalDateTime;
+
 @TableName("assessment_attempt_answer")
 public class AssessmentAttemptAnswerEntity extends BaseAuditEntity {
 
@@ -39,6 +41,21 @@ public class AssessmentAttemptAnswerEntity extends BaseAuditEntity {
 
     @TableField("response_json")
     private String responseJson;
+
+    @TableField("justification_text")
+    private String justificationText;
+
+    @TableField("first_presented_at")
+    private LocalDateTime firstPresentedAt;
+
+    @TableField("first_answered_at")
+    private LocalDateTime firstAnsweredAt;
+
+    @TableField("effective_duration_ms")
+    private Long effectiveDurationMs;
+
+    @TableField("response_change_count")
+    private Integer responseChangeCount;
 
     private Boolean answered;
     private Boolean correct;
@@ -133,6 +150,23 @@ public class AssessmentAttemptAnswerEntity extends BaseAuditEntity {
     public void setResponseJson(String responseJson) {
         this.responseJson = responseJson;
     }
+
+    public String getJustificationText() {
+        return justificationText;
+    }
+
+    public void setJustificationText(String justificationText) {
+        this.justificationText = justificationText;
+    }
+
+    public LocalDateTime getFirstPresentedAt() { return firstPresentedAt; }
+    public void setFirstPresentedAt(LocalDateTime firstPresentedAt) { this.firstPresentedAt = firstPresentedAt; }
+    public LocalDateTime getFirstAnsweredAt() { return firstAnsweredAt; }
+    public void setFirstAnsweredAt(LocalDateTime firstAnsweredAt) { this.firstAnsweredAt = firstAnsweredAt; }
+    public Long getEffectiveDurationMs() { return effectiveDurationMs; }
+    public void setEffectiveDurationMs(Long effectiveDurationMs) { this.effectiveDurationMs = effectiveDurationMs; }
+    public Integer getResponseChangeCount() { return responseChangeCount; }
+    public void setResponseChangeCount(Integer responseChangeCount) { this.responseChangeCount = responseChangeCount; }
 
     public Boolean getAnswered() {
         return answered;

@@ -18,6 +18,9 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
     @TableField("student_user_id")
     private Long studentUserId;
 
+    @TableField("participant_id")
+    private Long participantId;
+
     private String status;
 
     @TableField("started_at")
@@ -68,6 +71,14 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
 
     public void setStudentUserId(Long studentUserId) {
         this.studentUserId = studentUserId;
+    }
+
+    public Long getParticipantId() {
+        return participantId;
+    }
+
+    public void setParticipantId(Long participantId) {
+        this.participantId = participantId;
     }
 
     public String getStatus() {

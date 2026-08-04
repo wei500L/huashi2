@@ -97,6 +97,9 @@ app:
     compensation:
       enabled: ${APP_ANALYTICS_COMPENSATION_ENABLED:true}
   assessment:
+    public-delivery:
+      hmac-secret: ${APP_ASSESSMENT_CODE_HMAC_SECRET:local-only-change-this-participant-code-secret}
+      session-ttl: ${APP_ASSESSMENT_PUBLIC_SESSION_TTL:PT12H}
     timeout:
       enabled: ${APP_ASSESSMENT_TIMEOUT_ENABLED:true}
       poll-interval: ${APP_ASSESSMENT_TIMEOUT_POLL_INTERVAL:PT30S}

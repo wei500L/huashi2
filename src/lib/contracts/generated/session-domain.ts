@@ -3,8 +3,14 @@
 export const AiOpsProtocolValues = ["openai-compat","openai-responses","openai-rerank","openai-chat-rerank","qwen-rerank"] as const;
 export type AiOpsProtocol = typeof AiOpsProtocolValues[number];
 
+export const AssessmentAiAnalysisStatusValues = ["PENDING","PROCESSING","COMPLETED","FALLBACK","FAILED"] as const;
+export type AssessmentAiAnalysisStatus = typeof AssessmentAiAnalysisStatusValues[number];
+
 export const AssessmentAttemptStatusValues = ["IN_PROGRESS","SUBMITTED"] as const;
 export type AssessmentAttemptStatus = typeof AssessmentAttemptStatusValues[number];
+
+export const AssessmentDeliveryModeValues = ["CLASS","PUBLIC_CODE"] as const;
+export type AssessmentDeliveryMode = typeof AssessmentDeliveryModeValues[number];
 
 export const AssessmentPaperStatusValues = ["DRAFT","PUBLISHED"] as const;
 export type AssessmentPaperStatus = typeof AssessmentPaperStatusValues[number];
@@ -12,11 +18,26 @@ export type AssessmentPaperStatus = typeof AssessmentPaperStatusValues[number];
 export const AssessmentPublishStatusValues = ["PUBLISHED"] as const;
 export type AssessmentPublishStatus = typeof AssessmentPublishStatusValues[number];
 
-export const AssessmentQuestionTypeValues = ["SINGLE_CHOICE","MULTIPLE_CHOICE","FILL_BLANK"] as const;
+export const AssessmentQuestionTypeValues = ["INSTRUCTION","INFORMED_CONSENT","SHORT_TEXT","NUMBER","SINGLE_CHOICE","MULTIPLE_CHOICE","FILL_BLANK","TRUE_FALSE_WITH_JUSTIFICATION"] as const;
 export type AssessmentQuestionType = typeof AssessmentQuestionTypeValues[number];
+
+export const AssessmentResultReleasePolicyValues = ["IMMEDIATE","AFTER_DUE"] as const;
+export type AssessmentResultReleasePolicy = typeof AssessmentResultReleasePolicyValues[number];
+
+export const AssessmentSubmitReasonValues = ["MANUAL","TIMEOUT","SCHEDULER"] as const;
+export type AssessmentSubmitReason = typeof AssessmentSubmitReasonValues[number];
+
+export const ConstructCodeValues = ["LEXICAL_TRANSFER","SEMANTIC_DISCRIMINATION","CONTEXT_REPAIR"] as const;
+export type ConstructCode = typeof ConstructCodeValues[number];
+
+export const ContextLevelValues = ["WORD","PHRASE","SENTENCE","CLOZE","READING"] as const;
+export type ContextLevel = typeof ContextLevelValues[number];
 
 export const ContextSupportLevelValues = ["LOW","MEDIUM","HIGH"] as const;
 export type ContextSupportLevel = typeof ContextSupportLevelValues[number];
+
+export const DataQualityFlagValues = ["FAST_ITEM","SHORT_TOTAL_DURATION","TIMING_GAP"] as const;
+export type DataQualityFlag = typeof DataQualityFlagValues[number];
 
 export const DiagnosisAnswerStateValues = ["PENDING","ANSWERED"] as const;
 export type DiagnosisAnswerState = typeof DiagnosisAnswerStateValues[number];
@@ -41,6 +62,9 @@ export type KnowledgeStatus = typeof KnowledgeStatusValues[number];
 
 export const LexicalPairTypeValues = ["COGNATE","FALSE_FRIEND","PARTIAL_COGNATE","ORTHOGRAPHIC_SIMILAR"] as const;
 export type LexicalPairType = typeof LexicalPairTypeValues[number];
+
+export const QuestionBankImportStatusValues = ["UPLOADED","PREFLIGHT_FAILED","REVIEW_REQUIRED","READY","COMMITTED"] as const;
+export type QuestionBankImportStatus = typeof QuestionBankImportStatusValues[number];
 
 export const ResultCodeValues = ["SUCCESS","BAD_REQUEST","UNAUTHORIZED","FORBIDDEN","NOT_FOUND","VALIDATION_ERROR","CONFLICT","INVALID_CREDENTIALS","CURRENT_PASSWORD_INCORRECT","ACCOUNT_DISABLED","ACCOUNT_LOCKED","TOKEN_INVALID","TOKEN_EXPIRED","REGISTRATION_CONTEXT_INVALID","REGISTRATION_CONTEXT_BUSY","ACTIVE_SESSION_EXISTS","ASSESSMENT_NOT_STARTED","ASSESSMENT_CLOSED","ATTEMPT_SUBMITTED","RESULT_NOT_RELEASED","VERSION_CONFLICT","SESSION_OUT_OF_SEQUENCE","ANSWER_ALREADY_ACCEPTED","RATE_LIMITED","AI_PROVIDER_UNAVAILABLE","INTERNAL_ERROR"] as const;
 export type ResultCode = typeof ResultCodeValues[number];
@@ -68,6 +92,9 @@ export type TrainingPlanStatus = typeof TrainingPlanStatusValues[number];
 
 export const TrainingSessionStatusValues = ["IN_PROGRESS","ABANDONED","COMPLETED"] as const;
 export type TrainingSessionStatus = typeof TrainingSessionStatusValues[number];
+
+export const TransferCategoryValues = ["COGNATE","FALSE_FRIEND","FRENCH_CONTROL"] as const;
+export type TransferCategory = typeof TransferCategoryValues[number];
 
 export const UserCapabilityValues = ["STUDENT_WORKSPACE","TEACHING_WORKSPACE","ADMIN_CONSOLE"] as const;
 export type UserCapability = typeof UserCapabilityValues[number];

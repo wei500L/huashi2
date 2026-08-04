@@ -76,7 +76,7 @@ public class StudentAssessmentController {
     @PostMapping("/attempts/{attemptId}/submit")
     public ApiResponse<AssessmentAttemptSubmitVO> submitAttempt(
             @PathVariable Long attemptId,
-            @Valid @RequestBody SubmitAssessmentAttemptRequest request
+            @Valid @RequestBody(required = false) SubmitAssessmentAttemptRequest request
     ) {
         return ApiResponse.success(assessmentService.submitAttempt(attemptId, request), MDC.get("traceId"));
     }

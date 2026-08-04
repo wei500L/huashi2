@@ -12,6 +12,7 @@ public record AssessmentAttemptQuestionVO(
         List<AssessmentOptionVO> options,
         Integer score,
         List<String> responses,
+        String justificationText,
         boolean answered
 ) {
 }

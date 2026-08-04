@@ -341,7 +341,8 @@ class AssessmentIntegrationTest extends AbstractWebIntegrationTest {
                                   "teachingClassId": %d,
                                   "startsAt": "%s",
                                   "dueAt": "%s",
-                                  "instructionsText": "请认真作答"
+                                  "instructionsText": "请认真作答",
+                                  "resultReleasePolicy": "IMMEDIATE"
                                 }
                                 """.formatted(loadClassId(), startsAt.format(ISO_TIME), dueAt.format(ISO_TIME))))
                 .andExpect(status().isOk())

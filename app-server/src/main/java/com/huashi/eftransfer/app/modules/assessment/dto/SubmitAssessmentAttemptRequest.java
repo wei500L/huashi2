@@ -8,11 +8,12 @@ import java.util.List;
 
 public record SubmitAssessmentAttemptRequest(
         @Valid
-        @NotNull(message = "responses must not be null")
         List<AssessmentAttemptResponseRequest> responses,
-        @NotNull(message = "baseVersion must not be null")
         @Min(value = 1, message = "baseVersion must be greater than 0")
         Long baseVersion,
         String reason
 ) {
+    public SubmitAssessmentAttemptRequest {
+        responses = responses == null ? List.of() : List.copyOf(responses);
+    }
 }

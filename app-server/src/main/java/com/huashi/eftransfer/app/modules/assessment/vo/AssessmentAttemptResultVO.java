@@ -27,6 +27,24 @@ public record AssessmentAttemptResultVO(
         LocalDateTime resultAvailableAt,
         boolean scoreVisible,
         boolean answerReviewVisible,
+        AssessmentMetricSnapshotVO metricSnapshot,
+        List<String> qualityFlags,
+        String aiAnalysisStatus,
+        AssessmentAiAnalysisVO aiAnalysis,
         List<AssessmentAttemptResultQuestionVO> questions
 ) {
+
+    public AssessmentAttemptResultVO(
+            Long attemptId, Long publishId, Long paperId, String paperTitle, String paperDescription,
+            String className, AssessmentAttemptStatus status, String instructionsText, Integer questionCount,
+            Integer answeredCount, Integer correctCount, Integer objectiveScore, Integer totalScore,
+            LocalDateTime startedAt, LocalDateTime expiresAt, LocalDateTime submittedAt, String submitReason,
+            String releaseStatus, LocalDateTime resultAvailableAt, boolean scoreVisible,
+            boolean answerReviewVisible, List<AssessmentAttemptResultQuestionVO> questions
+    ) {
+        this(attemptId, publishId, paperId, paperTitle, paperDescription, className, status, instructionsText,
+                questionCount, answeredCount, correctCount, objectiveScore, totalScore, startedAt, expiresAt,
+                submittedAt, submitReason, releaseStatus, resultAvailableAt, scoreVisible, answerReviewVisible,
+                null, List.of(), null, null, questions);
+    }
 }

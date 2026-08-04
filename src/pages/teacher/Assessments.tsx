@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FilePenLine, Plus } from 'lucide-react';
+import { FilePenLine, Microscope, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
@@ -22,10 +22,16 @@ const TeacherAssessmentsPage: React.FC = () => {
         title={t('ui.pages.teacherAssessments.title')}
         subtitle={t('ui.pages.teacherAssessments.subtitle')}
         actions={
-          <button type="button" onClick={() => navigate('/teacher/assessments/new')} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">
-            <Plus size={16} />
-            {t('ui.actions.createPaper')}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => navigate('/teacher/research')} className="inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-5 py-3 font-bold text-primary">
+              <Microscope size={16} />
+              研究问卷
+            </button>
+            <button type="button" onClick={() => navigate('/teacher/assessments/new')} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">
+              <Plus size={16} />
+              {t('ui.actions.createPaper')}
+            </button>
+          </div>
         }
       />
 

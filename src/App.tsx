@@ -17,6 +17,7 @@ import {
 const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
 const AccountActionPage = React.lazy(() => import('./pages/AccountAction'));
+const ResearchParticipantPage = React.lazy(() => import('./pages/research/index'));
 const Dashboard = React.lazy(() => import('./pages/dashboard/index'));
 const DiagnosisPage = React.lazy(() => import('./pages/diagnosis/index'));
 const TrainingPage = React.lazy(() => import('./pages/training/index'));
@@ -31,6 +32,7 @@ const TeacherWorkspacePage = React.lazy(() => import('./pages/teacher/Workspace'
 const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
 const TeacherClassEditorPage = React.lazy(() => import('./pages/teacher/ClassEditor'));
 const TeacherAssessmentsPage = React.lazy(() => import('./pages/teacher/Assessments'));
+const TeacherResearchAssessmentsPage = React.lazy(() => import('./pages/teacher/ResearchAssessments'));
 const TeacherAssessmentEditorPage = React.lazy(() => import('./pages/teacher/AssessmentEditor'));
 const TeacherAssessmentPublishDetailPage = React.lazy(() => import('./pages/teacher/AssessmentPublishDetail'));
 const TeacherAssessmentAttemptResultPage = React.lazy(() => import('./pages/teacher/AssessmentAttemptResult'));
@@ -169,6 +171,9 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     const handler = () => {
+      if (location.pathname.startsWith('/research/')) {
+        return;
+      }
       const routeState = location.state as { expired?: boolean; from?: string; passwordChanged?: boolean } | null;
       if (location.pathname === '/login' && routeState?.passwordChanged) {
         return;
@@ -180,7 +185,7 @@ const App: React.FC = () => {
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, handler);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
-  }, [location.pathname, navigate]);
+  }, [location.pathname, location.state, navigate]);
 
   React.useEffect(() => {
     if (!user) {
@@ -216,6 +221,7 @@ const App: React.FC = () => {
         element={status === 'authenticated' && user ? <Navigate to={resolvedHomePath} replace /> : withSuspense(<Register />)}
       />
       <Route path="/account-action/:token" element={withSuspense(<AccountActionPage />)} />
+      <Route path="/research/:releaseCode" element={withSuspense(<ResearchParticipantPage />)} />
 
       <Route
         path="/"
@@ -304,6 +310,12 @@ const App: React.FC = () => {
           path="teacher/assessments"
           element={
             <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherAssessmentsPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/research"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherResearchAssessmentsPage />)}</RequireCapability>
           }
         />
         <Route
