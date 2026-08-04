@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 .codex-tmp/
+# Local temporary build, browser, and test-output artifacts
+.tmp/
+.tmp-agent-browser/
+tmp/
+dogfood-output/
+qa-output/
 *.local
 .env
 **/target
