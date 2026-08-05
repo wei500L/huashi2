@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type CustomSelectOption = {
@@ -8,12 +8,17 @@ export type CustomSelectOption = {
   label: string;
 };
 
-type CustomSelectProps = {
+export type CustomSelectProps = {
   value: string | number | boolean;
   options: CustomSelectOption[];
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  loading?: boolean;
+  validationState?: 'default' | 'invalid' | 'success';
+  id?: string;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
   className?: string;
   triggerClassName?: string;
   menuClassName?: string;
@@ -25,17 +30,27 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   onChange,
   placeholder = '--',
   disabled = false,
+  loading = false,
+  validationState = 'default',
+  id,
+  ariaLabel,
+  ariaDescribedBy,
   className,
   triggerClassName,
   menuClassName,
 }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
+  const [activeIndex, setActiveIndex] = React.useState(-1);
   const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const optionRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const listboxId = React.useId();
   const selectedOption = options.find((option) => option.value === String(value));
+  const selectedIndex = options.findIndex((option) => option.value === String(value));
+  const isUnavailable = disabled || loading;
 
   const updateMenuPosition = React.useCallback(() => {
     const triggerElement = containerRef.current;
@@ -51,9 +66,35 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     });
   }, []);
 
-  const closeMenu = React.useCallback(() => {
+  const closeMenu = React.useCallback((restoreFocus = false) => {
     setIsOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => triggerRef.current?.focus());
+    }
   }, []);
+
+  const openMenu = React.useCallback((target: 'selected' | 'first' | 'last' = 'selected') => {
+    if (isUnavailable || options.length === 0) {
+      return;
+    }
+
+    const nextIndex = target === 'first'
+      ? 0
+      : target === 'last'
+        ? options.length - 1
+        : Math.max(0, selectedIndex);
+    setActiveIndex(nextIndex);
+    setIsOpen(true);
+  }, [isUnavailable, options.length, selectedIndex]);
+
+  const selectOption = React.useCallback((index: number) => {
+    const option = options[index];
+    if (!option) {
+      return;
+    }
+    onChange(option.value);
+    closeMenu(true);
+  }, [closeMenu, onChange, options]);
 
   React.useLayoutEffect(() => {
     if (!isOpen) {
@@ -86,7 +127,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        closeMenu();
+        closeMenu(true);
       }
     };
 
@@ -102,27 +143,95 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     };
   }, [closeMenu, isOpen, updateMenuPosition]);
 
+  React.useEffect(() => {
+    if (!isOpen || !isMounted || activeIndex < 0) {
+      return;
+    }
+    window.requestAnimationFrame(() => optionRefs.current[activeIndex]?.focus());
+  }, [activeIndex, isMounted, isOpen]);
+
+  React.useEffect(() => {
+    if (isUnavailable && isOpen) {
+      closeMenu();
+    }
+  }, [closeMenu, isOpen, isUnavailable]);
+
+  const moveOptionFocus = (nextIndex: number) => {
+    const boundedIndex = (nextIndex + options.length) % options.length;
+    setActiveIndex(boundedIndex);
+    optionRefs.current[boundedIndex]?.focus();
+  };
+
+  const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      openMenu('selected');
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      openMenu('last');
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      openMenu('first');
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      openMenu('last');
+    }
+  };
+
+  const handleOptionKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      moveOptionFocus(index + 1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveOptionFocus(index - 1);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      moveOptionFocus(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      moveOptionFocus(options.length - 1);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      selectOption(index);
+    } else if (event.key === 'Tab') {
+      closeMenu();
+    }
+  };
+
   return (
     <div ref={containerRef} className={cn('relative', className)}>
       <button
+        ref={triggerRef}
+        id={id}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
-        disabled={disabled}
-        onClick={() => setIsOpen((current) => !current)}
+        aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={validationState === 'invalid' || undefined}
+        aria-busy={loading || undefined}
+        data-state={validationState}
+        disabled={isUnavailable}
+        onKeyDown={handleTriggerKeyDown}
+        onClick={() => (isOpen ? closeMenu() : openMenu('selected'))}
         className={cn(
-          'flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-left text-sm outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out focus:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/45 dark:focus:border-primary/50 dark:focus:shadow-[0_0_0_1px_hsl(var(--focus)/0.24)]',
+          'surface-control flex min-h-12 w-full items-center justify-between px-4 py-3 text-left text-sm outline-none active:bg-surface-sunken',
           triggerClassName,
         )}
       >
         <span className={cn('truncate', selectedOption ? 'text-slate-900 dark:text-white/90' : 'text-slate-400 dark:text-white/55')}>
           {selectedOption?.label ?? placeholder}
         </span>
-        <ChevronDown
-          size={18}
-          className={cn('ml-3 shrink-0 text-slate-500 transition-transform duration-200 ease-out dark:text-white/80', isOpen && 'rotate-180')}
-        />
+        {loading ? (
+          <LoaderCircle size={18} className="ml-3 shrink-0 animate-spin text-text-muted" aria-hidden="true" />
+        ) : (
+          <ChevronDown
+            size={18}
+            className={cn('ml-3 shrink-0 text-text-muted transition-transform duration-200 ease-out', isOpen && 'rotate-180')}
+          />
+        )}
       </button>
 
       {isMounted && menuStyle && createPortal(
@@ -130,6 +239,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           ref={menuRef}
           id={listboxId}
           role="listbox"
+          aria-label={ariaLabel}
           style={menuStyle}
           className={cn(
             'fixed z-[100] max-h-72 overflow-y-auto rounded-[1.35rem] border border-slate-200/80 bg-white/95 p-1 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-[opacity,transform] duration-150 ease-out dark:border-white/10 dark:bg-slate-950/95',
@@ -137,26 +247,28 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             menuClassName,
           )}
         >
-          {options.map((option) => {
+          {options.map((option, index) => {
             const isSelected = option.value === String(value);
             return (
               <button
                 key={option.value}
+                ref={(element) => { optionRefs.current[index] = element; }}
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                onClick={() => {
-                  onChange(option.value);
-                  closeMenu();
-                }}
+                tabIndex={index === activeIndex ? 0 : -1}
+                onFocus={() => setActiveIndex(index)}
+                onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                onClick={() => selectOption(index)}
                 className={cn(
-                  'block w-full rounded-[1rem] px-4 py-2.5 text-left text-sm font-semibold transition-colors duration-150 ease-out',
+                  'flex w-full items-center justify-between gap-3 rounded-[1rem] px-4 py-2.5 text-left text-sm font-semibold transition-colors duration-150 ease-out',
                   isSelected
-                    ? 'bg-primary/15 text-primary dark:bg-primary/20 dark:text-white'
-                    : 'text-slate-700 hover:bg-slate-100 dark:text-white/85 dark:hover:bg-white/10',
+                    ? 'bg-surface-sunken text-foreground'
+                    : 'text-text-muted hover:bg-surface-raised hover:text-foreground',
                 )}
               >
-                {option.label}
+                <span>{option.label}</span>
+                {isSelected ? <Check size={16} className="shrink-0 text-foreground" aria-hidden="true" /> : null}
               </button>
             );
           })}

@@ -264,10 +264,10 @@ const SettingsPage: React.FC = () => {
           )}
 
           <div className="pt-4 flex flex-wrap gap-3">
-            <button type="button" onClick={toggleDarkMode} className="rounded-2xl border border-slate-200 px-5 py-3 text-sm dark:border-white/10">
+            <button type="button" onClick={toggleDarkMode} className="btn-secondary px-5 py-3">
               {isDarkMode ? t('common.actions.lightMode') : t('common.actions.darkMode')}
             </button>
-            <button type="button" onClick={() => void logout()} className="btn-liquid px-5 py-3 text-white">
+            <button type="button" onClick={() => void logout()} className="btn-secondary px-5 py-3">
               {t('ui.actions.signOutAllSessions')}
             </button>
           </div>

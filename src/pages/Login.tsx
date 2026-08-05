@@ -135,10 +135,13 @@ const Login: React.FC = () => {
                 <div className="type-label mb-2 text-slate-700 dark:text-white/70">{t('login.usernameLabel')}</div>
                 <input
                   {...register('usernameOrEmail')}
+                  id="login-username"
+                  aria-invalid={Boolean(errors.usernameOrEmail)}
+                  aria-describedby={errors.usernameOrEmail ? 'login-username-error' : undefined}
                   className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                   placeholder={t('login.usernamePlaceholder')}
                 />
-                {errors.usernameOrEmail && <div className="mt-2 text-sm text-rose-500">{errors.usernameOrEmail.message}</div>}
+                {errors.usernameOrEmail && <div id="login-username-error" className="form-message form-message-error" role="alert">{errors.usernameOrEmail.message}</div>}
               </label>
 
               <label className="block">
@@ -146,10 +149,13 @@ const Login: React.FC = () => {
                 <input
                   type="password"
                   {...register('password')}
+                  id="login-password"
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby={errors.password ? 'login-password-error' : undefined}
                   className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                   placeholder={t('login.passwordPlaceholder')}
                 />
-                {errors.password && <div className="mt-2 text-sm text-rose-500">{errors.password.message}</div>}
+                {errors.password && <div id="login-password-error" className="form-message form-message-error" role="alert">{errors.password.message}</div>}
               </label>
 
               {expired && (
@@ -164,9 +170,9 @@ const Login: React.FC = () => {
                 </div>
               )}
 
-              {error && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">{error}</div>}
+              {error && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500" role="alert">{error}</div>}
 
-              <button type="submit" disabled={isSubmitting} className="btn-liquid w-full py-4 text-white disabled:opacity-70">
+              <button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className="btn-liquid w-full py-4 text-white disabled:opacity-70">
                 {isSubmitting ? t('login.submitting') : t('login.submit')}
               </button>
 

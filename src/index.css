@@ -203,6 +203,98 @@
   button, input, textarea, select {
     font: inherit;
   }
+
+  /* Controls share the same state language even when their page-level shape
+     remains local. Semantic attributes are the source of truth for async and
+     validation states. */
+  :where(button, [role="button"]):not(:disabled):active {
+    filter: brightness(0.97);
+  }
+
+  :where(button, input, textarea, select):disabled,
+  :where([role="button"])[aria-disabled="true"] {
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    opacity: 0.56 !important;
+  }
+
+  :where(button, [role="button"])[aria-busy="true"] {
+    cursor: wait !important;
+    filter: saturate(0.72);
+    opacity: 0.72;
+  }
+
+  :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select):not(:disabled):hover {
+    border-color: hsl(var(--border-strong));
+  }
+
+  :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select):focus-visible {
+    border-color: hsl(var(--focus) / 0.7) !important;
+    box-shadow: 0 0 0 3px hsl(var(--focus) / 0.16) !important;
+  }
+
+  :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select)[aria-invalid="true"],
+  :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select):user-invalid {
+    border-color: hsl(var(--error) / 0.78) !important;
+    box-shadow: 0 0 0 3px hsl(var(--error) / 0.12) !important;
+  }
+
+  :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select)[data-state="success"] {
+    border-color: hsl(var(--success) / 0.72) !important;
+    box-shadow: 0 0 0 3px hsl(var(--success) / 0.1) !important;
+  }
+
+  :where(button, [role="button"])[aria-invalid="true"] {
+    border-color: hsl(var(--error) / 0.78) !important;
+    box-shadow: 0 0 0 3px hsl(var(--error) / 0.12) !important;
+  }
+
+  :where(button, [role="button"])[data-state="success"] {
+    border-color: hsl(var(--success) / 0.72) !important;
+    box-shadow: 0 0 0 3px hsl(var(--success) / 0.1) !important;
+  }
+
+  :where(input[type="checkbox"], input[type="radio"]) {
+    accent-color: hsl(var(--action));
+  }
+
+  :where(input[type="checkbox"], input[type="radio"]):not(:disabled):hover {
+    filter: brightness(0.94);
+  }
+
+  :where(input[type="checkbox"], input[type="radio"]):not(:disabled):active {
+    filter: brightness(0.86);
+  }
+
+  :where(input[type="checkbox"], input[type="radio"]):focus-visible {
+    outline: 2px solid hsl(var(--background-solid));
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px hsl(var(--focus) / 0.55);
+  }
+
+  :where(input[type="checkbox"], input[type="radio"])[aria-invalid="true"] {
+    outline: 2px solid hsl(var(--error));
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px hsl(var(--error) / 0.14);
+  }
+
+  :where(input[type="checkbox"], input[type="radio"])[data-state="success"] {
+    outline: 2px solid hsl(var(--success));
+    outline-offset: 2px;
+  }
+
+  :where(input, textarea, select)[aria-busy="true"] {
+    cursor: wait !important;
+  }
+
+  :where(button, [role="button"]):has(> svg:only-child) {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  :where(button, [role="button"]) > svg {
+    pointer-events: none;
+  }
   
   body::before {
     content: '';
@@ -271,11 +363,11 @@
     transition: background-color 9999s ease-out, color 9999s ease-out !important;
   }
 
-  .dark input:focus,
-  .dark textarea:focus,
-  .dark select:focus {
-    border-color: hsl(var(--focus) / 0.55) !important;
-    box-shadow: 0 0 0 1px hsl(var(--focus) / 0.24) !important;
+  .dark input:focus-visible:not([aria-invalid="true"]),
+  .dark textarea:focus-visible:not([aria-invalid="true"]),
+  .dark select:focus-visible:not([aria-invalid="true"]) {
+    border-color: hsl(var(--focus) / 0.7) !important;
+    box-shadow: 0 0 0 3px hsl(var(--focus) / 0.18) !important;
   }
 
   .dark input:-webkit-autofill:focus,
@@ -284,6 +376,16 @@
     -webkit-box-shadow: 0 0 0 1000px hsl(var(--surface-sunken)) inset, 0 0 0 1px hsl(var(--focus) / 0.24) !important;
     box-shadow: 0 0 0 1000px hsl(var(--surface-sunken)) inset, 0 0 0 1px hsl(var(--focus) / 0.24) !important;
     border-color: hsl(var(--focus) / 0.55) !important;
+  }
+
+  .dark :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select)[aria-invalid="true"] {
+    border-color: hsl(var(--error) / 0.82) !important;
+    box-shadow: 0 0 0 3px hsl(var(--error) / 0.16) !important;
+  }
+
+  .dark :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select)[data-state="success"] {
+    border-color: hsl(var(--success) / 0.76) !important;
+    box-shadow: 0 0 0 3px hsl(var(--success) / 0.13) !important;
   }
 
   .dark select option,
@@ -635,9 +737,11 @@
     100% { background-position: 300% center; }
   }
 
-  /* Primary action surface: solid, compact and raised on hover. */
+  /* Primary action surface. The edge highlight borrows the specular cue of a
+     polished physical control, but appears only on interaction and never
+     sweeps continuously. */
   .btn-liquid {
-    @apply relative px-8 py-3 rounded-lg font-black tracking-widest text-sm overflow-hidden text-action-foreground;
+    @apply relative isolate px-8 py-3 rounded-lg font-black tracking-widest text-sm overflow-hidden text-action-foreground;
     background: hsl(var(--action));
     box-shadow: var(--shadow-sm);
     transition-property: background-color, box-shadow, transform;
@@ -645,7 +749,92 @@
     transition-timing-function: var(--motion-ease-standard);
   }
   .btn-liquid::before { display: none; }
-  .btn-liquid:hover { background: hsl(var(--action) / 0.9); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .btn-liquid::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid transparent;
+    border-radius: inherit;
+    background: linear-gradient(110deg, transparent 12%, hsl(var(--action-foreground) / 0.72) 48%, transparent 82%) border-box;
+    -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-8%);
+    transition: opacity var(--motion-feedback-duration) var(--motion-ease-standard), transform var(--motion-state-duration) var(--motion-ease-emphasized);
+  }
+  .btn-liquid:hover,
+  .btn-liquid:focus-visible {
+    background: hsl(var(--action) / 0.9);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+  .btn-liquid:hover::after,
+  .btn-liquid:focus-visible::after {
+    opacity: 0.72;
+    transform: translateX(0);
+  }
+  .btn-liquid:active:not(:disabled) {
+    background: hsl(var(--action) / 0.82);
+    box-shadow: inset 0 1px 2px hsl(222 33% 8% / 0.18), var(--shadow-sm);
+    transform: translateY(0);
+  }
+  .btn-liquid:disabled,
+  .btn-liquid[aria-disabled="true"] {
+    background: hsl(var(--action) / 0.52);
+    transform: none;
+  }
+  .btn-liquid:disabled::after,
+  .btn-liquid[aria-disabled="true"]::after {
+    display: none;
+  }
+
+  /* Neutral actions deliberately avoid the primary hue. These utilities are
+     available to shared and newly-touched controls without rewriting legacy
+     page layout classes. */
+  .btn-secondary,
+  .btn-ghost,
+  .icon-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold text-foreground;
+    border: 1px solid hsl(var(--border-strong) / 0.72);
+    background: hsl(var(--surface));
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-secondary:hover,
+  .icon-button:hover {
+    border-color: hsl(var(--border-strong));
+    background: hsl(var(--surface-raised));
+    box-shadow: var(--shadow-md);
+  }
+  .btn-ghost {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+  .btn-ghost:hover {
+    background: hsl(var(--surface-sunken) / 0.72);
+  }
+  .btn-secondary:active:not(:disabled),
+  .btn-ghost:active:not(:disabled),
+  .icon-button:active:not(:disabled) {
+    background: hsl(var(--surface-sunken));
+    box-shadow: inset 0 1px 2px hsl(222 33% 8% / 0.1);
+  }
+  .icon-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+  }
+
+  .form-message {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 560;
+    line-height: 1.45;
+  }
+  .form-message-error { color: hsl(var(--error)); }
+  .form-message-success { color: hsl(var(--success)); }
 
   @keyframes gradient-shift {
     0% { background-position: 0% 50%; }

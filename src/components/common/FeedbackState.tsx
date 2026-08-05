@@ -68,7 +68,7 @@ const KIND_META: Record<
 function ActionButton({ action }: { action: FeedbackStateAction }) {
   const toneClassName =
     action.tone === 'secondary'
-      ? 'border border-slate-200/80 bg-white/80 text-slate-700 dark:border-white/10 dark:bg-slate-950/40 dark:text-white/75'
+      ? 'btn-secondary'
       : 'btn-liquid text-white';
 
   return (

@@ -324,7 +324,7 @@ const RegisterPage: React.FC = () => {
               )}
 
               {contextErrorMessage && deferredClassCode.length > 0 && (
-                <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                <div id="register-class-code-context" className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300" role="alert">
                   <div>{contextErrorMessage}</div>
                   <button
                     type="button"
@@ -348,10 +348,14 @@ const RegisterPage: React.FC = () => {
                 <div className="type-label mb-2 text-slate-700 dark:text-white/70">{t('register.inviteCodeLabel')}</div>
                 <input
                   {...register('classCode')}
+                  id="register-class-code"
+                  aria-invalid={Boolean(errors.classCode || contextErrorMessage)}
+                  aria-describedby={errors.classCode ? 'register-class-code-error' : contextErrorMessage ? 'register-class-code-context' : undefined}
+                  data-state={activeResolvedContext ? 'success' : undefined}
                   className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                   placeholder={t('register.inviteCodePlaceholder')}
                 />
-                {errors.classCode && <div className="mt-2 text-sm text-rose-500">{errors.classCode.message}</div>}
+                {errors.classCode && <div id="register-class-code-error" className="form-message form-message-error" role="alert">{errors.classCode.message}</div>}
               </label>
 
               <div className="grid gap-5 md:grid-cols-2">
@@ -359,20 +363,26 @@ const RegisterPage: React.FC = () => {
                   <div className="type-label mb-2 text-slate-700 dark:text-white/70">{t('register.displayNameLabel')}</div>
                   <input
                     {...register('displayName')}
+                    id="register-display-name"
+                    aria-invalid={Boolean(errors.displayName)}
+                    aria-describedby={errors.displayName ? 'register-display-name-error' : undefined}
                     className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                     placeholder={t('register.displayNamePlaceholder')}
                   />
-                  {errors.displayName && <div className="mt-2 text-sm text-rose-500">{errors.displayName.message}</div>}
+                  {errors.displayName && <div id="register-display-name-error" className="form-message form-message-error" role="alert">{errors.displayName.message}</div>}
                 </label>
 
                 <label className="block">
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.usernameLabel')}</div>
                   <input
                     {...register('username')}
+                    id="register-username"
+                    aria-invalid={Boolean(errors.username)}
+                    aria-describedby={errors.username ? 'register-username-error' : undefined}
                     className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                     placeholder={t('register.usernamePlaceholder')}
                   />
-                  {errors.username && <div className="mt-2 text-sm text-rose-500">{errors.username.message}</div>}
+                  {errors.username && <div id="register-username-error" className="form-message form-message-error" role="alert">{errors.username.message}</div>}
                 </label>
               </div>
 
@@ -381,10 +391,13 @@ const RegisterPage: React.FC = () => {
                 <input
                   type="email"
                   {...register('email')}
+                  id="register-email"
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? 'register-email-error' : undefined}
                   className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                   placeholder={t('register.emailPlaceholder')}
                 />
-                {errors.email && <div className="mt-2 text-sm text-rose-500">{errors.email.message}</div>}
+                {errors.email && <div id="register-email-error" className="form-message form-message-error" role="alert">{errors.email.message}</div>}
               </label>
 
               <div className="grid gap-5 md:grid-cols-2">
@@ -393,10 +406,13 @@ const RegisterPage: React.FC = () => {
                   <input
                     type="password"
                     {...register('password')}
+                    id="register-password"
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? 'register-password-error' : undefined}
                     className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                     placeholder={t('register.passwordPlaceholder')}
                   />
-                  {errors.password && <div className="mt-2 text-sm text-rose-500">{errors.password.message}</div>}
+                  {errors.password && <div id="register-password-error" className="form-message form-message-error" role="alert">{errors.password.message}</div>}
                 </label>
 
                 <label className="block">
@@ -404,10 +420,13 @@ const RegisterPage: React.FC = () => {
                   <input
                     type="password"
                     {...register('confirmPassword')}
+                    id="register-confirm-password"
+                    aria-invalid={Boolean(errors.confirmPassword)}
+                    aria-describedby={errors.confirmPassword ? 'register-confirm-password-error' : undefined}
                     className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
                     placeholder={t('register.confirmPasswordPlaceholder')}
                   />
-                  {errors.confirmPassword && <div className="mt-2 text-sm text-rose-500">{errors.confirmPassword.message}</div>}
+                  {errors.confirmPassword && <div id="register-confirm-password-error" className="form-message form-message-error" role="alert">{errors.confirmPassword.message}</div>}
                 </label>
               </div>
 
@@ -416,33 +435,45 @@ const RegisterPage: React.FC = () => {
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.englishLevelLabel')}</div>
                   <input type="hidden" {...register('englishLevel')} />
                   <RoundedSelect
+                    id="register-english-level"
                     value={englishLevelValue}
                     options={levelSelectOptions}
+                    ariaLabel={t('register.englishLevelLabel')}
+                    ariaDescribedBy={errors.englishLevel ? 'register-english-level-error' : undefined}
+                    validationState={errors.englishLevel ? 'invalid' : 'default'}
                     onChange={(value) => setValue('englishLevel', value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
                   />
-                  {errors.englishLevel && <div className="mt-2 text-sm text-rose-500">{errors.englishLevel.message}</div>}
+                  {errors.englishLevel && <div id="register-english-level-error" className="form-message form-message-error" role="alert">{errors.englishLevel.message}</div>}
                 </label>
 
                 <label className="block">
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.frenchLevelLabel')}</div>
                   <input type="hidden" {...register('frenchLevel')} />
                   <RoundedSelect
+                    id="register-french-level"
                     value={frenchLevelValue}
                     options={levelSelectOptions}
+                    ariaLabel={t('register.frenchLevelLabel')}
+                    ariaDescribedBy={errors.frenchLevel ? 'register-french-level-error' : undefined}
+                    validationState={errors.frenchLevel ? 'invalid' : 'default'}
                     onChange={(value) => setValue('frenchLevel', value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
                   />
-                  {errors.frenchLevel && <div className="mt-2 text-sm text-rose-500">{errors.frenchLevel.message}</div>}
+                  {errors.frenchLevel && <div id="register-french-level-error" className="form-message form-message-error" role="alert">{errors.frenchLevel.message}</div>}
                 </label>
 
                 <label className="block">
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.courseStageLabel')}</div>
                   <input type="hidden" {...register('courseStage')} />
                   <RoundedSelect
+                    id="register-course-stage"
                     value={courseStageValue}
                     options={courseStageSelectOptions}
+                    ariaLabel={t('register.courseStageLabel')}
+                    ariaDescribedBy={errors.courseStage ? 'register-course-stage-error' : undefined}
+                    validationState={errors.courseStage ? 'invalid' : 'default'}
                     onChange={(value) => setValue('courseStage', value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
                   />
-                  {errors.courseStage && <div className="mt-2 text-sm text-rose-500">{errors.courseStage.message}</div>}
+                  {errors.courseStage && <div id="register-course-stage-error" className="form-message form-message-error" role="alert">{errors.courseStage.message}</div>}
                 </label>
               </div>
 
@@ -453,7 +484,7 @@ const RegisterPage: React.FC = () => {
               )}
 
               {submitErrorState && (
-                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
+                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500" role="alert">
                   <div>{submitErrorState.message}</div>
                   {submitErrorState.traceId && (
                     <div className="mt-2 text-xs text-rose-400">{t('register.feedback.traceId', { traceId: submitErrorState.traceId })}</div>
@@ -464,6 +495,7 @@ const RegisterPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting || isResolvingContext || !activeResolvedContext}
+                aria-busy={isSubmitting || isResolvingContext}
                 className="btn-liquid w-full py-4 text-white disabled:opacity-70"
               >
                 {isSubmitting ? t('register.submitting') : t('register.submit')}
