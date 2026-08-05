@@ -10,6 +10,7 @@ type SessionRuntimeMessages = {
   saved: string;
   savedAndExit: string;
   keepaliveFailed: string;
+  conflict: string;
   leaveConfirm: string;
 };
 
@@ -34,6 +35,7 @@ const defaultMessages: SessionRuntimeMessages = {
   saved: '进度已保存。',
   savedAndExit: '进度已保存，稍后可在历史页继续。',
   keepaliveFailed: '自动保存失败，请先手动保存后再离开当前页。',
+  conflict: '检测到其他设备或页面的更新，已重新同步当前会话；请检查当前题目后再保存。',
   leaveConfirm: '当前会话仍在进行中，确认离开此页面吗？未保存的进度可能丢失。',
 };
 
@@ -59,6 +61,7 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
   );
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
+  const [saveConflictMessage, setSaveConflictMessage] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const heartbeatInFlightRef = React.useRef(false);
   const allowNavigationRef = React.useRef<(callback: () => void) => void>((callback) => {
@@ -71,6 +74,7 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
   const resetFeedback = React.useCallback(() => {
     setSaveMessage(null);
     setSaveErrorMessage(null);
+    setSaveConflictMessage(null);
   }, []);
 
   const syncStateFromServer = React.useCallback(async () => {
@@ -125,6 +129,7 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
     try {
       await saveProgressKeepalive(sessionId, buildSnapshot(sessionId, nextItem));
       setSaveErrorMessage((current) => (current === resolvedMessages.keepaliveFailed ? null : current));
+      setSaveConflictMessage(null);
     } catch (error) {
       const normalizedError = normalizeApiError(error);
       if (normalizedError.status === 409) {
@@ -132,10 +137,11 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
         if (completed) {
           return;
         }
+        setSaveConflictMessage(resolvedMessages.conflict);
       }
       setSaveErrorMessage(resolvedMessages.keepaliveFailed);
     }
-  }, [active, buildSnapshot, nextItem, resolveConflict, resolvedMessages.keepaliveFailed, saveProgressKeepalive, sessionId]);
+  }, [active, buildSnapshot, nextItem, resolveConflict, resolvedMessages.conflict, resolvedMessages.keepaliveFailed, saveProgressKeepalive, sessionId]);
 
   React.useEffect(() => {
     if (!active || !sessionId || !heartbeat) {
@@ -161,6 +167,7 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
       setIsSaving(true);
       setSaveMessage(null);
       setSaveErrorMessage(null);
+      setSaveConflictMessage(null);
 
       try {
         await saveProgress(sessionId, buildSnapshot(sessionId, nextItem));
@@ -187,6 +194,7 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
             }
             return { status: 'completed' as const };
           }
+          setSaveConflictMessage(resolvedMessages.conflict);
         }
         setSaveErrorMessage(getApiErrorMessage(error));
         return { status: 'failed' as const };
@@ -194,7 +202,7 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
         setIsSaving(false);
       }
     },
-    [active, buildSnapshot, nextItem, resolveConflict, resolvedMessages.saved, resolvedMessages.savedAndExit, saveProgress, sessionId]
+    [active, buildSnapshot, nextItem, resolveConflict, resolvedMessages.conflict, resolvedMessages.saved, resolvedMessages.savedAndExit, saveProgress, sessionId]
   );
 
   saveProgressManuallyRef.current = saveProgressManually;
@@ -214,6 +222,7 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
     isSaving,
     saveMessage,
     saveErrorMessage,
+    saveConflictMessage,
     resetFeedback,
     saveProgressManually,
   };

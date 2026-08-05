@@ -859,14 +859,6 @@ const DiagnosisPage: React.FC = () => {
           }
           actions={
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleRunningAbandon}
-                disabled={isAnswerLocked}
-                className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
-              >
-                放弃本次
-              </button>
               <SessionSaveActions
                 isSaving={runtime.isSaving}
                 disabled={isAnswerLocked}
@@ -888,10 +880,17 @@ const DiagnosisPage: React.FC = () => {
           isSaving={runtime.isSaving}
           saveMessage={runtime.saveMessage}
           saveErrorMessage={runtime.saveErrorMessage}
+          saveConflictMessage={runtime.saveConflictMessage}
           submitErrorMessage={submitErrorMessage}
           submitInfoMessage={submitInfoMessage}
           loadInfoMessage={loadInfoMessage}
           loadError={nextItemQuery.error}
+          onRetrySave={() => void runtime.saveProgressManually()}
+          onRetrySubmit={() => {
+            if (answerRequestRef.current) {
+              void submitAnswerMutation.mutateAsync(answerRequestRef.current);
+            }
+          }}
           onRetryLoad={() => void nextItemQuery.refetch()}
         />
 
@@ -915,12 +914,17 @@ const DiagnosisPage: React.FC = () => {
           <>
             <SessionProgressHeader
               icon={<Timer size={16} />}
+              currentItem={nextItemQuery.data?.currentItemOrder}
               label={t('diagnosis.progress', {
                 current: nextItemQuery.data?.currentItemOrder || 0,
                 total: nextItemQuery.data?.totalItems || 0,
               })}
               answeredItems={nextItemQuery.data?.answeredItems}
               totalItems={nextItemQuery.data?.totalItems}
+              savedState={runtime.saveConflictMessage ? 'conflict' : runtime.saveErrorMessage ? 'error' : runtime.isSaving ? 'saving' : runtime.saveMessage ? 'saved' : 'idle'}
+              onExit={handleRunningAbandon}
+              exitLabel="退出本次诊断"
+              exitDisabled={isAnswerLocked}
               gradientClassName="bg-gradient-to-r from-sky-500 to-blue-500"
             />
 

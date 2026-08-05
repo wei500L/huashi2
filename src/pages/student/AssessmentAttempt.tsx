@@ -17,6 +17,7 @@ import {
 } from '@/features/assessment/draftStorage';
 import { enqueueSerializedTask } from '@/features/assessment/saveQueue';
 import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
+import { SessionProgressHeader } from '@/features/session-runtime/components';
 
 function formatRemaining(remainingMs: number) {
   if (remainingMs <= 0) {
@@ -53,6 +54,10 @@ function buildSavePayload(
 
 function hasResponses(responses?: string[]) {
   return !!responses?.map((item) => item.trim()).filter(Boolean).length;
+}
+
+function isConflictMessage(message?: string | null) {
+  return !!message && /(冲突|其他|设备|another|conflict|version)/i.test(message);
 }
 
 function mergeDraftResponses(detail: AssessmentAttemptDetailVO) {
@@ -549,6 +554,9 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                 if (!canEdit) {
                   return;
                 }
+                if (event.target instanceof HTMLInputElement) {
+                  return;
+                }
                 event.preventDefault();
                 if (question.questionType === 'SINGLE_CHOICE') {
                   updateSingleResponse(question.questionOrder, option.key);
@@ -556,7 +564,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                   toggleMultipleResponse(question.questionOrder, option.key);
                 }
               }}
-              className={`flex items-start gap-3 rounded-[1.4rem] border px-4 py-4 text-sm transition-all ${
+              className={`flex min-h-11 items-start gap-3 rounded-[1.4rem] border px-4 py-4 text-sm transition-all motion-reduce:transition-none ${
                 checked
                   ? 'border-primary/30 bg-primary/10 text-slate-900 dark:text-white'
                   : 'border-slate-200/70 bg-white/70 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60'
@@ -568,9 +576,15 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                 value={option.key}
                 checked={checked}
                 disabled={!canEdit}
-                readOnly
+                onChange={() => {
+                  if (question.questionType === 'SINGLE_CHOICE') {
+                    updateSingleResponse(question.questionOrder, option.key);
+                  } else {
+                    toggleMultipleResponse(question.questionOrder, option.key);
+                  }
+                }}
               />
-              <div>
+              <div className="min-w-0">
                 <div className="font-semibold">{option.key}</div>
                 <div className="mt-1">{option.label}</div>
               </div>
@@ -639,6 +653,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             compact
             title="答卷未能提交"
             description={submitErrorMessage}
+            primaryAction={{ label: '重试提交', onClick: () => void handleSubmit('manual'), disabled: isSubmitting }}
             impact="失败请求不会重复计入结果，当前答卷仍保留在页面中。"
             nextStep="检查答案后点击“重新提交”；成功前请不要关闭当前页面。"
           />
@@ -648,6 +663,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             compact
             title="答案未能保存"
             description={saveErrorMessage}
+            primaryAction={{ label: '重试保存', onClick: () => void persistResponses('manual', responsesByOrder), disabled: isSaving || isSubmitting }}
             impact="服务器未确认本轮答案变更；上一次已保存的答案仍然安全。"
             nextStep="点击“保存答案”重试，成功前请留在当前页面。"
           />
@@ -697,7 +713,23 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       )}
 
       {detail && currentQuestion && (
-        <div className="grid gap-8 xl:grid-cols-[280px_1fr]">
+        <>
+          <SessionProgressHeader
+            icon={<Clock3 size={16} />}
+            label="题目进度"
+            currentItem={currentQuestion.questionOrder}
+            answeredItems={answeredCountFromLocal || answeredCount}
+            totalItems={detail.questionCount}
+            savedState={isSubmitting ? 'saving' : isConflictMessage(saveErrorMessage) || isConflictMessage(saveNotice) ? 'conflict' : saveErrorMessage ? 'error' : isSaving ? 'saving' : lastSavedAt || saveNotice ? 'saved' : 'idle'}
+            savedAtLabel={lastSavedAt ? formatDateTime(lastSavedAt) : null}
+            remainingLabel={remainingMs === null ? '--:--' : formatRemaining(remainingMs)}
+            remainingMs={remainingMs}
+            onExit={() => navigate('/assessments')}
+            exitLabel="退出测评"
+            exitDisabled={isSaving || isSubmitting}
+            gradientClassName="bg-gradient-to-r from-violet-500 to-fuchsia-500"
+          />
+          <div className="grid gap-8 xl:grid-cols-[280px_1fr]">
           <aside className="space-y-5 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/75 px-4 py-4 dark:border-white/10 dark:bg-white/5">
               <SectionEyebrow>剩余时间</SectionEyebrow>
@@ -721,7 +753,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                     aria-current={selected ? 'step' : undefined}
                     aria-label={`第 ${question.questionOrder} 题，${selected ? '当前题' : answered ? '已作答' : '未作答'}`}
                     onClick={() => setSelectedQuestionOrder(question.questionOrder)}
-                    className={`rounded-2xl px-3 py-3 text-sm font-bold transition-all ${
+                    className={`min-h-11 rounded-2xl px-3 py-3 text-sm font-bold transition-all motion-reduce:transition-none ${
                       selected
                         ? 'bg-primary text-white'
                         : answered
@@ -813,7 +845,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               </div>
             )}
           </section>
-        </div>
+          </div>
+        </>
       )}
 
       <ConfirmationDialog
