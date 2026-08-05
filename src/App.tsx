@@ -57,7 +57,7 @@ const BootScreen: React.FC = () => <RouteSkeleton />;
 
 const RouteStatusPage: React.FC<{ code: 403 | 404; title: string; description: string }> = ({ code, title, description }) => (
   <div className="mx-auto flex min-h-[60vh] max-w-2xl items-center px-6 py-16">
-    <div className="w-full rounded-[2.6rem] liquid-glass-panel p-8 md:p-10">
+    <div className="w-full rounded-xl surface-panel p-8 md:p-10">
       <div className="text-sm font-black tracking-[0.24em] text-primary">{code}</div>
       <h1 className="mt-4 text-4xl font-black text-slate-900 dark:text-white">{title}</h1>
       <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">{description}</p>

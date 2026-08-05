@@ -32,7 +32,7 @@ export const RouteSkeleton: React.FC = () => (
 );
 
 export const PanelSkeleton: React.FC<{ className?: string }> = ({ className }) => (
-  <div className={cn('rounded-[2.8rem] liquid-glass-panel p-8', className)}>
+  <div className={cn('rounded-xl surface-panel p-8', className)}>
     <div className="space-y-5">
       <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/80 dark:bg-white/10" />
       <div className="grid gap-5 md:grid-cols-2">
@@ -214,6 +214,8 @@ export const StatCard: React.FC<StatCardProps> = ({
     const yPct = mouseY / height - 0.5;
     x.set(xPct);
     y.set(yPct);
+    e.currentTarget.style.setProperty('--spotlight-x', `${mouseX}px`);
+    e.currentTarget.style.setProperty('--spotlight-y', `${mouseY}px`);
   };
 
   const handleMouseLeave = () => {
@@ -226,10 +228,10 @@ export const StatCard: React.FC<StatCardProps> = ({
       style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.005 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
       className={cn(
-        'liquid-glass p-7 rounded-[2.5rem] flex flex-col justify-between edge-light group fluid-texture transition-shadow duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-default',
+        'surface-card spotlight-card p-6 rounded-xl flex flex-col justify-between group transition-shadow duration-200 hover:shadow-[var(--shadow-md)] cursor-default',
         className
       )}
     >
@@ -247,7 +249,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         </div>
         <div
           className={cn(
-            'p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-xl relative group-hover:scale-110 transition-transform duration-500 shadow-sm dark:shadow-[inset_0_0_15px_rgba(255,255,255,0.05)]',
+            'p-3 rounded-lg bg-surface-sunken border border-border-subtle relative group-hover:scale-105 transition-transform duration-200 shadow-sm',
             color
           )}
         >

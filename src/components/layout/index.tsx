@@ -157,7 +157,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({ activeWorkspace, 
       )}
       <div
         className={cn(
-          'mt-3 rounded-[1.6rem] border border-slate-200/80 bg-white/45 dark:border-white/10 dark:bg-white/5',
+          'mt-3 rounded-lg border border-border-subtle bg-surface-sunken',
           isCollapsed ? 'p-2 space-y-2' : 'p-2.5 space-y-2'
         )}
       >
@@ -172,10 +172,10 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({ activeWorkspace, 
               aria-label={t(meta.labelKey)}
               onClick={() => onSelect(workspace)}
               className={cn(
-                'w-full rounded-2xl border transition-all duration-300',
+                'w-full rounded-lg border transition-all duration-200',
                 isCollapsed ? 'flex items-center justify-center px-3 py-3' : 'flex items-center gap-3 px-4 py-3 text-left',
                 isActive
-                  ? 'border-primary/20 bg-primary/[0.08] text-primary shadow-[0_0_20px_rgba(59,130,246,0.12)]'
+                  ? 'border-primary/25 bg-primary/[0.08] text-primary shadow-sm'
                   : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900 dark:text-white/55 dark:hover:border-white/10 dark:hover:text-white'
               )}
             >
@@ -292,7 +292,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
-                        'flex rounded-2xl transition-all duration-300 group relative',
+                        'flex rounded-lg transition-all duration-200 group relative',
                         isCollapsed ? 'items-center justify-center px-3 py-3.5' : 'items-center gap-3 px-4 py-3',
                         isActive ? 'text-primary font-black' : 'text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white'
                       )
@@ -303,7 +303,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
                         {isActive && (
                           <motion.div
                             layoutId="active-pill"
-                            className="absolute inset-0 bg-primary/[0.08] border border-primary/20 rounded-2xl shadow-[0_0_20px_rgba(59,130,246,0.12)]"
+                            className="absolute inset-0 bg-primary/[0.08] border border-primary/20 rounded-lg shadow-sm"
                             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
                           />
                         )}
@@ -365,7 +365,7 @@ export const Sidebar: React.FC = () => {
     <aside
       aria-label={t('shell.mobileNavigationTitle')}
       className={cn(
-        'sidebar-shell hidden lg:flex h-[calc(100vh-1.5rem)] my-3 ml-3 flex-col transition-all duration-700 z-50 liquid-glass-panel rounded-3xl edge-light fluid-texture',
+        'sidebar-shell hidden lg:flex h-[calc(100vh-1.5rem)] my-3 ml-3 flex-col transition-all duration-200 z-50 surface-panel rounded-xl',
         isSidebarCollapsed ? 'w-20' : 'w-72'
       )}
     >
@@ -433,7 +433,7 @@ const MobileSidebarDrawer: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeMobileSidebar}
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[70] lg:hidden"
+            className="fixed inset-0 bg-slate-950/40 z-[70] lg:hidden"
           />
           <motion.aside
             ref={drawerRef}
@@ -445,7 +445,7 @@ const MobileSidebarDrawer: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="sidebar-shell fixed inset-y-3 left-3 z-[80] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col liquid-glass-panel rounded-3xl edge-light fluid-texture lg:hidden"
+            className="sidebar-shell fixed inset-y-3 left-3 z-[80] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col surface-panel rounded-xl lg:hidden"
           >
             <h2 id="mobile-sidebar-title" className="sr-only">{t('shell.mobileNavigationTitle')}</h2>
             <SidebarContent
@@ -725,7 +725,7 @@ const AssistantDrawer: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeAssistant}
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[70]"
+            className="fixed inset-0 bg-slate-950/40 z-[70]"
           />
           <motion.aside
             ref={drawerRef}
@@ -737,7 +737,7 @@ const AssistantDrawer: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="fixed top-0 right-0 h-screen w-full max-w-6xl liquid-glass-panel z-[80] border-l border-white/10 p-4 md:p-6 overflow-y-auto"
+            className="fixed top-0 right-0 h-screen w-full max-w-6xl surface-panel z-[80] border-l border-border-subtle p-4 md:p-6 overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -930,7 +930,7 @@ export const Topbar: React.FC = () => {
   const canUseAssistant = currentWorkspace === 'STUDENT_WORKSPACE' && userHasCapability(user, 'STUDENT_WORKSPACE');
 
   return (
-    <header className="h-16 mt-3 mx-4 lg:mx-8 flex items-center justify-between px-6 sticky top-3 z-40 liquid-glass rounded-2xl edge-light fluid-texture">
+    <header className="h-16 mt-3 mx-4 lg:mx-8 flex items-center justify-between px-6 sticky top-3 z-40 surface-card rounded-xl">
       <div className="flex items-center gap-5 flex-1 relative z-10">
         <button
           type="button"

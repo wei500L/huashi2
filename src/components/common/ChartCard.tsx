@@ -54,12 +54,12 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     <div
       className={cn(
         embedded
-          ? 'relative overflow-hidden rounded-[2rem]'
-          : 'liquid-glass-panel border-beam fluid-texture rounded-[2.5rem] overflow-hidden group transition-all duration-700 hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] dark:hover:shadow-[0_30px_80px_rgba(0,0,0,0.6)]',
+          ? 'relative overflow-hidden rounded-lg'
+          : 'surface-panel rounded-xl overflow-hidden group transition-shadow duration-200 hover:shadow-[var(--shadow-lg)]',
         className
       )}
     >
-      {!embedded && <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md relative z-10">
+      {!embedded && <div className="px-6 py-4 border-b border-border-subtle flex items-center justify-between bg-surface-sunken relative z-10">
         <div className="flex items-center gap-3">
           <div className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
           <h3 className="type-section-title text-slate-800 dark:text-white/85">{title}</h3>
@@ -72,7 +72,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
       
       <div className={cn('relative z-10', embedded ? 'p-0' : 'p-8')} style={containerStyle}>
         {loading ? (
-          <div className="absolute inset-0 z-20 bg-black/[0.02] backdrop-blur-md dark:bg-black/20">
+          <div className="absolute inset-0 z-20 bg-surface/90 dark:bg-surface/90">
             <FeedbackState
               kind="loading"
               compact

@@ -97,7 +97,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.12),transparent_32%)]" />
+      <div className="absolute inset-0 bg-background" aria-hidden="true" />
       <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
         <div className="w-full max-w-6xl grid lg:grid-cols-[1.15fr_0.85fr] gap-8 items-stretch">
           <section className="liquid-glass-panel rounded-[3rem] edge-light p-10 md:p-14 flex flex-col justify-between min-h-[620px]">

@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* Language lab palette: calm mineral neutrals with distinct learning signals. */
-    --background: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(194 38% 97%) 52%, hsl(42 30% 98%) 100%);
+    --background: hsl(210 35% 97%);
     --background-solid: 210 40% 98%;
     --foreground: 222 33% 16%;
     --card: 0 0% 100%;
@@ -28,8 +28,8 @@
 
     /* Semantic roles exposed to Tailwind and legacy CSS. */
     --surface: 0 0% 100%;
-    --surface-raised: 204 36% 98%;
-    --surface-sunken: 210 32% 95%;
+    --surface-raised: 210 28% 99%;
+    --surface-sunken: 210 28% 94%;
     --text: 222 33% 16%;
     --text-muted: 215 16% 43%;
     --text-subtle: 215 14% 52%;
@@ -53,8 +53,11 @@
     --accent-border: hsl(var(--accent) / 0.35);
     --text-h: hsl(var(--foreground));
     --social-bg: hsl(var(--surface-sunken));
-    --shadow: 0 12px 30px hsl(222 33% 16% / 0.12);
-    --radius: 0.75rem;
+    --shadow: 0 8px 22px hsl(222 33% 16% / 0.08);
+    --shadow-sm: 0 1px 2px hsl(222 33% 16% / 0.06), 0 4px 12px hsl(222 33% 16% / 0.05);
+    --shadow-md: 0 8px 24px hsl(222 33% 16% / 0.09);
+    --shadow-lg: 0 18px 42px hsl(222 33% 16% / 0.12);
+    --radius: 0.625rem;
     /* Cross-script typography: Latin, French diacritics and CJK fallbacks. */
     --font-sans: "Inter", "Avenir Next", "Segoe UI", "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
     --font-display: "Inter Tight", "Avenir Next", "Segoe UI", "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -66,8 +69,8 @@
   }
 
   .dark {
-    /* Dark mode keeps surfaces legible with restrained mineral glass. */
-    --background: linear-gradient(135deg, hsl(222 40% 12%) 0%, hsl(221 48% 7%) 58%, hsl(190 35% 9%) 100%);
+    /* Dark mode keeps surfaces legible with restrained mineral contrast. */
+    --background: hsl(222 34% 10%);
     --background-solid: 222 40% 10%;
     --foreground: 210 30% 96%;
     --card: 222 34% 15%;
@@ -89,8 +92,8 @@
     --ring: 172 66% 58%;
 
     --surface: 222 34% 15%;
-    --surface-raised: 220 30% 18%;
-    --surface-sunken: 223 38% 10%;
+    --surface-raised: 220 26% 18%;
+    --surface-sunken: 223 30% 8%;
     --text: 210 30% 96%;
     --text-muted: 214 20% 73%;
     --text-subtle: 214 16% 61%;
@@ -113,7 +116,10 @@
     --accent-border: hsl(var(--accent) / 0.4);
     --text-h: hsl(var(--foreground));
     --social-bg: hsl(var(--surface-sunken));
-    --shadow: 0 18px 40px hsl(222 40% 3% / 0.45);
+    --shadow: 0 10px 26px hsl(222 40% 3% / 0.34);
+    --shadow-sm: 0 1px 2px hsl(222 40% 3% / 0.32), 0 4px 12px hsl(222 40% 3% / 0.24);
+    --shadow-md: 0 10px 28px hsl(222 40% 3% / 0.36);
+    --shadow-lg: 0 20px 46px hsl(222 40% 3% / 0.46);
     --texture-grain:
       radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0 0.8px, transparent 1px),
       radial-gradient(circle at 80% 10%, rgba(129, 140, 248, 0.1) 0 1px, transparent 1.2px),
@@ -124,7 +130,7 @@
 @layer base {
   * {
     @apply border-border;
-    transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.5s ease, color 0.3s ease, box-shadow 0.5s ease;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
   }
   body {
     background: var(--background);
@@ -176,10 +182,8 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    background-image: var(--texture-grain);
-    background-size: 18px 18px, 24px 24px, 28px 28px;
-    background-position: 0 0, 7px 11px, 13px 3px;
-    opacity: 0.04;
+    background-image: none;
+    opacity: 0;
     pointer-events: none;
     z-index: 9999;
     mix-blend-mode: overlay;
@@ -358,7 +362,16 @@
 
   table {
     font-variant-numeric: tabular-nums lining-nums;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: hsl(var(--surface));
   }
+
+  thead { background: hsl(var(--surface-sunken)); }
+  thead th { color: hsl(var(--text-muted)); border-bottom: 1px solid hsl(var(--border-strong) / 0.7); }
+  tbody tr:not(:last-child) td { border-bottom: 1px solid hsl(var(--border-subtle)); }
+  tbody tr:hover { background: hsl(var(--surface-raised)); }
+  th, td { padding: 0.75rem 1rem; vertical-align: middle; }
 
   table th {
     font-size: 0.6875rem;
@@ -411,65 +424,57 @@
     @apply text-slate-900 dark:text-white/90 disabled:text-slate-400 dark:disabled:text-white/35;
   }
 
+  /* Glass-era blur utilities remain in legacy markup, but surfaces stay crisp. */
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-3xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Surface grammar: page background, stable containers, controls and dividers. */
+  .surface-card,
   .liquid-glass {
-    @apply backdrop-blur-2xl border relative overflow-hidden;
-    background: hsl(var(--surface) / 0.78);
-    border-color: hsl(var(--border-subtle) / 0.9);
-    /* Multi-layered physical shadow */
-    box-shadow: 
-      0 4px 6px -1px rgba(0, 0, 0, 0.05),
-      0 10px 15px -3px rgba(0, 0, 0, 0.05),
-      inset 0 1px 1px rgba(255, 255, 255, 0.8),
-      inset 0 -1px 1px rgba(0, 0, 0, 0.05);
+    @apply border relative overflow-hidden;
+    background: hsl(var(--surface));
+    border-color: hsl(var(--border-subtle));
+    box-shadow: var(--shadow-sm);
+    border-radius: 0.75rem !important;
   }
   .dark .liquid-glass {
-    background: hsl(var(--surface-raised) / 0.72);
-    border-color: hsl(var(--border-subtle) / 0.9);
-    box-shadow: 
-      0 20px 40px -10px rgba(0, 0, 0, 0.5),
-      inset 0 1px 1px rgba(255, 255, 255, 0.1),
-      inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+    background: hsl(var(--surface));
+    border-color: hsl(var(--border-subtle));
+    box-shadow: var(--shadow-sm);
   }
   
+  .surface-panel,
   .liquid-glass-panel {
-    @apply backdrop-blur-3xl border relative overflow-hidden;
-    background: hsl(var(--surface-raised) / 0.72);
-    border-color: hsl(var(--border-subtle) / 0.95);
-    box-shadow: 
-      0 25px 50px -12px rgba(0, 0, 0, 0.08),
-      inset 0 1px 2px rgba(255, 255, 255, 0.9);
-  }
-  .liquid-glass-panel::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    opacity: 0.03;
-    pointer-events: none;
-    background-image: var(--texture-grain);
-    background-size: 16px 16px, 22px 22px, 26px 26px;
-    background-position: 0 0, 6px 10px, 11px 4px;
-    mix-blend-mode: overlay;
+    @apply border relative overflow-hidden;
+    background: hsl(var(--surface-raised));
+    border-color: hsl(var(--border-subtle));
+    box-shadow: var(--shadow-md);
+    border-radius: 1rem !important;
   }
   .dark .liquid-glass-panel {
-    background: hsl(var(--surface) / 0.82);
-    border-color: hsl(var(--border-subtle) / 0.95);
-    box-shadow: 
-      0 30px 60px -12px rgba(0, 0, 0, 0.6),
-      inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    background: hsl(var(--surface-raised));
+    border-color: hsl(var(--border-subtle));
+    box-shadow: var(--shadow-md);
   }
-  .dark .liquid-glass-panel::after {
-    opacity: 0.05;
-  }
+
+  .surface-inset { background: hsl(var(--surface-sunken)); border: 1px solid hsl(var(--border-subtle)); border-radius: 0.625rem; }
+  .surface-control { background: hsl(var(--surface)); border: 1px solid hsl(var(--border-strong) / 0.7); border-radius: 0.5rem; }
+  .surface-control:hover { border-color: hsl(var(--border-strong)); box-shadow: var(--shadow-sm); }
+  .surface-divider { border-color: hsl(var(--border-subtle)); }
 
   .sidebar-shell {
     isolation: isolate;
   }
 
   .dark .sidebar-shell {
-    box-shadow:
-      0 18px 40px -24px rgba(0, 0, 0, 0.78),
-      inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-md);
   }
 
   /* Magnetic Base Class */
@@ -478,74 +483,12 @@
     transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
   }
 
-  .edge-light {
-    position: relative;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+  .edge-light { position: relative; }
+  .edge-light::after { display: none; }
+
+  .fluid-texture::before { display: none; }
   
-  .edge-light::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: linear-gradient(to bottom right, hsl(var(--focus) / 0.2), transparent 40%, transparent 60%, hsl(var(--progress) / 0.1));
-    z-index: -1;
-    opacity: 0.1;
-    transition: opacity 0.4s ease;
-  }
-  .dark .edge-light::after {
-    background: linear-gradient(to bottom right, hsl(var(--focus) / 0.34), transparent 40%, transparent 60%, hsl(var(--progress) / 0.2));
-  }
-
-  .edge-light:hover::after {
-    opacity: 1;
-    box-shadow: 0 0 30px hsl(var(--focus) / 0.28);
-  }
-
-  .sidebar-shell.edge-light::after {
-    inset: 0;
-    z-index: 0;
-    opacity: 0.16;
-    background: linear-gradient(
-      180deg,
-      hsl(var(--focus) / 0.18),
-      transparent 24%,
-      transparent 78%,
-      hsl(var(--progress) / 0.08)
-    );
-  }
-
-  .dark .sidebar-shell.edge-light::after {
-    opacity: 0.2;
-    background: linear-gradient(
-      180deg,
-      hsl(var(--focus) / 0.24),
-      transparent 22%,
-      transparent 80%,
-      hsl(var(--progress) / 0.1)
-    );
-  }
-
-  .sidebar-shell.edge-light:hover::after {
-    opacity: 0.68;
-    box-shadow:
-      inset 0 0 0 1px hsl(var(--focus) / 0.16),
-      inset 0 0 22px hsl(var(--progress) / 0.12);
-  }
-
-  .fluid-texture::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03) 0%, transparent 50%),
-                radial-gradient(circle at 100% 0%, hsl(var(--focus) / 0.05) 0%, transparent 40%);
-    background-size: 200% 200%;
-    animation: fluid-flow 15s ease infinite;
-    pointer-events: none;
-    z-index: 0;
-  }
-  
-  /* High contrast text glows */
+  /* Numeric emphasis uses color only; no glow treatment. */
   .stat-card-value {
     line-height: 0.92;
     letter-spacing: -0.06em;
@@ -562,46 +505,31 @@
   .text-glow-blue { color: hsl(var(--progress)); text-shadow: none; }
   .dark .text-glow-blue {
     color: hsl(var(--progress));
-    text-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.06),
-      0 0 10px hsl(var(--progress) / 0.18),
-      0 0 22px hsl(var(--progress) / 0.1);
+    text-shadow: none;
   }
 
   .text-glow-emerald { color: hsl(var(--success)); text-shadow: none; }
   .dark .text-glow-emerald {
     color: hsl(var(--success));
-    text-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.05),
-      0 0 10px hsl(var(--success) / 0.18),
-      0 0 22px hsl(var(--success) / 0.1);
+    text-shadow: none;
   }
   
   .text-glow-rose { color: hsl(var(--error)); text-shadow: none; }
   .dark .text-glow-rose {
     color: hsl(var(--error));
-    text-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.05),
-      0 0 10px hsl(var(--error) / 0.16),
-      0 0 22px hsl(var(--error) / 0.08);
+    text-shadow: none;
   }
   
   .text-glow-primary { color: hsl(var(--action)); text-shadow: none; }
   .dark .text-glow-primary {
     color: hsl(var(--action));
-    text-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.06),
-      0 0 10px hsl(var(--action) / 0.2),
-      0 0 24px hsl(var(--action) / 0.1);
+    text-shadow: none;
   }
 
   .text-glow-amber { color: hsl(var(--warning)); text-shadow: none; }
   .dark .text-glow-amber {
     color: hsl(var(--warning));
-    text-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.05),
-      0 0 10px hsl(var(--warning) / 0.18),
-      0 0 22px hsl(var(--warning) / 0.09);
+    text-shadow: none;
   }
   
   .no-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -629,29 +557,14 @@
     100% { background-position: 300% center; }
   }
 
-  /* Awwwards Level: Neo-Brutalist Glow Buttons with Magnetic feel base */
+  /* Primary action surface: solid, compact and raised on hover. */
   .btn-liquid {
-    @apply relative px-8 py-3 rounded-2xl font-black tracking-widest text-sm transition-all duration-500 overflow-hidden text-action-foreground;
-    background: linear-gradient(135deg, hsl(var(--action)), hsl(var(--progress)));
-    background-size: 200% 200%;
-    box-shadow: 0 10px 30px -10px hsl(var(--action) / 0.42), inset 0 1px 1px rgba(255,255,255,0.2);
-    animation: gradient-shift 5s ease infinite;
+    @apply relative px-8 py-3 rounded-lg font-black tracking-widest text-sm transition-all duration-200 overflow-hidden text-action-foreground;
+    background: hsl(var(--action));
+    box-shadow: var(--shadow-sm);
   }
-  .btn-liquid::before {
-    content: '';
-    position: absolute;
-    top: 0; left: -100%; width: 50%; height: 100%;
-    background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
-    transform: skewX(-20deg);
-    transition: all 0.7s ease;
-  }
-  .btn-liquid:hover::before {
-    left: 200%;
-  }
-  .btn-liquid:hover {
-    box-shadow: 0 15px 40px -5px hsl(var(--action) / 0.62), inset 0 1px 1px rgba(255,255,255,0.4);
-    transform: translateY(-2px);
-  }
+  .btn-liquid::before { display: none; }
+  .btn-liquid:hover { background: hsl(var(--action) / 0.9); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 
   @keyframes gradient-shift {
     0% { background-position: 0% 50%; }
@@ -659,34 +572,16 @@
     100% { background-position: 0% 50%; }
   }
 
-  /* Awwwards Level: Border Beam Animation - Moved to ::after to avoid conflicts */
+  /* Legacy border-beam hook retained as a quiet border-only surface. */
   .border-beam {
     position: relative;
   }
-  .border-beam::after {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-      var(--beam-angle, 0deg),
-      transparent 20%,
-      hsl(var(--focus) / 0.8) 50%,
-      transparent 80%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    animation: beam-rotate 6s linear infinite;
-  }
-  .border-beam:hover::after {
-    opacity: 1;
-  }
+  .border-beam::after { display: none; }
+
+  /* A single focused surface may use a quiet pointer light; keep it local. */
+  .spotlight-card { position: relative; isolation: isolate; }
+  .spotlight-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(220px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0%), hsl(var(--focus) / 0.08), transparent 70%); transition: opacity 180ms ease; z-index: 0; }
+  .spotlight-card:hover::before { opacity: 1; }
 
   @keyframes beam-rotate {
     from { --beam-angle: 0deg; }
@@ -699,13 +594,13 @@
     inherits: false;
   }
 
-  /* Awwwards Level: Liquid Focus States */
+  /* Accessible focus ring shared by controls and links. */
   :focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px hsl(var(--background-solid)), 0 0 0 4px hsl(var(--focus) / 0.55);
   }
 
-  /* Awwwards Level: High-Tech Scanline Pattern */
+  /* Optional low-contrast grid for diagnostic visualizations. */
   .scanline-grid {
     background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
                       linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);

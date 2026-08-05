@@ -71,7 +71,7 @@ class ErrorBoundaryRoot extends React.Component<BoundaryProps, BoundaryState> {
         : 'relative';
     const backdrop =
       this.props.variant === 'fullscreen' ? (
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.12),transparent_32%)]" />
+        <div className="absolute inset-0 bg-background" aria-hidden="true" />
       ) : null;
     const contentClassName =
       this.props.variant === 'fullscreen'
@@ -84,7 +84,7 @@ class ErrorBoundaryRoot extends React.Component<BoundaryProps, BoundaryState> {
         <div className={contentClassName}>
           <FeedbackState
             kind="error"
-            className="w-full max-w-3xl liquid-glass-panel edge-light rounded-[3rem] p-8 md:p-10"
+            className="w-full max-w-3xl surface-panel rounded-xl p-8 md:p-10"
             title={title}
             description={description}
             impact="当前页面无法继续完成渲染，但你已经保存的数据不会因此丢失。"

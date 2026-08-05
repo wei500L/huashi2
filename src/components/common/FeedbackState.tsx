@@ -103,7 +103,7 @@ export const FeedbackState: React.FC<FeedbackStateProps> = ({
   return (
     <section
       className={cn(
-        'rounded-[2rem] border p-6 md:p-7',
+        'rounded-xl border p-6 md:p-7',
         meta.shellClassName,
         compact && 'h-full px-5 py-6 md:px-6 md:py-6',
         className
@@ -126,13 +126,13 @@ export const FeedbackState: React.FC<FeedbackStateProps> = ({
         {(impact || nextStep) && (
           <div className={cn('grid gap-3', compact ? 'mx-auto w-full max-w-md text-left' : 'md:grid-cols-2')}>
             {impact && (
-              <div className="rounded-[1.4rem] border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
+              <div className="rounded-lg border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">{t('ui.feedback.impactHeading')}</div>
                 <p className="mt-2 text-sm leading-6 opacity-90">{impact}</p>
               </div>
             )}
             {nextStep && (
-              <div className="rounded-[1.4rem] border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
+              <div className="rounded-lg border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">{t('ui.feedback.nextStepHeading')}</div>
                 <p className="mt-2 text-sm leading-6 opacity-90">{nextStep}</p>
               </div>

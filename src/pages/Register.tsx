@@ -264,7 +264,7 @@ const RegisterPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.16),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.14),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.03),transparent_45%)]" />
+      <div className="absolute inset-0 bg-background" aria-hidden="true" />
       <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
         <div className="w-full max-w-7xl grid lg:grid-cols-[1fr_0.96fr] gap-8 items-stretch">
           <section className="liquid-glass-panel rounded-[3rem] edge-light p-10 md:p-14 flex flex-col justify-between min-h-[720px]">
