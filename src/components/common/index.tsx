@@ -283,7 +283,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       <div className="flex items-start justify-between relative z-10" style={{ transform: 'translateZ(30px)' }}>
         <div>
           <SectionEyebrow className="mb-1">{title}</SectionEyebrow>
-          <h3 className={cn('stat-card-value type-numeric text-4xl font-semibold tabular-nums', iconGlowClass)}>
+          <h3 className={cn('stat-card-value type-numeric text-3xl font-semibold tabular-nums', iconGlowClass)}>
             {!isNaN(numericValue) ? (
               <>
                 <AnimatedNumber value={numericValue} />
@@ -294,11 +294,11 @@ export const StatCard: React.FC<StatCardProps> = ({
         </div>
         <div
           className={cn(
-            'p-3 rounded-lg bg-surface-sunken border border-border-subtle relative group-hover:scale-105 transition-transform duration-200 shadow-sm',
+            'p-2.5 rounded-lg bg-surface-sunken border border-border-subtle relative group-hover:scale-105 transition-transform duration-200 shadow-sm',
             color
           )}
         >
-          <Icon size={28} className={cn('dark:drop-shadow-[0_0_12px_currentColor]')} />
+          <Icon size={22} className={cn('dark:drop-shadow-[0_0_8px_currentColor]')} />
         </div>
       </div>
 

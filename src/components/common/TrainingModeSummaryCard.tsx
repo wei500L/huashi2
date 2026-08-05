@@ -33,7 +33,7 @@ export const TrainingModeSummaryCard: React.FC<TrainingModeSummaryCardProps> = (
           }
         : {})}
       className={cn(
-        'text-left rounded-[1.8rem] border border-slate-200/80 bg-white/60 p-5 transition-all dark:border-white/10 dark:bg-white/5',
+        'text-left rounded-2xl border border-border-subtle bg-surface/70 p-4 transition-colors',
         onClick ? 'hover:border-primary/40 disabled:opacity-60' : '',
         className
       )}
@@ -41,7 +41,7 @@ export const TrainingModeSummaryCard: React.FC<TrainingModeSummaryCardProps> = (
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{meta.label}</div>
-          <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{meta.plainTitle}</div>
+          <div className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">{meta.plainTitle}</div>
         </div>
         <span title={meta.tooltip} aria-label={meta.tooltip} className="mt-1 shrink-0">
           <Info size={16} className="text-slate-400 dark:text-white/35" />

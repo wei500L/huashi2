@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowRight, BookOpen, Brain, Clock3, FileText, Flame, RefreshCw, Target } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BookOpen, Brain, Check, CircleDot, Clock3, Compass, FileText, Flame, MapPinned, Play, RefreshCw, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
@@ -290,6 +290,45 @@ const DashboardPage: React.FC = () => {
   };
 
   const planError = recommendedPlanQuery.error ? normalizeApiError(recommendedPlanQuery.error) : null;
+  const hasDiagnosis = Boolean(overview?.latestSnapshot.lastDiagnosisSummaryId);
+  const hasTraining = Boolean(overview?.latestSnapshot.lastTrainingSessionId);
+  const hasRecommendedPlan = Boolean(recommendedPlanQuery.data?.suggestedSessions?.length);
+  const migrationStage = !hasDiagnosis ? 0 : !hasTraining ? 1 : 2;
+  const migrationProgress = overviewQuery.isLoading ? 0 : [33, 66, 100][migrationStage];
+  const primarySession = recommendedPlanQuery.data?.suggestedSessions?.[0];
+  const primaryAction = hasRecommendedPlan && primarySession
+    ? {
+        label: t('dashboard.action.startPractice'),
+        to: buildTrainingHref({
+          mode: primarySession.mode,
+          source: 'dashboard-primary-action',
+          diagnosisSummaryId: recommendedPlanQuery.data?.sourceDiagnosisSummaryId,
+        }),
+        icon: Play,
+      }
+    : {
+        label: t('common.actions.startDiagnosis'),
+        to: buildDiagnosisHref({ source: 'dashboard' }),
+        icon: Compass,
+      };
+  const PrimaryActionIcon = primaryAction.icon;
+  const recentActivity = [
+    ...(assessmentItems || []).slice(0, 2).map((item) => ({
+      id: `assessment-${item.publishId}`,
+      title: item.title,
+      detail: item.attemptStatus ? assessmentAttemptStatusLabel(item.attemptStatus) : t('ui.meta.notStarted'),
+      time: formatDateTime(item.publishedAt),
+    })),
+    ...(nextDueReviewItem
+      ? [{
+          id: `review-${nextDueReviewItem.reviewScheduleId}`,
+          title: `${nextDueReviewItem.englishWord} / ${nextDueReviewItem.frenchWord}`,
+          detail: t('dashboard.recent.reviewDue'),
+          time: formatDateTime(nextDueReviewItem.dueAt),
+        }]
+      : []),
+  ].slice(0, 3);
+  const weakPairs = (highRiskPairsQuery.data || overview?.latestSnapshot.topRiskPairs || []).slice(0, 3);
 
   const handleLearningGoalSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -326,22 +365,41 @@ const DashboardPage: React.FC = () => {
         eyebrow={t('shell.nav.dashboard')}
         title={t('dashboard.title')}
         subtitle={t('dashboard.subtitle')}
-        actions={
-          <div data-onboarding="student-dashboard-quick-start">
-            <button onClick={() => navigate(buildDiagnosisHref({ source: 'dashboard' }))} className="btn-liquid px-6 py-3 text-white">
-              {t('common.actions.startDiagnosis')}
-            </button>
-          </div>
-        }
       />
 
-      {overviewQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {getApiErrorMessage(overviewQuery.error)}
+      {overviewQuery.isLoading && (
+        <div role="status" aria-live="polite" className="surface-panel rounded-3xl border border-border-subtle p-6">
+          <div className="h-4 w-40 animate-pulse rounded-full bg-slate-200 dark:bg-white/10" />
+          <div className="mt-4 h-9 max-w-xl animate-pulse rounded-full bg-slate-200 dark:bg-white/10" />
+          <div className="mt-3 h-4 max-w-2xl animate-pulse rounded-full bg-slate-200 dark:bg-white/10" />
         </div>
       )}
 
-      <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
+      {overviewQuery.error && (
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+          <div className="flex flex-wrap items-center justify-between gap-4"><span>{getApiErrorMessage(overviewQuery.error)}</span><button type="button" onClick={() => void overviewQuery.refetch()} className="rounded-full border border-rose-500/30 px-4 py-2 font-semibold">{t('ui.chart.retryAction')}</button></div>
+        </div>
+      )}
+
+      <section className="surface-panel relative overflow-hidden rounded-[2.5rem] border border-primary/15 bg-[radial-gradient(circle_at_80%_10%,rgba(45,212,191,0.16),transparent_38%),linear-gradient(135deg,rgba(15,118,110,0.08),transparent_65%)] p-6 shadow-[0_24px_70px_rgba(15,118,110,0.08)] sm:p-8">
+        <div className="relative z-10 grid gap-8 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-3"><SectionEyebrow>{t('dashboard.hero.kicker')}</SectionEyebrow>{overview?.primaryRiskLevel && <StatusBadge label={riskLevelLabel(overview.primaryRiskLevel)} tone={overview.primaryRiskLevel === 'HIGH' ? 'danger' : 'info'} />}</div>
+            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-5xl">{overview?.studentName ? t('dashboard.hero.greeting', { name: overview.studentName }) : t('dashboard.hero.firstUseTitle')}</h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-white/65">{hasDiagnosis ? t('dashboard.hero.withDiagnosis', { mode: trainingModeLabel(overview?.recommendedTrainingMode) }) : t('dashboard.hero.withoutDiagnosis')}</p>
+            <div className="mt-6 flex flex-wrap items-center gap-3" data-onboarding="student-dashboard-quick-start"><button type="button" onClick={() => navigate(primaryAction.to)} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white"><PrimaryActionIcon size={16} aria-hidden="true" />{primaryAction.label}<ArrowRight size={15} aria-hidden="true" /></button>{nextDueReviewItem && <button type="button" onClick={() => navigate(buildTrainingHref({ mode: nextDueReviewItem.reviewMode, source: 'dashboard-review-reminder', lexicalPairId: nextDueReviewItem.lexicalPairId, wrongBookId: nextDueReviewItem.wrongBookId, reviewScheduleId: nextDueReviewItem.reviewScheduleId }))} className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface/70 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-white/75"><RefreshCw size={15} aria-hidden="true" />{t('dashboard.action.reviewDue', { count: dueReviewItems.length })}</button>}</div>
+            {!hasDiagnosis && !overviewQuery.isLoading && <p className="mt-3 text-xs text-slate-500 dark:text-white/45">{t('dashboard.hero.firstUseHint')}</p>}
+          </div>
+          <div className="rounded-[2rem] border border-primary/15 bg-surface/65 p-5 backdrop-blur-sm" aria-label={t('dashboard.map.label')}><div className="flex items-center justify-between gap-3"><SectionEyebrow>{t('dashboard.map.title')}</SectionEyebrow><MapPinned size={17} className="text-primary" aria-hidden="true" /></div><div className="mt-7 flex items-center gap-2"><div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><span className="text-[10px] font-bold uppercase tracking-[0.18em]">EN</span><span className="mt-1 text-xs font-semibold">{overview?.englishLevel || '--'}</span></div><div className="relative h-px flex-1 bg-primary/30"><span className="absolute left-1/2 top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/20 bg-surface text-primary"><ArrowRight size={13} aria-hidden="true" /></span></div><div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl border border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-200"><span className="text-[10px] font-bold uppercase tracking-[0.18em]">FR</span><span className="mt-1 text-xs font-semibold">{overview?.frenchLevel || '--'}</span></div></div><p className="mt-5 text-xs leading-5 text-slate-500 dark:text-white/45">{t('dashboard.map.description')}</p></div>
+        </div>
+      </section>
+
+      <section className="surface-panel rounded-3xl border border-border-subtle p-5 sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><SectionEyebrow>{t('dashboard.stage.eyebrow')}</SectionEyebrow><h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{t('dashboard.stage.title')}</h2></div><span className="text-sm font-semibold text-primary">{migrationProgress}%</span></div><div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${migrationProgress}%` }} /></div><div className="mt-5 grid gap-4 sm:grid-cols-3">{[t('dashboard.stage.diagnosis'), t('dashboard.stage.practice'), t('dashboard.stage.transfer')].map((label, index) => { const complete = index < migrationStage; const current = index === migrationStage; return <div key={label} className="flex items-start gap-3"><span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${complete ? 'border-primary bg-primary text-white' : current ? 'border-primary text-primary' : 'border-border-subtle text-slate-400'}`}>{complete ? <Check size={13} aria-hidden="true" /> : <CircleDot size={13} aria-hidden="true" />}</span><div><div className={`text-sm font-semibold ${current ? 'text-primary' : 'text-slate-700 dark:text-white/75'}`}>{label}</div><div className="mt-1 text-xs text-slate-500 dark:text-white/40">{current ? t('dashboard.stage.current') : complete ? t('dashboard.stage.complete') : t('dashboard.stage.upNext')}</div></div></div>; })}</div></section>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-b border-border-subtle pb-5 pt-1 sm:grid-cols-4"><div><div className="text-xs text-slate-500 dark:text-white/40">{t('ui.meta.correctRate')}</div><div className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">{formatMaybePercent(overview?.latestSnapshot.recentAccuracy, 0)}</div></div><div><div className="text-xs text-slate-500 dark:text-white/40">{t('ui.meta.pendingReviewPairs')}</div><div className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">{overview?.latestSnapshot.pendingReviewCount ?? '--'}</div></div><div><div className="text-xs text-slate-500 dark:text-white/40">{t('dashboard.metrics.weakPairs')}</div><div className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">{overview?.latestSnapshot.highRiskPairCount ?? '--'}</div></div><div><div className="text-xs text-slate-500 dark:text-white/40">{t('ui.fields.averageReactionTime')}</div><div className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">{formatMs(overview?.latestSnapshot.recentAvgReactionTimeMs)}</div></div></div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"><section className="surface-panel rounded-3xl border border-border-subtle p-5 sm:p-6"><div className="flex items-center justify-between gap-3"><div><SectionEyebrow>{t('dashboard.activity.eyebrow')}</SectionEyebrow><h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{t('dashboard.activity.title')}</h2></div><Clock3 size={18} className="text-slate-400" aria-hidden="true" /></div>{recentActivity.length ? <div className="mt-5 space-y-3">{recentActivity.map((item) => <div key={item.id} className="flex items-center gap-3 border-b border-border-subtle pb-3 last:border-0 last:pb-0"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary"><Check size={14} aria-hidden="true" /></span><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-slate-800 dark:text-white/85">{item.title}</div><div className="mt-1 text-xs text-slate-500 dark:text-white/40">{item.detail}</div></div><time className="shrink-0 text-xs text-slate-400 dark:text-white/35">{item.time}</time></div>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-border-subtle px-4 py-6 text-sm text-slate-500 dark:text-white/45">{t('dashboard.activity.empty')}</div>}</section><section className="surface-panel rounded-3xl border border-border-subtle p-5 sm:p-6"><div className="flex items-center justify-between gap-3"><div><SectionEyebrow>{t('dashboard.weaknesses.eyebrow')}</SectionEyebrow><h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{t('dashboard.weaknesses.title')}</h2></div><AlertTriangle size={18} className="text-amber-500" aria-hidden="true" /></div><p className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">{t('dashboard.weaknesses.description')}</p>{weakPairs.length ? <div className="mt-4 space-y-3">{weakPairs.map((item) => <div key={item.lexicalPairId} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50/80 px-4 py-3 dark:bg-white/[0.04]"><div className="min-w-0"><div className="truncate text-sm font-semibold text-slate-800 dark:text-white/85">{item.englishWord} / {item.frenchWord}</div><div className="mt-1 text-xs text-slate-500 dark:text-white/40">{lexicalPairTypeLabel(item.lexicalPairType)}</div></div><span className="shrink-0 text-sm font-semibold text-rose-500">{formatMaybePercent(item.riskScore, 0)}</span></div>)}</div> : <div className="mt-4 text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noHighRiskPairs')}</div>}<button type="button" onClick={() => navigate('/errors')} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary">{t('dashboard.weaknesses.open')} <ArrowRight size={14} aria-hidden="true" /></button></section></div>
+
+      <section className="hidden liquid-glass-panel rounded-[3rem] p-10 edge-light">
         <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
           <div className="max-w-3xl">
             <SectionEyebrow>{t('ui.sections.studentProfile')}</SectionEyebrow>
@@ -373,7 +431,7 @@ const DashboardPage: React.FC = () => {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="hidden grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
         {topCards.map((card) => (
           <StatCard
             key={card.key}
@@ -384,7 +442,7 @@ const DashboardPage: React.FC = () => {
         ))}
       </div>
 
-      <section className="rounded-[2.8rem] border border-amber-500/20 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),rgba(249,115,22,0.08))] p-8 shadow-[0_24px_80px_rgba(245,158,11,0.12)]">
+      <section className="hidden rounded-[2.8rem] border border-amber-500/20 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),rgba(249,115,22,0.08))] p-8 shadow-[0_24px_80px_rgba(245,158,11,0.12)]">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <div className="flex items-center gap-3">
