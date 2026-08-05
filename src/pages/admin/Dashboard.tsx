@@ -214,7 +214,7 @@ const AdminDashboardPage: React.FC = () => {
       { title: '总用户数', value: integerFormatter.format(overview?.totalUsers ?? 0), icon: Users, color: 'text-slate-700' },
       { title: 'DAU', value: integerFormatter.format(overview?.dailyActiveUsers ?? 0), icon: Activity, color: 'text-emerald-600' },
       { title: 'WAU', value: integerFormatter.format(overview?.weeklyActiveUsers ?? 0), icon: LayoutDashboard, color: 'text-blue-600' },
-      { title: '近 30 天 AI 调用', value: integerFormatter.format(overview?.aiCallsLast30Days ?? 0), icon: Bot, color: 'text-indigo-600' },
+      { title: '近 30 天 AI 调用', value: integerFormatter.format(overview?.aiCallsLast30Days ?? 0), icon: Bot, color: 'text-ai' },
       { title: '近 30 天诊断完成', value: integerFormatter.format(overview?.diagnosisCompletedLast30Days ?? 0), icon: Brain, color: 'text-teal-600' },
       { title: '近 30 天训练完成', value: integerFormatter.format(overview?.trainingCompletedLast30Days ?? 0), icon: GraduationCap, color: 'text-sky-600' },
       { title: '近 30 天考核提交', value: integerFormatter.format(overview?.assessmentCompletedLast30Days ?? 0), icon: FileCheck2, color: 'text-amber-600' },

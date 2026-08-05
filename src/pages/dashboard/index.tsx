@@ -59,8 +59,8 @@ const ACHIEVEMENT_META: Record<
   },
   VOCAB_MASTER: {
     icon: BookOpen,
-    iconClassName: 'bg-fuchsia-500/15 text-fuchsia-500',
-    progressClassName: 'from-fuchsia-400 via-pink-500 to-rose-500',
+    iconClassName: 'bg-ai/15 text-ai',
+    progressClassName: 'from-ai via-progress to-info',
     progressType: 'mastery',
   },
 };

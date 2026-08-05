@@ -18,10 +18,21 @@ export default {
     extend: {
       colors: {
         border: "hsl(var(--border))",
+        'border-subtle': "hsl(var(--border-subtle))",
+        'border-strong': "hsl(var(--border-strong))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "var(--background)",
+        'background-solid': "hsl(var(--background-solid))",
         foreground: "hsl(var(--foreground))",
+        text: "hsl(var(--text))",
+        'text-muted': "hsl(var(--text-muted))",
+        'text-subtle': "hsl(var(--text-subtle))",
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          raised: "hsl(var(--surface-raised))",
+          sunken: "hsl(var(--surface-sunken))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -42,6 +53,19 @@ export default {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        action: {
+          DEFAULT: "hsl(var(--action))",
+          foreground: "hsl(var(--action-foreground))",
+        },
+        progress: "hsl(var(--progress))",
+        ai: "hsl(var(--ai))",
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        error: "hsl(var(--error))",
+        info: "hsl(var(--info))",
+        student: "hsl(var(--student))",
+        teacher: "hsl(var(--teacher))",
+        admin: "hsl(var(--admin))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
