@@ -110,16 +110,16 @@ const ErrorsPage: React.FC = () => {
                   key={item.wrongBookId}
                   className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
                 >
-                  <div className="font-black text-slate-900 dark:text-white">
+                  <div className="min-w-0 font-black break-words text-slate-900 dark:text-white">
                     {item.englishWord} / {item.frenchWord}
                   </div>
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                     {lexicalPairTypeLabel(item.lexicalPairType)} · {trainingModeLabel(item.recommendedMode)} · {t('ui.meta.recentWrongCount', {
                       type: item.lastErrorType,
                       count: item.wrongCount,
                     })}
                   </div>
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                     {t('ui.meta.nextReviewAt', { time: formatDateTime(item.nextReviewAt) })}
                   </div>
                   <button
@@ -190,16 +190,16 @@ const ErrorsPage: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="font-black text-slate-900 dark:text-white">
+                      <div className="min-w-0 font-black break-words text-slate-900 dark:text-white">
                         {item.englishWord} / {item.frenchWord}
                       </div>
-                      <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                         {trainingModeLabel(item.reviewMode)} · {t('ui.meta.reviewStage', {
                           stage: item.scheduleStage,
                           days: item.intervalDays,
                         })}
                       </div>
-                      <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                         {t('ui.meta.dueWithReason', { time: formatDateTime(item.dueAt), reason: item.triggerReason })}
                       </div>
                     </div>

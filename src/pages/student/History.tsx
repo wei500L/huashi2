@@ -907,13 +907,13 @@ const HistoryPage: React.FC = () => {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <StatusBadge label={assessmentAttemptStatusLabel(record.status)} tone={assessmentAttemptStatusTone(record.status)} />
-                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{record.title}</div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        <div className="mt-2 break-words text-xl font-black text-slate-900 dark:text-white">{record.title}</div>
+                        <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                           {record.className} · 开始于 {formatDateTime(record.startedAt)} · 提交于 {formatDateTime(record.submittedAt)}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500 dark:text-white/45">
                           <span>进度 {record.answeredCount}/{record.questionCount}</span>
-                          <span>得分 {record.totalScore ?? '--'}</span>
+                          <span>得分 {record.releaseStatus === 'PENDING' ? '待公布' : record.totalScore ?? '--'}</span>
                           <span>最后保存 {formatDateTime(record.lastSavedAt)}</span>
                         </div>
                       </div>
