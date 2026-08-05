@@ -3,7 +3,8 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, ChevronDown, Info, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
 import { z } from 'zod';
-import { PageHeader } from '@/components/common';
+import { PageHeader, WorkflowStepper } from '@/components/common';
+import type { WorkflowStage } from '@/components/common';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { ApiError } from '@/lib/api';
@@ -842,7 +843,7 @@ export function buildSavePayload(
 }
 
 const SectionCard: React.FC<{ title: string; description?: string; children: React.ReactNode }> = ({ title, description, children }) => (
-  <section className="rounded-[2.2rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+  <section className="rounded-[1.5rem] border border-slate-200/80 bg-white p-6 shadow-sm md:p-8 space-y-6 dark:border-white/10 dark:bg-slate-950/35">
     <div className="space-y-2">
       <h2 className="text-lg font-black text-slate-900 dark:text-white">{title}</h2>
       {description && <p className="text-sm text-slate-500 dark:text-white/45 max-w-3xl">{description}</p>}
@@ -2589,6 +2590,66 @@ const AdminConfigCenterPage: React.FC = () => {
   const reindexRiskHints = buildReindexRiskHints(reindexForm);
   const visibleDiffs = configDiffs.slice(0, 10);
   const visibleSecretChanges = secretChanges.slice(0, 6);
+  const configWorkflowStages: WorkflowStage[] = [
+    {
+      key: 'view',
+      label: '查看当前值',
+      status: !editing ? 'current' : 'complete',
+      statusLabel: !editing ? '当前步骤' : '已完成',
+      reason: '以数据库快照为权威值，同时显示 runtime 是否同步。',
+      fallback: 'runtime 不可用时仍保留快照，不覆盖已保存配置。',
+      saveState: view.stored.present ? `已保存版本 ${view.stored.version ?? '--'}` : '尚无数据库快照',
+      nextAction: '确认来源、版本和权限后进入编辑。',
+      onSelect: !editing ? undefined : () => { setEditing(false); resetDraft(); },
+    },
+    {
+      key: 'edit',
+      label: '编辑草稿',
+      status: editing && !validation ? 'current' : editing ? 'complete' : 'pending',
+      statusLabel: editing && !validation ? '编辑中' : editing ? '已完成' : '待处理',
+      reason: editing ? '只修改本地草稿，密钥默认保留已有值。' : '尚未进入编辑模式。',
+      fallback: '取消即可丢弃未保存改动，不影响 runtime。',
+      saveState: configDiffs.length + secretChanges.length > 0 ? `${configDiffs.length + secretChanges.length} 项改动待确认` : '暂无改动',
+      nextAction: editing ? '完成后先执行配置校验。' : '点击“进入编辑”。',
+      onSelect: !editing ? () => { setEditing(true); setFeedback(null); } : undefined,
+    },
+    {
+      key: 'validate',
+      label: '校验',
+      status: validation?.valid ? 'complete' : editing && currentIssues.length > 0 ? 'blocked' : editing ? 'current' : 'pending',
+      statusLabel: validation?.valid ? '通过' : currentIssues.length > 0 ? '需修正' : editing ? '待校验' : '待处理',
+      reason: currentIssues.length > 0 ? '发现字段错误，保存被阻止。' : '校验会检查协议、provider 引用、超时和数值范围。',
+      fallback: '校验失败不会写入数据库，也不会改变 runtime。',
+      saveState: validation?.valid ? '最近一次校验通过' : '尚未形成可保存结果',
+      nextAction: editing ? '点击“校验配置”查看完整结果。' : '先进入编辑。',
+      onSelect: editing ? submitValidation : undefined,
+      disabled: !editing || validateMutation.isPending,
+    },
+    {
+      key: 'preview',
+      label: '预览影响',
+      status: saveReviewOpen ? 'current' : validation?.valid && (configDiffs.length + secretChanges.length > 0) ? 'warning' : 'pending',
+      statusLabel: saveReviewOpen ? '预览中' : validation?.valid ? '可预览' : '待校验',
+      reason: '保存前展示字段 diff、密钥动作和高风险提示。',
+      fallback: '可返回继续编辑；预览不会触发 API 写入。',
+      saveState: saveReviewOpen ? '变更评审窗口已打开' : '尚未打开变更评审',
+      nextAction: validation?.valid ? '点击“保存并生效”打开变更评审。' : '先通过校验。',
+      onSelect: validation?.valid ? submitSave : undefined,
+      disabled: !validation?.valid || saveMutation.isPending,
+    },
+    {
+      key: 'publish',
+      label: '保存并发布',
+      status: saveMutation.isPending ? 'current' : feedback?.tone === 'success' ? 'complete' : validation?.valid ? 'warning' : 'pending',
+      statusLabel: saveMutation.isPending ? '保存中' : feedback?.tone === 'success' ? '已生效' : validation?.valid ? '待确认' : '待处理',
+      reason: '确认后写入数据库，并尝试同步 ai-gateway；失败会保留可回退版本。',
+      fallback: '同步失败不隐藏保存结果，可从运维操作重试。',
+      saveState: saveMutation.isPending ? '正在提交' : feedback?.tone === 'success' ? '本次变更已记录' : '尚未提交',
+      nextAction: validation?.valid ? '在评审窗口确认保存。' : '先完成校验与影响预览。',
+      onSelect: validation?.valid ? submitSave : undefined,
+      disabled: !validation?.valid || saveMutation.isPending,
+    },
+  ];
 
   return (
     <div className="space-y-8 pb-20">
@@ -2644,7 +2705,12 @@ const AdminConfigCenterPage: React.FC = () => {
         }
       />
 
-      <section className="rounded-[2.2rem] liquid-glass-panel p-5 md:p-6 space-y-5">
+      <section className="rounded-[1.5rem] border border-slate-200/80 bg-white p-5 shadow-sm md:p-6 space-y-5 dark:border-white/10 dark:bg-slate-950/35">
+        <WorkflowStepper
+          title="配置变更流程"
+          description="先查看当前值，再编辑、校验并预览影响；只有确认评审后才会保存并发布。每一步都保留失败原因和可回退路径。"
+          stages={configWorkflowStages}
+        />
         <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">

@@ -373,7 +373,7 @@ const SectionCard: React.FC<{
   actions?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, description, actions, children }) => (
-  <section className="min-w-0 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+  <section className="min-w-0 rounded-[1.5rem] border border-slate-200/80 bg-white p-6 shadow-sm md:p-8 space-y-6 dark:border-white/10 dark:bg-slate-950/35">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="space-y-2">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">{title}</h2>
@@ -869,6 +869,30 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
           </div>
         }
       />
+
+      <nav aria-label="词库工作区" className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-slate-950/35">
+        {[
+          { key: 'list', label: '词库总览', to: basePath },
+          { key: 'editor', label: '编辑词对', to: `${basePath}/new` },
+          { key: 'imports', label: '导入与预检', to: `${basePath}/imports` },
+        ].map((item) => {
+          const active = item.key === view || (item.key === 'list' && view === 'all');
+          return (
+            <Link
+              key={item.key}
+              to={item.to}
+              aria-current={active ? 'page' : undefined}
+              className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
+                active
+                  ? 'border-primary/25 bg-primary/10 text-primary'
+                  : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 dark:text-white/50 dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
 
       {mode === 'admin' && (
         <div className="space-y-3">
@@ -1665,7 +1689,13 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             ))}
           </div>
 
-          {error && <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">{error}</div>}
+          {error && (
+            <div role="alert" className="rounded-[1.5rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-600 dark:text-rose-300">
+              <div className="font-black">保存失败</div>
+              <div className="mt-1">{error}</div>
+              <div className="mt-2 text-xs opacity-75">当前表单仍保留，可修正后再次提交；不会覆盖已有词对。</div>
+            </div>
+          )}
 
           {detailQuery.error && (
             <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">

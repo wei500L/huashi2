@@ -221,7 +221,7 @@ const Panel: React.FC<{
   actions?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, description, actions, children }) => (
-  <section className="min-w-0 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+  <section className="min-w-0 rounded-[1.5rem] border border-slate-200/80 bg-white p-6 shadow-sm md:p-8 space-y-6 dark:border-white/10 dark:bg-slate-950/35">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="space-y-2">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">{title}</h2>
@@ -718,10 +718,30 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
         stages={workflowStages}
       />
 
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-xs text-slate-600 shadow-sm dark:border-white/10 dark:bg-slate-950/35 dark:text-white/60" aria-label="导入状态图例">
+        <span className="font-black text-slate-900 dark:text-white">状态图例</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />错误 / 阻断</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-violet-500" />冲突 / 重复</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />部分成功 / 待处理</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-sky-500" />处理中 / 可重试</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-slate-400" />未保存</span>
+      </div>
+
       {(requestError || selectedBatch?.status === 'FAILED' || hasPartialSuccess || duplicateRows.length > 0) && (
         <section className="space-y-3" aria-label="导入优先提醒">
           {requestError && (
             <div role="alert" className={`rounded-[1.8rem] border px-5 py-4 text-sm ${accessDenied ? 'border-amber-500/25 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200' : 'border-rose-500/25 bg-rose-500/[0.07] text-rose-700 dark:text-rose-300'}`}>
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => { void batchesQuery.refetch(); if (selectedBatchId) void batchDetailQuery.refetch(); }}
+                  disabled={batchesQuery.isFetching || batchDetailQuery.isFetching}
+                  className="inline-flex items-center gap-2 rounded-xl border border-current/25 px-3 py-2 text-xs font-bold disabled:opacity-50"
+                >
+                  <RefreshCw size={13} className={batchesQuery.isFetching || batchDetailQuery.isFetching ? 'animate-spin' : ''} />
+                  重试读取
+                </button>
+              </div>
               <div className="font-black">{accessDenied ? '权限拒绝' : '请求失败'}</div>
               <div className="mt-1">{getApiErrorMessage(requestError)}</div>
               <div className="mt-2 text-xs opacity-75">失败请求不会覆盖已保存批次；请返回有权限的工作区，或稍后重试。</div>
@@ -740,7 +760,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
             </div>
           )}
           {duplicateRows.length > 0 && (
-            <div role="alert" className="rounded-[1.8rem] border border-amber-500/25 bg-amber-500/[0.07] px-5 py-4 text-sm text-amber-800 dark:text-amber-200">
+            <div role="alert" className="rounded-[1.5rem] border border-violet-500/25 bg-violet-500/[0.07] px-5 py-4 text-sm text-violet-800 dark:text-violet-200">
               <div className="font-black">重复项优先处理 · 当前页 {duplicateRows.length} 行</div>
               <div className="mt-1">重复行不会静默覆盖已有词对。请编辑字段或明确跳过，再保存草稿。</div>
             </div>
