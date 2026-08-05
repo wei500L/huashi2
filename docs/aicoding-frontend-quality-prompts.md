@@ -14,6 +14,33 @@
 6. 如果 React Bits 组件需要 `motion/react`、GSAP、OGL、Three.js 等额外依赖，先评估是否值得；不要为了一个装饰效果引入整套运行时。复制 substantial source 时保留 React Bits 的版权与许可说明。
 7. 每条任务结束时只返回：修改文件、设计判断、静态审查范围、未验证风险，并明确写出“本轮未运行任何测试”。
 
+## 审计与跨窗口沉淀协议
+
+全局审计、品牌决策、组件采用决策和最终验收不能只留在对话里。凡是任务中出现“审计、决策、证据、白名单、黑名单、遗留风险、下一步”这些内容，都要同步沉淀到 `docs/ui-quality/`，让新窗口可以通过仓库文件恢复上下文。
+
+建议的持久化结构：
+
+```text
+docs/ui-quality/
+├── README.md                         # 当前状态、阅读顺序、下一条建议 Prompt
+├── 01-global-visual-evidence-audit.md # 全局视觉证据与优先级
+├── 02-brand-direction-decision.md     # 品牌叙事、色彩、字体和角色气质
+├── 03-react-bits-adoption-matrix.md   # 组件白名单、排除项和依赖预算
+├── decision-log.md                    # 跨任务追加的设计决策与取舍
+└── handoff.md                         # 最新交接摘要和未完成事项
+```
+
+审计类 Prompt 的执行要求：
+
+- 先读取 `docs/ui-quality/README.md` 以及它链接的相关文档；不存在时创建最小可用结构。
+- 事实、判断、建议和未验证假设分开写；每条重要结论尽量附真实路由、文件、组件、截图或状态证据。
+- 不覆盖已有历史判断。若结论发生变化，在 `decision-log.md` 追加原因、影响和日期，并在当前文档标记最新状态。
+- `README.md` 始终维护当前阶段、已完成任务、下一条建议 Prompt 和关键风险，控制在新窗口可快速阅读的长度。
+- `handoff.md` 只保留最新交接摘要：本轮完成、当前视觉语言、已采用/排除组件、未验证风险和下一步。
+- 不把完整源码、巨大截图或测试输出复制进审计文档；引用路径即可。本 Prompt Pack 已要求不运行测试。
+
+新窗口的最短恢复方式：先读 `docs/ui-quality/README.md`，再读当前任务对应的审计文档和 `handoff.md`，最后执行 `git status --short`。
+
 ## React Bits 选择原则
 
 React Bits 当前仓库更适合作为“动效与品牌组件源”，而不是 EF.Transfer 的基础控件库。下面的参考组件按用途分层：
@@ -57,7 +84,15 @@ React Bits 当前仓库更适合作为“动效与品牌组件源”，而不是
 
 请审查 `src/index.css`、`src/App.css`、`tailwind.config.js`、`src/components/layout`、`src/components/common`，以及学生、教师、管理员各一张真实页面和一张核心流程页面。结合现有 QA 截图，建立一张“视觉证据地图”：哪些地方造成廉价感、哪些地方缺少层级、哪些地方动效过度、哪些地方状态不完整、哪些地方在中英文/法文下会失控。
 
-请把问题按“品牌识别、信息层级、组件状态、角色差异、响应式、性能风险”分组，给出 P0/P1/P2 优先级和证据位置。不要在本轮大规模改代码；只允许修正明显会阻塞后续工作的极小问题。
+请把问题按“品牌识别、信息层级、组件状态、角色差异、响应式、性能风险”分组，给出 P0/P1/P2 优先级和证据位置。每一条至少包含：证据路径或路由、观察到的事实、用户影响、建议方向、验证方式和状态（confirmed / proposed / blocked）。
+
+请创建或更新以下沉淀文件：
+- `docs/ui-quality/README.md`：写入本次审计日期、覆盖范围、当前阶段、已完成任务、下一条建议 Prompt，并链接其他审计文档；
+- `docs/ui-quality/01-global-visual-evidence-audit.md`：写入完整证据地图、优先级、角色差异、响应式问题、性能风险和明确排除项；
+- `docs/ui-quality/handoff.md`：写入新窗口可以直接接手的摘要、未验证风险和下一步；
+- `docs/ui-quality/decision-log.md`：只在本次产生了重要设计取舍时追加一条记录。
+
+先读取已有文件再更新，不要覆盖历史判断。不要在本轮大规模改代码；只允许修正明显会阻塞后续工作的极小问题。审计文档应短、可检索、可引用，不要复制完整源码或巨大截图。
 ```
 
 ## A2：比赛级品牌叙事与视觉主张
@@ -67,9 +102,11 @@ React Bits 当前仓库更适合作为“动效与品牌组件源”，而不是
 
 保留业务逻辑、API、权限、国际化和未提交改动。本任务不要运行任何测试、lint、typecheck 或 build；优先纯静态审查，必要时只做最小页面检查，并明确写出“本轮未运行任何测试”。
 
-请基于 A1 的审计证据，为产品提出一条可落地的品牌叙事。优先探索“Lexical Cartography / 语言迁移地图”方向：英语与法语之间的焦点、路径、地形、关联和进展。评估 [Topography](https://reactbits.dev/backgrounds/topography)、[TrueFocus](https://reactbits.dev/text-animations/true-focus)、[StrokeText](https://reactbits.dev/text-animations/stroke-text)、[VariableProximity](https://reactbits.dev/text-animations/variable-proximity)、[TextLoop](https://reactbits.dev/text-animations/text-loop) 和 [WebThreads](https://reactbits.dev/backgrounds/web-threads) 哪些适合成为品牌锚点。
+请先读取 `docs/ui-quality/README.md`、`01-global-visual-evidence-audit.md` 和 `handoff.md`，再基于 A1 的审计证据，为产品提出一条可落地的品牌叙事。优先探索“Lexical Cartography / 语言迁移地图”方向：英语与法语之间的焦点、路径、地形、关联和进展。评估 [Topography](https://reactbits.dev/backgrounds/topography)、[TrueFocus](https://reactbits.dev/text-animations/true-focus)、[StrokeText](https://reactbits.dev/text-animations/stroke-text)、[VariableProximity](https://reactbits.dev/text-animations/variable-proximity)、[TextLoop](https://reactbits.dev/text-animations/text-loop) 和 [WebThreads](https://reactbits.dev/backgrounds/web-threads) 哪些适合成为品牌锚点。
 
 输出一份短的视觉决策：品牌关键词、图形隐喻、主/辅/语义颜色方向、字体气质、动效节奏、学生/教师/管理员的角色差异、适合比赛演示的三条关键路径。不要锁死具体像素和色值，不要复制 React Bits 默认紫色。
+
+将结果写入 `docs/ui-quality/02-brand-direction-decision.md`，并同步更新 `README.md`、`handoff.md`，必要时在 `decision-log.md` 追加“为什么选择/排除某个品牌方向”的记录。把“已确认”“候选”“明确排除”分开，避免后续窗口把探索方案误当成最终规范。不要在本轮实现整站换肤。
 ```
 
 ## A3：React Bits 组件与依赖决策
@@ -79,7 +116,7 @@ React Bits 当前仓库更适合作为“动效与品牌组件源”，而不是
 
 保留业务逻辑、API、权限、国际化和未提交改动。本任务不要运行任何测试、lint、typecheck 或 build；优先静态审查源码、依赖和页面语义，并明确写出“本轮未运行任何测试”。
 
-请检查 EF.Transfer 当前依赖和目标页面，针对下面组件做采用/改写/排除决策：
+请先读取 `docs/ui-quality/README.md`、`01-global-visual-evidence-audit.md`、`02-brand-direction-decision.md` 和 `handoff.md`，再检查 EF.Transfer 当前依赖和目标页面，针对下面组件做采用/改写/排除决策：
 - 品牌：Topography、TrueFocus、StrokeText、MaskedHeading、TextLoop；
 - 学习：Stack、CardSwap、Stepper、CountUp、AnimatedList；
 - 工作台：PillNav、SpotlightCard、Masonry；
@@ -87,7 +124,7 @@ React Bits 当前仓库更适合作为“动效与品牌组件源”，而不是
 
 对每个候选说明：语义用途、页面位置、是否需要 motion/GSAP/OGL/Three.js、是否会带来性能或可访问性风险、是否应适配现有 Framer Motion、是否需要静态降级。禁止把 cursor-only、全屏 WebGL、玻璃拟态或默认霓虹组件放入高频工作台。
 
-本轮不要求安装依赖或实现组件；产出一份可直接指导后续任务的组件白名单、黑名单和依赖预算。
+本轮不要求安装依赖或实现组件；产出一份可直接指导后续任务的组件白名单、黑名单和依赖预算。将结果写入 `docs/ui-quality/03-react-bits-adoption-matrix.md`，同步更新 `README.md`、`handoff.md`，重要取舍追加到 `decision-log.md`。每个组件记录语义用途、目标路由、来源链接、实现变体、依赖、性能/可访问性风险、静态降级和当前状态（adopt / adapt / evaluate / reject）。
 ```
 
 ## B1：色彩与语义 Token
@@ -369,11 +406,11 @@ React Bits 的所有鼠标/滚动效果都必须有静态和键盘替代。不�
 
 保留业务、API、权限、国际化和未提交改动。本任务不要运行任何测试、lint、typecheck 或 build；优先静态审查源码、路由、截图、真实文案和状态矩阵，必要时做最小页面检查，并明确写出“本轮未运行任何测试”。
 
-请从以下完整路径做最终品牌审查：登录 -> 学生 Dashboard -> 诊断准备 -> 诊断运行时 -> 结果/训练；教师工作区 -> 测评发布；管理员工作区 -> 配置或导入。检查是否形成同一品牌、不同角色气质：学生有生命力，教师有判断效率，管理员有系统可信度。
+请先读取 `docs/ui-quality/README.md`、`01-global-visual-evidence-audit.md`、`02-brand-direction-decision.md`、`03-react-bits-adoption-matrix.md` 和 `handoff.md`，再从以下完整路径做最终品牌审查：登录 -> 学生 Dashboard -> 诊断准备 -> 诊断运行时 -> 结果/训练；教师工作区 -> 测评发布；管理员工作区 -> 配置或导入。检查是否形成同一品牌、不同角色气质：学生有生命力，教师有判断效率，管理员有系统可信度。
 
 重点清理：残留 AI 紫色、过度玻璃、卡片套卡片、无意义发光、全局慢过渡、重复动画、默认 React Bits 色值、游标依赖、不可解释图表和没有静态降级的 WebGL。保留真正有语义价值的品牌锚点：语言焦点、迁移地图、路径、扫描和进展。
 
-只修复低风险且证据明确的不一致；对于信息架构或业务含义变化，列出问题和选项，不要擅自扩大范围。
+只修复低风险且证据明确的不一致；对于信息架构或业务含义变化，列出问题和选项，不要擅自扩大范围。将最终状态、已关闭问题、遗留风险和下一步维护建议写入 `docs/ui-quality/README.md` 和 `handoff.md`，把重要变化追加到 `decision-log.md`。如果某个 React Bits 组件最终被撤回，必须同步更新 `03-react-bits-adoption-matrix.md`，避免新窗口再次引入。
 ```
 
 ---
