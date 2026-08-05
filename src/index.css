@@ -589,6 +589,8 @@
     .spotlight-card::before { opacity: 0 !important; }
     .magnetic-wrap { transform: none !important; }
     :where(button, a, [role="button"]):hover { transform: none !important; }
+
+    svg[aria-hidden="true"] animate { display: none !important; }
   }
 
   .native-select {
@@ -646,6 +648,14 @@
     overflow-x: auto;
     scrollbar-width: thin;
   }
+
+  /* Allow explicitly scrollable panels (drawers and long forms) to override
+     the default clipping used by ordinary cards. */
+  .surface-panel.overflow-y-auto,
+  .liquid-glass-panel.overflow-y-auto {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
   .page-tabs {
     border-bottom: 1px solid hsl(var(--border-subtle));
   }
@@ -700,11 +710,41 @@
 
   /* Keep the drawer clear of gesture/navigation areas on notched devices. */
   .safe-area-drawer {
+    top: max(0.75rem, env(safe-area-inset-top));
     bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-top {
+    padding-top: max(0.625rem, env(safe-area-inset-top));
+  }
+
+  .safe-area-dialog {
+    margin-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-drawer-panel {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
   .safe-area-bottom {
     padding-bottom: max(1.5rem, calc(1.5rem + env(safe-area-inset-bottom)));
+  }
+
+  /* Horizontal data regions stay usable on touch and keyboard, while the
+     table itself is allowed to preserve readable column widths. */
+  .scroll-region {
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .scroll-region:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background-solid)), 0 0 0 4px hsl(var(--focus) / 0.55);
+  }
+
+  .overflow-x-auto:has(> table) {
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
   }
 
   .dark .sidebar-shell {

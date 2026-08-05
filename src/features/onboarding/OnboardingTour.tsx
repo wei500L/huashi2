@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useDialogAccessibility } from '@/lib/a11y';
 import { cn } from '@/lib/utils';
+import { useReducedMotion } from 'framer-motion';
 
 export type OnboardingPlacement = 'top' | 'right' | 'bottom' | 'left' | 'center';
 
@@ -122,6 +123,7 @@ function resolvePopoverStyle(
 
 export const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, steps, onComplete, className }) => {
   const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
   const [stepIndex, setStepIndex] = React.useState(0);
   const [spotlightRect, setSpotlightRect] = React.useState<SpotlightRect | null>(null);
   const [panelStyle, setPanelStyle] = React.useState<React.CSSProperties>({});
@@ -167,10 +169,10 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, steps, onC
     }
 
     const frame = window.requestAnimationFrame(() => {
-      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeStep, open]);
+  }, [activeStep, open, reducedMotion]);
 
   React.useLayoutEffect(() => {
     refreshLayout();
@@ -243,7 +245,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, steps, onC
         aria-modal="true"
         aria-labelledby={`onboarding-tour-title-${activeStep.id}`}
         className={cn(
-          'fixed w-[min(22rem,calc(100vw-2rem))] rounded-[2rem] border border-white/15 bg-slate-950/96 p-6 text-white shadow-[0_30px_80px_rgba(2,6,23,0.5)] backdrop-blur',
+          'safe-area-dialog fixed max-h-[calc(100dvh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-[2rem] border border-white/15 bg-slate-950/96 p-4 text-white shadow-[0_30px_80px_rgba(2,6,23,0.5)] backdrop-blur sm:p-6',
           className
         )}
         style={panelStyle}

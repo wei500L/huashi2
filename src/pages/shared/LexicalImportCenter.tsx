@@ -1094,7 +1094,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                     />
                   </div>
 
-                  <div className="overflow-x-auto rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="scroll-region overflow-x-auto rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]" tabIndex={0} role="region" aria-label="Import rows" onKeyDown={(event) => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? 160 : -160, behavior: 'auto' }); } }}>
                     <table className="data-table-compact w-full min-w-[760px] text-left text-sm" aria-label="Import rows">
                       <caption className="sr-only">Import rows with validation status and edit actions</caption>
                       <thead className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">

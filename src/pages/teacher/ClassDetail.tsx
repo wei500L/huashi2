@@ -380,7 +380,7 @@ const TeacherClassDetailPage: React.FC = () => {
           <StatusBadge tone={highRiskStudents.length ? 'danger' : 'success'} label={`高风险 ${highRiskStudents.length} 人`} />
         </div>
         {highRiskStudents.length ? (
-          <div className="mt-3 overflow-x-auto">
+          <div className="scroll-region mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="High risk students" onKeyDown={(event) => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? 160 : -160, behavior: 'auto' }); } }}>
             <table className="w-full min-w-[660px] text-left text-sm">
               <thead className="text-[11px] font-bold text-slate-500 dark:text-white/40">
                 <tr><th className="py-2 pr-4">学生</th><th className="px-4 py-2">风险等级</th><th className="px-4 py-2 text-right">负迁移风险</th><th className="px-4 py-2 text-right">近期正确率</th><th className="py-2 pl-4 text-right">操作</th></tr>
@@ -461,7 +461,7 @@ const TeacherClassDetailPage: React.FC = () => {
           </div>
 
           {visibleRosterStudents.length ? (
-            <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200/70 dark:border-white/10">
+            <div className="scroll-region mt-3 overflow-x-auto rounded-xl border border-slate-200/70 dark:border-white/10" tabIndex={0} role="region" aria-label="Class roster" onKeyDown={(event) => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? 160 : -160, behavior: 'auto' }); } }}>
               <table className="w-full min-w-[860px] text-left text-sm">
                 <thead className="bg-slate-50/80 text-[11px] font-bold text-slate-500 dark:bg-white/[0.025] dark:text-white/40">
                   <tr><th className="px-3 py-2.5">学生</th><th className="px-3 py-2.5">档案</th><th className="px-3 py-2.5">风险</th><th className="px-3 py-2.5 text-right">正确率</th><th className="px-3 py-2.5 text-right">反应时</th><th className="px-3 py-2.5 text-right">操作</th></tr>

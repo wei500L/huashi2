@@ -59,10 +59,15 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     }
 
     const rect = triggerElement.getBoundingClientRect();
+    const viewportPadding = 8;
+    const preferredMaxHeight = Math.min(288, Math.max(120, window.innerHeight - rect.bottom - viewportPadding));
+    const shouldOpenAbove = rect.bottom + preferredMaxHeight > window.innerHeight - viewportPadding && rect.top > preferredMaxHeight;
+    const maxHeight = Math.min(288, Math.max(120, shouldOpenAbove ? rect.top - viewportPadding * 2 : window.innerHeight - rect.bottom - viewportPadding));
     setMenuStyle({
-      left: rect.left,
-      top: rect.bottom + 8,
+      left: Math.min(Math.max(viewportPadding, rect.left), Math.max(viewportPadding, window.innerWidth - rect.width - viewportPadding)),
+      top: shouldOpenAbove ? Math.max(viewportPadding, rect.top - maxHeight - 8) : rect.bottom + 8,
       width: rect.width,
+      maxHeight,
     });
   }, []);
 
@@ -225,11 +230,11 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           {selectedOption?.label ?? placeholder}
         </span>
         {loading ? (
-          <LoaderCircle size={18} className="ml-3 shrink-0 animate-pulse text-text-muted" aria-hidden="true" />
+          <LoaderCircle size={18} className="ml-3 shrink-0 animate-pulse text-muted" aria-hidden="true" />
         ) : (
           <ChevronDown
             size={18}
-            className={cn('ml-3 shrink-0 text-text-muted transition-transform duration-200 ease-out', isOpen && 'rotate-180')}
+            className={cn('ml-3 shrink-0 text-muted transition-transform duration-200 ease-out', isOpen && 'rotate-180')}
           />
         )}
       </button>
@@ -264,7 +269,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                   'flex w-full items-center justify-between gap-3 rounded-[1rem] px-4 py-2.5 text-left text-sm font-semibold transition-colors duration-150 ease-out',
                   isSelected
                     ? 'bg-surface-sunken text-foreground'
-                    : 'text-text-muted hover:bg-surface-raised hover:text-foreground',
+                    : 'text-muted hover:bg-surface-raised hover:text-foreground',
                 )}
               >
                 <span>{option.label}</span>

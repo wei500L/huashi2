@@ -334,14 +334,17 @@ interface PageHeaderProps {
   compact?: boolean;
 }
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle, breadcrumbs, actions, compact = false }) => (
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle, breadcrumbs, actions, compact = false }) => {
+  const reducedMotion = useReducedMotion();
+
+  return (
   <div className={cn('flex flex-col justify-between md:flex-row md:items-center', compact ? 'mb-6 gap-4' : 'mb-10 gap-6')}>
-    <motion.div className="min-w-0" initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.42, ease: 'easeOut' }}>
+    <motion.div className="min-w-0" initial={reducedMotion ? false : { x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={reducedMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }}>
       {breadcrumbs && (
         <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-3">
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={i}>
-              <span className="hover:text-primary transition-colors cursor-pointer">{b}</span>
+              <span className="text-slate-400 dark:text-white/30">{b}</span>
               {i < breadcrumbs.length - 1 && <span className="text-slate-200 dark:text-white/10">/</span>}
             </React.Fragment>
           ))}
@@ -352,12 +355,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
       {subtitle && <p className="type-body-muted mt-3 max-w-xl">{subtitle}</p>}
     </motion.div>
     {actions && (
-      <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.42, ease: 'easeOut' }} className="flex items-center gap-4">
+      <motion.div initial={reducedMotion ? false : { x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={reducedMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }} className="flex flex-wrap items-center gap-3">
         {actions}
       </motion.div>
     )}
   </div>
-);
+  );
+};
 
 export { FeedbackState } from './FeedbackState';
 export type { FeedbackStateAction, FeedbackStateProps } from './FeedbackState';

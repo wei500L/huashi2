@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { EChart } from '@/components/common/EChart';
 import { FeedbackState, type FeedbackStateProps } from '@/components/common/FeedbackState';
@@ -39,6 +39,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
   emptyState,
 }) => {
   const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
   const emptyTitle = emptyState?.title ?? t('ui.chart.emptyTitle', { title });
   const emptyDescription = emptyState?.description ?? t('ui.chart.emptyDescription');
   const emptyImpact = emptyState?.impact;
@@ -62,20 +63,20 @@ export const ChartCard: React.FC<ChartCardProps> = ({
         className
       )}
     >
-      {!embedded && <div className="px-6 py-4 border-b border-border-subtle flex items-start justify-between gap-4 bg-surface-sunken relative z-10">
-        <div className="flex items-center gap-3">
+      {!embedded && <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle bg-surface-sunken px-4 py-4 relative z-10 sm:px-6">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
           <div>
             <h3 className="type-section-title text-slate-800 dark:text-white/85">{title}</h3>
             {description ? <p className="type-body-muted mt-1 max-w-2xl">{description}</p> : null}
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
           {extra}
         </div>
       </div>}
       
-      <div className={cn('relative z-10', embedded ? 'p-0' : 'p-8')} style={containerStyle}>
+      <div className={cn('relative z-10', embedded ? 'p-0' : 'p-4 sm:p-8')} style={containerStyle}>
         {anomalyNote && !loading && !errorState && !isEmpty ? (
           <div className="anomaly-note mb-4" role="note">
             <span aria-hidden="true">!</span>
@@ -124,9 +125,9 @@ export const ChartCard: React.FC<ChartCardProps> = ({
           />
         ) : (
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.42, ease: 'easeOut' }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }}
             style={{ height: '100%', width: '100%' }}
           >
             <EChart option={option} ariaLabel={description ? `${title}. ${description}` : title} style={{ height: '100%', width: '100%' }} />

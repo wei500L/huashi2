@@ -1044,7 +1044,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
           <summary className="cursor-pointer list-none text-sm font-bold text-slate-900 dark:text-white">
             查看模板字段说明
           </summary>
-          <div className="mt-5 overflow-x-auto">
+          <div className="scroll-region mt-5 overflow-x-auto" tabIndex={0} role="region" aria-label="Template field explanation" onKeyDown={(event) => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? 160 : -160, behavior: 'auto' }); } }}>
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 <tr>

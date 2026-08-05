@@ -12,6 +12,7 @@ import { buildNotificationWebSocketUrl } from '@/lib/notifications';
 import { notificationService } from '@/lib/services';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useUIStore } from '@/store';
+import { useDialogAccessibility } from '@/lib/a11y';
 
 const RECENT_PAGE_SIZE = 8;
 
@@ -69,6 +70,7 @@ export const NotificationBell: React.FC = () => {
   const queryClient = useQueryClient();
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const panelTitleId = React.useId();
   const session = useAuthStore((state) => state.session);
   const authStatus = useAuthStore((state) => state.status);
   const locale = useUIStore((state) => state.locale);
@@ -76,6 +78,16 @@ export const NotificationBell: React.FC = () => {
   const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const isAuthenticated = authStatus === 'authenticated' && Boolean(session?.accessToken);
+  const closeNotifications = React.useCallback(() => {
+    setIsOpen(false);
+    buttonRef.current?.focus();
+  }, []);
+
+  useDialogAccessibility({
+    open: isOpen && Boolean(panelStyle),
+    containerRef: panelRef,
+    onClose: closeNotifications,
+  });
 
   const unreadCountQuery = useQuery({
     queryKey: ['notifications', 'count'],
@@ -276,19 +288,21 @@ export const NotificationBell: React.FC = () => {
         ref={panelRef}
         id="notifications-panel"
         role="dialog"
-        aria-label={t('shell.notifications.title')}
+        aria-labelledby={panelTitleId}
         tabIndex={-1}
         style={{
           position: 'fixed',
           top: panelStyle.top,
           left: panelStyle.left,
           width: panelStyle.width,
+          maxHeight: `calc(100dvh - ${panelStyle.top}px - max(0.5rem, env(safe-area-inset-bottom)))`,
+          overflowY: 'auto',
         }}
-        className="z-[140] rounded-xl border border-border-subtle bg-surface p-4 shadow-lg"
+        className="z-[140] rounded-xl border border-border-subtle bg-surface p-3 shadow-lg sm:p-4"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-black text-slate-900 dark:text-white">{t('shell.notifications.title')}</div>
+            <div id={panelTitleId} className="text-sm font-black text-slate-900 dark:text-white">{t('shell.notifications.title')}</div>
             <div aria-live="polite" className="mt-1 text-xs text-slate-400 dark:text-white/40">
               {t('shell.notifications.unreadCount', { count: unreadCount })}
             </div>

@@ -28,7 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { RouteErrorBoundary } from '@/components/common/AppErrorBoundary';
 import { FeedbackState } from '@/components/common/FeedbackState';
@@ -405,6 +405,7 @@ export const Sidebar: React.FC = () => {
 const MobileSidebarDrawer: React.FC = () => {
   const { t } = useTranslation();
   const { isMobileSidebarOpen, closeMobileSidebar } = useUIStore();
+  const reducedMotion = useReducedMotion();
   const drawerRef = React.useRef<HTMLElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -436,7 +437,7 @@ const MobileSidebarDrawer: React.FC = () => {
         <>
           <motion.div
             aria-hidden="true"
-            initial={{ opacity: 0 }}
+            initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeMobileSidebar}
@@ -448,11 +449,11 @@ const MobileSidebarDrawer: React.FC = () => {
             aria-modal="true"
             aria-labelledby="mobile-sidebar-title"
             tabIndex={-1}
-            initial={{ x: '-100%' }}
+            initial={reducedMotion ? false : { x: '-100%' }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
+            exit={reducedMotion ? undefined : { x: '-100%' }}
             /* A short, deterministic reveal keeps navigation responsive. */
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             className="sidebar-shell safe-area-drawer fixed left-3 top-3 z-[80] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col surface-panel rounded-xl lg:hidden"
           >
             <h2 id="mobile-sidebar-title" className="sr-only">{t('shell.mobileNavigationTitle')}</h2>
@@ -648,6 +649,7 @@ const ConversationMessageCard: React.FC<ConversationMessageCardProps> = ({ local
 
 const AssistantDrawer: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const reducedMotion = useReducedMotion();
   const location = useLocation();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -783,7 +785,7 @@ const AssistantDrawer: React.FC = () => {
         <>
           <motion.div
             aria-hidden="true"
-            initial={{ opacity: 0 }}
+            initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeAssistant}
@@ -795,11 +797,11 @@ const AssistantDrawer: React.FC = () => {
             aria-modal="true"
             aria-labelledby="assistant-drawer-title"
             tabIndex={-1}
-            initial={{ x: '100%' }}
+            initial={reducedMotion ? false : { x: '100%' }}
             animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="fixed top-0 right-0 h-screen w-full max-w-6xl surface-panel z-[80] border-l border-[hsl(var(--ai)/0.28)] p-4 md:p-6 overflow-y-auto"
+            exit={reducedMotion ? undefined : { x: '100%' }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 28 }}
+            className="safe-area-drawer-panel fixed right-0 top-0 z-[80] h-[100dvh] max-h-[100dvh] w-full max-w-6xl overflow-y-auto border-l border-[hsl(var(--ai)/0.28)] surface-panel p-4 md:p-6"
           >
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -1013,7 +1015,7 @@ export const Topbar: React.FC = () => {
   const isWorkspaceHome = location.pathname === workspaceHomePath;
 
   return (
-    <header className="sticky top-0 z-40 overflow-x-clip border-b border-border-subtle bg-surface/95 px-3 py-2.5 sm:px-4 sm:py-3 lg:px-8">
+    <header className="safe-area-top sticky top-0 z-40 overflow-x-clip border-b border-border-subtle bg-surface/95 px-3 pb-2.5 sm:px-4 sm:pb-3 lg:px-8">
       <div className="mx-auto flex min-h-14 w-full max-w-[1480px] items-center justify-between gap-2 sm:gap-4">
         <div className="relative z-10 flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <button

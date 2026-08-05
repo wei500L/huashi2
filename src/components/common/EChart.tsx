@@ -25,6 +25,7 @@ export const EChart: React.FC<EChartProps> = ({
   const { isDarkMode } = useUIStore();
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<ReturnType<typeof echarts.init> | null>(null);
+  const [renderError, setRenderError] = React.useState(false);
   const optionRef = React.useRef(option);
   const notMergeRef = React.useRef(notMerge);
   const lazyUpdateRef = React.useRef(lazyUpdate);
@@ -42,20 +43,33 @@ export const EChart: React.FC<EChartProps> = ({
       return;
     }
 
-    const chart = echarts.init(element, resolvedTheme);
+    let chart: ReturnType<typeof echarts.init>;
+    try {
+      // CanvasRenderer is deliberately registered in lib/echarts so charts do
+      // not depend on WebGL. Keep a readable fallback for restricted browsers
+      // or environments where canvas itself is unavailable.
+      chart = echarts.init(element, resolvedTheme);
+      setRenderError(false);
+    } catch {
+      chartRef.current = null;
+      setRenderError(true);
+      return;
+    }
     chartRef.current = chart;
     chart.setOption(optionRef.current, {
       notMerge: notMergeRef.current,
       lazyUpdate: lazyUpdateRef.current,
     });
 
-    const resizeObserver = new ResizeObserver(() => {
-      chart.resize();
-    });
-    resizeObserver.observe(element);
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+          chart.resize();
+        })
+      : null;
+    resizeObserver?.observe(element);
 
     return () => {
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
       chart.dispose();
       chartRef.current = null;
     };
@@ -69,9 +83,15 @@ export const EChart: React.FC<EChartProps> = ({
     <div
       ref={containerRef}
       role="img"
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? 'Chart'}
       className={cn('h-full w-full', className)}
       style={style}
-    />
+    >
+      {renderError ? (
+        <div className="flex h-full min-h-24 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface-sunken px-4 text-center text-sm text-muted">
+          {ariaLabel ?? 'Chart unavailable'}
+        </div>
+      ) : null}
+    </div>
   );
 };

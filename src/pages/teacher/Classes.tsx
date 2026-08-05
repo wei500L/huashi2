@@ -164,7 +164,7 @@ const TeacherClassesPage: React.FC = () => {
         ) : null}
 
         {!classesQuery.isLoading && visibleClasses.length && view === 'list' ? (
-          <div className="overflow-x-auto border-t border-slate-200/70 dark:border-white/10">
+          <div className="scroll-region overflow-x-auto border-t border-slate-200/70 dark:border-white/10" tabIndex={0} role="region" aria-label={t('teacherWorkspace.classesPage.className')} onKeyDown={(event) => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? 160 : -160, behavior: 'auto' }); } }}>
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-slate-50/80 text-[11px] font-bold text-slate-500 dark:bg-white/[0.025] dark:text-white/40">
                 <tr>

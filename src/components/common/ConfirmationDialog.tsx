@@ -57,14 +57,14 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   return (
     <>
       <div aria-hidden="true" onClick={handleClose} className="fixed inset-0 z-[60] bg-slate-950/45 backdrop-blur-sm" />
-      <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto px-4 py-8">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto px-4 py-6 sm:py-8">
         <div
           ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
           tabIndex={-1}
-          className="w-full max-w-3xl rounded-xl border border-border-subtle bg-surface p-5 shadow-[0_30px_80px_rgba(15,23,42,0.28)]"
+          className="safe-area-dialog max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-xl border border-border-subtle bg-surface p-4 shadow-[0_30px_80px_rgba(15,23,42,0.28)] sm:p-5"
         >
           <span id={titleId} className="sr-only">{pending ? (pendingTitle ?? title) : title}</span>
           <FeedbackState

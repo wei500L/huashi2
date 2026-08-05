@@ -47,8 +47,19 @@ export function DataTable<T>({ rows, columns, getRowId, caption, empty, density 
   };
 
   return (
-    <div className={cn('overflow-x-auto rounded-lg border border-border-subtle', className)}>
-      <table className={cn('w-full text-left', density === 'compact' ? 'data-table-compact' : 'data-table-comfortable')}>
+    <div
+      className={cn('scroll-region overflow-x-auto rounded-lg border border-border-subtle', className)}
+      tabIndex={0}
+      role={caption ? 'region' : undefined}
+      aria-label={caption}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? 160 : -160, behavior: 'auto' });
+        }
+      }}
+    >
+      <table className={cn('min-w-full text-left', density === 'compact' ? 'data-table-compact' : 'data-table-comfortable')}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
           <tr>
