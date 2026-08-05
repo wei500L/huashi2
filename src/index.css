@@ -944,6 +944,155 @@
 }
 
 @layer components {
+  /* Research entry: an editorial surface for the language-migration story. */
+  .research-entry,
+  .research-result,
+  .research-assessment {
+    min-height: 100svh;
+    background: hsl(var(--background-solid));
+    color: hsl(var(--text));
+    font-family: var(--font-sans);
+  }
+
+  .research-entry {
+    overflow: hidden;
+    padding: 1.4rem clamp(1.2rem, 4vw, 4.5rem) 2rem;
+    background: linear-gradient(145deg, hsl(var(--background-solid)), hsl(var(--surface-sunken) / 0.52));
+  }
+  .research-nav,
+  .research-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: hsl(var(--text-subtle));
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .research-nav { max-width: 1240px; margin: 0 auto; align-items: center; }
+  .research-wordmark { display: inline-flex; align-items: center; gap: 0.6rem; }
+  .research-wordmark-mark { display: inline-grid; width: 1.9rem; height: 1.9rem; place-items: center; border-radius: 0.35rem; background: hsl(var(--action)); color: hsl(var(--action-foreground)); letter-spacing: -0.08em; }
+  .research-nav-meta { display: inline-flex; align-items: center; gap: 0.65rem; }
+  .research-nav-dot { width: 0.3rem; height: 0.3rem; border-radius: 50%; background: hsl(var(--teacher)); }
+  .research-hero { position: relative; display: grid; max-width: 1240px; margin: 0 auto; grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.75fr); gap: clamp(2rem, 8vw, 8rem); align-items: center; min-height: min(690px, 72svh); padding: clamp(4.5rem, 10vh, 8rem) 0 clamp(3rem, 8vh, 6rem); }
+  .research-kicker, .research-section-index { color: hsl(var(--action)); font-family: var(--font-mono); font-size: 0.64rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
+  .research-kicker { display: flex; align-items: center; gap: 0.65rem; }
+  .research-kicker-line { width: 2.5rem; height: 1px; background: hsl(var(--action)); }
+  .research-language-loop { display: flex; align-items: center; gap: 0.75rem; margin-top: 3rem; color: hsl(var(--text-muted)); font-family: var(--font-mono); font-size: 0.8rem; }
+  .research-language-loop span:first-child { color: hsl(var(--text)); }
+  .research-loop-arrow { color: hsl(var(--teacher)); }
+  .research-heading { display: flex; flex-direction: column; margin: 1.2rem 0 0; font-family: var(--font-display); font-size: clamp(3.8rem, 9vw, 8.3rem); font-weight: 730; letter-spacing: -0.085em; line-height: 0.88; }
+  .research-heading span:last-child { color: hsl(var(--action)); font-style: italic; font-weight: 560; }
+  .research-lede { max-width: 34rem; margin-top: 2rem; color: hsl(var(--text-muted)); font-size: clamp(0.98rem, 1.6vw, 1.13rem); line-height: 1.8; }
+  .research-hero-notes { display: flex; flex-wrap: wrap; gap: 1rem 1.4rem; margin-top: 3.5rem; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em; }
+  .research-hero-visual { position: relative; min-height: 28rem; border: 1px solid hsl(var(--border-strong) / 0.54); background: hsl(var(--surface) / 0.45); overflow: hidden; }
+  .research-thread-map { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.86; }
+  .research-thread-map path { fill: none; stroke: hsl(var(--action) / 0.42); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+  .research-thread-map path:nth-child(2) { stroke: hsl(var(--teacher) / 0.46); }
+  .research-thread-map path:nth-child(3) { stroke: hsl(var(--accent) / 0.3); }
+  .research-thread-map circle { fill: hsl(var(--background-solid)); stroke: hsl(var(--action)); stroke-width: 1.4; }
+  .research-visual-caption { position: absolute; right: 1.1rem; bottom: 1rem; left: 1.1rem; display: flex; justify-content: space-between; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.59rem; letter-spacing: 0.04em; }
+  .research-halftone { position: absolute; right: -5rem; bottom: -7rem; width: 17rem; height: 17rem; opacity: 0.26; background-image: radial-gradient(hsl(var(--teacher)) 1px, transparent 1px); background-size: 7px 7px; border-radius: 50%; }
+  .research-entry-grid { display: grid; max-width: 1240px; margin: 0 auto; grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr); gap: 1px; border-top: 1px solid hsl(var(--border-strong) / 0.6); border-bottom: 1px solid hsl(var(--border-strong) / 0.6); }
+  .research-material-panel { padding: clamp(2.2rem, 5vw, 4.2rem) clamp(0rem, 4vw, 4rem) clamp(2.2rem, 5vw, 4.2rem) 0; }
+  .research-material-panel h2, .research-method h2 { margin-top: 1.3rem; font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3.8rem); font-weight: 650; letter-spacing: -0.06em; line-height: 1.02; }
+  .research-material-panel h2 em, .research-method h2 em, .research-result h1 em { color: hsl(var(--action)); font-style: normal; }
+  .research-material-panel > p { max-width: 35rem; margin-top: 1.5rem; color: hsl(var(--text-muted)); line-height: 1.8; }
+  .research-facts { display: flex; flex-wrap: wrap; gap: 2.4rem; margin-top: 3.2rem; }
+  .research-facts div { display: flex; flex-direction: column; gap: 0.3rem; }
+  .research-facts strong { font-family: var(--font-display); font-size: 1.65rem; letter-spacing: -0.04em; }
+  .research-facts span { color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.05em; text-transform: uppercase; }
+  .research-material-source { margin-top: 2.2rem; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; }
+  .research-access-card { margin: 2rem 0; padding: clamp(1.4rem, 3vw, 2.3rem); border: 1px solid hsl(var(--border-strong) / 0.72); background: hsl(var(--surface) / 0.8); box-shadow: var(--shadow-sm); }
+  .research-card-topline { display: flex; justify-content: space-between; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.61rem; font-weight: 750; letter-spacing: 0.1em; }
+  .research-access-card h2 { margin-top: 2.5rem; font-family: var(--font-display); font-size: 1.7rem; letter-spacing: -0.04em; line-height: 1.15; }
+  .research-access-card > p { margin-top: 0.8rem; color: hsl(var(--text-muted)); font-size: 0.84rem; line-height: 1.65; }
+  .research-code-form { display: grid; gap: 0.65rem; margin-top: 2rem; }
+  .research-code-form label { color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.59rem; font-weight: 750; letter-spacing: 0.1em; }
+  .research-code-form input, .research-text-input { min-height: 3.05rem; width: 100%; border: 1px solid hsl(var(--border-strong) / 0.82); border-radius: 0.45rem; background: hsl(var(--surface-sunken) / 0.55); color: hsl(var(--text)); outline: none; padding: 0.8rem 0.9rem; font-family: var(--font-mono); letter-spacing: 0.12em; }
+  .research-code-form input:focus-visible, .research-text-input:focus-visible, .research-justification textarea:focus-visible { border-color: hsl(var(--focus)); box-shadow: 0 0 0 3px hsl(var(--focus) / 0.16); }
+  .research-form-error { color: hsl(var(--error)); font-size: 0.77rem; line-height: 1.5; }
+  .research-primary-button { display: inline-flex; min-height: 3rem; align-items: center; justify-content: center; gap: 0.7rem; border: 1px solid hsl(var(--action)); border-radius: 0.45rem; background: hsl(var(--action)); color: hsl(var(--action-foreground)); cursor: pointer; font-size: 0.78rem; font-weight: 750; padding: 0.75rem 1rem; transition: transform var(--motion-feedback-duration) var(--motion-ease-standard), background var(--motion-feedback-duration) var(--motion-ease-standard); }
+  .research-primary-button:hover:not(:disabled) { background: hsl(var(--action) / 0.88); transform: translateY(-1px); }
+  .research-primary-button:disabled { cursor: wait; opacity: 0.5; }
+  .research-access-foot { display: flex; align-items: center; gap: 0.45rem; margin-top: 1.2rem; color: hsl(var(--text-subtle)); font-size: 0.7rem; }
+  .research-method { display: grid; max-width: 1240px; margin: 0 auto; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(2rem, 8vw, 8rem); padding: clamp(3.5rem, 8vw, 7rem) 0; }
+  .research-method-list { display: grid; gap: 1.4rem; }
+  .research-method-list article { display: grid; grid-template-columns: 2.2rem 1fr; gap: 1rem; padding-bottom: 1.4rem; border-bottom: 1px solid hsl(var(--border-subtle)); }
+  .research-method-list article > span { color: hsl(var(--teacher)); font-family: var(--font-mono); font-size: 0.68rem; }
+  .research-method-list h3 { font-family: var(--font-display); font-size: 1rem; letter-spacing: -0.02em; }
+  .research-method-list p { margin-top: 0.45rem; color: hsl(var(--text-muted)); font-size: 0.82rem; line-height: 1.7; }
+  .research-footer { max-width: 1240px; margin: 0 auto; padding-top: 1rem; }
+
+  .research-loading { display: grid; min-height: 100svh; place-items: center; background: hsl(var(--background-solid)); color: hsl(var(--text-muted)); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; }
+  .research-assessment { padding: 1.2rem clamp(1rem, 4vw, 4rem) 4rem; background: hsl(var(--surface-sunken) / 0.6); }
+  .research-assessment-inner { max-width: 920px; margin: 0 auto; }
+  .research-assessment-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 0 1.1rem; }
+  .research-progress-copy, .research-save-status { margin-top: 0.55rem; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.63rem; }
+  .research-save-status { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0; }
+  .research-progress { height: 3px; background: hsl(var(--border-strong) / 0.4); }
+  .research-progress span { display: block; height: 100%; background: hsl(var(--action)); transition: width 220ms var(--motion-ease-standard); }
+  .research-question-card { margin-top: 2.2rem; padding: clamp(1.4rem, 5vw, 3.5rem); border: 1px solid hsl(var(--border-strong) / 0.62); background: hsl(var(--surface)); box-shadow: var(--shadow-md); }
+  .research-question-number { margin-top: 2rem; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.63rem; letter-spacing: 0.1em; }
+  .research-question-card h1 { margin-top: 0.8rem; font-family: var(--font-display); font-size: clamp(1.45rem, 3vw, 2.2rem); font-weight: 650; letter-spacing: -0.04em; line-height: 1.25; white-space: pre-wrap; }
+  .research-question-prompt { margin-top: 0.8rem; color: hsl(var(--text-muted)); line-height: 1.7; white-space: pre-wrap; }
+  .research-shared-material { margin-top: 1.5rem; padding: 1.1rem 1.2rem; border-left: 2px solid hsl(var(--teacher)); background: hsl(var(--surface-sunken) / 0.72); color: hsl(var(--text-muted)); line-height: 1.75; white-space: pre-wrap; }
+  .research-options { display: grid; gap: 0.7rem; margin-top: 2rem; }
+  .research-option { display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; border: 1px solid hsl(var(--border-strong) / 0.72); border-radius: 0.4rem; cursor: pointer; line-height: 1.55; transition: border-color var(--motion-feedback-duration) ease, background var(--motion-feedback-duration) ease; }
+  .research-option:hover, .research-option.is-selected { border-color: hsl(var(--action) / 0.72); background: hsl(var(--action) / 0.06); }
+  .research-option input { margin-top: 0.22rem; accent-color: hsl(var(--action)); }
+  .research-instruction { margin-top: 2rem; color: hsl(var(--text-muted)); line-height: 1.9; white-space: pre-wrap; }
+  .research-justification { display: block; margin-top: 0.5rem; color: hsl(var(--text-muted)); font-size: 0.8rem; font-weight: 650; }
+  .research-justification textarea { display: block; width: 100%; margin-top: 0.5rem; border: 1px solid hsl(var(--border-strong) / 0.72); border-radius: 0.4rem; background: hsl(var(--surface-sunken) / 0.55); color: hsl(var(--text)); outline: none; padding: 0.8rem; font: inherit; font-weight: 400; }
+  .research-question-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid hsl(var(--border-subtle)); }
+  .research-quiet-button { display: inline-flex; align-items: center; gap: 0.35rem; border: 0; background: transparent; color: hsl(var(--text-muted)); cursor: pointer; font-size: 0.78rem; font-weight: 700; padding: 0.6rem 0; }
+  .research-quiet-button:disabled { cursor: default; opacity: 0.35; }
+
+  .research-result { padding: 5rem 1.2rem; background: linear-gradient(145deg, hsl(var(--background-solid)), hsl(var(--surface-sunken) / 0.62)); }
+  .research-result-inner { max-width: 760px; margin: 0 auto; }
+  .research-result-mark { display: inline-grid; width: 3.3rem; height: 3.3rem; place-items: center; border: 1px solid hsl(var(--action) / 0.35); border-radius: 50%; color: hsl(var(--action)); }
+  .research-result h1 { margin-top: 1.2rem; font-family: var(--font-display); font-size: clamp(3rem, 8vw, 6.5rem); letter-spacing: -0.08em; line-height: 0.9; }
+  .research-result-lede { max-width: 34rem; margin-top: 1.5rem; color: hsl(var(--text-muted)); line-height: 1.8; }
+  .research-score { display: flex; align-items: baseline; justify-content: space-between; margin-top: 3rem; padding: 1.4rem 0; border-top: 1px solid hsl(var(--border-strong) / 0.6); border-bottom: 1px solid hsl(var(--border-strong) / 0.6); }
+  .research-score span { color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; }
+  .research-score strong { color: hsl(var(--action)); font-family: var(--font-display); font-size: 3rem; letter-spacing: -0.06em; }
+  .research-score small { color: hsl(var(--text-muted)); font-size: 1rem; }
+  .research-quality { margin-top: 1.4rem; padding: 0.9rem 1rem; border: 1px solid hsl(var(--warning) / 0.32); background: hsl(var(--warning) / 0.08); color: hsl(var(--warning)); font-size: 0.78rem; }
+  .research-analysis { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid hsl(var(--border-strong) / 0.6); }
+  .research-analysis h2 { margin-top: 0.8rem; font-family: var(--font-display); font-size: 2rem; letter-spacing: -0.04em; }
+  .research-analysis p { max-width: 50rem; margin-top: 0.8rem; color: hsl(var(--text-muted)); line-height: 1.85; white-space: pre-wrap; }
+
+  @media (max-width: 860px) {
+    .research-hero, .research-entry-grid, .research-method { grid-template-columns: 1fr; }
+    .research-hero { min-height: auto; gap: 3rem; }
+    .research-hero-visual { min-height: 20rem; }
+    .research-material-panel { padding-right: 0; }
+    .research-access-card { margin: 0 0 2rem; }
+    .research-method { gap: 2.5rem; }
+  }
+  @media (max-width: 560px) {
+    .research-nav, .research-footer { align-items: flex-start; flex-direction: column; }
+    .research-nav-meta { display: none; }
+    .research-entry { padding-inline: 1rem; }
+    .research-language-loop { margin-top: 2.3rem; }
+    .research-heading { font-size: clamp(3.5rem, 18vw, 5.5rem); }
+    .research-hero-notes { margin-top: 2.3rem; }
+    .research-hero-visual { min-height: 16rem; }
+    .research-question-footer { align-items: stretch; flex-direction: column-reverse; }
+    .research-question-footer .research-primary-button { width: 100%; }
+    .research-score strong { font-size: 2.4rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .research-heading, .research-language-loop, .research-progress span, .research-primary-button, .research-option { animation: none; transition: none; }
+  }
+  .dark .research-entry { background: linear-gradient(145deg, hsl(var(--background-solid)), hsl(var(--surface-sunken) / 0.82)); }
+  .dark .research-hero-visual { background: hsl(var(--surface) / 0.24); }
+  .dark .research-access-card, .dark .research-question-card { background: hsl(var(--surface) / 0.96); }
+}
+
+@layer components {
   /* Auth entry: a calm brand threshold, not a promotional hero. */
   .auth-entry-shell {
     position: relative;
