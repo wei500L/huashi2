@@ -2,9 +2,11 @@ import React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Code2, Plus, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PageHeader, SectionEyebrow } from '@/components/common';
+import { PageHeader, SectionEyebrow, WorkflowStepper } from '@/components/common';
+import type { WorkflowStage } from '@/components/common';
 import { LexicalPairSuggestionInput } from '@/components/common/LexicalPairSuggestionInput';
-import { getApiErrorMessage } from '@/lib/api';
+import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import {
   buildDraftTemplateItemFromPair,
   CONTEXT_SUPPORT_LEVEL_VALUES,
@@ -130,6 +132,7 @@ const TemplateDraftEditorPage: React.FC = () => {
   const [advancedMode, setAdvancedMode] = React.useState(false);
   const [itemsJson, setItemsJson] = React.useState('[]');
   const insertedPairRef = React.useRef<number | null>(null);
+  const savedSchemaSignatureRef = React.useRef<string | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['teacher-diagnosis-template-draft', resolvedDraftId],
@@ -178,6 +181,7 @@ const TemplateDraftEditorPage: React.FC = () => {
       return;
     }
     const nextSchema = toRequestSchema(detailQuery.data.schema);
+    savedSchemaSignatureRef.current = JSON.stringify(nextSchema);
     setValidation(null);
     setSchema(nextSchema);
     setDraftVersion(detailQuery.data.version);
@@ -204,6 +208,7 @@ const TemplateDraftEditorPage: React.FC = () => {
       }),
     onSuccess: (draft) => {
       const nextSchema = toRequestSchema(draft.schema);
+      savedSchemaSignatureRef.current = JSON.stringify(nextSchema);
       setSchema(nextSchema);
       setDraftVersion(draft.version);
       setSelectedItemId((current) => current && nextSchema.items.some((item) => item.draftItemId === current) ? current : nextSchema.items[0]?.draftItemId || null);
@@ -400,9 +405,26 @@ const TemplateDraftEditorPage: React.FC = () => {
   };
 
   const isBusy = saveMutation.isPending || validateMutation.isPending || publishMutation.isPending;
+  const schemaSignature = schema ? JSON.stringify(schema) : null;
+  const isDraftDirty = Boolean(schemaSignature && savedSchemaSignatureRef.current && schemaSignature !== savedSchemaSignatureRef.current);
+  const isAdvancedJsonDirty = Boolean(advancedMode && schema && itemsJson !== serializeTemplateDraftItems(schema.items));
+  const hasUnsavedChanges = isDraftDirty || isAdvancedJsonDirty;
+  const confirmRouteLeave = React.useCallback(async () => true, []);
+
+  useLeaveProtection({
+    active: hasUnsavedChanges && !isBusy,
+    leaveConfirm: '当前模板还有未保存表单，或尚未应用的高级 JSON。确认离开并放弃这些改动吗？',
+    onRouteLeave: confirmRouteLeave,
+    blockSamePathNavigation: false,
+  });
 
   const handleSave = async () => {
     if (!schema) {
+      return;
+    }
+    if (isAdvancedJsonDirty) {
+      setFeedback(null);
+      setErrorMessage('高级 JSON 还有未应用改动。请先点击“从 JSON 应用”，再保存草稿。');
       return;
     }
     try {
@@ -428,6 +450,11 @@ const TemplateDraftEditorPage: React.FC = () => {
     if (!schema) {
       return;
     }
+    if (isAdvancedJsonDirty) {
+      setFeedback(null);
+      setErrorMessage('高级 JSON 还有未应用改动。请先应用到结构化草稿，再执行校验。');
+      return;
+    }
     try {
       await persistSchema(schema);
       const result = await validateMutation.mutateAsync();
@@ -443,6 +470,11 @@ const TemplateDraftEditorPage: React.FC = () => {
     if (!schema) {
       return;
     }
+    if (isAdvancedJsonDirty) {
+      setFeedback(null);
+      setErrorMessage('高级 JSON 还有未应用改动。请先应用并保存，再发布模板。');
+      return;
+    }
     try {
       await persistSchema(schema);
       const result = await validateMutation.mutateAsync();
@@ -455,6 +487,90 @@ const TemplateDraftEditorPage: React.FC = () => {
       return;
     }
   };
+
+  const accessDenied = [detailQuery.error, saveMutation.error, validateMutation.error, publishMutation.error]
+    .filter(Boolean)
+    .some((error) => {
+      const status = normalizeApiError(error).status;
+      return status === 401 || status === 403;
+    });
+  const validationIssueCount = (validation ? Object.keys(validation.fieldErrors).length : 0) + (validation?.itemErrors.length || 0);
+  const saveState = saveMutation.isPending
+    ? '保存队列正在提交当前版本'
+    : saveMutation.isError
+      ? '保存失败，服务器草稿未被覆盖'
+      : isAdvancedJsonDirty
+        ? '高级 JSON 仅保存在当前页面，尚未应用'
+        : isDraftDirty
+        ? '有未保存改动'
+        : `草稿 v${draftVersion || '--'} 已同步`;
+  const workflowStages: WorkflowStage[] = [
+    {
+      key: 'input', label: '输入',
+      status: currentStep < 3 || hasUnsavedChanges ? 'current' : 'complete',
+      statusLabel: hasUnsavedChanges ? '编辑中' : currentStep < 3 ? '配置中' : '已填写',
+      reason: isAdvancedJsonDirty ? '高级 JSON 尚未应用到结构化草稿' : isDraftDirty ? '当前表单或题项尚未进入保存队列' : schema?.items.length ? '无' : '尚未选择词对并生成题项',
+      fallback: '返回基本信息、题项配置或词对选择子步骤', saveState,
+      nextAction: isAdvancedJsonDirty ? '先从 JSON 应用，再保存草稿' : '完成目标、题项和词对配置',
+      onSelect: () => void handleStepChange(0), disabled: isBusy,
+    },
+    {
+      key: 'validation', label: '校验',
+      status: validateMutation.isPending ? 'current' : validation?.valid ? 'complete' : validation ? 'blocked' : 'pending',
+      statusLabel: validateMutation.isPending ? '校验中' : validation?.valid ? '已通过' : validation ? '未通过' : '尚未校验',
+      reason: validation?.valid ? '无' : validation ? `${validationIssueCount} 组阻塞项` : '服务器尚未校验当前草稿版本',
+      fallback: '校验前自动保存；失败时保留当前草稿并返回首个阻塞步骤', saveState,
+      nextAction: validation?.valid ? '进入预览' : '保存并执行校验',
+      onSelect: () => void handleValidate(), disabled: isBusy,
+    },
+    {
+      key: 'preview', label: '预览',
+      status: currentStep === 3 && validation?.valid ? 'current' : validation?.valid ? 'complete' : 'pending',
+      statusLabel: validation?.valid ? '可核对' : '等待校验',
+      reason: validation?.valid ? '无' : '存在未校验或阻塞内容',
+      fallback: '返回题项配置核对答案、计分和语境', saveState,
+      nextAction: '核对发布目标、覆盖摘要与题项',
+      onSelect: () => void handleStepChange(3), disabled: isBusy,
+    },
+    {
+      key: 'repair', label: '修复',
+      status: accessDenied || errorMessage ? 'warning' : validation && !validation.valid ? 'current' : 'complete',
+      statusLabel: accessDenied ? '权限拒绝' : errorMessage ? '操作失败' : validation && !validation.valid ? '待修复' : '无需修复',
+      reason: accessDenied ? '当前账号无权读取、保存、校验或发布此草稿' : errorMessage || (validation && !validation.valid ? `${validationIssueCount} 组阻塞项保持展开` : '无'),
+      fallback: accessDenied ? '返回模板列表并确认教师权限' : '返回首个阻塞步骤，服务端已保存版本不会丢失', saveState,
+      nextAction: accessDenied ? '停止重试并联系管理员' : validation && !validation.valid ? '修复后重新校验' : '继续发布',
+      onSelect: validation && !validation.valid ? () => void handleStepChange(firstBlockingStep(validation)) : undefined,
+      disabled: isBusy,
+    },
+    {
+      key: 'publish', label: '发布',
+      status: publishMutation.isPending ? 'current' : validation?.valid ? 'current' : 'pending',
+      statusLabel: publishMutation.isPending ? '发布中' : validation?.valid ? '可发布' : '未开放',
+      reason: validation?.valid ? '无' : '必须先保存并通过服务端校验',
+      fallback: '发布失败时回到预览；草稿与保存版本继续保留', saveState,
+      nextAction: validation?.valid ? '确认后发布模板' : '先完成校验与修复',
+      onSelect: () => void handleStepChange(3), disabled: isBusy,
+    },
+    {
+      key: 'complete', label: '完成', status: 'pending', statusLabel: '等待发布',
+      reason: '发布成功后将返回模板列表', fallback: '可从模板列表重新打开已发布模板',
+      saveState: publishMutation.isPending ? '正在生成正式模板' : saveState,
+      nextAction: '查看正式模板或继续创建诊断任务',
+    },
+  ];
+
+  if (detailQuery.error) {
+    return (
+      <div className="space-y-8 pb-20">
+        <PageHeader eyebrow="模板草稿" title="无法打开模板草稿" subtitle="请求未成功，页面没有覆盖任何已保存内容。" />
+        <div role="alert" className={`rounded-[2rem] border p-6 ${accessDenied ? 'border-amber-500/25 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200' : 'border-rose-500/25 bg-rose-500/[0.07] text-rose-700 dark:text-rose-300'}`}>
+          <div className="font-black">{accessDenied ? '权限拒绝' : '草稿加载失败'}</div>
+          <div className="mt-2 text-sm">{getApiErrorMessage(detailQuery.error)}</div>
+          <Link to="/teacher/diagnosis-templates" className="mt-4 inline-flex rounded-full border border-current/20 px-4 py-2 text-sm font-bold">返回模板列表</Link>
+        </div>
+      </div>
+    );
+  }
 
   if (detailQuery.isLoading || !schema) {
     return (
@@ -507,6 +623,12 @@ const TemplateDraftEditorPage: React.FC = () => {
         }
       />
 
+      <WorkflowStepper
+        title="诊断模板发布流程"
+        description="四个编辑子步骤继续保留；这里补充从输入到完成的端到端状态和可恢复路径。"
+        stages={workflowStages}
+      />
+
       <div className="grid gap-3 md:grid-cols-4">
         {steps.map((step, index) => {
           const active = index === currentStep;
@@ -532,7 +654,8 @@ const TemplateDraftEditorPage: React.FC = () => {
         </div>
       )}
       {errorMessage && (
-        <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+        <div role="alert" className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+          {accessDenied && <div className="mb-1 font-black">权限拒绝：本次请求未执行，已保存草稿不受影响。</div>}
           {errorMessage}
         </div>
       )}

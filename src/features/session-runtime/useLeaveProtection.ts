@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBeforeUnload, useBlocker } from 'react-router';
+import { useBeforeUnload, useBlocker, type BlockerFunction } from 'react-router';
 
 type Blocker = {
   state: string;
@@ -7,7 +7,7 @@ type Blocker = {
   reset: () => void;
 };
 
-function useOptionalBlocker(shouldBlock: () => boolean): Blocker | null {
+function useOptionalBlocker(shouldBlock: BlockerFunction): Blocker | null {
   try {
     return useBlocker(shouldBlock) as Blocker;
   } catch {
@@ -20,6 +20,7 @@ type LeaveProtectionOptions = {
   leaveConfirm: string;
   onRouteLeave: () => Promise<boolean>;
   onBackgroundPersist?: () => Promise<void>;
+  blockSamePathNavigation?: boolean;
 };
 
 export function useLeaveProtection({
@@ -27,6 +28,7 @@ export function useLeaveProtection({
   leaveConfirm,
   onRouteLeave,
   onBackgroundPersist,
+  blockSamePathNavigation = true,
 }: LeaveProtectionOptions) {
   const allowNavigationRef = React.useRef(false);
 
@@ -41,7 +43,11 @@ export function useLeaveProtection({
     }
   }, []);
 
-  const blocker = useOptionalBlocker(() => active && !allowNavigationRef.current);
+  const blocker = useOptionalBlocker(({ currentLocation, nextLocation }) =>
+    active &&
+    !allowNavigationRef.current &&
+    (blockSamePathNavigation || currentLocation.pathname !== nextLocation.pathname)
+  );
 
   React.useEffect(() => {
     if (!blocker || blocker.state !== 'blocked') {

@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileSpreadsheet, LoaderCircle, RefreshCw, Save, Upload } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Pagination } from '@/components/common';
+import { Pagination, WorkflowStepper } from '@/components/common';
+import type { WorkflowStage } from '@/components/common';
+import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
 import type {
   LexicalImportBatchDetailVO,
   LexicalImportBatchStatus,
@@ -12,7 +14,7 @@ import type {
   LexicalImportRowVO,
   RagReindexJobResponse,
 } from '@/lib/contracts';
-import { saveBlob } from '@/lib/api';
+import { getApiErrorMessage, normalizeApiError, saveBlob } from '@/lib/api';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel } from '@/lib/format';
 import { formatFileSize, translateImportMessage } from '@/lib/lexical-import';
 import { adminService, lexicalPairService } from '@/lib/services';
@@ -599,6 +601,96 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
   const rowTotalPages = Math.max(1, Math.ceil((rowsQuery.data?.total || 0) / rowPageSize));
   const selectedBatch = batchDetailQuery.data;
   const batchStatusMeta = buildBatchStatusMeta(selectedBatch?.status);
+  const rowFormDirty = Boolean(selectedRow && JSON.stringify(rowForm) !== JSON.stringify(toRowForm(selectedRow)));
+  const hasUnsavedChanges = Boolean(uploadFile || rowFormDirty);
+  const duplicateRows = (rowsQuery.data?.records || []).filter((row) =>
+    row.validationErrors.some((message) => /duplicate|重复/i.test(message))
+  );
+  const requestError = [
+    batchesQuery.error,
+    usersQuery.error,
+    batchDetailQuery.error,
+    rowsQuery.error,
+    reindexJobQuery.error,
+    createBatchMutation.error,
+    updateRowMutation.error,
+    commitBatchMutation.error,
+    reindexBatchMutation.error,
+  ].find(Boolean);
+  const accessDenied = requestError ? [401, 403].includes(normalizeApiError(requestError).status) : false;
+  const hasPartialSuccess = Boolean(
+    selectedBatch && selectedBatch.importedRows > 0 && (selectedBatch.invalidRows > 0 || selectedBatch.skippedRows > 0 || selectedBatch.status === 'FAILED')
+  );
+  const saveState = updateRowMutation.isPending
+    ? '正在保存当前行草稿'
+    : updateRowMutation.isError
+      ? '当前行保存失败，服务器草稿未被覆盖'
+      : rowFormDirty
+        ? '当前行有未保存改动'
+        : selectedBatch
+          ? `批次 #${selectedBatch.id} 草稿已在服务器留档`
+          : uploadFile
+            ? '文件仅在本机选择，尚未上传'
+            : '暂无待保存内容';
+  const confirmRouteLeave = React.useCallback(async () => true, []);
+  const workflowStages: WorkflowStage[] = [
+    {
+      key: 'input', label: '输入',
+      status: uploadFile || !selectedBatch ? 'current' : 'complete',
+      statusLabel: uploadFile ? '文件待上传' : selectedBatch ? '已创建批次' : '等待文件',
+      reason: uploadFile ? '文件尚未创建服务器批次' : selectedBatch ? '无' : '尚未选择 CSV 或 XLSX 文件',
+      fallback: '回到文件选择区；已创建批次可从导入历史恢复', saveState,
+      nextAction: uploadFile ? '创建导入批次' : selectedBatch ? '查看解析与校验结果' : '选择文件',
+    },
+    {
+      key: 'validation', label: '校验',
+      status: selectedBatch?.status === 'PARSING' ? 'current' : selectedBatch?.invalidRows ? 'blocked' : selectedBatch ? 'complete' : 'pending',
+      statusLabel: selectedBatch?.status === 'PARSING' ? '解析中' : selectedBatch?.invalidRows ? `${selectedBatch.invalidRows} 行未通过` : selectedBatch ? '已通过预检' : '等待上传',
+      reason: selectedBatch?.invalidRows ? `${selectedBatch.invalidRows} 行字段、格式或重复校验失败` : selectedBatch?.status === 'PARSING' ? '后台仍在解析原文件' : selectedBatch ? '无' : '尚无批次',
+      fallback: '下载原文件核对，或保留批次并逐行修正', saveState,
+      nextAction: selectedBatch?.invalidRows ? '打开失败行并修复或跳过' : '核对预览统计',
+    },
+    {
+      key: 'preview', label: '预览',
+      status: selectedBatch?.status === 'DRAFT' ? 'current' : selectedBatch && selectedBatch.status !== 'PARSING' ? 'complete' : 'pending',
+      statusLabel: selectedBatch?.status === 'DRAFT' ? '待确认' : selectedBatch ? '统计已生成' : '等待解析',
+      reason: selectedBatch?.status === 'PARSING' ? '解析未完成' : selectedBatch ? '无' : '尚无可预览批次',
+      fallback: '返回导入历史切换批次，原始文件和统计都会保留', saveState,
+      nextAction: '核对可导入、需修正、跳过和重复项',
+    },
+    {
+      key: 'repair', label: '修复',
+      status: accessDenied ? 'blocked' : selectedBatch?.invalidRows || duplicateRows.length || rowFormDirty ? 'current' : 'complete',
+      statusLabel: accessDenied ? '权限拒绝' : duplicateRows.length ? `本页 ${duplicateRows.length} 个重复项` : selectedBatch?.invalidRows ? `${selectedBatch.invalidRows} 行待修复` : rowFormDirty ? '改动未保存' : '无需修复',
+      reason: accessDenied ? '当前账号无权读取或修改此导入批次' : duplicateRows.length ? '重复项必须修正或跳过，不能静默导入' : selectedBatch?.invalidRows ? '仍有未通过校验的行' : rowFormDirty ? '当前行改动尚未保存' : '无',
+      fallback: accessDenied ? '切换到批次所有者或管理员账号' : '恢复当前行服务器草稿，或从原文件重新核对', saveState,
+      nextAction: accessDenied ? '停止提交并确认权限' : rowFormDirty ? '保存当前行草稿' : selectedBatch?.invalidRows ? '继续处理失败行' : '准备正式导入',
+    },
+    {
+      key: 'publish', label: '发布',
+      status: selectedBatch?.status === 'IMPORTING' || commitBatchMutation.isPending ? 'current' : selectedBatch?.status === 'COMPLETED' ? 'complete' : selectedBatch?.readyRows ? 'current' : 'pending',
+      statusLabel: selectedBatch?.status === 'IMPORTING' || commitBatchMutation.isPending ? '正式导入中' : selectedBatch?.status === 'COMPLETED' ? '已提交' : selectedBatch?.readyRows ? `${selectedBatch.readyRows} 行可导入` : '没有可导入行',
+      reason: rowFormDirty ? '先保存当前行改动' : selectedBatch?.readyRows ? '无' : selectedBatch ? '没有通过预检的可用行' : '尚无批次',
+      fallback: '正式导入失败可保留成功行，并回到批次修复剩余内容', saveState,
+      nextAction: selectedBatch?.readyRows ? '确认后正式导入可用行' : '先完成校验与修复',
+    },
+    {
+      key: 'complete', label: '完成',
+      status: selectedBatch?.status === 'FAILED' ? 'blocked' : hasPartialSuccess ? 'warning' : selectedBatch?.status === 'COMPLETED' ? 'complete' : 'pending',
+      statusLabel: selectedBatch?.status === 'FAILED' ? '导入失败' : hasPartialSuccess ? '部分成功' : selectedBatch?.status === 'COMPLETED' ? '导入完成' : '等待导入',
+      reason: selectedBatch?.status === 'FAILED' ? selectedBatch.errorMessage || '后台导入任务失败' : hasPartialSuccess ? `已导入 ${selectedBatch?.importedRows || 0} 行，仍有失败或跳过项` : selectedBatch?.status === 'COMPLETED' ? '无' : '正式导入尚未完成',
+      fallback: '从导入历史恢复该批次；成功行不会重复导入',
+      saveState: selectedBatch?.status === 'COMPLETED' ? '导入结果已写入词对库并保留批次记录' : saveState,
+      nextAction: selectedBatch?.status === 'COMPLETED' ? '进入词对库核对，或继续接入模板/词表' : '等待任务完成或处理失败项',
+    },
+  ];
+
+  useLeaveProtection({
+    active: hasUnsavedChanges && !createBatchMutation.isPending && !updateRowMutation.isPending,
+    leaveConfirm: '当前还有未上传文件或未保存的导入行改动。确认离开并放弃这些内容吗？',
+    onRouteLeave: confirmRouteLeave,
+    blockSamePathNavigation: false,
+  });
 
   React.useEffect(() => {
     if (batchPageNo > batchTotalPages) {
@@ -618,6 +710,42 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
         <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
           当前从教师工作台进入。导入筛选和选中的批次会同步回 URL，方便你刷新后继续处理同一批次。
         </div>
+      )}
+
+      <WorkflowStepper
+        title="词对导入流程"
+        description="上传、预检、逐行修复和正式导入保持可恢复；失败、部分成功、重复项与权限拒绝会在流程下方优先展开。"
+        stages={workflowStages}
+      />
+
+      {(requestError || selectedBatch?.status === 'FAILED' || hasPartialSuccess || duplicateRows.length > 0) && (
+        <section className="space-y-3" aria-label="导入优先提醒">
+          {requestError && (
+            <div role="alert" className={`rounded-[1.8rem] border px-5 py-4 text-sm ${accessDenied ? 'border-amber-500/25 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200' : 'border-rose-500/25 bg-rose-500/[0.07] text-rose-700 dark:text-rose-300'}`}>
+              <div className="font-black">{accessDenied ? '权限拒绝' : '请求失败'}</div>
+              <div className="mt-1">{getApiErrorMessage(requestError)}</div>
+              <div className="mt-2 text-xs opacity-75">失败请求不会覆盖已保存批次；请返回有权限的工作区，或稍后重试。</div>
+            </div>
+          )}
+          {selectedBatch?.status === 'FAILED' && (
+            <div role="alert" className="rounded-[1.8rem] border border-rose-500/25 bg-rose-500/[0.07] px-5 py-4 text-sm text-rose-700 dark:text-rose-300">
+              <div className="font-black">导入失败 · 批次 #{selectedBatch.id}</div>
+              <div className="mt-1">{translateImportMessage(selectedBatch.errorMessage || '后台任务未完成，请保留批次并检查失败行。')}</div>
+            </div>
+          )}
+          {hasPartialSuccess && selectedBatch && (
+            <div role="status" className="rounded-[1.8rem] border border-amber-500/25 bg-amber-500/[0.07] px-5 py-4 text-sm text-amber-800 dark:text-amber-200">
+              <div className="font-black">部分成功 · 已导入 {selectedBatch.importedRows} 行</div>
+              <div className="mt-1">仍有 {selectedBatch.invalidRows} 行失败、{selectedBatch.skippedRows} 行跳过；成功行已经保留，不会因继续修复而丢失。</div>
+            </div>
+          )}
+          {duplicateRows.length > 0 && (
+            <div role="alert" className="rounded-[1.8rem] border border-amber-500/25 bg-amber-500/[0.07] px-5 py-4 text-sm text-amber-800 dark:text-amber-200">
+              <div className="font-black">重复项优先处理 · 当前页 {duplicateRows.length} 行</div>
+              <div className="mt-1">重复行不会静默覆盖已有词对。请编辑字段或明确跳过，再保存草稿。</div>
+            </div>
+          )}
+        </section>
       )}
 
       <Panel
@@ -688,7 +816,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
         </div>
 
         {feedback && (
-          <div className="rounded-[1.8rem] border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-slate-700 dark:text-white/75">
+          <div role="status" className="rounded-[1.8rem] border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-slate-700 dark:text-white/75">
             {feedback}
           </div>
         )}
@@ -863,7 +991,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                   <button
                     type="button"
                     onClick={() => commitBatchMutation.mutate()}
-                    disabled={commitBatchMutation.isPending || isBatchProcessing(selectedBatch) || selectedBatch.readyRows <= 0}
+                    disabled={commitBatchMutation.isPending || isBatchProcessing(selectedBatch) || selectedBatch.readyRows <= 0 || rowFormDirty}
                     className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
                   >
                     <RefreshCw size={14} className={isBatchProcessing(selectedBatch) ? 'animate-pulse' : ''} />

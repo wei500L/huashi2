@@ -2,8 +2,9 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { DataTable, PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
-import { getApiErrorMessage } from '@/lib/api';
+import { DataTable, PageHeader, SectionEyebrow, StatusBadge, WorkflowStepper } from '@/components/common';
+import type { WorkflowStage } from '@/components/common';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { assessmentAttemptStatusLabel, assessmentAttemptStatusTone, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 
@@ -18,6 +19,54 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
   });
 
   const publish = publishQuery.data;
+  const accessDenied = publishQuery.error ? [401, 403].includes(normalizeApiError(publishQuery.error).status) : false;
+  const allAssignedStudentsSubmitted = Boolean(
+    publish && publish.assignedCount > 0 && publish.submittedCount >= publish.assignedCount
+  );
+  const publishedSaveState = t('ui.pages.publishDetail.workflow.publishedSave');
+  const workflowStages: WorkflowStage[] = publish ? [
+    {
+      key: 'input', label: t('ui.pages.publishDetail.workflow.inputLabel'), status: 'complete', statusLabel: t('ui.pages.publishDetail.workflow.completeStatus'),
+      reason: t('ui.pages.publishDetail.workflow.noReason'), fallback: t('ui.pages.publishDetail.workflow.inputFallback'),
+      saveState: publishedSaveState, nextAction: t('ui.pages.publishDetail.workflow.inputNext'),
+    },
+    {
+      key: 'validation', label: t('ui.pages.publishDetail.workflow.validationLabel'), status: 'complete', statusLabel: t('ui.pages.publishDetail.workflow.completeStatus'),
+      reason: t('ui.pages.publishDetail.workflow.validationReason'), fallback: t('ui.pages.publishDetail.workflow.validationFallback'),
+      saveState: publishedSaveState, nextAction: t('ui.pages.publishDetail.workflow.validationNext'),
+    },
+    {
+      key: 'preview', label: t('ui.pages.publishDetail.workflow.previewLabel'), status: 'complete', statusLabel: t('ui.pages.publishDetail.workflow.completeStatus'),
+      reason: t('ui.pages.publishDetail.workflow.noReason'), fallback: t('ui.pages.publishDetail.workflow.previewFallback'),
+      saveState: publishedSaveState, nextAction: t('ui.pages.publishDetail.workflow.previewNext'),
+    },
+    {
+      key: 'repair', label: t('ui.pages.publishDetail.workflow.repairLabel'),
+      status: publish.notStartedCount > 0 || publish.inProgressCount > 0 ? 'warning' : 'complete',
+      statusLabel: publish.notStartedCount > 0 || publish.inProgressCount > 0 ? t('ui.pages.publishDetail.workflow.monitoringStatus') : t('ui.pages.publishDetail.workflow.completeStatus'),
+      reason: publish.notStartedCount > 0 || publish.inProgressCount > 0
+        ? t('ui.pages.publishDetail.workflow.repairReason', { notStarted: publish.notStartedCount, inProgress: publish.inProgressCount })
+        : t('ui.pages.publishDetail.workflow.noReason'),
+      fallback: t('ui.pages.publishDetail.workflow.repairFallback'), saveState: publishedSaveState,
+      nextAction: t('ui.pages.publishDetail.workflow.repairNext'),
+    },
+    {
+      key: 'publish', label: t('ui.pages.publishDetail.workflow.publishLabel'), status: 'complete', statusLabel: t('ui.pages.publishDetail.workflow.completeStatus'),
+      reason: t('ui.pages.publishDetail.workflow.publishReason', { time: formatDateTime(publish.publishedAt) }),
+      fallback: t('ui.pages.publishDetail.workflow.publishFallback'), saveState: publishedSaveState,
+      nextAction: t('ui.pages.publishDetail.workflow.publishNext'),
+    },
+    {
+      key: 'complete', label: t('ui.pages.publishDetail.workflow.completeLabel'),
+      status: allAssignedStudentsSubmitted ? 'complete' : 'current',
+      statusLabel: allAssignedStudentsSubmitted ? t('ui.pages.publishDetail.workflow.completeStatus') : t('ui.pages.publishDetail.workflow.monitoringStatus'),
+      reason: allAssignedStudentsSubmitted
+        ? t('ui.pages.publishDetail.workflow.noReason')
+        : t('ui.pages.publishDetail.workflow.completeReason', { submitted: publish.submittedCount, assigned: publish.assignedCount }),
+      fallback: t('ui.pages.publishDetail.workflow.completeFallback'), saveState: t('ui.pages.publishDetail.workflow.readOnlySave'),
+      nextAction: allAssignedStudentsSubmitted ? t('ui.pages.publishDetail.workflow.completeNextDone') : t('ui.pages.publishDetail.workflow.completeNext'),
+    },
+  ] : [];
 
   return (
     <div className="space-y-8 pb-20">
@@ -47,8 +96,10 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
       />
 
       {publishQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+        <div role="alert" className={`rounded-[2rem] border p-6 ${accessDenied ? 'border-amber-500/25 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200' : 'border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
+          <div className="mb-1 font-black">{accessDenied ? t('ui.pages.publishDetail.workflow.permissionTitle') : t('ui.pages.publishDetail.workflow.loadErrorTitle')}</div>
           {getApiErrorMessage(publishQuery.error)}
+          <div className="mt-2 text-xs opacity-75">{t('ui.pages.publishDetail.workflow.loadErrorSafety')}</div>
         </div>
       )}
 
@@ -60,6 +111,12 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
 
       {publish && (
         <>
+          <WorkflowStepper
+            title={t('ui.pages.publishDetail.workflow.title')}
+            description={t('ui.pages.publishDetail.workflow.description')}
+            stages={workflowStages}
+          />
+
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-[2rem] liquid-glass-panel p-6">
               <SectionEyebrow>{t('ui.meta.assignedStudents')}</SectionEyebrow>

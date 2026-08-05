@@ -2,8 +2,10 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Plus, Send, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
-import { getApiErrorMessage } from '@/lib/api';
+import { PageHeader, SectionEyebrow, StatusBadge, WorkflowStepper } from '@/components/common';
+import type { WorkflowStage } from '@/components/common';
+import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { assessmentPaperStatusLabel, assessmentPaperStatusTone, assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService, teacherAnalyticsService } from '@/lib/services';
 import type {
@@ -130,6 +132,41 @@ function serializeDraft(draft: PaperDraft): AssessmentPaperSaveRequest {
   };
 }
 
+function validatePaperDraft(draft: PaperDraft): string[] {
+  const errors: string[] = [];
+  if (!draft.title.trim()) {
+    errors.push('请填写试卷标题。');
+  }
+  if (!Number.isFinite(draft.durationMinutes) || draft.durationMinutes < 1) {
+    errors.push('测评时长必须大于 0 分钟。');
+  }
+  if (!draft.questions.length) {
+    errors.push('至少需要保留一道题目。');
+  }
+  draft.questions.forEach((question, index) => {
+    const prefix = `第 ${index + 1} 题`;
+    if (!question.stemText.trim()) {
+      errors.push(`${prefix}缺少题干。`);
+    }
+    if (!Number.isFinite(question.score) || question.score <= 0) {
+      errors.push(`${prefix}分值必须大于 0。`);
+    }
+    if (question.questionType === 'FILL_BLANK') {
+      if (!question.correctAnswers.some((answer) => answer.trim())) {
+        errors.push(`${prefix}至少需要一个可接受答案。`);
+      }
+      return;
+    }
+    if (question.options.length < 2 || question.options.some((option) => !option.label.trim())) {
+      errors.push(`${prefix}至少需要两个已填写的选项。`);
+    }
+    if (!question.correctAnswers.length) {
+      errors.push(`${prefix}尚未设置正确答案。`);
+    }
+  });
+  return errors;
+}
+
 const TeacherAssessmentEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -147,6 +184,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const hydratedPaperIdRef = React.useRef<number | null>(null);
+  const savedDraftSignatureRef = React.useRef(JSON.stringify(serializeDraft(createEmptyDraft())));
 
   const detailQuery = useQuery({
     queryKey: ['teacher-assessment-paper', paperId],
@@ -167,7 +205,9 @@ const TeacherAssessmentEditorPage: React.FC = () => {
       return;
     }
     hydratedPaperIdRef.current = detailQuery.data.paperId;
-    setDraft(toDraft(detailQuery.data));
+    const nextDraft = toDraft(detailQuery.data);
+    savedDraftSignatureRef.current = JSON.stringify(serializeDraft(nextDraft));
+    setDraft(nextDraft);
   }, [detailQuery.data]);
 
   const isEditLocked = !!detailQuery.data?.publishes.length;
@@ -177,7 +217,9 @@ const TeacherAssessmentEditorPage: React.FC = () => {
       paperId ? assessmentService.updateTeacherPaper(paperId, payload) : assessmentService.createTeacherPaper(payload),
     onSuccess: async (data) => {
       hydratedPaperIdRef.current = data.paperId;
-      setDraft(toDraft(data));
+      const nextDraft = toDraft(data);
+      savedDraftSignatureRef.current = JSON.stringify(serializeDraft(nextDraft));
+      setDraft(nextDraft);
       setFeedback(paperId ? '试卷已保存。' : '试卷已创建。');
       setErrorMessage(null);
       await queryClient.invalidateQueries({ queryKey: ['teacher-assessment-papers'] });
@@ -238,6 +280,112 @@ const TeacherAssessmentEditorPage: React.FC = () => {
       return { ...current, questions };
     });
   }, []);
+
+  const draftSignature = JSON.stringify(serializeDraft(draft));
+  const isDraftDirty = draftSignature !== savedDraftSignatureRef.current;
+  const isPublishDraftDirty = Boolean(
+    publishDraft.teachingClassId || publishDraft.startsAt || publishDraft.dueAt || publishDraft.instructionsText.trim() ||
+    publishDraft.resultReleasePolicy !== 'AFTER_DUE'
+  );
+  const hasUnsavedChanges = (!isEditLocked && isDraftDirty) || isPublishDraftDirty;
+  const validationErrors = React.useMemo(() => validatePaperDraft(draft), [draftSignature]);
+  const hasPublished = Boolean(detailQuery.data?.publishes.length);
+  const accessDenied = [detailQuery.error, saveMutation.error, publishMutation.error]
+    .filter(Boolean)
+    .some((error) => {
+      const status = normalizeApiError(error).status;
+      return status === 401 || status === 403;
+    });
+  const saveState = saveMutation.isPending
+    ? '正在保存，请留在当前页'
+    : saveMutation.isError
+      ? '保存失败，服务器版本未被覆盖'
+      : isDraftDirty
+        ? '有未保存改动'
+        : isCreateMode
+          ? '尚未创建服务器草稿'
+          : '已与服务器同步';
+  const confirmRouteLeave = React.useCallback(async () => true, []);
+
+  useLeaveProtection({
+    active: hasUnsavedChanges && !saveMutation.isPending && !publishMutation.isPending,
+    leaveConfirm: '当前页面还有未保存的试卷或发布设置。确认离开并放弃这些改动吗？',
+    onRouteLeave: confirmRouteLeave,
+    blockSamePathNavigation: false,
+  });
+
+  const scrollToStage = React.useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const workflowStages: WorkflowStage[] = [
+    {
+      key: 'input',
+      label: '输入',
+      status: validationErrors.length || isDraftDirty ? 'current' : 'complete',
+      statusLabel: validationErrors.length || isDraftDirty ? '编辑中' : '已填写',
+      reason: validationErrors.length ? `${validationErrors.length} 个必填或题目配置问题` : isDraftDirty ? '改动尚未保存' : '无',
+      fallback: '回到试卷信息与题目列表继续编辑',
+      saveState,
+      nextAction: '补齐内容并保存试卷',
+      onSelect: () => scrollToStage('assessment-input'),
+    },
+    {
+      key: 'validation',
+      label: '校验',
+      status: validationErrors.length ? 'blocked' : isDraftDirty || isCreateMode ? 'pending' : 'complete',
+      statusLabel: validationErrors.length ? '未通过' : isDraftDirty || isCreateMode ? '等待保存' : '可继续',
+      reason: validationErrors.length ? validationErrors[0] : isDraftDirty || isCreateMode ? '服务器尚未确认当前版本' : '无阻塞项',
+      fallback: '校验项会直接定位到编辑区，不会隐藏错误',
+      saveState,
+      nextAction: validationErrors.length ? '按下方错误清单逐项修复' : '检查预览与发布设置',
+      onSelect: () => scrollToStage(validationErrors.length ? 'assessment-validation' : 'assessment-preview'),
+    },
+    {
+      key: 'preview',
+      label: '预览',
+      status: !validationErrors.length && !isDraftDirty && !isCreateMode ? 'complete' : 'pending',
+      statusLabel: !validationErrors.length && !isDraftDirty && !isCreateMode ? '已就绪' : '未就绪',
+      reason: validationErrors.length ? '校验仍有阻塞项' : isDraftDirty || isCreateMode ? '请先保存当前版本' : '无',
+      fallback: '回到题目列表核对题干、答案、解析与分值',
+      saveState,
+      nextAction: '核对题量、总分、时长和结果公布方式',
+      onSelect: () => scrollToStage('assessment-preview'),
+    },
+    {
+      key: 'repair',
+      label: '修复',
+      status: accessDenied || errorMessage ? 'warning' : validationErrors.length ? 'current' : 'complete',
+      statusLabel: accessDenied ? '权限拒绝' : errorMessage ? '操作失败' : validationErrors.length ? '待修复' : '无需修复',
+      reason: accessDenied ? '当前账号无权读取、保存或发布此内容' : errorMessage || (validationErrors.length ? `${validationErrors.length} 项待处理` : '无'),
+      fallback: accessDenied ? '返回列表并切换有权限的账号或联系管理员' : '回到输入阶段，已保存版本不会被失败请求覆盖',
+      saveState,
+      nextAction: accessDenied ? '停止提交并确认权限' : validationErrors.length ? '修复后重新保存' : '继续发布',
+      onSelect: () => scrollToStage(accessDenied || errorMessage ? 'assessment-alerts' : validationErrors.length ? 'assessment-validation' : 'assessment-preview'),
+    },
+    {
+      key: 'publish',
+      label: '发布',
+      status: publishMutation.isPending ? 'current' : hasPublished ? 'complete' : !isCreateMode && !isDraftDirty && !validationErrors.length ? 'current' : 'pending',
+      statusLabel: publishMutation.isPending ? '发布中' : hasPublished ? '已有发布' : !isCreateMode && !isDraftDirty && !validationErrors.length ? '可发布' : '未开放',
+      reason: isCreateMode ? '先创建服务器草稿' : isDraftDirty ? '存在未保存改动' : validationErrors.length ? '校验未通过' : hasPublished ? '无' : '尚未选择班级与时间窗',
+      fallback: '回到预览核对，发布失败不会删除草稿',
+      saveState,
+      nextAction: hasPublished ? '可继续发布到其他班级' : '选择班级与时间窗后发布',
+      onSelect: () => scrollToStage('assessment-publish'),
+    },
+    {
+      key: 'complete',
+      label: '完成',
+      status: hasPublished ? 'complete' : 'pending',
+      statusLabel: hasPublished ? '已产生记录' : '等待发布',
+      reason: hasPublished ? '无' : '尚无发布记录',
+      fallback: '从发布记录返回本试卷或查看班级完成情况',
+      saveState: hasPublished ? '发布记录已保存到服务器' : saveState,
+      nextAction: hasPublished ? '打开发布详情与学生名册' : '完成发布后查看记录',
+      onSelect: () => scrollToStage('assessment-complete'),
+    },
+  ];
 
   const renderQuestionEditor = (question: QuestionDraft, index: number) => {
     const isSingleChoice = question.questionType === 'SINGLE_CHOICE';
@@ -493,36 +641,56 @@ const TeacherAssessmentEditorPage: React.FC = () => {
             </Link>
             <button
               type="button"
-              disabled={saveMutation.isPending || (detailQuery.isLoading && !isCreateMode) || isEditLocked}
+              disabled={saveMutation.isPending || (detailQuery.isLoading && !isCreateMode) || Boolean(detailQuery.error) || isEditLocked}
               onClick={() => saveMutation.mutate(serializeDraft(draft))}
               className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
             >
-              保存试卷
+              {saveMutation.isPending ? '保存中...' : isDraftDirty ? '保存试卷 · 有改动' : '保存试卷'}
             </button>
           </div>
         }
       />
 
-      {isEditLocked && (
-        <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
-          当前试卷已经发布。为避免发布后题目漂移，编辑区已锁定；你仍可继续发布到其他班级。
-        </div>
-      )}
+      <WorkflowStepper
+        title="测评制作流程"
+        description="阶段卡片始终显示状态、阻塞原因、回退路径、保存状态和下一步动作。点击阶段可返回对应区域。"
+        stages={workflowStages}
+      />
 
-      {(feedback || errorMessage) && (
-        <div className={`rounded-[1.8rem] px-5 py-4 text-sm ${feedback ? 'border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' : 'border border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
-          {feedback || errorMessage}
-        </div>
-      )}
+      <div id="assessment-alerts" className="scroll-mt-24 space-y-4">
+        {isEditLocked && (
+          <div className="rounded-[1.8rem] border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-300">
+            当前试卷已经发布。为避免发布后题目漂移，编辑区已锁定；你仍可继续发布到其他班级。
+          </div>
+        )}
 
-      {detailQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {detailQuery.error.message}
-        </div>
+        {(feedback || errorMessage) && (
+          <div role={errorMessage ? 'alert' : 'status'} className={`rounded-[1.8rem] px-5 py-4 text-sm ${feedback ? 'border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' : 'border border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
+            {accessDenied && <div className="mb-1 font-black">权限拒绝：本次请求未执行，已保存内容不受影响。</div>}
+            {feedback || errorMessage}
+          </div>
+        )}
+
+        {detailQuery.error && (
+          <div role="alert" className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+            {accessDenied && <div className="mb-1 font-black">权限拒绝：无法读取这份试卷。</div>}
+            {getApiErrorMessage(detailQuery.error)}
+          </div>
+        )}
+      </div>
+
+      {validationErrors.length > 0 && (
+        <section id="assessment-validation" role="alert" className="scroll-mt-24 rounded-[2rem] border border-rose-500/25 bg-rose-500/[0.07] p-6 text-rose-700 dark:text-rose-300">
+          <div className="font-black">校验未通过 · {validationErrors.length} 项必须处理</div>
+          <div className="mt-2 text-sm">错误保持展开显示；修复后保存当前版本，再进入预览和发布。</div>
+          <ul className="mt-4 grid gap-2 text-sm md:grid-cols-2">
+            {validationErrors.map((message) => <li key={message} className="rounded-xl border border-current/10 bg-white/35 px-4 py-3">{message}</li>)}
+          </ul>
+        </section>
       )}
 
       <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
+        <section id="assessment-input" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
           <div className="grid gap-4 md:grid-cols-[1fr_180px]">
             <label className="space-y-2 text-sm">
               <span className="text-slate-500 dark:text-white/45">试卷标题</span>
@@ -587,7 +755,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
         </section>
 
         <section className="space-y-8">
-          <div className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+          <div id="assessment-preview" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
             <div>
               <SectionEyebrow>概览</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">试卷概览</div>
@@ -611,7 +779,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+          <div id="assessment-publish" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
             <div>
               <SectionEyebrow>发布</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">发布到班级</div>
@@ -694,6 +862,9 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                   type="button"
                   disabled={
                     publishMutation.isPending ||
+                    accessDenied ||
+                    isDraftDirty ||
+                    validationErrors.length > 0 ||
                     !publishDraft.teachingClassId ||
                     (publishDraft.resultReleasePolicy === 'AFTER_DUE' && !publishDraft.dueAt)
                   }
@@ -708,7 +879,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
           </div>
 
           {!isCreateMode && (
-            <div className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+            <div id="assessment-complete" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
               <div>
                 <SectionEyebrow>记录</SectionEyebrow>
                 <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">发布记录</div>
