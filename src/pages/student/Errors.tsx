@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, SectionEyebrow } from '@/components/common';
-import { getApiErrorMessage } from '@/lib/api';
+import { getProductizedErrorState } from '@/lib/async-state';
+import { FeedbackState } from '@/components/common/FeedbackState';
 import { formatDateTime, lexicalPairTypeLabel, trainingModeLabel } from '@/lib/format';
 import { trainingService } from '@/lib/services';
 import { buildTrainingHref } from '@/lib/training-launch';
@@ -19,6 +20,33 @@ const ErrorsPage: React.FC = () => {
     queryKey: ['review-schedule', true],
     queryFn: ({ signal }) => trainingService.getReviewSchedule(true, { signal }),
   });
+  const dueReviewItems = React.useMemo(
+    () => (reviewScheduleQuery.data || []).filter((item) => Date.parse(item.dueAt) <= Date.now()),
+    [reviewScheduleQuery.data]
+  );
+  const futureReviewItems = React.useMemo(
+    () => (reviewScheduleQuery.data || []).filter((item) => Date.parse(item.dueAt) > Date.now()),
+    [reviewScheduleQuery.data]
+  );
+
+  const renderQueryError = (error: unknown, resourceLabel: string, taskLabel: string, onRetry: () => void) => {
+    const state = getProductizedErrorState(error, {
+      resourceLabel,
+      taskLabel,
+      retryActionLabel: t('ui.sessionState.retryFetch'),
+    });
+    return (
+      <FeedbackState
+        kind={state.kind}
+        compact
+        title={state.title}
+        description={state.description}
+        impact={state.impact}
+        nextStep={state.nextStep}
+        primaryAction={{ label: t('ui.sessionState.retryFetch'), onClick: onRetry }}
+      />
+    );
+  };
 
   return (
     <div className="space-y-8 pb-20">
@@ -28,17 +56,17 @@ const ErrorsPage: React.FC = () => {
         subtitle={t('ui.pages.errors.subtitle')}
         actions={
           <div className="flex flex-wrap gap-3">
-            {!!reviewScheduleQuery.data?.length && (
+            {!!dueReviewItems.length && (
               <button
                 type="button"
                 onClick={() =>
                   navigate(
                     buildTrainingHref({
-                      mode: reviewScheduleQuery.data[0].reviewMode,
+                      mode: dueReviewItems[0].reviewMode,
                       source: 'errors-review-top',
-                      lexicalPairId: reviewScheduleQuery.data[0].lexicalPairId,
-                      wrongBookId: reviewScheduleQuery.data[0].wrongBookId,
-                      reviewScheduleId: reviewScheduleQuery.data[0].reviewScheduleId,
+                      lexicalPairId: dueReviewItems[0].lexicalPairId,
+                      wrongBookId: dueReviewItems[0].wrongBookId,
+                      reviewScheduleId: dueReviewItems[0].reviewScheduleId,
                     })
                   )
                 }
@@ -64,11 +92,17 @@ const ErrorsPage: React.FC = () => {
           {wrongBookQuery.isLoading ? (
             <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingWrongBook')}</div>
           ) : wrongBookQuery.error ? (
-            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-              {getApiErrorMessage(wrongBookQuery.error)}
-            </div>
+            renderQueryError(wrongBookQuery.error, '错题本', '查看错题本', () => void wrongBookQuery.refetch())
           ) : !wrongBookQuery.data?.length ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noWrongBook')}</div>
+            <FeedbackState
+              kind="empty"
+              compact
+              title={t('ui.labels.noWrongBook')}
+              description={t('ui.sessionState.emptyWrongBookDescription')}
+              impact={t('ui.sessionState.emptyWrongBookImpact')}
+              nextStep={t('ui.sessionState.emptyWrongBookNextStep')}
+              primaryAction={{ label: t('common.actions.backToTrainingHome'), onClick: () => navigate('/training') }}
+            />
           ) : (
             <div className="space-y-4">
               {wrongBookQuery.data.map((item) => (
@@ -136,14 +170,20 @@ const ErrorsPage: React.FC = () => {
           {reviewScheduleQuery.isLoading ? (
             <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingReviewSchedule')}</div>
           ) : reviewScheduleQuery.error ? (
-            <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-              {getApiErrorMessage(reviewScheduleQuery.error)}
-            </div>
+            renderQueryError(reviewScheduleQuery.error, '复习计划', '查看复习计划', () => void reviewScheduleQuery.refetch())
           ) : !reviewScheduleQuery.data?.length ? (
-            <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noReviewItems')}</div>
+            <FeedbackState
+              kind="empty"
+              compact
+              title={t('ui.labels.noReviewItems')}
+              description={t('ui.sessionState.emptyReviewDescription')}
+              impact={t('ui.sessionState.emptyReviewImpact')}
+              nextStep={t('ui.sessionState.emptyReviewNextStep')}
+              primaryAction={{ label: t('common.actions.backToTrainingHome'), onClick: () => navigate('/training') }}
+            />
           ) : (
             <div className="space-y-4">
-              {reviewScheduleQuery.data.map((item) => (
+              {dueReviewItems.map((item) => (
                 <div
                   key={item.reviewScheduleId}
                   className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
@@ -183,6 +223,15 @@ const ErrorsPage: React.FC = () => {
                   </div>
                 </div>
               ))}
+              {futureReviewItems.length ? (
+                <div className="rounded-[1.6rem] border border-sky-500/15 bg-sky-500/5 p-4 text-sm text-sky-800 dark:text-sky-200">
+                  <div className="font-bold">{t('ui.sessionState.futureReviewTitle')}</div>
+                  <div className="mt-2 leading-6">{t('ui.sessionState.futureReviewDescription', { count: futureReviewItems.length })}</div>
+                </div>
+              ) : null}
+              {!dueReviewItems.length && futureReviewItems.length ? (
+                <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.sessionState.noDueReview')}</div>
+              ) : null}
             </div>
           )}
         </section>

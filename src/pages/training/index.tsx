@@ -28,6 +28,8 @@ import { HESITATION_BASELINE_MS, NEXT_ITEM_RETRY_DELAY_MS, SLOW_NEXT_ITEM_NOTICE
 import { buildSessionSnapshot } from '@/features/session-runtime/helpers';
 import { useSessionRuntime } from '@/features/session-runtime/useSessionRuntime';
 import { initialTrainingFlowState, trainingFlowReducer } from './flow';
+import { LearningCardStack } from './LearningCardStack';
+import { FadeContent } from '@/components/common/FadeContent';
 
 type SessionLaunchContext = Omit<TrainingLaunchParams, 'mode'>;
 type TrainingAnswerFeedback = {
@@ -67,7 +69,7 @@ function adaptationActionLabel(action?: string | null) {
     case 'BOOST_SPEED':
       return '进入速度巩固训练';
     case 'QUEUE_REVIEW':
-      return '加入后续复习';
+      return '已自动加入后续复习';
     case 'KEEP_STABLE':
       return '保持当前训练节奏';
     default:
@@ -76,6 +78,8 @@ function adaptationActionLabel(action?: string | null) {
 }
 
 function TrainingItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) {
+  const { t } = useTranslation();
+  const [showExplanation, setShowExplanation] = React.useState(false);
   const selectedLabel = findTrainingOptionLabel(item.options, item.selectedAnswerKey);
   const correctLabel = findTrainingOptionLabel(item.options, item.correctAnswerKey);
   const outcomeLabel = item.correct == null ? '未判定' : item.correct ? '答对' : '答错';
@@ -95,7 +99,24 @@ function TrainingItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) 
           <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
             <div className="font-semibold">{item.content.question}</div>
             {item.content.sentence && <div className="mt-2 italic">{item.content.sentence}</div>}
-            {item.stimulus.explanation && <div className="mt-2">{item.stimulus.explanation}</div>}
+            {item.stimulus.explanation && (
+              <>
+                <button
+                  type="button"
+                  aria-expanded={showExplanation}
+                  aria-keyshortcuts="Enter Space"
+                  onClick={() => setShowExplanation((visible) => !visible)}
+                  className="mt-3 min-h-11 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:border-white/10"
+                >
+                  {showExplanation ? t('training.hideExplanation') : t('training.viewExplanation')}
+                </button>
+                {showExplanation ? (
+                  <FadeContent contentKey="training-summary-explanation" className="mt-3">
+                    {item.stimulus.explanation}
+                  </FadeContent>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
         <div className="text-right text-sm text-slate-500 dark:text-white/45">
@@ -237,6 +258,14 @@ const TrainingPage: React.FC = () => {
     queryKey: ['review-schedule', true],
     queryFn: ({ signal }) => trainingService.getReviewSchedule(true, { signal }),
   });
+  const dueReviewItems = React.useMemo(
+    () => (reviewScheduleQuery.data || []).filter((item) => Date.parse(item.dueAt) <= Date.now()),
+    [reviewScheduleQuery.data]
+  );
+  const futureReviewItems = React.useMemo(
+    () => (reviewScheduleQuery.data || []).filter((item) => Date.parse(item.dueAt) > Date.now()),
+    [reviewScheduleQuery.data]
+  );
 
   const startMutation = useMutation({
     mutationFn: (payload: { mode: TrainingMode } & SessionLaunchContext) =>
@@ -617,6 +646,34 @@ const TrainingPage: React.FC = () => {
     await answerMutation.mutateAsync(request);
   };
 
+  React.useEffect(() => {
+    if (state.phase !== 'running' || !currentItem) {
+      return;
+    }
+    const handleKeyboardAction = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('button, a, input, textarea, select, [contenteditable="true"]')) {
+        return;
+      }
+      if (answerFeedback && answerFeedback.mode !== 'SPEED_CHALLENGE' && event.key === 'Enter') {
+        event.preventDefault();
+        void continueAfterFeedback();
+        return;
+      }
+      const optionIndex = Number(event.key) - 1;
+      const option = currentItem.options[optionIndex];
+      if (!isAnswerLocked && Number.isInteger(optionIndex) && optionIndex >= 0 && option) {
+        event.preventDefault();
+        void submitAnswer(option);
+      }
+    };
+    window.addEventListener('keydown', handleKeyboardAction);
+    return () => window.removeEventListener('keydown', handleKeyboardAction);
+  }, [answerFeedback, continueAfterFeedback, currentItem, isAnswerLocked, state.phase]);
+
   const handleResumeContinue = () => {
     if (!resumeCandidate) {
       return;
@@ -704,6 +761,7 @@ const TrainingPage: React.FC = () => {
           submitInfoMessage={submitInfoMessage}
           loadInfoMessage={loadInfoMessage}
           loadError={nextItemQuery.error}
+          connectionState={runtime.connectionState}
           onRetrySave={() => void runtime.saveProgressManually()}
           onRetrySubmit={() => {
             if (answerRequestRef.current) {
@@ -711,6 +769,7 @@ const TrainingPage: React.FC = () => {
             }
           }}
           onRetryLoad={() => void nextItemQuery.refetch()}
+          onRetryConnection={() => void runtime.recoverConnection()}
         />
 
         {nextItemQuery.isLoading ? (
@@ -751,43 +810,26 @@ const TrainingPage: React.FC = () => {
                 {trainingModeLabel(currentItem.mode)} · {currentItem.cognitiveTag} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
               </div>
 
-              <div className="mt-8 grid gap-6 md:grid-cols-2">
-                <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-8 dark:border-white/10 dark:bg-white/5">
-                  <div className="mb-3 text-sm uppercase tracking-[0.24em] text-sky-500">
-                    {t('diagnosis.english')}
-                  </div>
-                  <div className="text-4xl font-black text-slate-900 dark:text-white">
-                    {currentItem.englishWord}
-                  </div>
-                </div>
-                <div className="rounded-[2rem] border border-slate-200/80 bg-white/60 p-8 dark:border-white/10 dark:bg-white/5">
-                  <div className="mb-3 text-sm uppercase tracking-[0.24em] text-rose-500">
-                    {t('diagnosis.french')}
-                  </div>
-                  <div className="text-4xl font-black text-slate-900 dark:text-white">
-                    {currentItem.frenchWord}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 rounded-[2rem] border border-dashed border-slate-300 bg-white/40 p-6 dark:border-white/10 dark:bg-white/5">
-                <div className="text-lg font-bold text-slate-900 dark:text-white">
-                  {currentItem.content.question}
-                </div>
-                {currentItem.content.sentence && (
-                  <div className="mt-3 italic text-slate-500 dark:text-white/45">
-                    {currentItem.content.sentence}
-                  </div>
-                )}
+              <div className="mt-8">
+                <LearningCardStack
+                  item={currentItem}
+                  explanationAvailable={!!answerFeedback}
+                  explanation={
+                    answerFeedback?.outcome.explanation ||
+                    currentItem.content.explanation ||
+                    currentItem.stimulus.explanation
+                  }
+                />
               </div>
 
               <div className="mt-8 grid gap-4">
-                {currentItem.options.map((option) => (
+                {currentItem.options.map((option, index) => (
                   <SessionOptionButton
                     key={option.key}
                     disabled={isAnswerLocked}
                     onClick={() => void submitAnswer(option)}
                     label={option.label}
+                    shortcutLabel={String(index + 1)}
                     icon={<Rocket size={16} className="text-primary" />}
                   />
                 ))}
@@ -813,23 +855,31 @@ const TrainingPage: React.FC = () => {
                       迁移偏差：{errorTypeLabel(answerFeedback.outcome.detectedErrorType)}
                     </div>
                   )}
-                  {answerFeedback.outcome.explanation && (
-                    <div className="mt-2 text-sm leading-7">{answerFeedback.outcome.explanation}</div>
-                  )}
                   {adaptationActionLabel(answerFeedback.outcome.adaptationAction) && (
                     <div className="mt-2 text-sm font-semibold leading-7">
                       纠偏动作：{adaptationActionLabel(answerFeedback.outcome.adaptationAction)}
                     </div>
                   )}
                   {answerFeedback.mode === 'SPEED_CHALLENGE' ? (
-                    <div className="mt-3 text-xs font-semibold">即将进入下一题…</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <span className="text-xs font-semibold">即将进入下一题…</span>
+                      <button
+                        type="button"
+                        onClick={() => void continueAfterFeedback()}
+                        aria-keyshortcuts="Enter"
+                        className="min-h-11 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:bg-white dark:text-slate-900"
+                      >
+                        立即下一题（Enter）
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"
                       onClick={() => void continueAfterFeedback()}
+                      aria-keyshortcuts="Enter"
                       className="mt-4 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-bold text-white dark:bg-white dark:text-slate-900"
                     >
-                      {answerFeedback.progress.completed ? '查看训练总结' : '下一题'}
+                      {answerFeedback.progress.completed ? '查看训练总结' : '下一题（Enter）'}
                     </button>
                   )}
                 </div>
@@ -928,7 +978,7 @@ const TrainingPage: React.FC = () => {
                     }}
                     className="btn-liquid px-6 py-3 text-white"
                   >
-                    继续下一推荐训练
+                    {t('training.repeatPractice')}
                   </button>
                   <button
                     type="button"
@@ -936,7 +986,7 @@ const TrainingPage: React.FC = () => {
                     onClick={() => navigate('/errors')}
                     className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10"
                   >
-                    查看错题与复习
+                    {t('training.reviewMistakes')}
                   </button>
                 </div>
               </div>
@@ -1162,17 +1212,17 @@ const TrainingPage: React.FC = () => {
                 {t('training.reviewScheduleTitle')}
               </div>
             </div>
-            {!!reviewScheduleQuery.data?.length && (
+            {!!dueReviewItems.length && (
               <button
                 type="button"
                 onClick={() =>
                   navigate(
                     buildTrainingHref({
-                      mode: reviewScheduleQuery.data[0].reviewMode,
+                      mode: dueReviewItems[0].reviewMode,
                       source: 'review-schedule',
-                      lexicalPairId: reviewScheduleQuery.data[0].lexicalPairId,
-                      wrongBookId: reviewScheduleQuery.data[0].wrongBookId,
-                      reviewScheduleId: reviewScheduleQuery.data[0].reviewScheduleId,
+                      lexicalPairId: dueReviewItems[0].lexicalPairId,
+                      wrongBookId: dueReviewItems[0].wrongBookId,
+                      reviewScheduleId: dueReviewItems[0].reviewScheduleId,
                     })
                   )
                 }
@@ -1190,7 +1240,7 @@ const TrainingPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {(reviewScheduleQuery.data || []).slice(0, 5).map((item) => (
+              {dueReviewItems.slice(0, 5).map((item) => (
                 <div
                   key={item.reviewScheduleId}
                   className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
@@ -1216,12 +1266,16 @@ const TrainingPage: React.FC = () => {
                     }
                     className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
                   >
-                    开始
+                    开始复习
                   </button>
                 </div>
               ))}
-              {!reviewScheduleQuery.data?.length && (
-                <div className="text-sm text-slate-500 dark:text-white/45">暂无待复习计划。</div>
+              {!dueReviewItems.length && (
+                <div className="text-sm text-slate-500 dark:text-white/45">
+                  {futureReviewItems.length
+                    ? t('training.futureReviewNotice', { count: futureReviewItems.length })
+                    : t('training.noReviewSchedule')}
+                </div>
               )}
             </div>
           )}

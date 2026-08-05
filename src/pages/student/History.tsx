@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge, Tabs } from '@/components/common';
 import { FeedbackState } from '@/components/common/FeedbackState';
+import { FadeContent } from '@/components/common/FadeContent';
 import { getProductizedErrorState } from '@/lib/async-state';
 import { buildDiagnosisHref } from '@/lib/diagnosis-launch';
 import {
@@ -152,6 +153,8 @@ function findTrainingOptionLabel(options: TrainingOptionViewVO[], answerKey?: st
 }
 
 function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetailVO }) {
+  const { t } = useTranslation();
+  const [showExplanation, setShowExplanation] = React.useState(false);
   const selectedLabel = findTrainingOptionLabel(item.options, item.selectedAnswerKey);
   const correctLabel = findTrainingOptionLabel(item.options, item.correctAnswerKey);
 
@@ -168,7 +171,24 @@ function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetai
           <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
             <div className="font-semibold">{item.content.question}</div>
             {item.content.sentence && <div className="mt-2 italic">{item.content.sentence}</div>}
-            {item.stimulus.explanation && <div className="mt-2">{item.stimulus.explanation}</div>}
+            {item.stimulus.explanation && (
+              <>
+                <button
+                  type="button"
+                  aria-expanded={showExplanation}
+                  aria-keyshortcuts="Enter Space"
+                  onClick={() => setShowExplanation((visible) => !visible)}
+                  className="mt-3 min-h-11 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:border-white/10"
+                >
+                  {showExplanation ? t('training.hideExplanation') : t('training.viewExplanation')}
+                </button>
+                {showExplanation ? (
+                  <FadeContent contentKey="training-history-explanation" className="mt-3">
+                    {item.stimulus.explanation}
+                  </FadeContent>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
         <div className="text-right text-sm text-slate-500 dark:text-white/45">
@@ -729,6 +749,8 @@ const HistoryPage: React.FC = () => {
                 description="训练总结会在你选中一条已完成训练后显示。"
                 impact="当前不会影响左侧记录浏览，但你还不能查看复习建议和题目回看。"
                 nextStep="从左侧选择一条已完成记录，即可在这里继续查看。"
+                actionLabel="开始训练"
+                onAction={() => navigate('/training')}
               />
             ) : trainingDetailQuery.isLoading ? (
               <HistoryStatePanel

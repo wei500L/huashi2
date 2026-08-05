@@ -31,6 +31,8 @@ type SessionRuntimeOptions<TNextItem, TSnapshot, THeartbeat> = {
   messages?: Partial<SessionRuntimeMessages>;
 };
 
+type SessionConnectionState = 'online' | 'offline' | 'recovering' | 'recovered' | 'recovery-error';
+
 const defaultMessages: SessionRuntimeMessages = {
   saved: '进度已保存。',
   savedAndExit: '进度已保存，稍后可在历史页继续。',
@@ -63,6 +65,9 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
   const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null);
   const [saveConflictMessage, setSaveConflictMessage] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [connectionState, setConnectionState] = React.useState<SessionConnectionState>(() =>
+    typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online'
+  );
   const heartbeatInFlightRef = React.useRef(false);
   const allowNavigationRef = React.useRef<(callback: () => void) => void>((callback) => {
     callback();
@@ -89,6 +94,41 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
     const refreshed = await syncStateFromServer();
     return !!(refreshed && isCompleted(refreshed));
   }, [isCompleted, syncStateFromServer]);
+
+  const recoverConnection = React.useCallback(async () => {
+    if (!active || !sessionId) {
+      setConnectionState('online');
+      return;
+    }
+    setConnectionState('recovering');
+    try {
+      await syncStateFromServer();
+      setConnectionState('recovered');
+    } catch {
+      setConnectionState('recovery-error');
+    }
+  }, [active, sessionId, syncStateFromServer]);
+
+  React.useEffect(() => {
+    const handleOffline = () => setConnectionState('offline');
+    const handleOnline = () => {
+      void recoverConnection();
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [recoverConnection]);
+
+  React.useEffect(() => {
+    if (connectionState !== 'recovered') {
+      return;
+    }
+    const timer = window.setTimeout(() => setConnectionState('online'), 4000);
+    return () => window.clearTimeout(timer);
+  }, [connectionState]);
 
   const sendHeartbeat = React.useCallback(async () => {
     if (!active || !sessionId || !heartbeat || heartbeatInFlightRef.current) {
@@ -223,6 +263,8 @@ export function useSessionRuntime<TNextItem, TSnapshot, THeartbeat = never>({
     saveMessage,
     saveErrorMessage,
     saveConflictMessage,
+    connectionState,
+    recoverConnection,
     resetFeedback,
     saveProgressManually,
   };

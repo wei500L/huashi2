@@ -56,9 +56,11 @@ type SessionFeedbackBannersProps = {
   submitInfoMessage?: string | null;
   loadInfoMessage?: string | null;
   loadError?: unknown;
+  connectionState?: 'online' | 'offline' | 'recovering' | 'recovered' | 'recovery-error';
   onRetrySave?: () => void;
   onRetrySubmit?: () => void;
   onRetryLoad?: () => void;
+  onRetryConnection?: () => void;
 };
 
 export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
@@ -70,9 +72,11 @@ export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
   submitInfoMessage,
   loadInfoMessage,
   loadError,
+  connectionState = 'online',
   onRetrySave,
   onRetrySubmit,
   onRetryLoad,
+  onRetryConnection,
 }) => {
   const { t } = useTranslation();
   const loadErrorState = loadError
@@ -85,6 +89,43 @@ export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
 
   return (
   <>
+    {connectionState === 'offline' && (
+      <FeedbackState
+        kind="retry"
+        compact
+        title={t('ui.sessionState.offlineTitle')}
+        description={t('ui.sessionState.offlineDescription')}
+        impact={t('ui.sessionState.offlineSafety')}
+        nextStep={t('ui.sessionState.offlineNextStep')}
+      />
+    )}
+    {connectionState === 'recovering' && (
+      <FeedbackState
+        kind="loading"
+        compact
+        title={t('ui.sessionState.recoveringTitle')}
+        description={t('ui.sessionState.recoveringDescription')}
+      />
+    )}
+    {connectionState === 'recovered' && (
+      <FeedbackState
+        kind="saved"
+        compact
+        title={t('ui.sessionState.recoveredTitle')}
+        description={t('ui.sessionState.recoveredDescription')}
+      />
+    )}
+    {connectionState === 'recovery-error' && (
+      <FeedbackState
+        kind="retry"
+        compact
+        title={t('ui.sessionState.recoveryFailedTitle')}
+        description={t('ui.sessionState.recoveryFailedDescription')}
+        impact={t('ui.sessionState.recoveryFailedSafety')}
+        nextStep={t('ui.sessionState.recoveryFailedNextStep')}
+        primaryAction={onRetryConnection ? { label: t('ui.sessionState.retryRecovery'), onClick: onRetryConnection } : undefined}
+      />
+    )}
     {isSaving && (
       <FeedbackState
         kind="saving"
@@ -275,6 +316,7 @@ export const SessionProgressHeader: React.FC<SessionProgressHeaderProps> = ({
 
 type SessionOptionButtonProps = {
   label: string;
+  shortcutLabel?: string;
   icon?: React.ReactNode;
   disabled?: boolean;
   onClick: () => void;
@@ -282,6 +324,7 @@ type SessionOptionButtonProps = {
 
 export const SessionOptionButton: React.FC<SessionOptionButtonProps> = ({
   label,
+  shortcutLabel,
   icon,
   disabled,
   onClick,
@@ -290,10 +333,18 @@ export const SessionOptionButton: React.FC<SessionOptionButtonProps> = ({
     type="button"
     disabled={disabled}
     onClick={onClick}
+    aria-keyshortcuts={shortcutLabel}
       className="min-h-11 w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-5 py-4 text-left transition-all motion-reduce:transition-none hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
   >
     <div className="flex items-center justify-between gap-4">
-      <span className="font-bold text-slate-900 dark:text-white">{label}</span>
+      <span className="flex min-w-0 items-center gap-3 font-bold text-slate-900 dark:text-white">
+        {shortcutLabel ? (
+          <kbd className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-xs font-black text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+            {shortcutLabel}
+          </kbd>
+        ) : null}
+        <span>{label}</span>
+      </span>
       {icon || <ChevronRight className="text-primary" size={16} />}
     </div>
   </button>
