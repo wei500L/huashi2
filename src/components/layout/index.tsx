@@ -365,7 +365,7 @@ export const Sidebar: React.FC = () => {
     <aside
       aria-label={t('shell.mobileNavigationTitle')}
       className={cn(
-        'sidebar-shell hidden lg:flex h-[calc(100vh-1.5rem)] my-3 ml-3 flex-col transition-all duration-200 z-50 surface-panel rounded-xl',
+        'sidebar-shell hidden lg:flex h-[calc(100vh-1.5rem)] my-3 ml-3 flex-col transition-all motion-layout duration-200 z-50 surface-panel rounded-xl',
         isSidebarCollapsed ? 'w-20' : 'w-72'
       )}
     >
@@ -382,7 +382,7 @@ export const Sidebar: React.FC = () => {
             >
               <ChevronLeft
                 className={cn(
-                  'transition-transform duration-500 text-slate-400 dark:text-white/70',
+                  'transition-transform duration-200 text-slate-400 dark:text-white/70',
                   isSidebarCollapsed && 'rotate-180'
                 )}
                 size={20}

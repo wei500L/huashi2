@@ -115,7 +115,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, ease: 'easeOut' }}
+            transition={{ duration: 0.42, ease: 'easeOut' }}
             style={{ height: '100%', width: '100%' }}
           >
             <EChart option={option} style={{ height: '100%', width: '100%' }} />

@@ -3811,7 +3811,7 @@ const AdminConfigCenterPage: React.FC = () => {
                     </div>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
                       <div
-                        className={`h-full rounded-full transition-all ${
+                        className={`h-full rounded-full transition-all motion-layout ${
                           reindexStatusMeta.tone === 'success'
                             ? 'bg-emerald-500'
                             : reindexStatusMeta.tone === 'warning'

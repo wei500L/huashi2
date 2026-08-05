@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { LucideIcon } from 'lucide-react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
@@ -93,6 +93,7 @@ export const StatusBadge: React.FC<{ label: string; tone?: StatusTone; className
 
 // Magnetic Interaction Component - Performance Optimized
 export const Magnetic: React.FC<{ children: React.ReactElement; strength?: number }> = ({ children, strength = 0.3 }) => {
+  const reducedMotion = useReducedMotion();
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const springConfig = { damping: 20, stiffness: 150, mass: 0.5 };
@@ -100,6 +101,7 @@ export const Magnetic: React.FC<{ children: React.ReactElement; strength?: numbe
   const springY = useSpring(y, springConfig);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (reducedMotion) return;
     const { clientX, clientY, currentTarget } = e;
     const { left, top, width, height } = currentTarget.getBoundingClientRect();
     const centerX = left + width / 2;
@@ -112,6 +114,7 @@ export const Magnetic: React.FC<{ children: React.ReactElement; strength?: numbe
   };
 
   const handleMouseLeave = () => {
+    if (reducedMotion) return;
     x.set(0);
     y.set(0);
   };
@@ -130,11 +133,18 @@ export const Magnetic: React.FC<{ children: React.ReactElement; strength?: numbe
 
 // Number Animation Component
 export const AnimatedNumber: React.FC<{ value: number; format?: (v: number) => string }> = ({ value, format = (v) => Math.round(v).toString() }) => {
-  const [displayValue, setDisplayValue] = useState(0);
+  const reducedMotion = useReducedMotion();
+  const [displayValue, setDisplayValue] = useState(() => (reducedMotion ? value : 0));
 
   useEffect(() => {
+    if (reducedMotion) {
+      setDisplayValue(value);
+      return;
+    }
+
     let startTimestamp: number;
-    const duration = 1500;
+    let frameId = 0;
+    const duration = 560;
 
     const step = (timestamp: number) => {
       if (!startTimestamp) startTimestamp = timestamp;
@@ -142,11 +152,12 @@ export const AnimatedNumber: React.FC<{ value: number; format?: (v: number) => s
       const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
       setDisplayValue(easeProgress * value);
       if (progress < 1) {
-        window.requestAnimationFrame(step);
+        frameId = window.requestAnimationFrame(step);
       }
     };
-    window.requestAnimationFrame(step);
-  }, [value]);
+    frameId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [reducedMotion, value]);
 
   return <span>{format(displayValue)}</span>;
 };
@@ -172,6 +183,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   color = 'text-primary',
 }) => {
   const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
   const iconGlowClass = (() => {
     switch (color) {
       case 'text-blue-500':
@@ -205,6 +217,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-7deg', '7deg']);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if (reducedMotion) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
@@ -219,6 +232,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   };
 
   const handleMouseLeave = () => {
+    if (reducedMotion) return;
     x.set(0);
     y.set(0);
   };
@@ -228,8 +242,8 @@ export const StatCard: React.FC<StatCardProps> = ({
       style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      whileHover={{ scale: 1.005 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      whileHover={reducedMotion ? undefined : { scale: 1.005 }}
+      transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 }}
       className={cn(
         'surface-card spotlight-card p-6 rounded-xl flex flex-col justify-between group transition-shadow duration-200 hover:shadow-[var(--shadow-md)] cursor-default',
         className
@@ -261,7 +275,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         <div className="mt-6 relative z-10" style={{ transform: 'translateZ(20px)' }}>
           <div
             className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border backdrop-blur-md transition-all duration-500',
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border backdrop-blur-md transition-all duration-200',
               trend.isUp
                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                 : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
@@ -290,7 +304,7 @@ interface PageHeaderProps {
 
 export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle, breadcrumbs, actions }) => (
   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-    <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }}>
+    <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.42, ease: 'easeOut' }}>
       {breadcrumbs && (
         <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-3">
           {breadcrumbs.map((b, i) => (
@@ -306,7 +320,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
       {subtitle && <p className="type-body-muted mt-3 max-w-xl">{subtitle}</p>}
     </motion.div>
     {actions && (
-      <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }} className="flex items-center gap-4">
+      <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.42, ease: 'easeOut' }} className="flex items-center gap-4">
         {actions}
       </motion.div>
     )}

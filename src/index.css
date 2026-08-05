@@ -58,6 +58,15 @@
     --shadow-md: 0 8px 24px hsl(222 33% 16% / 0.09);
     --shadow-lg: 0 18px 42px hsl(222 33% 16% / 0.12);
     --radius: 0.625rem;
+    /* Motion budget: feedback 0-160ms, state 160-280ms, enter 280-480ms,
+       scroll reveal 480-720ms. Keep these tokens as the single timing source. */
+    --motion-feedback-duration: 140ms;
+    --motion-state-duration: 220ms;
+    --motion-enter-duration: 420ms;
+    --motion-reveal-duration: 560ms;
+    --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    --motion-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
     /* Cross-script typography: Latin, French diacritics and CJK fallbacks. */
     --font-sans: "Inter", "Avenir Next", "Segoe UI", "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
     --font-display: "Inter Tight", "Avenir Next", "Segoe UI", "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -130,7 +139,26 @@
 @layer base {
   * {
     @apply border-border;
-    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  /* Keep feedback transitions explicit. Transforms belong to an interaction
+     or Framer Motion component; controls and layout containers must not inherit
+     transform interpolation from a global selector. */
+  :where(button, a, [role="button"], summary) {
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-duration: var(--motion-feedback-duration);
+    transition-timing-function: var(--motion-ease-standard);
+  }
+
+  :where(input, textarea, select) {
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: var(--motion-feedback-duration) !important;
+    transition-timing-function: var(--motion-ease-standard) !important;
+  }
+
+  /* Legacy transition-all must not make form controls or overlays feel sticky. */
+  :where(input, textarea, select, dialog, [role="dialog"], [data-popover]) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, visibility !important;
   }
   body {
     background: var(--background);
@@ -240,7 +268,7 @@
     -webkit-box-shadow: 0 0 0 1000px hsl(var(--surface-sunken)) inset !important;
     box-shadow: 0 0 0 1000px hsl(var(--surface-sunken)) inset !important;
     border-color: hsl(var(--border-subtle) / 0.9) !important;
-    transition: background-color 9999s ease-out, color 9999s ease-out;
+    transition: background-color 9999s ease-out, color 9999s ease-out !important;
   }
 
   .dark input:focus,
@@ -286,6 +314,41 @@
 }
 
 @layer utilities {
+  /* Named motion budgets for new surfaces. Prefer these over transition-all. */
+  .motion-feedback {
+    transition-duration: var(--motion-feedback-duration);
+    transition-timing-function: var(--motion-ease-standard);
+  }
+
+  .motion-state {
+    transition-duration: var(--motion-state-duration);
+    transition-timing-function: var(--motion-ease-emphasized);
+  }
+
+  .motion-enter {
+    animation-duration: var(--motion-enter-duration);
+    animation-timing-function: var(--motion-ease-emphasized);
+  }
+
+  .motion-reveal {
+    animation-duration: var(--motion-reveal-duration);
+    animation-timing-function: var(--motion-ease-emphasized);
+  }
+
+  /* Guard legacy transition-all usages: only paint feedback may interpolate.
+     Use .motion-layout when a component intentionally animates its width. */
+  .transition-all {
+    transition-property: color, background-color, border-color, box-shadow, opacity !important;
+    transition-duration: var(--motion-state-duration) !important;
+    transition-timing-function: var(--motion-ease-standard) !important;
+  }
+
+  .motion-layout {
+    transition-property: width, max-width, color, background-color, border-color, box-shadow !important;
+    transition-duration: var(--motion-state-duration) !important;
+    transition-timing-function: var(--motion-ease-emphasized) !important;
+  }
+
   /* Semantic type roles. Prefer these for new UI and page-level headings. */
   .type-display {
     font-family: var(--font-display);
@@ -416,8 +479,14 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       transition-duration: 0.01ms !important;
-      animation-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
+      animation: none !important;
+      scroll-behavior: auto !important;
     }
+
+    .spotlight-card::before { opacity: 0 !important; }
+    .magnetic-wrap { transform: none !important; }
+    :where(button, a, [role="button"]):hover { transform: none !important; }
   }
 
   .native-select {
@@ -480,7 +549,9 @@
   /* Magnetic Base Class */
   .magnetic-wrap {
     display: inline-block;
-    transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    /* Framer Motion's spring owns this transform; a CSS transition here would
+       add a second easing layer and make pointer release feel sticky. */
+    will-change: transform;
   }
 
   .edge-light { position: relative; }
@@ -492,8 +563,6 @@
   .stat-card-value {
     line-height: 0.92;
     letter-spacing: -0.06em;
-    animation: stat-value-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-    will-change: transform, opacity;
   }
 
   .stat-card-value-suffix {
@@ -549,7 +618,7 @@
     color: transparent;
     -webkit-background-clip: text;
     background-clip: text;
-    animation: text-gradient-flow 8s linear infinite;
+    animation: text-gradient-flow var(--motion-reveal-duration) var(--motion-ease-standard) 1 both;
   }
 
   @keyframes text-gradient-flow {
@@ -559,9 +628,12 @@
 
   /* Primary action surface: solid, compact and raised on hover. */
   .btn-liquid {
-    @apply relative px-8 py-3 rounded-lg font-black tracking-widest text-sm transition-all duration-200 overflow-hidden text-action-foreground;
+    @apply relative px-8 py-3 rounded-lg font-black tracking-widest text-sm overflow-hidden text-action-foreground;
     background: hsl(var(--action));
     box-shadow: var(--shadow-sm);
+    transition-property: background-color, box-shadow, transform;
+    transition-duration: var(--motion-feedback-duration);
+    transition-timing-function: var(--motion-ease-standard);
   }
   .btn-liquid::before { display: none; }
   .btn-liquid:hover { background: hsl(var(--action) / 0.9); box-shadow: var(--shadow-md); transform: translateY(-1px); }
@@ -582,6 +654,12 @@
   .spotlight-card { position: relative; isolation: isolate; }
   .spotlight-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(220px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0%), hsl(var(--focus) / 0.08), transparent 70%); transition: opacity 180ms ease; z-index: 0; }
   .spotlight-card:hover::before { opacity: 1; }
+
+  /* Pointer effects are decorative only; coarse pointers get a stable surface. */
+  @media (hover: none), (pointer: coarse) {
+    .spotlight-card::before { opacity: 0 !important; }
+    .magnetic-wrap { transform: none !important; }
+  }
 
   @keyframes beam-rotate {
     from { --beam-angle: 0deg; }
@@ -611,20 +689,4 @@
                       linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   }
 
-  @keyframes stat-value-rise {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .stat-card-value {
-      animation: none;
-    }
-  }
 }

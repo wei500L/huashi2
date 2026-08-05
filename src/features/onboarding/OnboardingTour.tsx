@@ -224,11 +224,11 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, steps, onC
       {spotlightRect ? (
         <>
           <div
-            className="pointer-events-none absolute rounded-[2rem] border border-sky-300/90 shadow-[0_0_0_9999px_rgba(2,6,23,0.58)] transition-all duration-300"
+            className="pointer-events-none absolute rounded-[2rem] border border-sky-300/90 shadow-[0_0_0_9999px_rgba(2,6,23,0.58)] transition-all motion-layout duration-200"
             style={spotlightRect}
           />
           <div
-            className="pointer-events-none absolute rounded-[2rem] border border-white/70 transition-all duration-300"
+            className="pointer-events-none absolute rounded-[2rem] border border-white/70 transition-all motion-layout duration-200"
             style={{
               ...spotlightRect,
               boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 0 28px rgba(125,211,252,0.45)',

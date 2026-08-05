@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { MotionConfig } from 'framer-motion';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
@@ -31,13 +32,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <RouteErrorBoundary
-          variant="fullscreen"
-          title="应用加载失败"
-          description="当前页面未能完成初始化。请重新加载；如果问题持续存在，先回到登录页或首页再重试。"
-        >
-          <App />
-        </RouteErrorBoundary>
+        <MotionConfig reducedMotion="user">
+          <RouteErrorBoundary
+            variant="fullscreen"
+            title="应用加载失败"
+            description="当前页面未能完成初始化。请重新加载；如果问题持续存在，先回到登录页或首页再重试。"
+          >
+            <App />
+          </RouteErrorBoundary>
+        </MotionConfig>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>
