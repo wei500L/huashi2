@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion, useReducedMotion, type PanInfo } from 'framer-motion';
 import { BookOpenText, Languages, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { FadeContent } from '@/components/common/FadeContent';
@@ -21,7 +20,6 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
   explanationAvailable,
 }) => {
   const { t } = useTranslation();
-  const reduceMotion = useReducedMotion();
   const [activeLayer, setActiveLayer] = React.useState<LearningLayer>('pair');
 
   React.useEffect(() => {
@@ -45,13 +43,6 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
     const nextIndex = Math.min(availableLayers.length - 1, Math.max(0, index + direction));
     setActiveLayer(availableLayers[nextIndex]);
   }, [activeLayer, availableLayers]);
-
-  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (reduceMotion || Math.abs(info.offset.x) < 72) {
-      return;
-    }
-    moveLayer(info.offset.x < 0 ? 1 : -1);
-  };
 
   const handleLayerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.target instanceof Element && event.target.closest('button')) {
@@ -117,25 +108,7 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
         </span>
       </div>
 
-      <div className="relative min-h-[23rem] px-1 pb-5 sm:px-5" style={{ perspective: 700 }}>
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-10 bottom-0 top-8 rounded-[2.2rem] border border-sky-500/15 bg-sky-500/5"
-          style={{ transform: 'translateY(16px) scale(0.94)' }}
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-6 bottom-3 top-4 rounded-[2.2rem] border border-emerald-500/15 bg-emerald-500/5"
-          style={{ transform: 'translateY(8px) scale(0.97)' }}
-        />
-
-        <motion.div
-          drag={reduceMotion ? false : 'x'}
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.12}
-          onDragEnd={handleDragEnd}
-          className="relative min-h-[21rem] rounded-[2.2rem] border border-slate-200/80 bg-white/95 p-7 shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)] focus-within:ring-2 focus-within:ring-primary/20 dark:border-white/10 dark:bg-slate-950/95 sm:p-9"
-        >
+      <div className="min-h-[21rem] rounded-[1rem] border border-slate-200/80 bg-white/95 p-7 shadow-[var(--shadow-sm)] focus-within:ring-2 focus-within:ring-primary/20 dark:border-white/10 dark:bg-slate-950/95 sm:p-9">
           <FadeContent contentKey={`${item.itemResultId}-${activeLayer}`} className="min-h-[16rem]">
             {activeLayer === 'pair' ? (
               <div className="grid min-h-[16rem] content-center gap-7 md:grid-cols-2">
@@ -186,7 +159,7 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
               </div>
             )}
           </FadeContent>
-        </motion.div>
+      </div>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-3">

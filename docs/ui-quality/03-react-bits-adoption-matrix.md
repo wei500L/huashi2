@@ -1,7 +1,7 @@
 # A3 React Bits 采用矩阵与依赖预算
 
 决策日期：2026-08-05  
-阶段：组件边界决策，尚未进入实现  
+阶段：组件边界决策已复核；撤回项已同步，页面继续采用静态降级
 验证声明：本轮只做源码、依赖和页面语义的静态审查，未启动页面，也未运行任何测试、lint、typecheck 或 build。
 
 ## 1. 适用边界
@@ -35,7 +35,7 @@
 
 | 组件与来源 | 语义用途 | 目标路由 / 页面位置 | 实现变体与动效依赖 | 性能 / 可访问性风险 | 静态降级 | 当前状态 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [Stack](https://reactbits.dev/components/stack) | 将有限数量的训练阶段、证据或推荐卡叠成“下一站” | 学生 `/training` 推荐训练区；不作为管理员统计卡 | 静态 CSS 堆叠优先，点击后展开单张；若需进入/退出只用 Framer Motion；不需要 GSAP/OGL/Three | z-index/transform 会改变视觉顺序，堆叠内容可能被读屏重复；多层阴影和 3D 会放大合成成本 | 普通纵向列表或 stepper，所有项目同时可见 | evaluate |
+| [Stack](https://reactbits.dev/components/stack) | 将有限数量的训练阶段、证据或推荐卡叠成“下一站” | 学生 `/training` 推荐训练区；不作为管理员统计卡 | 静态 CSS 堆叠优先，点击后展开单张；若需进入/退出只用 Framer Motion；不需要 GSAP/OGL/Three | z-index/transform 会改变视觉顺序，堆叠内容可能被读屏重复；多层阴影和 3D 会放大合成成本 | 普通纵向列表或 stepper，所有项目同时可见；当前训练层已回退为单表面 + 可见按钮/键盘等价物，不采用堆叠/拖拽视觉 | reject |
 | [CardSwap](https://reactbits.dev/components/card-swap) | 通过换卡浏览内容 | 无默认目标；不放 `/dashboard`、`/teacher/workspace` 或 `/admin/dashboard` 高频区 | 原实现常见连续位移、拖拽或 GSAP/scroll 驱动；本项目不引入 GSAP，不保留交互换卡 | 焦点顺序、触屏拖拽、历史回退和 reduced-motion 容易失真；隐藏卡片造成信息不可见 | 分页/列表 + 明确的上一张/下一张按钮 | reject |
 | [Stepper](https://reactbits.dev/components/stepper) | 表达测评题目、诊断阶段或训练路线的顺序与完成状态 | 学生 `/assessments/attempts/:attemptId` 左侧题目导航，或 `/diagnosis` 路线阶段 | 语义化 `<ol>`/按钮为主，Framer Motion 只做一次状态强调；不需要 GSAP/OGL/Three | 必须支持 `aria-current="step"`、键盘跳转、未答/锁定/超时状态；不能只靠颜色 | 现有题号网格/进度文字继续作为完整等价物 | adopt |
 | [CountUp](https://reactbits.dev/components/count-up) | 关键成果数字的一次性揭示 | 学生 `/dashboard` 进度成果；管理员 `/admin/dashboard` 指标仅在明确刷新后 | 不复制无 cleanup 的 RAF；优先静态数字，必要时用 Framer Motion 数值过渡且只触发一次；不需要 GSAP/OGL/Three | 多卡同时 RAF 会拖慢首屏，数字变化可能被读屏重复播报；必须尊重 reduced-motion | 直接显示最终格式化值，保留单位、时间范围和来源 | adapt |
@@ -70,11 +70,11 @@
 
 ### 条件名单（只做原型，不承诺实现）
 
-MaskedHeading、Stack、Scanner。原型必须有普通 DOM 等价物，且不得把装饰动画当作状态来源或进度来源。
+MaskedHeading、Scanner。原型必须有普通 DOM 等价物，且不得把装饰动画当作状态来源或进度来源。
 
 ### 黑名单
 
-StrokeText、TextLoop、CardSwap、PillNav、SpotlightCard、Masonry、ElasticSlider、MorphSlider。黑名单尤其适用于 `/teacher/workspace`、`/admin/dashboard` 等高频工作台：不得使用 cursor-only、全屏 WebGL、玻璃拟态或默认霓虹样式。
+Stack、StrokeText、TextLoop、CardSwap、PillNav、SpotlightCard、Masonry、ElasticSlider、MorphSlider。黑名单尤其适用于 `/teacher/workspace`、`/admin/dashboard` 等高频工作台：不得使用 cursor-only、全屏 WebGL、玻璃拟态或默认霓虹样式。训练页当前保留 `LearningCardStack` 的单表面静态降级，不再引入 React Bits Stack。
 
 ### 运行时预算
 

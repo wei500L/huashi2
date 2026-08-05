@@ -4,7 +4,7 @@ import { Brain, Eye, EyeOff, RefreshCw, ShieldCheck, Wand2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, PanelSkeleton, SectionEyebrow, SpotlightCard, StatusBadge } from '@/components/common';
+import { DecisionCard, PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
 import InterventionEffectPanel from '@/features/interventions/InterventionEffectPanel';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
 import { aiService, teacherAnalyticsService, teacherInterventionService } from '@/lib/services';
@@ -227,7 +227,7 @@ const TeacherStudentDetailPage: React.FC = () => {
             const topPair = snapshot.topRiskPairs[0] || analysis.highRiskPairs[0];
             const activeIntervention = studentInterventions.find((item) => item.status !== 'COMPLETED') || studentInterventions[0];
             return (
-              <SpotlightCard eyebrow="教师判断" title="先处理一个最重要的薄弱点">
+              <DecisionCard eyebrow="教师判断" title="先处理一个最重要的薄弱点">
                 <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
                   <div>
                     <div className="text-lg font-black text-slate-900 dark:text-white">
@@ -249,7 +249,7 @@ const TeacherStudentDetailPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </SpotlightCard>
+              </DecisionCard>
             );
           })()}
 

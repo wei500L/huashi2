@@ -586,8 +586,6 @@
       scroll-behavior: auto !important;
     }
 
-    .spotlight-card::before { opacity: 0 !important; }
-    .magnetic-wrap { transform: none !important; }
     :where(button, a, [role="button"]):hover { transform: none !important; }
 
     svg[aria-hidden="true"] animate { display: none !important; }
@@ -749,14 +747,6 @@
 
   .dark .sidebar-shell {
     box-shadow: var(--shadow-md);
-  }
-
-  /* Magnetic Base Class */
-  .magnetic-wrap {
-    display: inline-block;
-    /* Framer Motion's spring owns this transform; a CSS transition here would
-       add a second easing layer and make pointer release feel sticky. */
-    will-change: transform;
   }
 
   .edge-light { position: relative; }
@@ -1185,21 +1175,6 @@
     vector-effect: non-scaling-stroke;
   }
 
-  .auth-entry-glow {
-    position: absolute;
-    z-index: -1;
-    top: 9%;
-    right: 8%;
-    width: min(34rem, 48vw);
-    aspect-ratio: 1;
-    border: 1px solid hsl(var(--teacher) / 0.18);
-    border-radius: 50%;
-    box-shadow:
-      0 0 0 3rem hsl(var(--teacher) / 0.035),
-      0 0 0 7rem hsl(var(--action) / 0.025);
-    opacity: 0.9;
-  }
-
   .auth-entry-frame {
     display: grid;
     width: min(1180px, calc(100% - 3rem));
@@ -1271,9 +1246,6 @@
     position: relative;
     display: inline-block;
     opacity: 0.72;
-    animation-duration: 6s;
-    animation-iteration-count: infinite;
-    animation-timing-function: var(--motion-ease-standard);
   }
 
   .auth-language-word::after {
@@ -1285,13 +1257,16 @@
     border-radius: 2px;
     background: hsl(var(--teacher));
     content: '';
-    opacity: 0;
-    transform: scaleX(0.4);
+    opacity: 1;
+    transform: scaleX(1);
   }
 
-  .auth-language-word-en { animation-name: auth-language-focus-en; }
-  .auth-language-word-fr { animation-name: auth-language-focus-fr; }
-  .auth-language-word-zh { animation-name: auth-language-focus-zh; }
+  .auth-language-word-en { color: hsl(var(--teacher)); opacity: 1; }
+  .auth-language-word-fr { color: hsl(var(--action)); opacity: 1; }
+  .auth-language-word-zh { color: hsl(var(--text-muted)); }
+  .auth-language-word-en::after { background: hsl(var(--teacher)); }
+  .auth-language-word-fr::after { background: hsl(var(--action)); }
+  .auth-language-word-zh::after { opacity: 0; }
 
   .auth-language-bridge {
     display: inline-flex;
@@ -1568,21 +1543,6 @@
     to { clip-path: inset(0); transform: translateY(0); }
   }
 
-  @keyframes auth-language-focus-en {
-    0%, 26%, 100% { opacity: 1; color: hsl(var(--text)); }
-    34%, 82% { opacity: 0.62; color: hsl(var(--text-muted)); }
-  }
-
-  @keyframes auth-language-focus-fr {
-    0%, 30%, 63%, 100% { opacity: 0.62; color: hsl(var(--text-muted)); }
-    42%, 55% { opacity: 1; color: hsl(var(--text)); }
-  }
-
-  @keyframes auth-language-focus-zh {
-    0%, 57%, 100% { opacity: 0.62; color: hsl(var(--text-muted)); }
-    70%, 90% { opacity: 1; color: hsl(var(--text)); }
-  }
-
   @media (max-width: 900px) {
     .auth-entry-frame {
       grid-template-columns: 1fr;
@@ -1609,8 +1569,6 @@
 
   @media (prefers-reduced-motion: reduce) {
     .auth-heading-mask { animation: none; }
-    .auth-language-word { animation: none; opacity: 0.82; }
-    .auth-entry-glow { display: none; }
     .auth-submit-button:hover:not(:disabled),
     .auth-submit-button:focus-visible:not(:disabled) { transform: none; }
   }

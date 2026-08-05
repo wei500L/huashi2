@@ -727,7 +727,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             onExit={() => navigate('/assessments')}
             exitLabel="退出测评"
             exitDisabled={isSaving || isSubmitting}
-            gradientClassName="bg-gradient-to-r from-violet-500 to-fuchsia-500"
+            gradientClassName="bg-[hsl(var(--progress))]"
           />
           <div className="grid gap-8 xl:grid-cols-[280px_1fr]">
           <aside className="space-y-5 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">

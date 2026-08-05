@@ -31,7 +31,7 @@
 | BR-01 / P1 | `src/index.css:8-26,34-58,189-238,392-475`；`tailwind.config.js:19-79` | primary、accent、ring、暗色 border 共用紫色；背景、玻璃、渐变字、液态按钮和发光边框继续叠加紫/粉/蓝。 | 产品首先像通用 AI 模板，英法迁移诊断的专业性和记忆点被装饰覆盖。 | A2 先定义语言迁移的图形隐喻与颜色语义，再降低紫色为有限辅助色；不要只做“换一个主色”。 | 对登录、三角色首页、答题流程做去色灰阶层级检查，再做 light/dark 对照。 | confirmed |
 | BR-02 / P1 | `src/components/layout/index.tsx:238-257`；`src/index.css:407-435`；三角色 QA 截图 | 品牌标记是 Sparkles + 旋转方框；关键 CTA 使用持续流动的紫粉渐变和强阴影，截图中的发光按钮成为最强视觉物。 | 品牌锚点指向“AI/魔法”，而非词义对应、迁移路径、证据与学习进展。 | 用 EN↔FR 焦点、路径、坐标或词形差异建立单一品牌锚点；主操作保持稳定实色/低动效。 | 5 秒辨识测试：隐藏产品名后，受试者能否判断为语言迁移学习，而非 AI 助手。 | confirmed |
 | BR-03 / P0 | `src/pages/admin/Dashboard.tsx:25-45,261-395`；`src/pages/student/AssessmentAttempt.tsx:529-849`；`src/pages/dashboard/index.tsx:387-424,736-745` | 管理员页未接入 `useTranslation` 且数字/日期固定 `zh-CN`；测评流程及学生页局部直接写中文。英文切换只改变 shell，页面主体保持中文。 | 英文用户得到混合语言界面；长英文/法文内容的真实断行也被中文短文案掩盖，属于发布级一致性阻断。 | 保留现有 i18n 契约，把硬编码迁移到现有 key/locale formatter；法文先作为真实内容长度基线，不在 A1 扩语言范围。 | 分别以 `zh-CN`、`en-US` 打开四条路由；注入真实长法文词、题干和说明，检查换行与日期/数字格式。 | confirmed |
-| BR-04 / P2 | `src/App.css:1-184`；`src/main.tsx:10` | `App.css` 是未导入的 Vite 模板遗留；实际只加载 `index.css`。 | 不直接影响当前画面，但给后续设计改造制造错误入口和失效判断。 | 在后续基础清理中确认无引用后删除或明确归档；本轮不动。 | 静态引用搜索 + 后续常规门禁。 | confirmed |
+| BR-04 / P2 | `src/App.css:1-184`；`src/main.tsx:10`；A4 静态引用搜索 | `App.css` 是未导入的 Vite 模板遗留；实际只加载 `index.css`，文件内还残留无业务意义的 Vite 3D transform。 | 不直接影响当前画面，但给后续设计改造制造错误入口和失效判断。 | 已删除孤立文件，保留 `index.css` 作为唯一全局样式入口。 | 静态引用搜索确认无导入；未启动页面。 | closed |
 
 ### 信息层级
 

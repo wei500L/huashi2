@@ -132,8 +132,6 @@ const Login: React.FC = () => {
   return (
     <main className="auth-entry-shell">
       <TopographyBackdrop />
-      <div className="auth-entry-glow" aria-hidden="true" />
-
       <div className="auth-entry-frame">
         <section className="auth-brand-panel" aria-labelledby="login-brand-title">
           <div>

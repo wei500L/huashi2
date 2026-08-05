@@ -1,7 +1,7 @@
 # UI Quality Handoff
 
 更新时间：2026-08-05  
-当前阶段：A3 React Bits 采用矩阵与依赖预算完成，下一步是按白名单做低保真视觉验证。
+当前阶段：A4 完整品牌审查完成；低风险视觉清理已落地，下一步是带真实文案的静态截图与键盘走查。
 
 ## 新窗口最短接手路径
 
@@ -16,7 +16,7 @@
 
 - 品牌方向：确认 **Lexical Cartography / 语言迁移地图**。EF.Transfer 是连接英语起点、迁移证据和法语目标的地图；AI 是测绘工具，不是主角。
 - 品牌锚点：EN↔FR 迁移焦点 + 单条可读路线 + 证据图钉。颜色以墨色/纸张为基底，来源暖矿物色、目标冷水域色、进展亮色路线；紫色降为辅助。
-- React Bits 白名单：Stepper 为 adopt；Topography、TrueFocus、CountUp、AnimatedList、Radar、WebThreads 为 adapt。MaskedHeading、Stack、Scanner 仅 evaluate；StrokeText、TextLoop、CardSwap、PillNav、SpotlightCard、Masonry、ElasticSlider、MorphSlider 为 reject。
+- React Bits 白名单：Stepper 为 adopt；Topography、TrueFocus、CountUp、AnimatedList、Radar、WebThreads 为 adapt。MaskedHeading、Scanner 仅 evaluate；Stack、StrokeText、TextLoop、CardSwap、PillNav、SpotlightCard、Masonry、ElasticSlider、MorphSlider 为 reject；训练页使用 `LearningCardStack` 单表面静态降级。
 - 依赖预算：本轮新增运行时依赖 0；不安装 React Bits 整库，不新增 GSAP、OGL、Three.js 或第二套动画库。动效复用现有 Framer Motion，WebGL/Canvas 上下文预算为 0；关系/地形优先 CSS/SVG/DOM，并必须提供文本或列表等价物。
 - 高频工作台边界：`/teacher/workspace` 与 `/admin/dashboard` 禁止 cursor-only、全屏 WebGL、玻璃拟态、默认霓虹、自动轮播、持续 RAF 和指针驱动 3D/磁吸。
 - 三角色：学生是路线行者，教师是地图编辑者，管理员是测绘控制台；共享地图语法但分别强调下一步、队列/对比、密度/审计。
@@ -27,7 +27,28 @@
 - 角色差异：业务路由与数据不同，但视觉语法基本相同；管理员尤其不应继续使用 3D StatCard 和持续发光图表。
 - 状态：AssessmentAttempt 的保存/锁定/超时/提交确认值得保留；ChartCard/FeedbackState 是统一状态的基础，但页面、通知、Select/建议输入仍有缺口。
 - 响应式：学生概览在 375px 存在 `p-10` 后容器小于 `min-w-[280px]` 的确定溢出条件。
-- 性能：全局 `*` 慢过渡、fixed blend 纹理、blur/阴影、无限动画和每卡 spring/RAF 同时存在；reduced-motion 覆盖不足。
+- 性能基线：A3 已将全局过渡收窄到控件，fixed blend/大面积 blur 已有稳定覆盖；A4 进一步移除 StatCard 指针/3D 与登录循环动画。旧页面兼容 class 和 onboarding 视觉强度仍待后续基础清理。
+
+## A4 最终品牌审查结论（2026-08-05）
+
+### 覆盖路径
+
+登录 → 学生 Dashboard → 诊断准备/运行/结果 → 训练；教师工作区 → 测评编辑/发布；管理员工作区 → 配置中心/词对导入。路由和权限仍由 `src/App.tsx` 原样负责。
+
+### 已关闭的低风险不一致
+
+- 登录页移除无语义光晕与循环语言焦点，保留静态 English → Français → 中文焦点。
+- `StatCard` 不再响应指针做 3D/spotlight，删除未使用的 `Magnetic`；训练卡层删除透视、背层和拖拽，保留按钮/键盘切换。
+- 测评进度使用 `--progress` 实色；导入冲突/重复使用 amber；Stepper 当前态不再带紫色阴影。
+- onboarding 仅保留一次性轻量 spotlight，降低遮罩、去掉第二层发光与 blur。
+- 教师判断面板改为 `DecisionCard`；`03-react-bits-adoption-matrix.md` 已将 Stack 撤回为 reject 并记录静态降级。
+- 学生/教师/管理员工作区首页隐藏 Topbar 的重复 route title；子页面仍显示上下文标题。
+
+### 角色品牌状态
+
+- 学生：语言焦点、迁移地图、单条路线、进展与下一步可读，保留生命力但默认静止。
+- 教师：工作台已用紧凑指标、待办、风险学生与活动队列，判断效率优先；发布流程用 WorkflowStepper 解释状态、回退和下一步。
+- 管理员：配置中心/导入/仪表盘使用高密度不透明表面、健康状态和审计线索；不使用 3D、磁吸、持续发光或 WebGL。
 
 ## QA 证据说明
 
@@ -35,15 +56,19 @@
 - 关键路径：三角色 `qa-output/release-readiness/screenshots/prod-rerun-*.png`；核心流程 `dogfood-output/answering-flow/screenshots/assessment-*.png`；移动补充 `mobile-student-dashboard.png`、`training-mobile-375x812.png`。
 - 旧 QA 报告中的功能缺陷多已注明复验关闭；不要把截图中的历史状态直接当成当前功能回归。
 
-## 未验证风险
+## 未验证风险与遗留问题
 
 - 未启动当前页面，无法确认当前字体实际渲染、精确对比度、focus、软键盘和横向 scrollWidth。
 - 没有当前英文长文案/法文业务内容截图；RS-04 保持 blocked。
 - 未生成当前 bundle；历史 vendor/chart-engine 体积只作为待复核风险，PF-04 保持 blocked。
 - 未检查所有页面，结论是全局样式 + 四条代表路径的证据基线，不是最终验收。
+- `AssessmentAttempt`、结果页、部分学生 Dashboard 以及管理员配置/导入仍有硬编码中文；i18n key、长英法文案和日期/数字格式需要单独范围。
+- Topbar route title 与页面 `PageHeader`/工作区标题仍有重复，旧页面仍有卡片套内层表面；信息架构调整需产品/业务确认后再做。
+- onboarding 的全屏模态时机和步骤逻辑未改；本轮只降低遮罩/光晕。
+- `liquid-glass`、`backdrop-blur` 等兼容 class 仍存在于旧 markup，但 `src/index.css` 已强制关闭 blur 并使用稳定 surface；后续可做无行为基础清理。
 
 ## 下一步
 
-执行低保真视觉验证：第一批只验证学生 `/diagnosis`、`/assessments/attempts/:attemptId` 的 Topography、TrueFocus、Stepper；第二批再验证教师 `/teacher/workspace`、`/teacher/research` 的 AnimatedList、WebThreads 静态变体。必须覆盖 5 秒品牌辨识、首屏任务可见性、真实长英法文案、键盘焦点、reduced-motion、静态降级与 375px 无横向溢出；不安装新依赖。
+下一步维护：先用真实中英/法文案做登录、学生诊断/答题/结果、教师发布、管理员配置/导入的 1280×720、768、390、375px 静态截图与键盘走查；再处理 P0 i18n 和页面层级。任何 React Bits 候选必须先通过静态等价物、reduced-motion、状态矩阵和性能证据，不安装新依赖。
 
 本轮未运行任何测试、lint、typecheck 或 build。

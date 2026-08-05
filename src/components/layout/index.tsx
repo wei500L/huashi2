@@ -1041,7 +1041,9 @@ export const Topbar: React.FC = () => {
           <div className="type-metadata mb-1 truncate text-[0.625rem] sm:text-[0.6875rem]">
             {currentWorkspaceLabel}
           </div>
-          <div className="type-section-title truncate text-slate-900 dark:text-white">{currentTitle}</div>
+          {!isWorkspaceHome ? (
+            <div className="type-section-title truncate text-slate-900 dark:text-white">{currentTitle}</div>
+          ) : null}
         </div>
         {canUseAssistant && (
           <div className="group relative hidden min-w-0 max-w-xl flex-1 lg:block">

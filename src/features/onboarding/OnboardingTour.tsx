@@ -221,20 +221,13 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, steps, onC
 
   return createPortal(
     <div className="fixed inset-0 z-[120]" aria-hidden={false}>
-      <div className="absolute inset-0 bg-slate-950/58" />
+      <div className="absolute inset-0 bg-slate-950/35" />
 
       {spotlightRect ? (
         <>
           <div
-            className="pointer-events-none absolute rounded-[2rem] border border-sky-300/90 shadow-[0_0_0_9999px_rgba(2,6,23,0.58)] transition-all motion-layout duration-200"
+            className="pointer-events-none absolute rounded-[1rem] border border-sky-300/70 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)] transition-all motion-layout duration-200"
             style={spotlightRect}
-          />
-          <div
-            className="pointer-events-none absolute rounded-[2rem] border border-white/70 transition-all motion-layout duration-200"
-            style={{
-              ...spotlightRect,
-              boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 0 28px rgba(125,211,252,0.45)',
-            }}
           />
         </>
       ) : null}
@@ -245,7 +238,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, steps, onC
         aria-modal="true"
         aria-labelledby={`onboarding-tour-title-${activeStep.id}`}
         className={cn(
-          'safe-area-dialog fixed max-h-[calc(100dvh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-[2rem] border border-white/15 bg-slate-950/96 p-4 text-white shadow-[0_30px_80px_rgba(2,6,23,0.5)] backdrop-blur sm:p-6',
+          'safe-area-dialog fixed max-h-[calc(100dvh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-[1rem] border border-white/15 bg-slate-950/96 p-4 text-white shadow-[0_20px_50px_rgba(2,6,23,0.4)] sm:p-6',
           className
         )}
         style={panelStyle}

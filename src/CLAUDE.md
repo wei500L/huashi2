@@ -92,7 +92,7 @@
 src/
   main.tsx                          # 入口
   App.tsx                           # 路由定义
-  App.css / index.css               # 全局样式
+  index.css                         # 全局样式
   lib/
     api.ts                          # Axios 封装 + 401 自动刷新
     contracts.ts                    # 全部 TypeScript 类型定义
@@ -107,7 +107,7 @@ src/
     useAuthStore.ts                 # re-export
   components/
     layout/index.tsx                # AppLayout + Sidebar + Topbar + AssistantDrawer
-    common/                         # 通用组件（ChartCard, EChart, Magnetic 等）
+    common/                         # 通用组件（ChartCard, EChart, WorkflowStepper 等）
   pages/
     Login.tsx                       # 登录页
     dashboard/index.tsx             # 学生总览

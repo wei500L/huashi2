@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { LucideIcon } from 'lucide-react';
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
@@ -122,46 +122,6 @@ export const StatusBadge: React.FC<{ label: string; tone?: StatusTone; className
   </span>
 );
 
-// Magnetic Interaction Component - Performance Optimized
-export const Magnetic: React.FC<{ children: React.ReactElement; strength?: number }> = ({ children, strength = 0.3 }) => {
-  const reducedMotion = useReducedMotion();
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const springConfig = { damping: 20, stiffness: 150, mass: 0.5 };
-  const springX = useSpring(x, springConfig);
-  const springY = useSpring(y, springConfig);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (reducedMotion) return;
-    const { clientX, clientY, currentTarget } = e;
-    const { left, top, width, height } = currentTarget.getBoundingClientRect();
-    const centerX = left + width / 2;
-    const centerY = top + height / 2;
-    const distanceX = clientX - centerX;
-    const distanceY = clientY - centerY;
-    
-    x.set(distanceX * strength);
-    y.set(distanceY * strength);
-  };
-
-  const handleMouseLeave = () => {
-    if (reducedMotion) return;
-    x.set(0);
-    y.set(0);
-  };
-
-  return (
-    <motion.div
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{ x: springX, y: springY }}
-      className="magnetic-wrap"
-    >
-      {children}
-    </motion.div>
-  );
-};
-
 // Number Animation Component
 export const AnimatedNumber: React.FC<{ value: number; format?: (v: number) => string }> = ({ value, format = (v) => Math.round(v).toString() }) => {
   const reducedMotion = useReducedMotion();
@@ -214,7 +174,6 @@ export const StatCard: React.FC<StatCardProps> = ({
   color = 'text-primary',
 }) => {
   const { t } = useTranslation();
-  const reducedMotion = useReducedMotion();
   const iconGlowClass = (() => {
     switch (color) {
       case 'text-blue-500':
@@ -240,47 +199,14 @@ export const StatCard: React.FC<StatCardProps> = ({
   const suffix = typeof value === 'string' ? value.replace(/[0-9.-]+/g, '') : '';
   const resolvedTrendLabel = trendLabel ?? t('ui.statCard.recentPeriod');
 
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const mouseXSpring = useSpring(x);
-  const mouseYSpring = useSpring(y);
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['7deg', '-7deg']);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-7deg', '7deg']);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    if (reducedMotion) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const xPct = mouseX / width - 0.5;
-    const yPct = mouseY / height - 0.5;
-    x.set(xPct);
-    y.set(yPct);
-    e.currentTarget.style.setProperty('--spotlight-x', `${mouseX}px`);
-    e.currentTarget.style.setProperty('--spotlight-y', `${mouseY}px`);
-  };
-
-  const handleMouseLeave = () => {
-    if (reducedMotion) return;
-    x.set(0);
-    y.set(0);
-  };
-
   return (
-    <motion.div
-      style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      whileHover={reducedMotion ? undefined : { scale: 1.005 }}
-      transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 }}
+    <div
       className={cn(
-        'surface-card spotlight-card p-6 rounded-xl flex flex-col justify-between group transition-shadow duration-200 hover:shadow-[var(--shadow-md)] cursor-default',
+        'surface-card p-6 rounded-xl flex flex-col justify-between transition-shadow duration-200 hover:shadow-[var(--shadow-md)]',
         className
       )}
     >
-      <div className="flex items-start justify-between relative z-10" style={{ transform: 'translateZ(30px)' }}>
+      <div className="flex items-start justify-between relative z-10">
         <div>
           <SectionEyebrow className="mb-1">{title}</SectionEyebrow>
           <h3 className={cn('stat-card-value type-numeric text-3xl font-semibold tabular-nums', iconGlowClass)}>
@@ -294,16 +220,16 @@ export const StatCard: React.FC<StatCardProps> = ({
         </div>
         <div
           className={cn(
-            'p-2.5 rounded-lg bg-surface-sunken border border-border-subtle relative group-hover:scale-105 transition-transform duration-200 shadow-sm',
+            'p-2.5 rounded-lg bg-surface-sunken border border-border-subtle relative shadow-sm',
             color
           )}
         >
-          <Icon size={22} className={cn('dark:drop-shadow-[0_0_8px_currentColor]')} />
+          <Icon size={22} />
         </div>
       </div>
 
       {trend && (
-        <div className="mt-6 relative z-10" style={{ transform: 'translateZ(20px)' }}>
+        <div className="mt-6 relative z-10">
           <div
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border backdrop-blur-md transition-all duration-200',
@@ -320,7 +246,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
@@ -373,4 +299,4 @@ export { DataTable } from './DataTable';
 export type { DataTableColumn } from './DataTable';
 export { WorkflowStepper } from './WorkflowStepper';
 export type { WorkflowStage, WorkflowStageStatus, WorkflowStepperProps } from './WorkflowStepper';
-export { SpotlightCard } from './SpotlightCard';
+export { DecisionCard } from './DecisionCard';

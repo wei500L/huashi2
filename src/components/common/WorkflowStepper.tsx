@@ -39,7 +39,7 @@ const STATUS_META: Record<WorkflowStageStatus, {
   },
   current: {
     icon: Clock3,
-    shell: 'border-primary/35 bg-primary/[0.07] shadow-[0_18px_45px_-32px_rgba(99,102,241,0.9)]',
+    shell: 'border-primary/35 bg-primary/[0.07]',
     badge: 'border-primary/25 bg-primary/10 text-primary',
     marker: 'bg-primary text-white',
   },

@@ -721,7 +721,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-xs text-slate-600 shadow-sm dark:border-white/10 dark:bg-slate-950/35 dark:text-white/60" aria-label="导入状态图例">
         <span className="font-black text-slate-900 dark:text-white">状态图例</span>
         <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />错误 / 阻断</span>
-        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-violet-500" />冲突 / 重复</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />冲突 / 重复</span>
         <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />部分成功 / 待处理</span>
         <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-sky-500" />处理中 / 可重试</span>
         <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-slate-400" />未保存</span>
@@ -760,7 +760,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
             </div>
           )}
           {duplicateRows.length > 0 && (
-            <div role="alert" className="rounded-[1.5rem] border border-violet-500/25 bg-violet-500/[0.07] px-5 py-4 text-sm text-violet-800 dark:text-violet-200">
+            <div role="alert" className="rounded-[1.5rem] border border-amber-500/25 bg-amber-500/[0.07] px-5 py-4 text-sm text-amber-800 dark:text-amber-200">
               <div className="font-black">重复项优先处理 · 当前页 {duplicateRows.length} 行</div>
               <div className="mt-1">重复行不会静默覆盖已有词对。请编辑字段或明确跳过，再保存草稿。</div>
             </div>
