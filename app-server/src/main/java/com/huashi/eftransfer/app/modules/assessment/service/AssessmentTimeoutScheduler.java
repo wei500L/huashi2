@@ -11,13 +11,16 @@ public class AssessmentTimeoutScheduler {
     private static final Logger log = LoggerFactory.getLogger(AssessmentTimeoutScheduler.class);
 
     private final AssessmentService assessmentService;
+    private final PublicAssessmentService publicAssessmentService;
     private final AssessmentTimeoutProperties assessmentTimeoutProperties;
 
     public AssessmentTimeoutScheduler(
             AssessmentService assessmentService,
+            PublicAssessmentService publicAssessmentService,
             AssessmentTimeoutProperties assessmentTimeoutProperties
     ) {
         this.assessmentService = assessmentService;
+        this.publicAssessmentService = publicAssessmentService;
         this.assessmentTimeoutProperties = assessmentTimeoutProperties;
     }
 
@@ -27,8 +30,10 @@ public class AssessmentTimeoutScheduler {
             return;
         }
         int submittedCount = assessmentService.submitExpiredAttemptsBatch(assessmentTimeoutProperties.getBatchSize());
-        if (submittedCount > 0) {
-            log.info("event=assessment_timeout_auto_submit submittedCount={}", submittedCount);
+        int publicSubmittedCount = publicAssessmentService.submitExpiredAttemptsBatch(assessmentTimeoutProperties.getBatchSize());
+        if (submittedCount > 0 || publicSubmittedCount > 0) {
+            log.info("event=assessment_timeout_auto_submit classSubmittedCount={} publicSubmittedCount={}",
+                    submittedCount, publicSubmittedCount);
         }
     }
 }

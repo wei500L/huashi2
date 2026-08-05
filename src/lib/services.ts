@@ -122,6 +122,8 @@ import type {
   PublicAssessmentTimingRequest,
   PublicAssessmentVerifyRequest,
   QuestionBankImportPreflightVO,
+  QuestionBankImportCommitRequest,
+  QuestionBankImportCommitVO,
   QuestionBankItemSummaryVO,
   QuestionBankListParams,
   ChangePasswordRequest,
@@ -287,6 +289,12 @@ export const assessmentService = {
     formData.append('file', file);
     return apiUpload<QuestionBankImportPreflightVO>('/teacher/assessments/question-bank/imports/preflight', formData, options);
   },
+  downloadQuestionBankImportJsonTemplate: (options?: RequestOptions) =>
+    apiDownload('/teacher/assessments/question-bank/import-template.json', options),
+  commitQuestionBankImport: (importId: number | string, payload: QuestionBankImportCommitRequest) =>
+    apiPost<QuestionBankImportCommitVO>(`/teacher/assessments/question-bank/imports/${importId}/commit`, payload),
+  approveQuestionBankImport: (importId: number | string) =>
+    apiPost<QuestionBankImportCommitVO>(`/teacher/assessments/question-bank/imports/${importId}/approve`),
   listTeacherPapers: (options?: RequestOptions) => apiGet<AssessmentPaperSummaryVO[]>('/teacher/assessments/papers', options),
   getTeacherPaper: (paperId: number, options?: RequestOptions) =>
     apiGet<AssessmentPaperDetailVO>(`/teacher/assessments/papers/${paperId}`, options),

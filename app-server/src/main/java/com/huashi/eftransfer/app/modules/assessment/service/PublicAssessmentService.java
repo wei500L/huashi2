@@ -30,6 +30,7 @@ import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentQuestionMap
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentTimingEventMapper;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentJsonCodec;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantCodeCodec;
+import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantProfileCipher;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentOptionVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgressVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultQuestionVO;
@@ -93,7 +94,9 @@ public class PublicAssessmentService {
     private final AssessmentAiAnalysisMapper aiAnalysisMapper;
     private final AssessmentParticipantCodeCodec codeCodec;
     private final AssessmentJsonCodec jsonCodec;
+    private final AssessmentParticipantProfileCipher profileCipher;
     private final Duration configuredSessionTtl;
+    private final AssessmentTimeoutProperties timeoutProperties;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, Deque<LocalDateTime>> verificationAttempts = new ConcurrentHashMap<>();
 
@@ -111,6 +114,8 @@ public class PublicAssessmentService {
             AssessmentAiAnalysisMapper aiAnalysisMapper,
             AssessmentParticipantCodeCodec codeCodec,
             AssessmentJsonCodec jsonCodec,
+            AssessmentParticipantProfileCipher profileCipher,
+            AssessmentTimeoutProperties timeoutProperties,
             @Value("${app.assessment.public-delivery.session-ttl:PT12H}") Duration configuredSessionTtl
     ) {
         this.publicReleaseMapper = publicReleaseMapper;
@@ -126,6 +131,8 @@ public class PublicAssessmentService {
         this.aiAnalysisMapper = aiAnalysisMapper;
         this.codeCodec = codeCodec;
         this.jsonCodec = jsonCodec;
+        this.profileCipher = profileCipher;
+        this.timeoutProperties = timeoutProperties;
         this.configuredSessionTtl = configuredSessionTtl == null || configuredSessionTtl.isNegative()
                 ? MAX_SESSION_TTL : configuredSessionTtl.compareTo(MAX_SESSION_TTL) > 0 ? MAX_SESSION_TTL : configuredSessionTtl;
     }
@@ -149,11 +156,8 @@ public class PublicAssessmentService {
         } catch (IllegalArgumentException exception) {
             throw invalidCode();
         }
-        AssessmentParticipationCodeEntity participationCode = participationCodeMapper.selectOne(
-                Wrappers.<AssessmentParticipationCodeEntity>lambdaQuery()
-                        .eq(AssessmentParticipationCodeEntity::getPublicReleaseId, bundle.release().getId())
-                        .eq(AssessmentParticipationCodeEntity::getCodeDigest, digest)
-                        .last("LIMIT 1"));
+        AssessmentParticipationCodeEntity participationCode = participationCodeMapper.selectByReleaseAndDigestForUpdate(
+                bundle.release().getId(), digest);
         if (participationCode == null) {
             throw invalidCode();
         }
@@ -169,6 +173,14 @@ public class PublicAssessmentService {
             participant.setParticipantType("PUBLIC_CODE");
             participant.setParticipationCodeId(participationCode.getId());
             participantMapper.insert(participant);
+        }
+        if (request.basicInfo() != null && !request.basicInfo().isEmpty()) {
+            AssessmentParticipantProfileCipher.EncryptedProfile encrypted = profileCipher.encrypt(request.basicInfo());
+            participant.setSensitiveProfileCiphertext(encrypted.ciphertext());
+            participant.setSensitiveProfileIv(encrypted.iv());
+            participant.setSensitiveProfileKeyVersion(encrypted.keyVersion());
+            participant.setConsentedAt(LocalDateTime.now());
+            participantMapper.updateById(participant);
         }
         AssessmentAttemptEntity attempt = participant.getAttemptId() == null ? null : attemptMapper.selectById(participant.getAttemptId());
         if (attempt == null) {
@@ -327,6 +339,33 @@ public class PublicAssessmentService {
                 attempt.getAnsweredCount(), scoring.correctCount(), attempt.getObjectiveScore(), attempt.getTotalScore(),
                 attempt.getSubmittedAt(), true, metric, scoring.qualityFlags(),
                 analysis == null ? null : analysis.getStatus(), null, resultQuestions);
+    }
+
+    @Transactional
+    public int submitExpiredAttemptsBatch(int batchSize) {
+        if (batchSize <= 0) return 0;
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime deadline = now.minus(timeoutProperties.getSubmissionGracePeriod());
+        int submitted = 0;
+        for (Long attemptId : attemptMapper.selectExpiredPublicAttemptIds(deadline, batchSize)) {
+            AssessmentAttemptEntity attempt = attemptMapper.selectByIdForUpdate(attemptId);
+            if (attempt == null || !AssessmentAttemptStatus.IN_PROGRESS.name().equals(attempt.getStatus())) continue;
+            AssessmentParticipantEntity participant = participantMapper.selectById(attempt.getParticipantId());
+            AssessmentPublishEntity publish = publishMapper.selectById(attempt.getPublishId());
+            if (participant == null || publish == null) continue;
+            List<AssessmentAttemptAnswerEntity> answers = loadAnswers(attempt.getId());
+            Map<Long, AssessmentQuestionEntity> questions = loadQuestionMap(attempt.getPaperId());
+            recomputeProgress(attempt, answers, now);
+            attempt.setStatus(AssessmentAttemptStatus.SUBMITTED.name());
+            attempt.setSubmittedAt(now);
+            attempt.setSubmitReason(AssessmentSubmitReason.TIMEOUT.name());
+            if (attemptMapper.submitIfInProgress(attempt) == 0) continue;
+            attempt.setVersion(attempt.getVersion() + 1);
+            persistMetricsAndAiEvent(attempt, answers, questions);
+            markParticipationCodeSubmitted(participant);
+            submitted++;
+        }
+        return submitted;
     }
 
     private SessionBundle requireSessionForUpdate(String releaseCode, String sessionToken) {

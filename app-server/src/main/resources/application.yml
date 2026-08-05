@@ -100,6 +100,10 @@ app:
     public-delivery:
       hmac-secret: ${APP_ASSESSMENT_CODE_HMAC_SECRET:local-only-change-this-participant-code-secret}
       session-ttl: ${APP_ASSESSMENT_PUBLIC_SESSION_TTL:PT12H}
+    sensitive-profile-key: ${APP_ASSESSMENT_SENSITIVE_PROFILE_KEY:local-only-change-this-profile-key}
+    sensitive-profile-key-version: ${APP_ASSESSMENT_SENSITIVE_PROFILE_KEY_VERSION:v1}
+    seed:
+      lexibridge-enabled: ${APP_ASSESSMENT_LEXIBRIDGE_SEED_ENABLED:true}
     timeout:
       enabled: ${APP_ASSESSMENT_TIMEOUT_ENABLED:true}
       poll-interval: ${APP_ASSESSMENT_TIMEOUT_POLL_INTERVAL:PT30S}

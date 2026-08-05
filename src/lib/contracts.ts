@@ -2394,6 +2394,21 @@ export interface QuestionBankImportPreflightVO {
   issues: QuestionBankImportIssueVO[];
 }
 
+export interface QuestionBankImportCommitRequest {
+  confirmed: boolean;
+}
+
+export interface QuestionBankImportCommitVO {
+  importId: number | string;
+  status: QuestionBankImportStatus | string;
+  questionBankId: number | string;
+  questionnaireId: number | string;
+  questionnaireVersionId: number | string;
+  paperId: number | string;
+  importedItemCount: number;
+  reviewRequiredCount: number;
+}
+
 export interface AssessmentOptionVO {
   key: string;
   label: string;

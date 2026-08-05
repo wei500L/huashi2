@@ -66,6 +66,7 @@ import com.huashi.eftransfer.shared.page.PageQuery;
 import com.huashi.eftransfer.shared.page.PageResult;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -106,6 +107,7 @@ public class AssessmentService {
     private final AssessmentPublicReleaseMapper assessmentPublicReleaseMapper;
     private final AssessmentParticipationCodeMapper assessmentParticipationCodeMapper;
     private final AssessmentParticipantCodeCodec assessmentParticipantCodeCodec;
+    private final JdbcTemplate jdbcTemplate;
 
     public AssessmentService(
             AssessmentPaperMapper assessmentPaperMapper,
@@ -122,7 +124,8 @@ public class AssessmentService {
             AssessmentTimeoutProperties assessmentTimeoutProperties,
             AssessmentPublicReleaseMapper assessmentPublicReleaseMapper,
             AssessmentParticipationCodeMapper assessmentParticipationCodeMapper,
-            AssessmentParticipantCodeCodec assessmentParticipantCodeCodec
+            AssessmentParticipantCodeCodec assessmentParticipantCodeCodec,
+            JdbcTemplate jdbcTemplate
     ) {
         this.assessmentPaperMapper = assessmentPaperMapper;
         this.assessmentQuestionMapper = assessmentQuestionMapper;
@@ -139,6 +142,7 @@ public class AssessmentService {
         this.assessmentPublicReleaseMapper = assessmentPublicReleaseMapper;
         this.assessmentParticipationCodeMapper = assessmentParticipationCodeMapper;
         this.assessmentParticipantCodeCodec = assessmentParticipantCodeCodec;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public List<AssessmentPaperSummaryVO> listTeacherPapers() {
@@ -199,6 +203,7 @@ public class AssessmentService {
         if (loadQuestionsByPaper(paperId).isEmpty()) {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment paper must contain questions before publishing", 409);
         }
+        assertQuestionnaireReviewComplete(paperId);
         AssessmentDeliveryMode deliveryMode = parseDeliveryMode(request.deliveryMode());
         TeachingClassEntity teachingClass = null;
         if (deliveryMode == AssessmentDeliveryMode.CLASS) {
@@ -1719,6 +1724,20 @@ public class AssessmentService {
             return AssessmentDeliveryMode.fromCode(value);
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "Unsupported assessment delivery mode", 400);
+        }
+    }
+
+    private void assertQuestionnaireReviewComplete(Long paperId) {
+        List<String> statuses = jdbcTemplate.query("""
+                SELECT qv.status
+                FROM assessment_questionnaire_version qv
+                WHERE qv.paper_id = ? AND qv.deleted = FALSE
+                ORDER BY qv.version_no DESC
+                LIMIT 1
+                """, (resultSet, rowNumber) -> resultSet.getString(1), paperId);
+        if (!statuses.isEmpty() && !Set.of("APPROVED", "PUBLISHED").contains(statuses.getFirst())) {
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "Questionnaire content has unresolved review issues", 409);
         }
     }
 

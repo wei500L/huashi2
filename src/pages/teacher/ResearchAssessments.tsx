@@ -60,6 +60,7 @@ const ResearchAssessmentsPage: React.FC = () => {
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [uploading, setUploading] = React.useState(false);
   const [downloading, setDownloading] = React.useState(false);
+  const [committing, setCommitting] = React.useState(false);
 
   const bankQuery = useQuery({
     queryKey: ['teacher-question-bank', keyword.trim(), tag, reviewStatus],
@@ -104,6 +105,21 @@ const ResearchAssessmentsPage: React.FC = () => {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const commitPreflight = async () => {
+    if (!preflight || preflight.errorCount > 0) return;
+    setCommitting(true);
+    setActionError(null);
+    try {
+      await assessmentService.commitQuestionBankImport(preflight.importId, { confirmed: true });
+      setPreflight({ ...preflight, status: 'COMMITTED' });
+      await bankQuery.refetch();
+    } catch (error) {
+      setActionError(getApiErrorMessage(error, '导入提交失败。'));
+    } finally {
+      setCommitting(false);
     }
   };
 
@@ -186,6 +202,12 @@ const ResearchAssessmentsPage: React.FC = () => {
                 <StatusBadge label={`${preflight.reviewRequiredCount} 项待审核`} tone="warning" />
               </div>
               {preflight.issues.length ? <p className="mt-4 text-sm text-slate-500">首项：{preflight.issues[0].message}</p> : null}
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <button type="button" disabled={committing || preflight.errorCount > 0 || preflight.status === 'COMMITTED'} onClick={() => void commitPreflight()} className="btn-liquid px-4 py-2 text-sm text-white">
+                  {committing ? '提交中…' : preflight.status === 'COMMITTED' ? '已提交到题库' : '确认并提交到题库'}
+                </button>
+                {preflight.reviewRequiredCount > 0 && preflight.status !== 'COMMITTED' ? <span className="text-xs text-amber-700 dark:text-amber-300">提交后仍需完成内容审核，审核通过前不可发布。</span> : null}
+              </div>
             </section>
           ) : null}
 

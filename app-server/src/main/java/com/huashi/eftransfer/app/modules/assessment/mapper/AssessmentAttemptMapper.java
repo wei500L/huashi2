@@ -18,11 +18,24 @@ public interface AssessmentAttemptMapper extends BaseMapper<AssessmentAttemptEnt
             FROM assessment_attempt
             WHERE deleted = FALSE
               AND status = 'IN_PROGRESS'
+              AND student_user_id IS NOT NULL
               AND expires_at <= #{deadline}
             ORDER BY expires_at ASC, id ASC
             LIMIT #{limit}
             """)
     List<Long> selectExpiredAttemptIds(@Param("deadline") LocalDateTime deadline, @Param("limit") int limit);
+
+    @Select("""
+            SELECT id
+            FROM assessment_attempt
+            WHERE deleted = FALSE
+              AND status = 'IN_PROGRESS'
+              AND participant_id IS NOT NULL
+              AND expires_at <= #{deadline}
+            ORDER BY expires_at ASC, id ASC
+            LIMIT #{limit}
+            """)
+    List<Long> selectExpiredPublicAttemptIds(@Param("deadline") LocalDateTime deadline, @Param("limit") int limit);
 
     @Select("""
             SELECT id, publish_id, paper_id, student_user_id, participant_id, status, started_at, expires_at, submitted_at,

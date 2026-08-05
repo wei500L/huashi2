@@ -1,0 +1,4547 @@
+{
+  "packageCode": "LEXIBRIDGE_RESEARCH_V1",
+  "source": {
+    "questionnaireDocx": "E:\\Administrator\\WeChat聊天记录\\xwechat_files\\wxid_ilz4sgwyo3hc22_68a9\\msg\\file\\2026-08\\Lexi-bridge 大创测试题目编写2.docx",
+    "analysisDocx": "E:\\Administrator\\WeChat聊天记录\\xwechat_files\\wxid_ilz4sgwyo3hc22_68a9\\msg\\file\\2026-08\\Lexi-bridge 大创题目答案分析2.docx",
+    "questionnaireSha256": "cf5d26a7b2cd06c9941271eb5b0cfd2c7aad70cbbb716075e16016696bde9755",
+    "analysisSha256": "dee05a30b83e64b0c866888d5c5e1088fd826acf17f396f64f889a54af425eea"
+  },
+  "questionnaire": {
+    "questionnaireCode": "LEXIBRIDGE_RESEARCH_V1",
+    "title": "Lexi-bridge 英法词汇认知迁移研究问卷",
+    "description": "Lexi-bridge：英法词汇智能学习系统—跨语言词汇认知迁移的研究与干预",
+    "durationMinutes": 40,
+    "resultReleasePolicy": "IMMEDIATE",
+    "scoringVersion": "SCORING_V1",
+    "aiPromptVersion": "assessment-analysis/v1",
+    "versionNo": 1,
+    "status": "REVIEW_REQUIRED"
+  },
+  "sections": [
+    {
+      "sectionCode": "BASIC_INFO",
+      "title": "基本信息",
+      "sortOrder": 0,
+      "formalSection": false,
+      "scoredItemCount": 0,
+      "description": null,
+      "sharedMaterial": null
+    },
+    {
+      "sectionCode": "P1A",
+      "title": "Partie 1 / Section A",
+      "sortOrder": 1,
+      "formalSection": true,
+      "scoredItemCount": 10,
+      "description": "请选出下列法语单词对应的正确中文含义",
+      "sharedMaterial": null
+    },
+    {
+      "sectionCode": "P1B",
+      "title": "Partie 1 / Section B",
+      "sortOrder": 2,
+      "formalSection": true,
+      "scoredItemCount": 10,
+      "description": "请选出与下列短语中划线单词意思相同的选项",
+      "sharedMaterial": null
+    },
+    {
+      "sectionCode": "P2",
+      "title": "Partie 2 – Compréhension en contexte 语境理解",
+      "sortOrder": 3,
+      "formalSection": true,
+      "scoredItemCount": 10,
+      "description": "请根据句子选择画线单词的同义解释",
+      "sharedMaterial": null
+    },
+    {
+      "sectionCode": "P3",
+      "title": "Partie 3 – Texte à trous",
+      "sortOrder": 4,
+      "formalSection": true,
+      "scoredItemCount": 10,
+      "description": "Une journée de travail",
+      "sharedMaterial": "Une journée de travail\nChaque matin, Julien prend toujours le même (1) ______ pour se rendre à son bureau, situé en périphérie（市郊） de la ville. Il ne veut absolument pas (2) ______ son train de 8h15, car une réunion très importante l’attend dès son arrivée. Après avoir quitté son appartement, il enfile rapidement son (3)______ préféré, une veste bleue qu’il a achetée la semaine dernière, puis il sort sans prendre le temps de déjeuner.\nDans l’entreprise où il travaille depuis trois ans, son (4) ______ lui plaît énormément, même si les journées sont parfois chargées. Chaque matin, il doit (5) ______ à de nombreux courriels que ses clients lui envoient la veille. Il apprécie particulièrement la (6) ______ qu’il a avec ses collègues de bureau, bien que l’ambiance puisse devenir tendue en fin de semaine.\nLa semaine dernière, son supérieur hiérarchique（上级） lui a demandé de (7) ______ à une longue réunion qui a duré plus de deux heures. Julien a accepté cette demande sans hésiter une seule seconde. Cependant, les décisions qui ont été prises lors de cette réunion ont commencé à le (8) ______, car aucune de ses idées n’a finalement été retenue par l’équipe. C’est une (9) ______ que tout le monde peut vivre ce genre de déception au cours de sa carrière professionnelle. Malgré tout, cela reste une situation relativement (10) ______ dans la vie de bureau, et Julien garde espoir que les choses s’amélioreront demain."
+    },
+    {
+      "sectionCode": "P4T1",
+      "title": "Partie 4 – Compréhension écrite / Texte 1",
+      "sortOrder": 5,
+      "formalSection": true,
+      "scoredItemCount": 5,
+      "description": null,
+      "sharedMaterial": "La pollution est un problème important aujourd'hui. Bref, notre planète a besoin de solutions rapides. Si nous regardons vers l'horizon, nous voyons souvent les fumées grises provenant des usines. Certaines personnes sont sensibles à la qualité de l'air : elles se mettent à tousser dès que celle-ci se dégrade. Mais beaucoup de gens ignorent que la pollution peut aussi nuire aux animaux de nombreuses façons : un éventuel incendie pourrait détruire leurs habitats, et les produits chimiques rejetés dans la nature peuvent empoisonner leur nourriture.\nHeureusement, des gestes simples peuvent aider. Par exemple, prendre les transports en commun plutôt que sa voiture réduit la pollution. Si chacun fait un petit effort, les conséquences seront moins graves pour la nature. Agir maintenant est essentiel pour l'avenir."
+    },
+    {
+      "sectionCode": "P4T2",
+      "title": "Texte 2",
+      "sortOrder": 6,
+      "formalSection": true,
+      "scoredItemCount": 5,
+      "description": null,
+      "sharedMaterial": "L'année dernière, Sophie a quitté son poste dans une entreprise internationale. Elle travaillait comme secrétaire depuis cinq ans, mais elle voulait réaliser son rêve : ouvrir une librairie indépendante. Ce rêve lui est venu quand elle était au collège. Actuellement, elle suit une formation de gestion commerciale et elle doit souvent passer des examens pendant ses études.\nC'est un peu difficile car elle doit étudier beaucoup de matières nouvelles, mais elle trouve cette expérience très stimulante. Son magasin ouvrira le mois prochain, et elle espère que ce sera un succès."
+    },
+    {
+      "sectionCode": "P4T3",
+      "title": "Texte 3",
+      "sortOrder": 7,
+      "formalSection": true,
+      "scoredItemCount": 10,
+      "description": "请阅读下面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
+      "sharedMaterial": "Au cœur du Vaucluse, Avignon attire chaque année des milliers de visiteurs. Ce matin-là, Léa et son petit ami se promenaient dans les ruelles pavées. Tous deux profitaient de leurs dernières heures avec une pointe de nostalgie : ils avaient déjà réservé leurs billets de train pour le soir.\nLe soleil du Midi s’est mis à taper très fort. La chaleur était étouffante. Mais ils voulaient absolument visiter la vieille église du centre. Les ruelles étaient toutes pareilles, elles tournaient sans cesse. La carte ne servait à rien. Léa commençait à s’énerver. Son ami lui a pris doucement la main et lui a dit : « Ne t’inquiète pas, on va bien la trouver. »\nTout à coup, ils ont entendu un bruit d’eau. En le suivant, ils ont débouché sur une petite place. Là, une vieille fontaine coulait, claire et fraîche. Beaucoup de monde se tenait autour : des enfants trempaient leur casquette, des touristes remplissaient leur bouteille. Léa et son ami se sont mis de l’eau sur le visage et les bras, et ils se sont sentis tout de suite mieux.\nPourtant, l’église restait introuvable. Le jeune homme a alors aperçu un passant qui se reposait au bord de la fontaine. Il s’est approché et lui a demandé la direction. L’homme a souri et a montré du doigt une ruelle discrète : « Passez par là, tournez au coin, et vous tomberez juste devant. »\nAu tournant suivant, l’église est apparue. Ils ont poussé la lourde porte en bois et sont entrés. À l’intérieur, tout était frais et silencieux. Une lumière douce tombait sur une statue de la Vierge. Sa figure douce les a beaucoup touchés.\nIls sont restés longtemps côte à côte, sans rien dire. À ce moment, ils se sentaient pleinement engagés dans la contemplation. Tout leur paraissait formidable : la paix autour d’eux, ce silence, les gens sympathiques. Ils ont oublié la chaleur, la fatigue, le train du soir. Il ne restait qu’une émotion simple et profonde.Avignon était une destination qui plaisait à beaucoup de monde chaque année."
+    }
+  ],
+  "items": [
+    {
+      "itemCode": "BASIC-INSTRUCTION",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 1,
+      "questionType": "INSTRUCTION",
+      "stemText": "【亲爱的同学：\n您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 40 分钟，请合理安排时间。\n感谢您的配合与支持！】",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-59",
+      "contentHash": "9388daf4c61e5b0ccdfb9191ef7fedb0551f06d05bfd7d36db39efbd38598d25"
+    },
+    {
+      "itemCode": "BASIC-NAME",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 2,
+      "questionType": "SHORT_TEXT",
+      "stemText": "您的姓名：",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-60",
+      "contentHash": "bf1d7688aec09e57f4e90dfc8128b01b87e9b35bce415306641f788d7586f167"
+    },
+    {
+      "itemCode": "BASIC-CONTACT",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 3,
+      "questionType": "SHORT_TEXT",
+      "stemText": "您的联系方式是（电话/QQ/……）：",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-61",
+      "contentHash": "b301d5062bf98cc7a0ed3e193a6dcc57c58c1ccd066f6f294d6b2fbbd58e7970"
+    },
+    {
+      "itemCode": "BASIC-STATUS",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 4,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "您目前是：",
+      "promptText": null,
+      "options": [
+        {
+          "key": "FRENCH_MAJOR",
+          "label": "法语专业学生"
+        },
+        {
+          "key": "FRENCH_SECOND_LANGUAGE",
+          "label": "法语作为二外的学生"
+        },
+        {
+          "key": "NON_MAJOR",
+          "label": "非专业法语学习者（自学/其他）"
+        }
+      ],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-62",
+      "contentHash": "4dd12be5c380b5889b4b02fe50403d724943b839f97317c1f26e2df627e0452e"
+    },
+    {
+      "itemCode": "BASIC-GAOKAO-ENGLISH",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 5,
+      "questionType": "NUMBER",
+      "stemText": "高考英语分数______",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-63",
+      "contentHash": "b99cf3d13f984d215d574e548a239985805ba6cce69b0c50264adcbd42d0cc12"
+    },
+    {
+      "itemCode": "BASIC-CET4",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 6,
+      "questionType": "NUMBER",
+      "stemText": "□ 四级分数_____",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-64",
+      "contentHash": "1fd7c62902c969e13a96c0414f00cc12a9d1b20717dd72f2045c42a6ac1832be"
+    },
+    {
+      "itemCode": "BASIC-CET6",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 7,
+      "questionType": "NUMBER",
+      "stemText": "□ 六级分数_____",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-65",
+      "contentHash": "481a1cfb1ff670fd054fe2ebd8c8a56646db16037dbd8f3c00f38a56f6173f6e"
+    },
+    {
+      "itemCode": "BASIC-TEM4",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 8,
+      "questionType": "NUMBER",
+      "stemText": "□ 专四分数_____",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-66",
+      "contentHash": "fea14333c7af0607b54ece28d115051199afa16bc0de4b782e29acc4a1b50224"
+    },
+    {
+      "itemCode": "BASIC-TEM8",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 9,
+      "questionType": "NUMBER",
+      "stemText": "□ 专八分数_____",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-67",
+      "contentHash": "656f328186df87752c1f754116d0adbb4dc186120c9b9b4b0611985946eee89b"
+    },
+    {
+      "itemCode": "BASIC-FRENCH-DURATION",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 10,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "您的法语学习时长约为：",
+      "promptText": null,
+      "options": [
+        {
+          "key": "DURATION_1",
+          "label": "间断地在学习，未系统学习过"
+        },
+        {
+          "key": "DURATION_2",
+          "label": "少于6个月"
+        },
+        {
+          "key": "DURATION_3",
+          "label": "6个月~1年"
+        },
+        {
+          "key": "DURATION_4",
+          "label": "1~2年"
+        },
+        {
+          "key": "DURATION_5",
+          "label": "2年以上"
+        }
+      ],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-68",
+      "contentHash": "61ba2b735c10cff9110b8f56591aa289700d8234fa52d2556c2abaee744cbe73"
+    },
+    {
+      "itemCode": "BASIC-OTHER-LANGUAGE",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 11,
+      "questionType": "SHORT_TEXT",
+      "stemText": "是否接触过其他语种（西语 / 意语 / 葡语/……）？",
+      "promptText": null,
+      "options": [],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": false,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:paragraph-69",
+      "contentHash": "bdb8d4401734e85e88c32a0f3171cdab237743d9e6a70d59034ba8aaf1975a9e"
+    },
+    {
+      "itemCode": "P1A-01",
+      "sectionCode": "P1A",
+      "sortOrder": 1,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "description",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "描述"
+        },
+        {
+          "key": "B",
+          "label": "订阅"
+        },
+        {
+          "key": "C",
+          "label": "处方"
+        },
+        {
+          "key": "D",
+          "label": "抄写"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "1. description\n#题目分析：答案：A\n此题为英法同源词。法语 description = “描述”，同源英语 description = “描述”。\n干扰项 B “订阅”（subscription）：英语中与 description 共享 -scription 词根（写），学生易因拼写相似而误选。\n干扰项 C“处方”（prescription）：同样含 -scription，且英语 prescription 与 description 形近。\n干扰项 D “抄写”（transcription）：同样含 -scription，词形高度相似，语义域相近（书写类）。",
+      "optionExplanations": {
+        "B": "干扰项 B “订阅”（subscription）：英语中与 description 共享 -scription 词根（写），学生易因拼写相似而误选。",
+        "C": "干扰项 C“处方”（prescription）：同样含 -scription，且英语 prescription 与 description 形近。",
+        "D": "干扰项 D “抄写”（transcription）：同样含 -scription，词形高度相似，语义域相近（书写类）。",
+        "A": "此题为英法同源词。法语 description = “描述”，同源英语 description = “描述”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "description",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-01",
+      "contentHash": "611b33f652458e79c09451c9777d99c800956c3c1dbab098dd4d91113a525f4b"
+    },
+    {
+      "itemCode": "P1A-02",
+      "sectionCode": "P1A",
+      "sortOrder": 2,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "actuellement",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "实际上"
+        },
+        {
+          "key": "B",
+          "label": "目前"
+        },
+        {
+          "key": "C",
+          "label": "最终"
+        },
+        {
+          "key": "D",
+          "label": "可能"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "2. actuellement\n#题目分析：答案：B\n此题为假朋友（同形异义词）。法语 actuellement = “目前，当前”，英语形似词 actually = “实际上，事实上”。\n干扰项 A “实际上”：英语 actually 的直接翻译，是典型的负迁移来源。\n干扰项 C “最终”：与英语 eventually 混淆，拼写不同但语义容易联想。\n干扰项 D “可能”：与英语 possibly 混淆，作为泛化干扰项。\n（1、2题为一组）",
+      "optionExplanations": {
+        "A": "干扰项 A “实际上”：英语 actually 的直接翻译，是典型的负迁移来源。",
+        "C": "干扰项 C “最终”：与英语 eventually 混淆，拼写不同但语义容易联想。",
+        "D": "干扰项 D “可能”：与英语 possibly 混淆，作为泛化干扰项。",
+        "B": "此题为假朋友（同形异义词）。法语 actuellement = “目前，当前”，英语形似词 actually = “实际上，事实上”。\n（1、2题为一组）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "actuellement",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-02",
+      "contentHash": "525f28d0068d305545f258f0fb0c2d6a263c644d6116d5ff20e8d8ecdc5c1be2"
+    },
+    {
+      "itemCode": "P1A-03",
+      "sectionCode": "P1A",
+      "sortOrder": 3,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "librairie",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "图书馆"
+        },
+        {
+          "key": "B",
+          "label": "文具店"
+        },
+        {
+          "key": "C",
+          "label": "书店"
+        },
+        {
+          "key": "D",
+          "label": "出版社"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "3. librairie\n#题目分析：答案：C\n此题为假朋友（同形异义词）。法语 librairie = “书店”，英语形似词 library = “图书馆”。\n干扰项 A “图书馆”：英语 library 的直接翻译，是负迁移的主要来源。\n干扰项 B “文具店”：语义场与书店相近（售卖文化用品），且法语中有 papeterie 一词，易混淆。\n干扰项 D “出版社”：与书店同为出版相关语义域，但词义不同，用于检测语义精细度。",
+      "optionExplanations": {
+        "A": "干扰项 A “图书馆”：英语 library 的直接翻译，是负迁移的主要来源。",
+        "B": "干扰项 B “文具店”：语义场与书店相近（售卖文化用品），且法语中有 papeterie 一词，易混淆。",
+        "D": "干扰项 D “出版社”：与书店同为出版相关语义域，但词义不同，用于检测语义精细度。",
+        "C": "此题为假朋友（同形异义词）。法语 librairie = “书店”，英语形似词 library = “图书馆”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "librairie",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-03",
+      "contentHash": "739c8b5511b8eeb7fa2a5d7e12fd62e02cbec51cb8c1a22ea88919af2d2fc758"
+    },
+    {
+      "itemCode": "P1A-04",
+      "sectionCode": "P1A",
+      "sortOrder": 4,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "bavarder",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "闲聊"
+        },
+        {
+          "key": "B",
+          "label": "保存"
+        },
+        {
+          "key": "C",
+          "label": "守卫"
+        },
+        {
+          "key": "D",
+          "label": "辩论"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "4. bavarder\n#题目分析：答案：A\n此题为纯法语对照词。法语 bavarder = “闲聊”，英语无直接同源词。\n干扰项 B “保存”：与法语 sauvegarder 形似，但与 bavarder 无关。\n干扰项 C “守卫”：与法语 garder 相关，语音部分相似。\n干扰项 D “辩论”：语义上与“说话”同属言语行为域，但程度不同，用于检测语义区分能力。",
+      "optionExplanations": {
+        "B": "干扰项 B “保存”：与法语 sauvegarder 形似，但与 bavarder 无关。",
+        "C": "干扰项 C “守卫”：与法语 garder 相关，语音部分相似。",
+        "D": "干扰项 D “辩论”：语义上与“说话”同属言语行为域，但程度不同，用于检测语义区分能力。",
+        "A": "此题为纯法语对照词。法语 bavarder = “闲聊”，英语无直接同源词。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "bavarder",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-04",
+      "contentHash": "af4652779e5e3b6df73a0c88eba56341da99a8a29d3b007be53fc69acca190e6"
+    },
+    {
+      "itemCode": "P1A-05",
+      "sectionCode": "P1A",
+      "sortOrder": 5,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "hésiter",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "栖息"
+        },
+        {
+          "key": "B",
+          "label": "坚持"
+        },
+        {
+          "key": "C",
+          "label": "展示"
+        },
+        {
+          "key": "D",
+          "label": "犹豫"
+        }
+      ],
+      "correctAnswers": [
+        "D"
+      ],
+      "explanationText": "5.hésiter\n#题目分析：答案：D\n此题为英法同源词。法语 hésiter = “犹豫”，同源英语 hesitate = “犹豫”。\n干扰项 A “居住”：与法语 habiter（居住）形近。\n干扰项 B “坚持”：与法语 persister / insister 语义相关，且英语 hesitate 的反义概念，用于检测语义反向联想。\n干扰项 C “附着”：与法语 adhérer（附着）形近。\n（3、4、5题为一组）",
+      "optionExplanations": {
+        "A": "干扰项 A “居住”：与法语 habiter（居住）形近。",
+        "B": "干扰项 B “坚持”：与法语 persister / insister 语义相关，且英语 hesitate 的反义概念，用于检测语义反向联想。",
+        "C": "干扰项 C “附着”：与法语 adhérer（附着）形近。",
+        "D": "此题为英法同源词。法语 hésiter = “犹豫”，同源英语 hesitate = “犹豫”。\n（3、4、5题为一组）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "hésiter",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-05",
+      "contentHash": "368fc2baf33a293d75b924372bea307d620c3a8fb27b8e0600063bdcb443a800"
+    },
+    {
+      "itemCode": "P1A-06",
+      "sectionCode": "P1A",
+      "sortOrder": 6,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "participer",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "参加"
+        },
+        {
+          "key": "B",
+          "label": "分享"
+        },
+        {
+          "key": "C",
+          "label": "合作"
+        },
+        {
+          "key": "D",
+          "label": "游行"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "6. participer\n#题目分析：答案：A\n此题为英法同源词。法语 participer = “参加”，同源英语 participate = “参加”。\n干扰项 B “分享”：法语 partager 与 participer 词根相同（part-），语义相关但不同。\n干扰项 C “合作”：语义域相近，易混淆。\n干扰项 D “游行”：英语 parade，词形部分相似（par-开头），用于检测注意力。",
+      "optionExplanations": {
+        "B": "干扰项 B “分享”：法语 partager 与 participer 词根相同（part-），语义相关但不同。",
+        "C": "干扰项 C “合作”：语义域相近，易混淆。",
+        "D": "干扰项 D “游行”：英语 parade，词形部分相似（par-开头），用于检测注意力。",
+        "A": "此题为英法同源词。法语 participer = “参加”，同源英语 participate = “参加”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "participer",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-06",
+      "contentHash": "bb24f52b519998a65f73d14f70309b2fdee507c1e161164daf9c78eb9c4ed0ef"
+    },
+    {
+      "itemCode": "P1A-07",
+      "sectionCode": "P1A",
+      "sortOrder": 7,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "prétendre",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "声称"
+        },
+        {
+          "key": "B",
+          "label": "预料"
+        },
+        {
+          "key": "C",
+          "label": "假装"
+        },
+        {
+          "key": "D",
+          "label": "保护"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "7. prétendre\n#题目分析：答案：A\n此题为假朋友（同形异义词）。法语 prétendre = “声称”，英语形似词 pretend = “假装”；但英语 pretend 更侧重“虚假表演”。\n干扰项 B “预料”：英语 predict，无词形相似，但学生可能因 pré- 前缀（表“预先”）而误猜“预料”。\n干扰项 C “假装”：英语 pretend的直接翻译，是负迁移的主要来源。\n干扰项 D “保护”：英语 protect，法语 protéger，词形部分相似（prot- / prét-），语义无关，用于检测前缀误判。\n（6、7题为一组对应）",
+      "optionExplanations": {
+        "B": "干扰项 B “预料”：英语 predict，无词形相似，但学生可能因 pré- 前缀（表“预先”）而误猜“预料”。",
+        "C": "干扰项 C “假装”：英语 pretend的直接翻译，是负迁移的主要来源。",
+        "D": "干扰项 D “保护”：英语 protect，法语 protéger，词形部分相似（prot- / prét-），语义无关，用于检测前缀误判。",
+        "A": "此题为假朋友（同形异义词）。法语 prétendre = “声称”，英语形似词 pretend = “假装”；但英语 pretend 更侧重“虚假表演”。\n（6、7题为一组对应）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "prétendre",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-07",
+      "contentHash": "3624d8a3ff8ef08db517f2fa70d7410d2b78c7314ba0ff759a91fa0f4276ae83"
+    },
+    {
+      "itemCode": "P1A-08",
+      "sectionCode": "P1A",
+      "sortOrder": 8,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "injurier",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "侮辱"
+        },
+        {
+          "key": "B",
+          "label": "伤害"
+        },
+        {
+          "key": "C",
+          "label": "命令"
+        },
+        {
+          "key": "D",
+          "label": "注射"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "8. injurier\n#题目分析：答案：A\n此题为假朋友（同形异义词）。法语 injurier = “辱骂 / 侮辱”，英语形似词 injure = “伤害”。\n干扰项 B “伤害”：英语 injure 的直接翻译，是强干扰项（负迁移）。\n干扰项 C “命令”：作为中性填充。\n干扰项 D “注射”：英语 inject，法语 injecter，词形前缀 in- + j 开头，与 injurier 部分相似，易混淆。",
+      "optionExplanations": {
+        "B": "干扰项 B “伤害”：英语 injure 的直接翻译，是强干扰项（负迁移）。",
+        "C": "干扰项 C “命令”：作为中性填充。",
+        "D": "干扰项 D “注射”：英语 inject，法语 injecter，词形前缀 in- + j 开头，与 injurier 部分相似，易混淆。",
+        "A": "此题为假朋友（同形异义词）。法语 injurier = “辱骂 / 侮辱”，英语形似词 injure = “伤害”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "injurier",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-08",
+      "contentHash": "331c6e65f0909e0b960290222e67063cdc934a7b73a970c33c34d370a1ec3e65"
+    },
+    {
+      "itemCode": "P1A-09",
+      "sectionCode": "P1A",
+      "sortOrder": 9,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "se promener",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "睡觉"
+        },
+        {
+          "key": "B",
+          "label": "散步"
+        },
+        {
+          "key": "C",
+          "label": "购物"
+        },
+        {
+          "key": "D",
+          "label": "学习"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "9. se promener\n#题目分析：答案：B\n此题为纯法语对照词。法语 se promener = “散步”，英语无直接同源词。\n干扰项 A “睡觉”：法语 dormir，语义无关，但与 se promener 的“放松活动”域部分重叠。\n干扰项 C “购物”：法语 faire des courses，同为外出活动。\n干扰项 D “学习”：法语 étudier，语义无关，用于检测随机猜测。",
+      "optionExplanations": {
+        "A": "干扰项 A “睡觉”：法语 dormir，语义无关，但与 se promener 的“放松活动”域部分重叠。",
+        "C": "干扰项 C “购物”：法语 faire des courses，同为外出活动。",
+        "D": "干扰项 D “学习”：法语 étudier，语义无关，用于检测随机猜测。",
+        "B": "此题为纯法语对照词。法语 se promener = “散步”，英语无直接同源词。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "se promener",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-09",
+      "contentHash": "f02268caa0b6b5c06bce65a24b56feb350e1488debf65605bf0a89c05e35864d"
+    },
+    {
+      "itemCode": "P1A-10",
+      "sectionCode": "P1A",
+      "sortOrder": 10,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "respecter",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "尊敬"
+        },
+        {
+          "key": "B",
+          "label": "怀疑"
+        },
+        {
+          "key": "C",
+          "label": "回应"
+        },
+        {
+          "key": "D",
+          "label": "剥削"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "10. respecter\n#题目分析：答案：A\n此题为英法同源词。法语 respecter = “尊敬 / 遵守”，同源英语 respect = “尊敬”。\n干扰项 B “怀疑”：英语 suspect，法语 soupçonner，词形部分相似（respect / suspect），共享 -spect 词根（看）。\n干扰项 C “回应”：英语 respond，法语 répondre，无直接形似，但 re- 前缀可引发干扰。\n干扰项 D “分别”：英语 respective （各自的），与 respecter 共享词根 respect-，但语义完全不同，容易因形近而误选。\n（8、9、10为一组对应）",
+      "optionExplanations": {
+        "B": "干扰项 B “怀疑”：英语 suspect，法语 soupçonner，词形部分相似（respect / suspect），共享 -spect 词根（看）。",
+        "C": "干扰项 C “回应”：英语 respond，法语 répondre，无直接形似，但 re- 前缀可引发干扰。",
+        "D": "干扰项 D “分别”：英语 respective （各自的），与 respecter 共享词根 respect-，但语义完全不同，容易因形近而误选。",
+        "A": "此题为英法同源词。法语 respecter = “尊敬 / 遵守”，同源英语 respect = “尊敬”。\n（8、9、10为一组对应）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "respecter",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1A-10",
+      "contentHash": "28ccf10e48c5fc499deff6bbab3dbacb05cd25a6edfb2894a50eb16fd675b252"
+    },
+    {
+      "itemCode": "P1B-01",
+      "sectionCode": "P1B",
+      "sortOrder": 11,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "une entreprise publique",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "réunion"
+        },
+        {
+          "key": "B",
+          "label": "compagnie"
+        },
+        {
+          "key": "C",
+          "label": "exploitation"
+        },
+        {
+          "key": "D",
+          "label": "organisation"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "1. une entreprise publique\n#题目分析：答案：B\n此题为英法同源词。法语 entreprise = “企业”，同源英语 enterprise = “企业/事业”。\n干扰项 A “会议”（réunion）：语义无关，但词形与英语 reunion 相似，可能吸引注意力。\n干扰项 C “开发”（exploitation）：语义部分重叠（企业运营），但非直接同义。\n干扰项 D “组织”（organisation）：语义域相近（机构类），但非精确同义。",
+      "optionExplanations": {
+        "A": "干扰项 A “会议”（réunion）：语义无关，但词形与英语 reunion 相似，可能吸引注意力。",
+        "C": "干扰项 C “开发”（exploitation）：语义部分重叠（企业运营），但非直接同义。",
+        "D": "干扰项 D “组织”（organisation）：语义域相近（机构类），但非精确同义。",
+        "B": "此题为英法同源词。法语 entreprise = “企业”，同源英语 enterprise = “企业/事业”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "entreprise",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-01",
+      "contentHash": "e78b572a8be92ebca885254b22f862cf51c7be8624271c2ecf000746f6fe0cd0"
+    },
+    {
+      "itemCode": "P1B-02",
+      "sectionCode": "P1B",
+      "sortOrder": 12,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "faire des courses",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "achats"
+        },
+        {
+          "key": "B",
+          "label": "leçons"
+        },
+        {
+          "key": "C",
+          "label": "examens"
+        },
+        {
+          "key": "D",
+          "label": "exercices"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "2. faire des courses\n#题目分析：答案：A\n此题为假朋友（同形异义词）。法语 courses（复数）= “购物”，英语形似词 course = “课程 / 路线”。\n干扰项 B “课程”（leçons）：英语 course 的主要翻译，是负迁移的主要来源。\n干扰项 C “考试”（examens）：学习相关语义域，但与 course 无直接形似。\n干扰项 D “练习”（exercices）：同样属于学习场景，用于检测语义泛化。",
+      "optionExplanations": {
+        "B": "干扰项 B “课程”（leçons）：英语 course 的主要翻译，是负迁移的主要来源。",
+        "C": "干扰项 C “考试”（examens）：学习相关语义域，但与 course 无直接形似。",
+        "D": "干扰项 D “练习”（exercices）：同样属于学习场景，用于检测语义泛化。",
+        "A": "此题为假朋友（同形异义词）。法语 courses（复数）= “购物”，英语形似词 course = “课程 / 路线”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "courses",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-02",
+      "contentHash": "599d53ae45d7b3f40451054e4bad4facca6bbfa66b46a7de49a9e1676485d084"
+    },
+    {
+      "itemCode": "P1B-03",
+      "sectionCode": "P1B",
+      "sortOrder": 13,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "une boisson sucrée",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "liquide à boire"
+        },
+        {
+          "key": "B",
+          "label": "nourriture"
+        },
+        {
+          "key": "C",
+          "label": "médicament"
+        },
+        {
+          "key": "D",
+          "label": "alcool"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "3. une boisson sucrée\n#题目分析：答案：A\n此题为纯法语对照词。法语 boisson = “饮品”，英语无直接同源词。\n干扰项 B “食物”（nourriture）：与“饮品”同属餐饮语义域，日常表达中常并列出现，易混淆。\n干扰项 C “药品”（médicament）：部分饮品（如糖浆类）与药品边界模糊，且“服用”场景相似。\n干扰项 D “酒精”（alcool）：酒精属于饮品的一种，学生可能因“常见的饮品类型”而过度细化，误将下位词当作同义解释。\n（1、2、3题为一组对应）",
+      "optionExplanations": {
+        "B": "干扰项 B “食物”（nourriture）：与“饮品”同属餐饮语义域，日常表达中常并列出现，易混淆。",
+        "C": "干扰项 C “药品”（médicament）：部分饮品（如糖浆类）与药品边界模糊，且“服用”场景相似。",
+        "D": "干扰项 D “酒精”（alcool）：酒精属于饮品的一种，学生可能因“常见的饮品类型”而过度细化，误将下位词当作同义解释。",
+        "A": "此题为纯法语对照词。法语 boisson = “饮品”，英语无直接同源词。\n（1、2、3题为一组对应）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "boisson",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-03",
+      "contentHash": "3cea41c0120235832166b523f2c00d8e17ef7d534de5ee053ae569475cf98d8f"
+    },
+    {
+      "itemCode": "P1B-04",
+      "sectionCode": "P1B",
+      "sortOrder": 14,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "blesser mon amie",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "aider"
+        },
+        {
+          "key": "B",
+          "label": "souhaité le bonheur à"
+        },
+        {
+          "key": "C",
+          "label": "fait du mal à"
+        },
+        {
+          "key": "D",
+          "label": "sauver la vie à"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "4. blesser mon amie\n#题目分析：答案：C\n此题为假朋友（同形异义词）。法语 blesser = “使受伤”，英语形似词 bless = “祝福”。\n干扰项 A “帮助”（aider）：语义相反。\n干扰项 B “祝她幸福”（souhaité le bonheur à）：英语 bless 的典型翻译，是强干扰项。\n干扰项 D “救她的命”（sauver la vie à）：语义过强，但属于“善意行为”语义域。",
+      "optionExplanations": {
+        "A": "干扰项 A “帮助”（aider）：语义相反。",
+        "B": "干扰项 B “祝她幸福”（souhaité le bonheur à）：英语 bless 的典型翻译，是强干扰项。",
+        "D": "干扰项 D “救她的命”（sauver la vie à）：语义过强，但属于“善意行为”语义域。",
+        "C": "此题为假朋友（同形异义词）。法语 blesser = “使受伤”，英语形似词 bless = “祝福”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "blesser",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-04",
+      "contentHash": "4ef6796fc9ab1e7ad959b05fde14292afe66f07f98846b029c4741eaf7446c6a"
+    },
+    {
+      "itemCode": "P1B-05",
+      "sectionCode": "P1B",
+      "sortOrder": 15,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "accomplir une tâche",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "faire"
+        },
+        {
+          "key": "B",
+          "label": "réaliser"
+        },
+        {
+          "key": "C",
+          "label": "préparer"
+        },
+        {
+          "key": "D",
+          "label": "accepter"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "5. accomplir une tâche\n#题目分析：答案：B\n此题为英法同源词。法语 accomplir = “完成 / 实现”，同源英语 accomplish = “完成”。\n干扰项 A “做”（faire）：语义部分重叠，但“做”不等于“完成”，用于检测语义精确度。\n干扰项 C “准备”（préparer）：任务完成前的行为，语义相近但不同。\n干扰项 D “接受”（accepter）：语义无关，用于检测随机选择。\n（4、5为一组对应）\n请选出与下列短语中划线单词意思相反的选项",
+      "optionExplanations": {
+        "A": "干扰项 A “做”（faire）：语义部分重叠，但“做”不等于“完成”，用于检测语义精确度。",
+        "C": "干扰项 C “准备”（préparer）：任务完成前的行为，语义相近但不同。",
+        "D": "干扰项 D “接受”（accepter）：语义无关，用于检测随机选择。",
+        "B": "此题为英法同源词。法语 accomplir = “完成 / 实现”，同源英语 accomplish = “完成”。\n（4、5为一组对应）\n请选出与下列短语中划线单词意思相反的选项"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "accomplir",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-05",
+      "contentHash": "75abd746812a2649533d32eb95ab7efafea31ac19fb7baf844682f0f1e336633"
+    },
+    {
+      "itemCode": "P1B-06",
+      "sectionCode": "P1B",
+      "sortOrder": 16,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "un problème important",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "petit"
+        },
+        {
+          "key": "B",
+          "label": "insignifiant"
+        },
+        {
+          "key": "C",
+          "label": "grand"
+        },
+        {
+          "key": "D",
+          "label": "essentiel"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "6. un problème important\n#题目分析：答案：B\n此题为英法同源词。法语 important = “重要的”，同源英语 important = “重要的”。\n干扰项 A “小的”（petit）：可与 important 形成对比，但非标准反义词。\n干扰项 C “大的”（grand）：语义接近 important，非反义。\n干扰项 D “基本的”（essentiel）：语义近似 important，非反义。",
+      "optionExplanations": {
+        "A": "干扰项 A “小的”（petit）：可与 important 形成对比，但非标准反义词。",
+        "C": "干扰项 C “大的”（grand）：语义接近 important，非反义。",
+        "D": "干扰项 D “基本的”（essentiel）：语义近似 important，非反义。",
+        "B": "此题为英法同源词。法语 important = “重要的”，同源英语 important = “重要的”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "important",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-06",
+      "contentHash": "fc33cad57ad19c84018f9fc90f1d80f7c349b1347d140bee705befa85c65432c"
+    },
+    {
+      "itemCode": "P1B-07",
+      "sectionCode": "P1B",
+      "sortOrder": 17,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "un film ennuyeux",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "amusant"
+        },
+        {
+          "key": "B",
+          "label": "court"
+        },
+        {
+          "key": "C",
+          "label": "vieux"
+        },
+        {
+          "key": "D",
+          "label": "simple"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "7. un film ennuyeux\n#题目分析：答案：A\n此题为纯法语对照词。法语 ennuyeux = “无聊的”，英语无直接同源词。\n干扰项 B “短的”（court）：无关语义。\n干扰项 C “老的”（vieux）：无关语义。\n干扰项 D “简单的”（simple）：无关语义。",
+      "optionExplanations": {
+        "B": "干扰项 B “短的”（court）：无关语义。",
+        "C": "干扰项 C “老的”（vieux）：无关语义。",
+        "D": "干扰项 D “简单的”（simple）：无关语义。",
+        "A": "此题为纯法语对照词。法语 ennuyeux = “无聊的”，英语无直接同源词。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "ennuyeux",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-07",
+      "contentHash": "ca44eeef09293e6faa1943a3d72a6be3e4c625a1995f2417647b2cd13a16c2c8"
+    },
+    {
+      "itemCode": "P1B-08",
+      "sectionCode": "P1B",
+      "sortOrder": 18,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "une personne sensible",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "raisonnable"
+        },
+        {
+          "key": "B",
+          "label": "irrationnelle"
+        },
+        {
+          "key": "C",
+          "label": "logique"
+        },
+        {
+          "key": "D",
+          "label": "indifférente"
+        }
+      ],
+      "correctAnswers": [
+        "D"
+      ],
+      "explanationText": "8. une personne sensible\n#题目分析：答案：D\n此题为假朋友（同形异义词）。法语 sensible = “敏感的”，英语形似词 sensible = “明智的”。\n干扰项 A “理性的”（raisonnable）：英语 sensible 的近义词，是强干扰项。\n干扰项 B “不理性的”（irrationnelle）：英语 sensible 的反义词，形成认知对比。\n干扰项 C “合乎逻辑的”（logique）：英语 sensible 的语义域成员。\n（11、12、13题为一组对应）",
+      "optionExplanations": {
+        "A": "干扰项 A “理性的”（raisonnable）：英语 sensible 的近义词，是强干扰项。",
+        "B": "干扰项 B “不理性的”（irrationnelle）：英语 sensible 的反义词，形成认知对比。",
+        "C": "干扰项 C “合乎逻辑的”（logique）：英语 sensible 的语义域成员。",
+        "D": "此题为假朋友（同形异义词）。法语 sensible = “敏感的”，英语形似词 sensible = “明智的”。\n（11、12、13题为一组对应）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "sensible",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-08",
+      "contentHash": "83f14d84a09e0a4e84979787f2b9c4ed9a4412247cc15779f09d05342640e10d"
+    },
+    {
+      "itemCode": "P1B-09",
+      "sectionCode": "P1B",
+      "sortOrder": 19,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "une chambre propre",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "sale"
+        },
+        {
+          "key": "B",
+          "label": "inappropriée"
+        },
+        {
+          "key": "C",
+          "label": "ordonnée"
+        },
+        {
+          "key": "D",
+          "label": "vide"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "9. une chambre propre\n#题目分析：答案：A\n此题为假朋友（同形异义词）。法语 propre = “干净的”，英语形似词 proper = “适当的”。\n干扰项 B “不适当的”（inappropriée）：英语 proper 的反义词，是强干扰项。\n干扰项 C “整洁的”（ordonnée）：与 propre 近义，非反义。\n干扰项 D “空的”（vide）：语义无关。",
+      "optionExplanations": {
+        "B": "干扰项 B “不适当的”（inappropriée）：英语 proper 的反义词，是强干扰项。",
+        "C": "干扰项 C “整洁的”（ordonnée）：与 propre 近义，非反义。",
+        "D": "干扰项 D “空的”（vide）：语义无关。",
+        "A": "此题为假朋友（同形异义词）。法语 propre = “干净的”，英语形似词 proper = “适当的”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "propre",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-09",
+      "contentHash": "dd0b40d6fee4eb618bdaf2537a35354502c849849c275b05f1eb2ec4d7c275c4"
+    },
+    {
+      "itemCode": "P1B-10",
+      "sectionCode": "P1B",
+      "sortOrder": 20,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "une réponse exacte",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "juste"
+        },
+        {
+          "key": "B",
+          "label": "fausse"
+        },
+        {
+          "key": "C",
+          "label": "précise"
+        },
+        {
+          "key": "D",
+          "label": "claire"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "10. une réponse exacte\n#题目分析：答案：B\n此题为英法同源词。法语 exacte = “准确的”，同源英语 exact = “准确的”。\n干扰项 A “正确的”（juste）：近义词，非反义。\n干扰项 C “精确的”（précise）：近义词，非反义。\n干扰项 D “清晰的”（claire）：语义相关但非反义。\n（14、15题为一组对应）",
+      "optionExplanations": {
+        "A": "干扰项 A “正确的”（juste）：近义词，非反义。",
+        "C": "干扰项 C “精确的”（précise）：近义词，非反义。",
+        "D": "干扰项 D “清晰的”（claire）：语义相关但非反义。",
+        "B": "此题为英法同源词。法语 exacte = “准确的”，同源英语 exact = “准确的”。\n（14、15题为一组对应）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "PHRASE",
+      "constructCode": "LEXICAL_TRANSFER",
+      "targetWord": "exacte",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P1B-10",
+      "contentHash": "44ec1553672548ee9909ded4ccbbc1c66c5730eb9483f1a6d34661a6469b7ff8"
+    },
+    {
+      "itemCode": "P2-01",
+      "sectionCode": "P2",
+      "sortOrder": 21,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "La location de cet appartement coûte 400 euros par mois.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "vente"
+        },
+        {
+          "key": "B",
+          "label": "achat"
+        },
+        {
+          "key": "C",
+          "label": "louage"
+        },
+        {
+          "key": "D",
+          "label": "endroit"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "1. #题目分析：答案：C\n此题为假朋友（同形异义词）。法语 location = “出租 / 租金”，英语形似词 location = “地点 / 位置”。\n干扰项 A “出售”（vente）：与“出租”语义相反，但英语 location 无此义。\n干扰项 B “购买”（achat）：同样为交易行为，语义域相关。\n干扰项 D “地点”（endroit）：英语 location 的直接翻译，是强干扰项。",
+      "optionExplanations": {
+        "A": "干扰项 A “出售”（vente）：与“出租”语义相反，但英语 location 无此义。",
+        "B": "干扰项 B “购买”（achat）：同样为交易行为，语义域相关。",
+        "D": "干扰项 D “地点”（endroit）：英语 location 的直接翻译，是强干扰项。",
+        "C": "此题为假朋友（同形异义词）。法语 location = “出租 / 租金”，英语形似词 location = “地点 / 位置”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "location",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-01",
+      "contentHash": "f692cc13e69d46ff4e78e952417bd5d8a087d294d987286bf03b68d573842ff8"
+    },
+    {
+      "itemCode": "P2-02",
+      "sectionCode": "P2",
+      "sortOrder": 22,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Le petit commerce local a du mal à survivre.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "affaires"
+        },
+        {
+          "key": "B",
+          "label": "trafic"
+        },
+        {
+          "key": "C",
+          "label": "marché"
+        },
+        {
+          "key": "D",
+          "label": "industrie"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "2. #题目分析：答案：A\n此题为英法同源词。法语 commerce = “贸易 / 生意”，同源英语 commerce = “商业”。\n干扰项 B “交通”（trafic）：词形相似（trafic / commerce），语义域不同。\n干扰项 C “市场”（marché）：语义相近（商业活动），但非精确同义。\n干扰项 D “工业”（industrie）：经济领域词汇，语义相关但不同。",
+      "optionExplanations": {
+        "B": "干扰项 B “交通”（trafic）：词形相似（trafic / commerce），语义域不同。",
+        "C": "干扰项 C “市场”（marché）：语义相近（商业活动），但非精确同义。",
+        "D": "干扰项 D “工业”（industrie）：经济领域词汇，语义相关但不同。",
+        "A": "此题为英法同源词。法语 commerce = “贸易 / 生意”，同源英语 commerce = “商业”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "commerce",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-02",
+      "contentHash": "0d12c5d702c31ca5ee3b86bc07b8bae570be57938c0a9cd17e0efd3de7ad4627"
+    },
+    {
+      "itemCode": "P2-03",
+      "sectionCode": "P2",
+      "sortOrder": 23,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Il y a une peinture représentant une femme dans cette galerie.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "sculpture"
+        },
+        {
+          "key": "B",
+          "label": "tableau"
+        },
+        {
+          "key": "C",
+          "label": "photo"
+        },
+        {
+          "key": "D",
+          "label": "peintre"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "3. #题目分析：答案：B. tableau\n此题为纯法语对照词。法语 peinture 在此语境中指“绘画作品/画作”。题干 une peinture représentant une femme 即“一幅描绘女性的画作”。\n干扰项 A “雕塑”（sculpture）：同为艺术形式，但与“绘画”媒介不同，属于艺术域内的语义区分干扰。\n干扰项 C “照片”（photo）：同为视觉图像，但属于不同创作媒介（绘画 vs 摄影），用于检测学生对“画作”与“图像”的精细区分能力。\n干扰项 D “画家”（peintre）：与 peinture 词形高度相似（同为 peint- 开头），且语义关联（画家创作画作）。但题干询问的是“画作”本身，而非创作者，若学生仅凭词形猜测或混淆派生关系，容易误选。",
+      "optionExplanations": {
+        "A": "干扰项 A “雕塑”（sculpture）：同为艺术形式，但与“绘画”媒介不同，属于艺术域内的语义区分干扰。",
+        "C": "干扰项 C “照片”（photo）：同为视觉图像，但属于不同创作媒介（绘画 vs 摄影），用于检测学生对“画作”与“图像”的精细区分能力。",
+        "D": "干扰项 D “画家”（peintre）：与 peinture 词形高度相似（同为 peint- 开头），且语义关联（画家创作画作）。但题干询问的是“画作”本身，而非创作者，若学生仅凭词形猜测或混淆派生关系，容易误选。",
+        "B": "此题为纯法语对照词。法语 peinture 在此语境中指“绘画作品/画作”。题干 une peinture représentant une femme 即“一幅描绘女性的画作”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FRENCH_CONTROL",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "peinture",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-03",
+      "contentHash": "86f3b286a0e49be814e6d77dc53625a4156c4314e1385dd168fa8462972e7a06"
+    },
+    {
+      "itemCode": "P2-04",
+      "sectionCode": "P2",
+      "sortOrder": 24,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Il reporte sa décision à un moment plus favorable.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "rapporter"
+        },
+        {
+          "key": "B",
+          "label": "refuser"
+        },
+        {
+          "key": "C",
+          "label": "référer"
+        },
+        {
+          "key": "D",
+          "label": "retarder"
+        }
+      ],
+      "correctAnswers": [
+        "D"
+      ],
+      "explanationText": "#题目分析：答案：D\n此题为假朋友（同形异义词）。法语 reporter = “推迟”，英语形似词 report = “报道 / 报告”。\n干扰项 A “带回 / 报告”（rapporter）：与 reporter 形近，且部分语义重叠（“带回”）。\n干扰项 B “拒绝”（refuser）：词形部分相似，混淆选项\n干扰项 C “参考 / 提及”（référer）：词形部分相似，语义无关。",
+      "optionExplanations": {
+        "A": "干扰项 A “带回 / 报告”（rapporter）：与 reporter 形近，且部分语义重叠（“带回”）。",
+        "B": "干扰项 B “拒绝”（refuser）：词形部分相似，混淆选项",
+        "C": "干扰项 C “参考 / 提及”（référer）：词形部分相似，语义无关。",
+        "D": "此题为假朋友（同形异义词）。法语 reporter = “推迟”，英语形似词 report = “报道 / 报告”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "reporter",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-04",
+      "contentHash": "9023cb80ccaee56bfbe07c34e3a89e486d3bde60d7812cbb6ea80262ae46a7f7"
+    },
+    {
+      "itemCode": "P2-05",
+      "sectionCode": "P2",
+      "sortOrder": 25,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Les hirondelles annoncent le printemps.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "marquer"
+        },
+        {
+          "key": "B",
+          "label": "cacher"
+        },
+        {
+          "key": "C",
+          "label": "informer"
+        },
+        {
+          "key": "D",
+          "label": "Célébrer"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "5. Les hirondelles annoncent le printemps\n#题目分析：答案：C\n此题为英法同源词。法语 annoncer = “宣布 / 告知”，同源英语 announce = “宣布”。\n干扰项 A “标记”（marquer）：语义相近（“标志着”），是强干扰项。\n干扰项 B “隐藏”（cacher）：语义相反。\n干扰项 D “庆祝”（célébrer）：语义相关但不同（宣布 ≠ 庆祝）。",
+      "optionExplanations": {
+        "A": "干扰项 A “标记”（marquer）：语义相近（“标志着”），是强干扰项。",
+        "B": "干扰项 B “隐藏”（cacher）：语义相反。",
+        "D": "干扰项 D “庆祝”（célébrer）：语义相关但不同（宣布 ≠ 庆祝）。",
+        "C": "此题为英法同源词。法语 annoncer = “宣布 / 告知”，同源英语 announce = “宣布”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "annoncer",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-05",
+      "contentHash": "71d0876ab8410bcc272221172d466f0327a97a9b0d733092df5183984a442d74"
+    },
+    {
+      "itemCode": "P2-06",
+      "sectionCode": "P2",
+      "sortOrder": 26,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Les chasseurs ont réussi à capturer un animal sauvage.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "libérer"
+        },
+        {
+          "key": "B",
+          "label": "attraper"
+        },
+        {
+          "key": "C",
+          "label": "tuer"
+        },
+        {
+          "key": "D",
+          "label": "nourrir"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "6. #题目分析：答案：B\n此题为英法同源词。法语 capturer = “捕捉”，同源英语 capture = “捕捉”。\n干扰项 A “释放”（libérer）：语义相反。\n干扰项 C “杀死”（tuer）：捕捉后可能发生的行为，语义域相关但不同。\n干扰项 D “喂养”（nourrir）：捕捉后可能发生的行为，用于检测语义联想过度。",
+      "optionExplanations": {
+        "A": "干扰项 A “释放”（libérer）：语义相反。",
+        "C": "干扰项 C “杀死”（tuer）：捕捉后可能发生的行为，语义域相关但不同。",
+        "D": "干扰项 D “喂养”（nourrir）：捕捉后可能发生的行为，用于检测语义联想过度。",
+        "B": "此题为英法同源词。法语 capturer = “捕捉”，同源英语 capture = “捕捉”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "capturer",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-06",
+      "contentHash": "64b6cfd2349756a2dfebf2c4b57002ff9f9cfddc8ce7e1412215aa12d77b1fa1"
+    },
+    {
+      "itemCode": "P2-07",
+      "sectionCode": "P2",
+      "sortOrder": 27,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Chaque matin, il doit se dépêcher au travail pour ne pas être en retard.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "arriver"
+        },
+        {
+          "key": "B",
+          "label": "ralentir"
+        },
+        {
+          "key": "C",
+          "label": "se hâter"
+        },
+        {
+          "key": "D",
+          "label": "attendre"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "7. #题目分析：答案：C\n此题为纯法语对照词。法语 se dépêcher = “赶快”，英语无直接同源词。\n干扰项 A “到达”（arriver）：语义无关，但动作上“赶快”常为了“到达”，易产生联想。\n干扰项 B “放慢”（ralentir）：语义相反。\n干扰项 D “等待”（attendre）：语义相反，且与“赶快”形成行为对立。",
+      "optionExplanations": {
+        "A": "干扰项 A “到达”（arriver）：语义无关，但动作上“赶快”常为了“到达”，易产生联想。",
+        "B": "干扰项 B “放慢”（ralentir）：语义相反。",
+        "D": "干扰项 D “等待”（attendre）：语义相反，且与“赶快”形成行为对立。",
+        "C": "此题为纯法语对照词。法语 se dépêcher = “赶快”，英语无直接同源词。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "se dépêcher",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-07",
+      "contentHash": "21c8e2ff9e43285c3dd973b220f2c1a82b55bbb0ad848d7de22dd36c9e95a1e8"
+    },
+    {
+      "itemCode": "P2-08",
+      "sectionCode": "P2",
+      "sortOrder": 28,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Marie Curie était une grande physicienne.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "médecin"
+        },
+        {
+          "key": "B",
+          "label": "scientifique en physique"
+        },
+        {
+          "key": "C",
+          "label": "chirurgien"
+        },
+        {
+          "key": "D",
+          "label": "pharmacien"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "8. #题目分析：答案：B\n此题为假朋友（同形异义词）。法语 physicien = “物理学家”，英语形似词 physician = “医生”。\n干扰项 A “医生”（médecin）：英语 physician 的直接翻译，是强干扰项（负迁移）。\n干扰项 C “外科医生”（chirurgien）：医生的一种，进一步细化干扰。\n干扰项 D “药剂师”（pharmacien）：医疗行业相关职业，与 physician 语义域重叠。",
+      "optionExplanations": {
+        "A": "干扰项 A “医生”（médecin）：英语 physician 的直接翻译，是强干扰项（负迁移）。",
+        "C": "干扰项 C “外科医生”（chirurgien）：医生的一种，进一步细化干扰。",
+        "D": "干扰项 D “药剂师”（pharmacien）：医疗行业相关职业，与 physician 语义域重叠。",
+        "B": "此题为假朋友（同形异义词）。法语 physicien = “物理学家”，英语形似词 physician = “医生”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "physicien",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-08",
+      "contentHash": "38c46115310cf7c95b89dc7bef10c4291c373a204523f7048cec72bdf045acbc"
+    },
+    {
+      "itemCode": "P2-09",
+      "sectionCode": "P2",
+      "sortOrder": 29,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Ils se sont mêlés à une sale affaire.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "mauvaise histoire"
+        },
+        {
+          "key": "B",
+          "label": "promotion commerciale"
+        },
+        {
+          "key": "C",
+          "label": "bonne nouvelle"
+        },
+        {
+          "key": "D",
+          "label": "chose propre"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "9. #题目分析：答案：A\n此题为假朋友（同形异义词）。法语 sale = “肮脏的 / 坏的 / 卑鄙的”，英语形似词 sale = “促销 / 销售”。题干 une sale affaire 意为“一件坏事 / 丑闻”。\n干扰项 B “商业促销”（une promotion commerciale）：英语 sale 的直接翻译，是强干扰项（负迁移）。\n干扰项 C “好消息”（une bonne nouvelle）：语义相反。\n干扰项 D “干净的东西”（une chose propre）：利用 sale 的本义“肮脏的”与 propre（干净的）形成反义对比，但语义域偏离“事件”范畴，用于检测语义匹配能力。",
+      "optionExplanations": {
+        "B": "干扰项 B “商业促销”（une promotion commerciale）：英语 sale 的直接翻译，是强干扰项（负迁移）。",
+        "C": "干扰项 C “好消息”（une bonne nouvelle）：语义相反。",
+        "D": "干扰项 D “干净的东西”（une chose propre）：利用 sale 的本义“肮脏的”与 propre（干净的）形成反义对比，但语义域偏离“事件”范畴，用于检测语义匹配能力。",
+        "A": "此题为假朋友（同形异义词）。法语 sale = “肮脏的 / 坏的 / 卑鄙的”，英语形似词 sale = “促销 / 销售”。题干 une sale affaire 意为“一件坏事 / 丑闻”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "sale",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-09",
+      "contentHash": "c49c3d01078dae588f71024b4ab399a274796c4871755baeee2808be5065a492"
+    },
+    {
+      "itemCode": "P2-10",
+      "sectionCode": "P2",
+      "sortOrder": 30,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "L’avocat doit constituer un dossier pour son client.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "détruire"
+        },
+        {
+          "key": "B",
+          "label": "former"
+        },
+        {
+          "key": "C",
+          "label": "instituer"
+        },
+        {
+          "key": "D",
+          "label": "contribuer"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "10. #题目分析：答案：B\n此题为英法同源词。法语 constituer = “构成/组成/建立”，同源英语 constitute = “构成 / 组成”。\n干扰项 A “破坏”（détruire）：语义相反。\n干扰项 C “设立 / 建立”（instituer）：与 constituer 前缀不同（in- vs con-），但词干相近（stituer），语义部分重叠（“建立”），易混淆。\n干扰项 D “贡献”（contribuer）：前缀相同（con-），词形高度相似（contribuer / constituer），但语义完全不同，是强干扰项。",
+      "optionExplanations": {
+        "A": "干扰项 A “破坏”（détruire）：语义相反。",
+        "C": "干扰项 C “设立 / 建立”（instituer）：与 constituer 前缀不同（in- vs con-），但词干相近（stituer），语义部分重叠（“建立”），易混淆。",
+        "D": "干扰项 D “贡献”（contribuer）：前缀相同（con-），词形高度相似（contribuer / constituer），但语义完全不同，是强干扰项。",
+        "B": "此题为英法同源词。法语 constituer = “构成/组成/建立”，同源英语 constitute = “构成 / 组成”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "SENTENCE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "constituer",
+      "displayCondition": null,
+      "sharedMaterialRef": null,
+      "sourceReference": "questionnaire:P2-10",
+      "contentHash": "ec25af4dde63fad53f7489e911350556a42c99034c734d293ba21e2f85cd588e"
+    },
+    {
+      "itemCode": "P3-01",
+      "sectionCode": "P3",
+      "sortOrder": 31,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (1)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "piste"
+        },
+        {
+          "key": "B",
+          "label": "place"
+        },
+        {
+          "key": "C",
+          "label": "chemin"
+        },
+        {
+          "key": "D",
+          "label": "champ"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "1. 答案：C. chemin\n#题目分析：答案：C\n此题为对照词。法语 chemin = “道路 / 路径”，英语无直接同源词。\n干扰项 A “小路 / 跑道”（piste）：与 chemin 同属“道路”语义场，但 piste 更偏向非铺装小路或特定用途路线，是强干扰项。\n干扰项 B “广场 / 位置”（place）：与“路径”语义部分重叠，但不符合“去上班所走的路线”这一语境。\n干扰项 D “田野 / 场地”（champ）：属于空间概念，但与日常通勤路径无关，用于检测语义区分能力。",
+      "optionExplanations": {
+        "A": "干扰项 A “小路 / 跑道”（piste）：与 chemin 同属“道路”语义场，但 piste 更偏向非铺装小路或特定用途路线，是强干扰项。",
+        "B": "干扰项 B “广场 / 位置”（place）：与“路径”语义部分重叠，但不符合“去上班所走的路线”这一语境。",
+        "D": "干扰项 D “田野 / 场地”（champ）：属于空间概念，但与日常通勤路径无关，用于检测语义区分能力。",
+        "C": "此题为对照词。法语 chemin = “道路 / 路径”，英语无直接同源词。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "chemin",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-01",
+      "contentHash": "97c9af1e0f48451a1452b5e00edf034ba70c081be01e9b67da4593a87ecd880e"
+    },
+    {
+      "itemCode": "P3-02",
+      "sectionCode": "P3",
+      "sortOrder": 32,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (2)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "garder"
+        },
+        {
+          "key": "B",
+          "label": "prendre"
+        },
+        {
+          "key": "C",
+          "label": "laisser"
+        },
+        {
+          "key": "D",
+          "label": "manquer"
+        }
+      ],
+      "correctAnswers": [
+        "D"
+      ],
+      "explanationText": "2. 答案：D. manquer\n#题目分析：答案：D\n此题为对照词。法语 manquer = “错过”（manquer son train = 错过火车），英语无直接同源词。\n干扰项 A “保留”（garder）：与“错过”语义无关，但学生可能因“保留车票”等联想而误选。\n干扰项 B “乘坐”（prendre）：prendre le train = “乘火车”，与 manquer le train 语义相反，是强干扰项。\n干扰项 C “留下”（laisser）：laisser le train 可能被误解为“让火车离开”，但法语中并不这样搭配，用于检测动宾搭配能力。",
+      "optionExplanations": {
+        "A": "干扰项 A “保留”（garder）：与“错过”语义无关，但学生可能因“保留车票”等联想而误选。",
+        "B": "干扰项 B “乘坐”（prendre）：prendre le train = “乘火车”，与 manquer le train 语义相反，是强干扰项。",
+        "C": "干扰项 C “留下”（laisser）：laisser le train 可能被误解为“让火车离开”，但法语中并不这样搭配，用于检测动宾搭配能力。",
+        "D": "此题为对照词。法语 manquer = “错过”（manquer son train = 错过火车），英语无直接同源词。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "manquer",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-02",
+      "contentHash": "e32f9e5baa9ed2f7a81e40b7f2fe1a39104a60455100c6944febc9b1f728d5f0"
+    },
+    {
+      "itemCode": "P3-03",
+      "sectionCode": "P3",
+      "sortOrder": 33,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (3)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "coutume"
+        },
+        {
+          "key": "B",
+          "label": "habit"
+        },
+        {
+          "key": "C",
+          "label": "geste"
+        },
+        {
+          "key": "D",
+          "label": "manière"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "3. 答案：B. habit\n#题目分析：答案：B\n此题为假朋友（同形异义词）。法语 habit = “服装 / 正装”，英语形似词 habit = “习惯”。\n干扰项 A “习惯”（coutume）：直接对应英语 habit 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 habit 意为“习惯”，从而选择 coutume。\n干扰项 C “手势”（geste）：与“服装”语义无关，但同属“人的外在表现”范畴，用于检测语义域区分能力。\n干扰项 D “方式”（manière）：与“习惯”语义相近，但与“服装”无关。学生若将 habit 误判为“习惯”，可能进一步在 coutume 和 manière 之间犹豫。",
+      "optionExplanations": {
+        "A": "干扰项 A “习惯”（coutume）：直接对应英语 habit 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 habit 意为“习惯”，从而选择 coutume。",
+        "C": "干扰项 C “手势”（geste）：与“服装”语义无关，但同属“人的外在表现”范畴，用于检测语义域区分能力。",
+        "D": "干扰项 D “方式”（manière）：与“习惯”语义相近，但与“服装”无关。学生若将 habit 误判为“习惯”，可能进一步在 coutume 和 manière 之间犹豫。",
+        "B": "此题为假朋友（同形异义词）。法语 habit = “服装 / 正装”，英语形似词 habit = “习惯”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "habit",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-03",
+      "contentHash": "3a718b08a3b095abe272d5ec0dacd415549acaf2aeb6f4b07304f435b4ff5535"
+    },
+    {
+      "itemCode": "P3-04",
+      "sectionCode": "P3",
+      "sortOrder": 34,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (4)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "emploi"
+        },
+        {
+          "key": "B",
+          "label": "stage"
+        },
+        {
+          "key": "C",
+          "label": "salaire"
+        },
+        {
+          "key": "D",
+          "label": "chômage"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "4. 答案：A. emploi\n#题目分析：答案：A\n此题为同源词。法语 emploi = “工作 / 职业”，同源英语 employment = “就业 / 职业”。学生在英语正迁移帮助下应能理解此词。\n干扰项 B “实习”（stage）：与 emploi 同属“职业活动”语义场，但实习通常是短期、非正式的，学生可能因语义相近而误选。\n干扰项 C “工资”（salaire）：与工作相关但非工作本身，学生可能将“工作”与“工资”混淆，属于语义联想过度。\n干扰项 D “失业”（chômage）：与 emploi 语义相反。",
+      "optionExplanations": {
+        "B": "干扰项 B “实习”（stage）：与 emploi 同属“职业活动”语义场，但实习通常是短期、非正式的，学生可能因语义相近而误选。",
+        "C": "干扰项 C “工资”（salaire）：与工作相关但非工作本身，学生可能将“工作”与“工资”混淆，属于语义联想过度。",
+        "D": "干扰项 D “失业”（chômage）：与 emploi 语义相反。",
+        "A": "此题为同源词。法语 emploi = “工作 / 职业”，同源英语 employment = “就业 / 职业”。学生在英语正迁移帮助下应能理解此词。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "emploi",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-04",
+      "contentHash": "2187a1884cbd57b2c3c73936fdea9ef93cd55b7b501c003b9cc79dff53d78eeb"
+    },
+    {
+      "itemCode": "P3-05",
+      "sectionCode": "P3",
+      "sortOrder": 35,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (5)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "réfléchir"
+        },
+        {
+          "key": "B",
+          "label": "résoudre"
+        },
+        {
+          "key": "C",
+          "label": "rejoindre"
+        },
+        {
+          "key": "D",
+          "label": "répondre"
+        }
+      ],
+      "correctAnswers": [
+        "D"
+      ],
+      "explanationText": "5. 答案：D. répondre\n#题目分析：答案：D\n此题为同源词。法语 répondre = “回答 / 回复”（répondre aux courriels = 回复邮件），同源英语 respond = “回应”。\n干扰项 A “思考”（réfléchir）：与“回复邮件”语义相关（回复前需要思考），但 réfléchir 不直接接 à 表示“回复”，学生可能因语义联想而误选。\n干扰项 B “解决”（résoudre）：résoudre un problème = “解决问题”，但 résoudre aux courriels 不成立，学生可能将“处理邮件”与“解决邮件”混淆。\n干扰项 C “加入”（rejoindre）：rejoindre quelqu’un = “与某人会合”，但 rejoindre aux courriels 不成立，用于检测动词与介词搭配能力。",
+      "optionExplanations": {
+        "A": "干扰项 A “思考”（réfléchir）：与“回复邮件”语义相关（回复前需要思考），但 réfléchir 不直接接 à 表示“回复”，学生可能因语义联想而误选。",
+        "B": "干扰项 B “解决”（résoudre）：résoudre un problème = “解决问题”，但 résoudre aux courriels 不成立，学生可能将“处理邮件”与“解决邮件”混淆。",
+        "C": "干扰项 C “加入”（rejoindre）：rejoindre quelqu’un = “与某人会合”，但 rejoindre aux courriels 不成立，用于检测动词与介词搭配能力。",
+        "D": "此题为同源词。法语 répondre = “回答 / 回复”（répondre aux courriels = 回复邮件），同源英语 respond = “回应”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "répondre",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-05",
+      "contentHash": "26052a122bd6832e551361d7c7453dc49b344ecbdeacc168ef184228a07a1a8b"
+    },
+    {
+      "itemCode": "P3-06",
+      "sectionCode": "P3",
+      "sortOrder": 36,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (6)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "tendance"
+        },
+        {
+          "key": "B",
+          "label": "entente"
+        },
+        {
+          "key": "C",
+          "label": "attente"
+        },
+        {
+          "key": "D",
+          "label": "tente"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "答案：B. entente\n#题目分析：\n此题为纯法语对照词。法语 entente = \"融洽、默契\"，指人与人之间良好的理解与合作关系。英语虽有 entente 一词，但属于罕见的外交术语（如 Entente cordiale 友好协约）。\n干扰项 A \"趋势\"（tendance）：与 entente 同以 ten- 开头，且同为 -ance / -ence 结尾，拼写高度相似。但 tendance 指\"倾向、趋势\"，与\"人际关系\"完全无关，且 bonne tendance 在此语境中搭配不成立。\n干扰项 C \"等待\"（attente）：与 entente 拼写高度相似（仅首字母 a 与 e 之差），但词义完全不同。attente 指\"等待、期望\"，与同事关系无任何逻辑关联，且 bonne attente 搭配不成立。\n干扰项 D \"帐篷\"（tente）：与 entente 同为 -ente 结尾，但词义毫不相关。avoir une bonne tente avec ses collègues 在语法和语义上完全不成立，学生若仅凭词形猜测极易误选。",
+      "optionExplanations": {
+        "A": "干扰项 A \"趋势\"（tendance）：与 entente 同以 ten- 开头，且同为 -ance / -ence 结尾，拼写高度相似。但 tendance 指\"倾向、趋势\"，与\"人际关系\"完全无关，且 bonne tendance 在此语境中搭配不成立。",
+        "C": "干扰项 C \"等待\"（attente）：与 entente 拼写高度相似（仅首字母 a 与 e 之差），但词义完全不同。attente 指\"等待、期望\"，与同事关系无任何逻辑关联，且 bonne attente 搭配不成立。",
+        "D": "干扰项 D \"帐篷\"（tente）：与 entente 同为 -ente 结尾，但词义毫不相关。avoir une bonne tente avec ses collègues 在语法和语义上完全不成立，学生若仅凭词形猜测极易误选。",
+        "B": "#题目分析：\n此题为纯法语对照词。法语 entente = \"融洽、默契\"，指人与人之间良好的理解与合作关系。英语虽有 entente 一词，但属于罕见的外交术语（如 Entente cordiale 友好协约）。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FRENCH_CONTROL",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "entente",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-06",
+      "contentHash": "0d10c4849fda8310abc2703a9d79c3234195c4e15cc0bebb2f062f1dbf2dc69e"
+    },
+    {
+      "itemCode": "P3-07",
+      "sectionCode": "P3",
+      "sortOrder": 37,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (7)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "soutenir"
+        },
+        {
+          "key": "B",
+          "label": "accepter"
+        },
+        {
+          "key": "C",
+          "label": "assister"
+        },
+        {
+          "key": "D",
+          "label": "attaquer"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "7. 答案：C. assister\n#题目分析：答案：C\n此题为假朋友（同形异义词）。法语 assister à = “参加 / 出席”，英语形似词 assist = “帮助 / 协助”。\n干扰项 A “支持 / 帮助”（soutenir）：直接对应英语 assist 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 assister 意为“帮助”，从而选择 soutenir。\n干扰项 B “接受”（accepter）：与“参加会议”语义相关（接受邀请才能参加会议），但 accepter à une réunion 不成立，用于检测动词搭配能力。\n干扰项 D “攻击”（attaquer）：语义上与“参加会议”无关，与 soutenir（支持）形成反义对比，用于检测极端错误选择。",
+      "optionExplanations": {
+        "A": "干扰项 A “支持 / 帮助”（soutenir）：直接对应英语 assist 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 assister 意为“帮助”，从而选择 soutenir。",
+        "B": "干扰项 B “接受”（accepter）：与“参加会议”语义相关（接受邀请才能参加会议），但 accepter à une réunion 不成立，用于检测动词搭配能力。",
+        "D": "干扰项 D “攻击”（attaquer）：语义上与“参加会议”无关，与 soutenir（支持）形成反义对比，用于检测极端错误选择。",
+        "C": "此题为假朋友（同形异义词）。法语 assister à = “参加 / 出席”，英语形似词 assist = “帮助 / 协助”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "assister",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-07",
+      "contentHash": "fd7be4732a11cd8485e680be2daee3b7295e3bdd02094b00e9da38e53638a598"
+    },
+    {
+      "itemCode": "P3-08",
+      "sectionCode": "P3",
+      "sortOrder": 38,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (8)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "décevoir"
+        },
+        {
+          "key": "B",
+          "label": "tromper"
+        },
+        {
+          "key": "C",
+          "label": "menacer"
+        },
+        {
+          "key": "D",
+          "label": "blesser"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "8. 答案：A. décevoir\n#题目分析：答案：A\n此题为假朋友（同形异义词）。法语 décevoir = “使失望”，英语形似词 deceive = “欺骗”。\n干扰项 B “欺骗”（tromper）：直接对应英语 deceive 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 décevoir 意为“欺骗”，从而选择 tromper。\n干扰项 C “威胁”（menacer）：语义上与“失望”无关，但与 décevoir 同属负面行为范畴，用于检测语义域区分能力。\n干扰项 D “伤害”（blesser）：语义上与“失望”部分重叠（言语伤害可能导致失望），但 blesser 程度更重、更具体，是强干扰项。",
+      "optionExplanations": {
+        "B": "干扰项 B “欺骗”（tromper）：直接对应英语 deceive 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 décevoir 意为“欺骗”，从而选择 tromper。",
+        "C": "干扰项 C “威胁”（menacer）：语义上与“失望”无关，但与 décevoir 同属负面行为范畴，用于检测语义域区分能力。",
+        "D": "干扰项 D “伤害”（blesser）：语义上与“失望”部分重叠（言语伤害可能导致失望），但 blesser 程度更重、更具体，是强干扰项。",
+        "A": "此题为假朋友（同形异义词）。法语 décevoir = “使失望”，英语形似词 deceive = “欺骗”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "décevoir",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-08",
+      "contentHash": "947fac3d78ecc7099afc2413ee0898a7bcaa6df63d529fd3be14e8162d3e916d"
+    },
+    {
+      "itemCode": "P3-09",
+      "sectionCode": "P3",
+      "sortOrder": 39,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (9)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "preuve"
+        },
+        {
+          "key": "B",
+          "label": "détail"
+        },
+        {
+          "key": "C",
+          "label": "évidence"
+        },
+        {
+          "key": "D",
+          "label": "chiffre"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "9. 答案：C. évidence\n#题目分析：答案：C\n此题为假朋友（同形异义词）。法语 évidence = “显而易见的事 / 明摆着的事”（c’est une évidence que... = “很明显……”），英语形似词 evidence = “证据”。\n干扰项 A “证据”（preuve）：直接对应英语 evidence 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 évidence 意为“证据”，从而选择 preuve。\n干扰项 B “细节”（détail）：与“显而易见”语义部分相关（细节可能是明显的），但 détail 侧重“具体细小的点”，与 évidence 的“整体明显”不同。\n干扰项 D “数字”（chiffre）：与“证据 / 明显”语义无关，但 chiffre 常作为 preuve 的一种形式（数字证据），用于检测语义联想过度。",
+      "optionExplanations": {
+        "A": "干扰项 A “证据”（preuve）：直接对应英语 evidence 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 évidence 意为“证据”，从而选择 preuve。",
+        "B": "干扰项 B “细节”（détail）：与“显而易见”语义部分相关（细节可能是明显的），但 détail 侧重“具体细小的点”，与 évidence 的“整体明显”不同。",
+        "D": "干扰项 D “数字”（chiffre）：与“证据 / 明显”语义无关，但 chiffre 常作为 preuve 的一种形式（数字证据），用于检测语义联想过度。",
+        "C": "此题为假朋友（同形异义词）。法语 évidence = “显而易见的事 / 明摆着的事”（c’est une évidence que... = “很明显……”），英语形似词 evidence = “证据”。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "évidence",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-09",
+      "contentHash": "6715e43978547be725e22ee58f537554559f895f8e99af63892a24babacf69e0"
+    },
+    {
+      "itemCode": "P3-10",
+      "sectionCode": "P3",
+      "sortOrder": 40,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Une journée de travail — blanc (10)",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "simple"
+        },
+        {
+          "key": "B",
+          "label": "habituelle"
+        },
+        {
+          "key": "C",
+          "label": "singulière"
+        },
+        {
+          "key": "D",
+          "label": "prudente"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "10. 答案：B. habituel\n#题目分析：\n此题为英法同源词。法语 habituel = “习惯性的、通常的/常见的”，与英语 habitual 同源且语义基本重合，学生可借助英语正迁移理解词义。\n干扰项 A “简单的”（simple）：语义上与“职场挫折”无直接关联，且与后文“明天会好转”缺乏逻辑呼应。学生可能因“简单的事容易过去”这一日常联想而误选，属于语义泛化干扰。\n干扰项 C “独特的、奇特的”（singulière）：与上文 tout le monde peut vivre ce genre de déception（每个人都会经历这种失望）逻辑相反——人人都能经历的事，不可能是“独特的”，可快速排除。\n干扰项 D “谨慎的”（prudente）：语义方向完全偏离，与“失望/挫折”的情感色彩不匹配，且修饰 situation 不自然，属于随机猜测干扰项。\n（1 3 4题为第一组2 5 7题为第二组6 9 10题为第三组8题单独列出）",
+      "optionExplanations": {
+        "A": "干扰项 A “简单的”（simple）：语义上与“职场挫折”无直接关联，且与后文“明天会好转”缺乏逻辑呼应。学生可能因“简单的事容易过去”这一日常联想而误选，属于语义泛化干扰。",
+        "C": "干扰项 C “独特的、奇特的”（singulière）：与上文 tout le monde peut vivre ce genre de déception（每个人都会经历这种失望）逻辑相反——人人都能经历的事，不可能是“独特的”，可快速排除。",
+        "D": "干扰项 D “谨慎的”（prudente）：语义方向完全偏离，与“失望/挫折”的情感色彩不匹配，且修饰 situation 不自然，属于随机猜测干扰项。",
+        "B": "#题目分析：\n此题为英法同源词。法语 habituel = “习惯性的、通常的/常见的”，与英语 habitual 同源且语义基本重合，学生可借助英语正迁移理解词义。\n（1 3 4题为第一组2 5 7题为第二组6 9 10题为第三组8题单独列出）"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "CLOZE",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "habituel",
+      "displayCondition": null,
+      "sharedMaterialRef": "P3",
+      "sourceReference": "questionnaire:P3-10",
+      "contentHash": "8a233c8ef90667d6612b9aaf77aee27e7c35c5169fbe39287d8cad63202e54bf"
+    },
+    {
+      "itemCode": "P4T1-01",
+      "sectionCode": "P4T1",
+      "sortOrder": 41,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Quelle est l'idée principale du texte ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "Les usines sont bénéfiques pour l'air."
+        },
+        {
+          "key": "B",
+          "label": "La pollution menace la planète et il faut agir vite."
+        },
+        {
+          "key": "C",
+          "label": "Les incendies sont déjà partout."
+        },
+        {
+          "key": "D",
+          "label": "Les animaux et les plantes n'ont aucun danger."
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "1. Quelle est l’idée principale du texte ?\n题型：主旨题\n#题目分析：答案：B\n•干扰项 A “工厂对空气有益”：与原文相反。原文提到 les fumées grises provenant des usines（工厂排放的灰色烟雾），暗示工厂是污染源。\n• 干扰项 B “污染威胁地球，必须快速行动”：概括了全文核心。第一段讲污染问题，第二段讲解决措施，符合主旨。\n• 干扰项 C “火灾已经到处都是”：原文说的是 en cas d’incendie éventuel（可能的火灾），并非已经发生。\n• 干扰项 D “动物和植物没有任何危险”：与原文相反。原文提到火灾可能 détruire leurs habitats（摧毁它们的栖息地）。",
+      "optionExplanations": {
+        "A": "•干扰项 A “工厂对空气有益”：与原文相反。原文提到 les fumées grises provenant des usines（工厂排放的灰色烟雾），暗示工厂是污染源。",
+        "B": "• 干扰项 B “污染威胁地球，必须快速行动”：概括了全文核心。第一段讲污染问题，第二段讲解决措施，符合主旨。",
+        "C": "• 干扰项 C “火灾已经到处都是”：原文说的是 en cas d’incendie éventuel（可能的火灾），并非已经发生。",
+        "D": "• 干扰项 D “动物和植物没有任何危险”：与原文相反。原文提到火灾可能 détruire leurs habitats（摧毁它们的栖息地）。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": null,
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T1",
+      "sourceReference": "questionnaire:P4T1-01",
+      "contentHash": "54680dab315afd483b7e362e5cd963f3f45de282ddf3bd1ee3f780d0fdbb2521"
+    },
+    {
+      "itemCode": "P4T1-02",
+      "sectionCode": "P4T1",
+      "sortOrder": 42,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Que peut-on déduire des gens qui « ignorent que la pollution peut aussi nuire aux animaux » ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "Ils ne savent pas que les animaux sont menacés par la pollution."
+        },
+        {
+          "key": "B",
+          "label": "Ils négligent volontairement la protection des animaux."
+        },
+        {
+          "key": "C",
+          "label": "Ils pensent que la pollution n'affecte que les humains."
+        },
+        {
+          "key": "D",
+          "label": "Ils agissent déjà pour protéger l'environnement."
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "2. Que peut-on déduire des gens qui « ignorent que la pollution peut aussi nuire aux animaux » ?\n#题目分析：答案：A\n题型：推断题（假朋友 ignorer 考察）\n·干扰项 A “他们不知道动物受到污染的威胁”：法语 ignorer 的正确含义，是正确答案。\n·干扰项 B “他们故意疏忽对动物的保护”：法语 négliger（主观疏忽）的含义，与 ignorer（不知道）形成对比，是强干扰项。\n·干扰项 C “他们认为污染只影响人类”：学生若混淆“不知道”与“认为相反”，可能误选。\n·干扰项 D “他们已经在为保护环境采取行动”：与原文逻辑相反（如果已经行动就不会“不知道”），是弱干扰项。",
+      "optionExplanations": {
+        "A": "·干扰项 A “他们不知道动物受到污染的威胁”：法语 ignorer 的正确含义，是正确答案。",
+        "B": "·干扰项 B “他们故意疏忽对动物的保护”：法语 négliger（主观疏忽）的含义，与 ignorer（不知道）形成对比，是强干扰项。",
+        "C": "·干扰项 C “他们认为污染只影响人类”：学生若混淆“不知道”与“认为相反”，可能误选。",
+        "D": "·干扰项 D “他们已经在为保护环境采取行动”：与原文逻辑相反（如果已经行动就不会“不知道”），是弱干扰项。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "ignorer",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T1",
+      "sourceReference": "questionnaire:P4T1-02",
+      "contentHash": "90c64ecddc1a046a0052101826dee9a3c0124c6e375a89e17df594671846687f"
+    },
+    {
+      "itemCode": "P4T1-03",
+      "sectionCode": "P4T1",
+      "sortOrder": 43,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Si la qualité de l'air devient mauvaise :",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "nombreuses personnes ne s'en soucieront pas."
+        },
+        {
+          "key": "B",
+          "label": "certaines personnes raisonnables tomberont malade."
+        },
+        {
+          "key": "C",
+          "label": "certaines personnes vulnérables se sentiront mal à l'aise."
+        },
+        {
+          "key": "D",
+          "label": "certaines personnes seront plus tristes qu'avant."
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "3. Si la qualité de l’air devient mauvais :\n题型：细节理解题\n#题目分析：答案：C\n• 干扰项 A “很多人不会在意”：原文未提及，且与 sensibles（敏感的）语义相反。\n• 干扰项 B “一些理性的人会生病”：raisonnables（理性的）是对法语 sensible 的误译（英语 sensible = 明智的/理性的），是假朋友负迁移干扰。\n• 干扰项 C “一些敏感的人会感到不适”：vulnérables与 sensibles 同义，se sentir mal à l’aise 对应原文 tousser（咳嗽），是正确答案。\n• 干扰项 D “一些人会比以前更难过”：过度理解。原文只提到咳嗽，未涉及情绪变化。",
+      "optionExplanations": {
+        "A": "• 干扰项 A “很多人不会在意”：原文未提及，且与 sensibles（敏感的）语义相反。",
+        "B": "• 干扰项 B “一些理性的人会生病”：raisonnables（理性的）是对法语 sensible 的误译（英语 sensible = 明智的/理性的），是假朋友负迁移干扰。",
+        "C": "• 干扰项 C “一些敏感的人会感到不适”：vulnérables与 sensibles 同义，se sentir mal à l’aise 对应原文 tousser（咳嗽），是正确答案。",
+        "D": "• 干扰项 D “一些人会比以前更难过”：过度理解。原文只提到咳嗽，未涉及情绪变化。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "sensible",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T1",
+      "sourceReference": "questionnaire:P4T1-03",
+      "contentHash": "e35654eed926efb380d7264a645235329d7ee7c7439f74a52a80c8c1e7d7b728"
+    },
+    {
+      "itemCode": "P4T1-04",
+      "sectionCode": "P4T1",
+      "sortOrder": 44,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Que signifie « un éventuel incendie » ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "un incendie possible mais pas certain"
+        },
+        {
+          "key": "B",
+          "label": "un incendie inévitable et sûr"
+        },
+        {
+          "key": "C",
+          "label": "un incendie impossible"
+        },
+        {
+          "key": "D",
+          "label": "un incendie déjà terminé"
+        }
+      ],
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "4. Que signifie « un éventuel incendie » ?\n题型：词汇理解题（假朋友考察）\n#题目分析：答案 A\n此题为假朋友（同形异义词）辨析题。法语 éventuel = “可能的、或许会发生的”，强调不确定性；英语形似词 eventual = “最终的、结局的”，强调必然性。二者词形高度相似但核心语义不同。\n干扰项 B “un incendie inévitable et sûr”（不可避免且确定的火灾）：此为英语 eventual 的语义特征（“最终的”隐含“必然会发生”），受英语负迁移影响的学生容易误选。但法语 éventuel 不包含“必然”之义。\n干扰项 C “un incendie impossible”（不可能的火灾）：与 éventuel 的“可能的”语义完全相反，属于极端错误选项。\n干扰项 D “un incendie déjà terminé”（已经结束的火灾）：与英语 eventual 的“最终的”在时间维度上部分混淆，但法语 éventuel 完全不涉及“已发生”或“已完成”的时间概念。",
+      "optionExplanations": {
+        "B": "干扰项 B “un incendie inévitable et sûr”（不可避免且确定的火灾）：此为英语 eventual 的语义特征（“最终的”隐含“必然会发生”），受英语负迁移影响的学生容易误选。但法语 éventuel 不包含“必然”之义。",
+        "C": "干扰项 C “un incendie impossible”（不可能的火灾）：与 éventuel 的“可能的”语义完全相反，属于极端错误选项。",
+        "D": "干扰项 D “un incendie déjà terminé”（已经结束的火灾）：与英语 eventual 的“最终的”在时间维度上部分混淆，但法语 éventuel 完全不涉及“已发生”或“已完成”的时间概念。",
+        "A": "此题为假朋友（同形异义词）辨析题。法语 éventuel = “可能的、或许会发生的”，强调不确定性；英语形似词 eventual = “最终的、结局的”，强调必然性。二者词形高度相似但核心语义不同。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "éventuel",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T1",
+      "sourceReference": "questionnaire:P4T1-04",
+      "contentHash": "2542af9058d87c394e7e00cc0d069d31da6f79f19993e2b77e51ec995fe9ed47"
+    },
+    {
+      "itemCode": "P4T1-05",
+      "sectionCode": "P4T1",
+      "sortOrder": 45,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Que signifie « Agir maintenant est essentiel pour l'avenir » ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "Agir maintenant est utile pour l'avenir"
+        },
+        {
+          "key": "B",
+          "label": "Agir maintenant est dangereux pour l'avenir"
+        },
+        {
+          "key": "C",
+          "label": "Agir maintenant est premier pour l'avenir"
+        },
+        {
+          "key": "D",
+          "label": "Agir maintenant est nécessaire pour l'avenir"
+        }
+      ],
+      "correctAnswers": [
+        "D"
+      ],
+      "explanationText": "5. Que signifie « Agir maintenant est essentiel pour l’avenir » ?\n题型：词汇理解题（同源词考察）\n#题目分析：答案：D\n• 干扰项 A “现在行动对未来有用”：utile（有用的）与 essentiel（必要的）语义相近但不完全相同，是弱干扰项。\n• 干扰项 B “现在行动对未来有危险”：dangereux（危险的）与原文语义相反。\n• 干扰项 C “现在行动是未来的首要之事”：premier（第一位的）与 essentiel（必要的）语义部分重叠，但 premier 更侧重顺序，是弱干扰项。\n• 干扰项 D “现在行动对未来是必要的”：nécessaire（必要的）与 essentiel 同义，是正确答案。",
+      "optionExplanations": {
+        "A": "• 干扰项 A “现在行动对未来有用”：utile（有用的）与 essentiel（必要的）语义相近但不完全相同，是弱干扰项。",
+        "B": "• 干扰项 B “现在行动对未来有危险”：dangereux（危险的）与原文语义相反。",
+        "C": "• 干扰项 C “现在行动是未来的首要之事”：premier（第一位的）与 essentiel（必要的）语义部分重叠，但 premier 更侧重顺序，是弱干扰项。",
+        "D": "• 干扰项 D “现在行动对未来是必要的”：nécessaire（必要的）与 essentiel 同义，是正确答案。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "essentiel",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T1",
+      "sourceReference": "questionnaire:P4T1-05",
+      "contentHash": "6b3906d14756edfe29d56c0a7285fb3ca2da7da4ff322811efbfd5aac194b198"
+    },
+    {
+      "itemCode": "P4T2-01",
+      "sectionCode": "P4T2",
+      "sortOrder": 46,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Quelle est l'idée principale du texte ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "Sophie a démissionné parce qu'elle n'aimait pas son patron."
+        },
+        {
+          "key": "B",
+          "label": "Sophie a quitté son travail pour ouvrir une librairie."
+        },
+        {
+          "key": "C",
+          "label": "Sophie a déjà ouvert une librairie mais elle regrette son choix."
+        },
+        {
+          "key": "D",
+          "label": "Sophie travaille toujours dans une entreprise internationale."
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "1. Quelle est l’idée principale du texte ?\n题型：主旨题\n#题目分析：答案：B\n• 干扰项 A “Sophie 辞职因为她不喜欢老板”：原文未提及老板或辞职原因，是过度推断。\n• 干扰项 B “Sophie 辞去工作为了开一家书店”：概括了全文核心（辞职 → 梦想开店 → 正在培训）。\n• 干扰项 C “Sophie 开了一家书店但后悔她的选择”：原文未提及后悔，相反她说这段经历 très stimulante（非常振奋人心）。\n• 干扰项 D “Sophie 仍然在一家国际公司工作”：与原文 a quitté son poste（已离职）矛盾。",
+      "optionExplanations": {
+        "A": "• 干扰项 A “Sophie 辞职因为她不喜欢老板”：原文未提及老板或辞职原因，是过度推断。",
+        "B": "• 干扰项 B “Sophie 辞去工作为了开一家书店”：概括了全文核心（辞职 → 梦想开店 → 正在培训）。",
+        "C": "• 干扰项 C “Sophie 开了一家书店但后悔她的选择”：原文未提及后悔，相反她说这段经历 très stimulante（非常振奋人心）。",
+        "D": "• 干扰项 D “Sophie 仍然在一家国际公司工作”：与原文 a quitté son poste（已离职）矛盾。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": null,
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T2",
+      "sourceReference": "questionnaire:P4T2-01",
+      "contentHash": "d229ce408f9973de8b0d9d7bee8d6ca0c35f31a134565f9e078246cf3a093f94"
+    },
+    {
+      "itemCode": "P4T2-02",
+      "sectionCode": "P4T2",
+      "sortOrder": 47,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "À quel âge Sophie a-t-elle probablement commencé à rêver d’ouvrir une librairie ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "entre 6 et 10 ans"
+        },
+        {
+          "key": "B",
+          "label": "entre 11 et 15 ans"
+        },
+        {
+          "key": "C",
+          "label": "entre 18 et 22 ans"
+        },
+        {
+          "key": "D",
+          "label": "après 25 ans"
+        }
+      ],
+      "correctAnswers": [
+        "B"
+      ],
+      "explanationText": "2. À quel âge Sophie a-t-elle probablement commencé à rêver d’ouvrir une librairie ?\n题型：推断题（假朋友考察）\n#题目分析：答案：B\n• 干扰项 A “6–10岁”：对应小学阶段（école primaire）。法语中小学不称 collège。\n• 干扰项 B “11–15岁”：对应 collège（初中阶段），是正确答案。考察学生对法语教育体系词汇 collège的理解。\n• 干扰项 C “18–22岁”：对应大学（université）或高中最后一年（lycée），与 collège 不符，英语college可能导致混淆。\n• 干扰项 D “25岁以后”：明显偏大，与 collège 的年龄范围不符。",
+      "optionExplanations": {
+        "A": "• 干扰项 A “6–10岁”：对应小学阶段（école primaire）。法语中小学不称 collège。",
+        "B": "• 干扰项 B “11–15岁”：对应 collège（初中阶段），是正确答案。考察学生对法语教育体系词汇 collège的理解。",
+        "C": "• 干扰项 C “18–22岁”：对应大学（université）或高中最后一年（lycée），与 collège 不符，英语college可能导致混淆。",
+        "D": "• 干扰项 D “25岁以后”：明显偏大，与 collège 的年龄范围不符。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "collège",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T2",
+      "sourceReference": "questionnaire:P4T2-02",
+      "contentHash": "7deb5790d2c296161a8ee21628fad633c50744cbd2ef9e95390f1a78dc1c0d35"
+    },
+    {
+      "itemCode": "P4T2-03",
+      "sectionCode": "P4T2",
+      "sortOrder": 48,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Que signifie « formation » dans ce texte ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "une composition"
+        },
+        {
+          "key": "B",
+          "label": "un stage professionnel"
+        },
+        {
+          "key": "C",
+          "label": "un parcours d'études"
+        },
+        {
+          "key": "D",
+          "label": "un voyage d'études"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "3. Que signifie « formation » dans ce texte ?\n题型：词汇理解题（假朋友考察）\n#题目分析：答案：C\n• 干扰项 A “构成”（une composition）：英语 formation 的常见翻译（如地质构成、军队编队），是强干扰项（负迁移）。\n• 干扰项 B “专业实习”（un stage professionnel）：与 formation 语义相近但不同（实习是培训的一种形式）。\n• 干扰项 C “学习课程 / 培训”（un parcours d’études）：后文提到 étudier beaucoup de matières（学习很多科目），可推断 formation 在此指“课程/培训”，是正确答案。\n• 干扰项 D “游学”（un voyage d’études）：语义相关但过于具体，原文未提及旅行。",
+      "optionExplanations": {
+        "A": "• 干扰项 A “构成”（une composition）：英语 formation 的常见翻译（如地质构成、军队编队），是强干扰项（负迁移）。",
+        "B": "• 干扰项 B “专业实习”（un stage professionnel）：与 formation 语义相近但不同（实习是培训的一种形式）。",
+        "C": "• 干扰项 C “学习课程 / 培训”（un parcours d’études）：后文提到 étudier beaucoup de matières（学习很多科目），可推断 formation 在此指“课程/培训”，是正确答案。",
+        "D": "• 干扰项 D “游学”（un voyage d’études）：语义相关但过于具体，原文未提及旅行。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "formation",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T2",
+      "sourceReference": "questionnaire:P4T2-03",
+      "contentHash": "0aefb5f45eeeaf8bf7bf4cbb5c059c7d00221fba6aee8dfee226e49d18892e6a"
+    },
+    {
+      "itemCode": "P4T2-04",
+      "sectionCode": "P4T2",
+      "sortOrder": 49,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Pendant sa formation, Sophie ______.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "annule souvent des examens"
+        },
+        {
+          "key": "B",
+          "label": "réussit toujours tous les examens"
+        },
+        {
+          "key": "C",
+          "label": "prépare seulement des examens"
+        },
+        {
+          "key": "D",
+          "label": "participe à des examens"
+        }
+      ],
+      "correctAnswers": [
+        "D"
+      ],
+      "explanationText": "4. Pendant sa formation, Sophie ______.\n题型：细节理解题（假朋友考察）\n#题目分析：答案：D\n• 干扰项 A “经常取消考试”（annule souvent des examens）：原文未提及取消，annuler 与 passer语义相反。\n• 干扰项 B “总是通过所有考试”（réussit toujours tous les examens）：英语 pass an exam = “通过考试”，是强干扰项（负迁移）。但原文只说 doit souvent passer des examens（必须经常参加考试），未提及是否通过。\n• 干扰项 C “只准备考试”（prépare seulement des examens）：原文未提及“只准备”，préparer 与 passer 语义不同。\n• 干扰项 D “参加考试”（participe à des examens）：法语 passer un examen = “参加考试”，是正确答案。",
+      "optionExplanations": {
+        "A": "• 干扰项 A “经常取消考试”（annule souvent des examens）：原文未提及取消，annuler 与 passer语义相反。",
+        "B": "• 干扰项 B “总是通过所有考试”（réussit toujours tous les examens）：英语 pass an exam = “通过考试”，是强干扰项（负迁移）。但原文只说 doit souvent passer des examens（必须经常参加考试），未提及是否通过。",
+        "C": "• 干扰项 C “只准备考试”（prépare seulement des examens）：原文未提及“只准备”，préparer 与 passer 语义不同。",
+        "D": "• 干扰项 D “参加考试”（participe à des examens）：法语 passer un examen = “参加考试”，是正确答案。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "passer",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T2",
+      "sourceReference": "questionnaire:P4T2-04",
+      "contentHash": "567c16c459c513725eb4bb80c032d3d1250654878eff0390652f5600b42acad8"
+    },
+    {
+      "itemCode": "P4T2-05",
+      "sectionCode": "P4T2",
+      "sortOrder": 50,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "Dans la phrase « elle trouve cette expérience très stimulante », que signifie le mot « stimulante » ?",
+      "promptText": null,
+      "options": [
+        {
+          "key": "A",
+          "label": "fatigante"
+        },
+        {
+          "key": "B",
+          "label": "stressante"
+        },
+        {
+          "key": "C",
+          "label": "excitante"
+        },
+        {
+          "key": "D",
+          "label": "compliquée"
+        }
+      ],
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "5. Dans la phrase « elle trouve cette expérience très stimulante », que signifie le mot « stimulante » ?\n题型：词汇理解题（同源词考察）\n#题目分析：答案：C\n• 干扰项 A “令人疲惫的”（fatigante）：语义相反。学习很多科目可能疲劳，但原文语境是积极评价。\n• 干扰项 B “压力大的”（stressante）：语义部分相关但不相同，且原文未体现压力。\n• 干扰项 C “令人兴奋的 / 振奋的”（excitante）：与 stimulante 同义，且后文提到她希望书店成功，整体语境积极，是正确答案。\n• 干扰项 D “复杂的”（compliquée）：语义相关（学习新科目很复杂），但与 stimulante 不同，是弱干扰项。",
+      "optionExplanations": {
+        "A": "• 干扰项 A “令人疲惫的”（fatigante）：语义相反。学习很多科目可能疲劳，但原文语境是积极评价。",
+        "B": "• 干扰项 B “压力大的”（stressante）：语义部分相关但不相同，且原文未体现压力。",
+        "C": "• 干扰项 C “令人兴奋的 / 振奋的”（excitante）：与 stimulante 同义，且后文提到她希望书店成功，整体语境积极，是正确答案。",
+        "D": "• 干扰项 D “复杂的”（compliquée）：语义相关（学习新科目很复杂），但与 stimulante 不同，是弱干扰项。"
+      },
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "stimulante",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T2",
+      "sourceReference": "questionnaire:P4T2-05",
+      "contentHash": "574e245d829ce3b9b1a8cee25bc9bcb559c4c37d8f2dd4cc1f0698b9931a4acf"
+    },
+    {
+      "itemCode": "P4T3-01",
+      "sectionCode": "P4T3",
+      "sortOrder": 51,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Avignon était une destination qui plaisait à beaucoup de monde chaque année.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "1. Avignon était une destination qui plaisait à beaucoup de monde chaque année.\n题型： 判断正误题（同源词正迁移）\n#题目分析：答案：V\n• 关键词：attirait（同源词，英语 attract）\n• 短文第一句明确写道 “Avignon attirait chaque année des milliers de visiteurs”（阿维尼翁每年吸引成千上万的游客）。题干用 “plaisait à beaucoup de monde” 替换 “attirait des milliers de visiteurs”，语义一致。学生可通过英语 attract 的正迁移理解词义，判断正确。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "attirait",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-01",
+      "contentHash": "103292294e5f4a3fc6afa7fb56326098319f019361c83b326c9f84f3973fcfa4"
+    },
+    {
+      "itemCode": "P4T3-02",
+      "sectionCode": "P4T3",
+      "sortOrder": 52,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Léa et son ami avaient déjà commandé leurs places dans le train pour rentrer le soir.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "2. Léa et son ami avaient déjà commandé leurs places dans le train pour rentrer le soir.\n题型： 判断正误题（同源词正迁移）\n#题目分析：答案：V\n• 关键词：réservé（同源词，英语 reserve）\n• 短文第一段末尾提到 “ils avaient déjà réservé leurs billets de train pour le soir”。题干用 “commandé leurs places” 同义转述 “réservé leurs billets”。英语 reserve 帮助学生理解，判断正确。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "réservé",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-02",
+      "contentHash": "b88ca0d91eea52f258a40395c3e30b43131aada5f01f4e3c7ef9bd106f6418f7"
+    },
+    {
+      "itemCode": "P4T3-03",
+      "sectionCode": "P4T3",
+      "sortOrder": 53,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "La chaleur était très agréable et rafraîchissante.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "3. La chaleur était très agréable et rafraîchissante.\n题型： 判断正误题（纯法语词）\n#题目分析：答案：F\n• 关键词：étouffante（纯法语词，无英语同源）\n• 原文明确写道 “La chaleur était étouffante”（天气闷热得令人窒息）。题干却说 “非常舒适凉爽”，与事实完全相反。学生无法借助英语，必须掌握 étouffant 的词义才能判断为错。\n错误原因：原文中天气是“闷热窒息”，而非“舒适凉爽”。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FRENCH_CONTROL",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "étouffante",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-03",
+      "contentHash": "d2873131281705c8233a85248d1108e2f5f11cd9f2b86e9063676fbcdcd670bf"
+    },
+    {
+      "itemCode": "P4T3-04",
+      "sectionCode": "P4T3",
+      "sortOrder": 54,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Les ruelles étaient toutes différentes les unes des autres.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "4. Les ruelles étaient toutes différentes les unes des autres.\n题型： 判断正误题（纯法语词）\n#题目分析：答案：F\n• 关键词：pareilles（纯法语词，无英语同源）\n• 原文写道 “Les ruelles étaient toutes pareilles”（小巷全都一模一样）。题干说 “各不相同”，与原文相反。\n错误原因：原文明确指出小巷“全都一样”，不是“各不相同”。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FRENCH_CONTROL",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "pareilles",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-04",
+      "contentHash": "24341e2a2eca1ee42220847426d9cae1564a898df0623868a7ceca762727b930"
+    },
+    {
+      "itemCode": "P4T3-05",
+      "sectionCode": "P4T3",
+      "sortOrder": 55,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Ils ont utilisé une carte de crédit pour payer, mais la carte était cassée.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "5. Ils ont utilisé une carte de crédit pour payer, mais la carte était cassée.\n题型： 判断正误题（假朋友负迁移）\n#题目分析：答案：F\n• 关键词：carte（假朋友，法语 = 地图；英语 card = 信用卡/卡片）\n• 原文中的 “La carte ne servait à rien” 指的是地图无用，而不是信用卡。题干故意将 carte曲解为 “carte de crédit”，并添加 “卡坏了” 这一虚构信息，完全不符合原文。受英语 card 干扰的学生可能误以为真。\n错误原因：原文中的 carte 是“地图”，并非“信用卡”，且文中无任何支付或卡损坏的情节。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "carte",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-05",
+      "contentHash": "5e29cf2134aad9706ba3effe44e2c4244710f9e3063ddd90c2ac81afb5e94ad8"
+    },
+    {
+      "itemCode": "P4T3-06",
+      "sectionCode": "P4T3",
+      "sortOrder": 56,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "L’endroit autour de la fontaine était très petit.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "6. L’endroit autour de la fontaine était très petit.\n题型： 判断正误题（假朋友负迁移）\n#题目分析：答案：F\n• 关键词：place（假朋友，法语 = 广场；英语 place = 地方）\n• 原文描述喷泉所在的 petite place（小广场）时写道 “Beaucoup de monde se tenait autour”（很多人聚集在周围）。这说明该地方并不小（否则容不下那么多人）。题干说 “非常小” 缺乏依据，且与 “很多人” 的逻辑矛盾。英语 place 泛指“地方”，可能让学生忽略法语特指“广场”且原文人多的事实。\n错误原因：原文提到“很多人聚集”，说明地方不小；且文中未提及地方大小，题干判断无依据。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "place",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-06",
+      "contentHash": "b6236798f8bb0e3ff1a0a8df2be1ae21dcbc536cba83b80f1f600d0c1539671c"
+    },
+    {
+      "itemCode": "P4T3-07",
+      "sectionCode": "P4T3",
+      "sortOrder": 57,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Ils se sont fiancés dans l’église et ont passé un moment romantique.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "7. Ils se sont fiancés dans l’église et ont passé un moment romantique.\n题型： 判断正误题（假朋友负迁移）\n#题目分析：答案：F\n• 关键词：engagés（假朋友，法语 = 投入、参与；英语 engaged = 订婚的）\n• 原文 “ils se sentaient pleinement engagés dans la contemplation” 意为“他们全身心投入沉思”，与订婚毫无关系。题干利用英语 engaged 的“订婚”义进行浪漫误导。\n错误原因：原文中的 engagés 意为“投入（沉思）”，并非“订婚”。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "engagés",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-07",
+      "contentHash": "cf96af2d183fed68517684a43e35d7faa39be9f80fdbce3413840b6cbeec870c"
+    },
+    {
+      "itemCode": "P4T3-08",
+      "sectionCode": "P4T3",
+      "sortOrder": 58,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Ils ont trouvé cette expérience difficile et effrayante.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "8. Ils ont trouvé cette expérience difficile et effrayante.\n题型： 判断正误题（假朋友负迁移）\n#题目分析：答案：F\n• 关键词：formidable（假朋友，法语 = 绝妙、精彩；英语 formidable = 可怕、棘手）\n• 原文 “Tout leur paraissait formidable” 是强烈的积极评价（结合上下文：和平、安静、友善的人）。题干将其译为“艰难又可怕”，这是英语 formidable 的含义，词义方向完全相反。\n错误原因：法语 formidable 意为“精彩绝伦”，而题干使用了英语义“可怕棘手”，与原文情感相反。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "formidable",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-08",
+      "contentHash": "aa053683688a52194a4dbc29fd80bd5a73b3549ac3295d1eb07f4c44ac1479de"
+    },
+    {
+      "itemCode": "P4T3-09",
+      "sectionCode": "P4T3",
+      "sortOrder": 59,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Le visage de la Vierge était doux et les a beaucoup touchés.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "9. Le visage de la Vierge était doux et les a beaucoup touchés.\n题型： 判断正误题（假朋友，本题正确）\n#题目分析：答案：V\n• 关键词：figure（假朋友，法语 = 脸庞；英语 figure = 身材/数字/人物）\n• 原文 “Sa figure douce les a beaucoup touchés” 中，figure 显然指圣母的 脸庞（因为“温柔的脸”）。题干正确转述为“visage”。虽然英语 figure 常指“身材”，但语境（光线落在雕像上、被感动）只能支持法语含义。\n判断正确：学生需排除英语干扰，正确理解 figure 在此意为“脸庞”。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "figure",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-09",
+      "contentHash": "0e5edee700352fddd6267ec5d1698cca325ba916740e00327e3a42caa0697413"
+    },
+    {
+      "itemCode": "P4T3-10",
+      "sectionCode": "P4T3",
+      "sortOrder": 60,
+      "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
+      "stemText": "Ils ont réfléchi profondément en silence dans l’église.",
+      "promptText": null,
+      "options": [
+        {
+          "key": "V",
+          "label": "正确"
+        },
+        {
+          "key": "F",
+          "label": "错误"
+        }
+      ],
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "10. Ils ont réfléchi profondément en silence dans l’église.\n题型： 判断正误题（同源词正迁移）\n#题目分析：答案：V\n• 关键词：contemplation（同源词，英语 contemplation）\n• 原文 “ils se sentaient pleinement engagés dans la contemplation”，结合上下文（他们长时间安静地待在教堂里，感受和平与沉默），题干 “réfléchi profondément en silence” 是对 contemplation 的合理同义转述。英语 contemplation 帮助学生理解，判断正确。",
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": true,
+      "score": 1,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "READING",
+      "constructCode": "CONTEXT_REPAIR",
+      "targetWord": "contemplation",
+      "displayCondition": null,
+      "sharedMaterialRef": "P4T3",
+      "sourceReference": "questionnaire:P4T3-10",
+      "contentHash": "7111d9c17be8a53f0dc98e40f7361b6dd7d3ac21401ca161e4683e3cca1aeea4"
+    }
+  ],
+  "options": [
+    {
+      "itemCode": "BASIC-STATUS",
+      "optionKey": "FRENCH_MAJOR",
+      "label": "法语专业学生",
+      "explanation": null
+    },
+    {
+      "itemCode": "BASIC-STATUS",
+      "optionKey": "FRENCH_SECOND_LANGUAGE",
+      "label": "法语作为二外的学生",
+      "explanation": null
+    },
+    {
+      "itemCode": "BASIC-STATUS",
+      "optionKey": "NON_MAJOR",
+      "label": "非专业法语学习者（自学/其他）",
+      "explanation": null
+    },
+    {
+      "itemCode": "BASIC-FRENCH-DURATION",
+      "optionKey": "DURATION_1",
+      "label": "间断地在学习，未系统学习过",
+      "explanation": null
+    },
+    {
+      "itemCode": "BASIC-FRENCH-DURATION",
+      "optionKey": "DURATION_2",
+      "label": "少于6个月",
+      "explanation": null
+    },
+    {
+      "itemCode": "BASIC-FRENCH-DURATION",
+      "optionKey": "DURATION_3",
+      "label": "6个月~1年",
+      "explanation": null
+    },
+    {
+      "itemCode": "BASIC-FRENCH-DURATION",
+      "optionKey": "DURATION_4",
+      "label": "1~2年",
+      "explanation": null
+    },
+    {
+      "itemCode": "BASIC-FRENCH-DURATION",
+      "optionKey": "DURATION_5",
+      "label": "2年以上",
+      "explanation": null
+    },
+    {
+      "itemCode": "P1A-01",
+      "optionKey": "A",
+      "label": "描述",
+      "explanation": "此题为英法同源词。法语 description = “描述”，同源英语 description = “描述”。"
+    },
+    {
+      "itemCode": "P1A-01",
+      "optionKey": "B",
+      "label": "订阅",
+      "explanation": "干扰项 B “订阅”（subscription）：英语中与 description 共享 -scription 词根（写），学生易因拼写相似而误选。"
+    },
+    {
+      "itemCode": "P1A-01",
+      "optionKey": "C",
+      "label": "处方",
+      "explanation": "干扰项 C“处方”（prescription）：同样含 -scription，且英语 prescription 与 description 形近。"
+    },
+    {
+      "itemCode": "P1A-01",
+      "optionKey": "D",
+      "label": "抄写",
+      "explanation": "干扰项 D “抄写”（transcription）：同样含 -scription，词形高度相似，语义域相近（书写类）。"
+    },
+    {
+      "itemCode": "P1A-02",
+      "optionKey": "A",
+      "label": "实际上",
+      "explanation": "干扰项 A “实际上”：英语 actually 的直接翻译，是典型的负迁移来源。"
+    },
+    {
+      "itemCode": "P1A-02",
+      "optionKey": "B",
+      "label": "目前",
+      "explanation": "此题为假朋友（同形异义词）。法语 actuellement = “目前，当前”，英语形似词 actually = “实际上，事实上”。\n（1、2题为一组）"
+    },
+    {
+      "itemCode": "P1A-02",
+      "optionKey": "C",
+      "label": "最终",
+      "explanation": "干扰项 C “最终”：与英语 eventually 混淆，拼写不同但语义容易联想。"
+    },
+    {
+      "itemCode": "P1A-02",
+      "optionKey": "D",
+      "label": "可能",
+      "explanation": "干扰项 D “可能”：与英语 possibly 混淆，作为泛化干扰项。"
+    },
+    {
+      "itemCode": "P1A-03",
+      "optionKey": "A",
+      "label": "图书馆",
+      "explanation": "干扰项 A “图书馆”：英语 library 的直接翻译，是负迁移的主要来源。"
+    },
+    {
+      "itemCode": "P1A-03",
+      "optionKey": "B",
+      "label": "文具店",
+      "explanation": "干扰项 B “文具店”：语义场与书店相近（售卖文化用品），且法语中有 papeterie 一词，易混淆。"
+    },
+    {
+      "itemCode": "P1A-03",
+      "optionKey": "C",
+      "label": "书店",
+      "explanation": "此题为假朋友（同形异义词）。法语 librairie = “书店”，英语形似词 library = “图书馆”。"
+    },
+    {
+      "itemCode": "P1A-03",
+      "optionKey": "D",
+      "label": "出版社",
+      "explanation": "干扰项 D “出版社”：与书店同为出版相关语义域，但词义不同，用于检测语义精细度。"
+    },
+    {
+      "itemCode": "P1A-04",
+      "optionKey": "A",
+      "label": "闲聊",
+      "explanation": "此题为纯法语对照词。法语 bavarder = “闲聊”，英语无直接同源词。"
+    },
+    {
+      "itemCode": "P1A-04",
+      "optionKey": "B",
+      "label": "保存",
+      "explanation": "干扰项 B “保存”：与法语 sauvegarder 形似，但与 bavarder 无关。"
+    },
+    {
+      "itemCode": "P1A-04",
+      "optionKey": "C",
+      "label": "守卫",
+      "explanation": "干扰项 C “守卫”：与法语 garder 相关，语音部分相似。"
+    },
+    {
+      "itemCode": "P1A-04",
+      "optionKey": "D",
+      "label": "辩论",
+      "explanation": "干扰项 D “辩论”：语义上与“说话”同属言语行为域，但程度不同，用于检测语义区分能力。"
+    },
+    {
+      "itemCode": "P1A-05",
+      "optionKey": "A",
+      "label": "栖息",
+      "explanation": "干扰项 A “居住”：与法语 habiter（居住）形近。"
+    },
+    {
+      "itemCode": "P1A-05",
+      "optionKey": "B",
+      "label": "坚持",
+      "explanation": "干扰项 B “坚持”：与法语 persister / insister 语义相关，且英语 hesitate 的反义概念，用于检测语义反向联想。"
+    },
+    {
+      "itemCode": "P1A-05",
+      "optionKey": "C",
+      "label": "展示",
+      "explanation": "干扰项 C “附着”：与法语 adhérer（附着）形近。"
+    },
+    {
+      "itemCode": "P1A-05",
+      "optionKey": "D",
+      "label": "犹豫",
+      "explanation": "此题为英法同源词。法语 hésiter = “犹豫”，同源英语 hesitate = “犹豫”。\n（3、4、5题为一组）"
+    },
+    {
+      "itemCode": "P1A-06",
+      "optionKey": "A",
+      "label": "参加",
+      "explanation": "此题为英法同源词。法语 participer = “参加”，同源英语 participate = “参加”。"
+    },
+    {
+      "itemCode": "P1A-06",
+      "optionKey": "B",
+      "label": "分享",
+      "explanation": "干扰项 B “分享”：法语 partager 与 participer 词根相同（part-），语义相关但不同。"
+    },
+    {
+      "itemCode": "P1A-06",
+      "optionKey": "C",
+      "label": "合作",
+      "explanation": "干扰项 C “合作”：语义域相近，易混淆。"
+    },
+    {
+      "itemCode": "P1A-06",
+      "optionKey": "D",
+      "label": "游行",
+      "explanation": "干扰项 D “游行”：英语 parade，词形部分相似（par-开头），用于检测注意力。"
+    },
+    {
+      "itemCode": "P1A-07",
+      "optionKey": "A",
+      "label": "声称",
+      "explanation": "此题为假朋友（同形异义词）。法语 prétendre = “声称”，英语形似词 pretend = “假装”；但英语 pretend 更侧重“虚假表演”。\n（6、7题为一组对应）"
+    },
+    {
+      "itemCode": "P1A-07",
+      "optionKey": "B",
+      "label": "预料",
+      "explanation": "干扰项 B “预料”：英语 predict，无词形相似，但学生可能因 pré- 前缀（表“预先”）而误猜“预料”。"
+    },
+    {
+      "itemCode": "P1A-07",
+      "optionKey": "C",
+      "label": "假装",
+      "explanation": "干扰项 C “假装”：英语 pretend的直接翻译，是负迁移的主要来源。"
+    },
+    {
+      "itemCode": "P1A-07",
+      "optionKey": "D",
+      "label": "保护",
+      "explanation": "干扰项 D “保护”：英语 protect，法语 protéger，词形部分相似（prot- / prét-），语义无关，用于检测前缀误判。"
+    },
+    {
+      "itemCode": "P1A-08",
+      "optionKey": "A",
+      "label": "侮辱",
+      "explanation": "此题为假朋友（同形异义词）。法语 injurier = “辱骂 / 侮辱”，英语形似词 injure = “伤害”。"
+    },
+    {
+      "itemCode": "P1A-08",
+      "optionKey": "B",
+      "label": "伤害",
+      "explanation": "干扰项 B “伤害”：英语 injure 的直接翻译，是强干扰项（负迁移）。"
+    },
+    {
+      "itemCode": "P1A-08",
+      "optionKey": "C",
+      "label": "命令",
+      "explanation": "干扰项 C “命令”：作为中性填充。"
+    },
+    {
+      "itemCode": "P1A-08",
+      "optionKey": "D",
+      "label": "注射",
+      "explanation": "干扰项 D “注射”：英语 inject，法语 injecter，词形前缀 in- + j 开头，与 injurier 部分相似，易混淆。"
+    },
+    {
+      "itemCode": "P1A-09",
+      "optionKey": "A",
+      "label": "睡觉",
+      "explanation": "干扰项 A “睡觉”：法语 dormir，语义无关，但与 se promener 的“放松活动”域部分重叠。"
+    },
+    {
+      "itemCode": "P1A-09",
+      "optionKey": "B",
+      "label": "散步",
+      "explanation": "此题为纯法语对照词。法语 se promener = “散步”，英语无直接同源词。"
+    },
+    {
+      "itemCode": "P1A-09",
+      "optionKey": "C",
+      "label": "购物",
+      "explanation": "干扰项 C “购物”：法语 faire des courses，同为外出活动。"
+    },
+    {
+      "itemCode": "P1A-09",
+      "optionKey": "D",
+      "label": "学习",
+      "explanation": "干扰项 D “学习”：法语 étudier，语义无关，用于检测随机猜测。"
+    },
+    {
+      "itemCode": "P1A-10",
+      "optionKey": "A",
+      "label": "尊敬",
+      "explanation": "此题为英法同源词。法语 respecter = “尊敬 / 遵守”，同源英语 respect = “尊敬”。\n（8、9、10为一组对应）"
+    },
+    {
+      "itemCode": "P1A-10",
+      "optionKey": "B",
+      "label": "怀疑",
+      "explanation": "干扰项 B “怀疑”：英语 suspect，法语 soupçonner，词形部分相似（respect / suspect），共享 -spect 词根（看）。"
+    },
+    {
+      "itemCode": "P1A-10",
+      "optionKey": "C",
+      "label": "回应",
+      "explanation": "干扰项 C “回应”：英语 respond，法语 répondre，无直接形似，但 re- 前缀可引发干扰。"
+    },
+    {
+      "itemCode": "P1A-10",
+      "optionKey": "D",
+      "label": "剥削",
+      "explanation": "干扰项 D “分别”：英语 respective （各自的），与 respecter 共享词根 respect-，但语义完全不同，容易因形近而误选。"
+    },
+    {
+      "itemCode": "P1B-01",
+      "optionKey": "A",
+      "label": "réunion",
+      "explanation": "干扰项 A “会议”（réunion）：语义无关，但词形与英语 reunion 相似，可能吸引注意力。"
+    },
+    {
+      "itemCode": "P1B-01",
+      "optionKey": "B",
+      "label": "compagnie",
+      "explanation": "此题为英法同源词。法语 entreprise = “企业”，同源英语 enterprise = “企业/事业”。"
+    },
+    {
+      "itemCode": "P1B-01",
+      "optionKey": "C",
+      "label": "exploitation",
+      "explanation": "干扰项 C “开发”（exploitation）：语义部分重叠（企业运营），但非直接同义。"
+    },
+    {
+      "itemCode": "P1B-01",
+      "optionKey": "D",
+      "label": "organisation",
+      "explanation": "干扰项 D “组织”（organisation）：语义域相近（机构类），但非精确同义。"
+    },
+    {
+      "itemCode": "P1B-02",
+      "optionKey": "A",
+      "label": "achats",
+      "explanation": "此题为假朋友（同形异义词）。法语 courses（复数）= “购物”，英语形似词 course = “课程 / 路线”。"
+    },
+    {
+      "itemCode": "P1B-02",
+      "optionKey": "B",
+      "label": "leçons",
+      "explanation": "干扰项 B “课程”（leçons）：英语 course 的主要翻译，是负迁移的主要来源。"
+    },
+    {
+      "itemCode": "P1B-02",
+      "optionKey": "C",
+      "label": "examens",
+      "explanation": "干扰项 C “考试”（examens）：学习相关语义域，但与 course 无直接形似。"
+    },
+    {
+      "itemCode": "P1B-02",
+      "optionKey": "D",
+      "label": "exercices",
+      "explanation": "干扰项 D “练习”（exercices）：同样属于学习场景，用于检测语义泛化。"
+    },
+    {
+      "itemCode": "P1B-03",
+      "optionKey": "A",
+      "label": "liquide à boire",
+      "explanation": "此题为纯法语对照词。法语 boisson = “饮品”，英语无直接同源词。\n（1、2、3题为一组对应）"
+    },
+    {
+      "itemCode": "P1B-03",
+      "optionKey": "B",
+      "label": "nourriture",
+      "explanation": "干扰项 B “食物”（nourriture）：与“饮品”同属餐饮语义域，日常表达中常并列出现，易混淆。"
+    },
+    {
+      "itemCode": "P1B-03",
+      "optionKey": "C",
+      "label": "médicament",
+      "explanation": "干扰项 C “药品”（médicament）：部分饮品（如糖浆类）与药品边界模糊，且“服用”场景相似。"
+    },
+    {
+      "itemCode": "P1B-03",
+      "optionKey": "D",
+      "label": "alcool",
+      "explanation": "干扰项 D “酒精”（alcool）：酒精属于饮品的一种，学生可能因“常见的饮品类型”而过度细化，误将下位词当作同义解释。"
+    },
+    {
+      "itemCode": "P1B-04",
+      "optionKey": "A",
+      "label": "aider",
+      "explanation": "干扰项 A “帮助”（aider）：语义相反。"
+    },
+    {
+      "itemCode": "P1B-04",
+      "optionKey": "B",
+      "label": "souhaité le bonheur à",
+      "explanation": "干扰项 B “祝她幸福”（souhaité le bonheur à）：英语 bless 的典型翻译，是强干扰项。"
+    },
+    {
+      "itemCode": "P1B-04",
+      "optionKey": "C",
+      "label": "fait du mal à",
+      "explanation": "此题为假朋友（同形异义词）。法语 blesser = “使受伤”，英语形似词 bless = “祝福”。"
+    },
+    {
+      "itemCode": "P1B-04",
+      "optionKey": "D",
+      "label": "sauver la vie à",
+      "explanation": "干扰项 D “救她的命”（sauver la vie à）：语义过强，但属于“善意行为”语义域。"
+    },
+    {
+      "itemCode": "P1B-05",
+      "optionKey": "A",
+      "label": "faire",
+      "explanation": "干扰项 A “做”（faire）：语义部分重叠，但“做”不等于“完成”，用于检测语义精确度。"
+    },
+    {
+      "itemCode": "P1B-05",
+      "optionKey": "B",
+      "label": "réaliser",
+      "explanation": "此题为英法同源词。法语 accomplir = “完成 / 实现”，同源英语 accomplish = “完成”。\n（4、5为一组对应）\n请选出与下列短语中划线单词意思相反的选项"
+    },
+    {
+      "itemCode": "P1B-05",
+      "optionKey": "C",
+      "label": "préparer",
+      "explanation": "干扰项 C “准备”（préparer）：任务完成前的行为，语义相近但不同。"
+    },
+    {
+      "itemCode": "P1B-05",
+      "optionKey": "D",
+      "label": "accepter",
+      "explanation": "干扰项 D “接受”（accepter）：语义无关，用于检测随机选择。"
+    },
+    {
+      "itemCode": "P1B-06",
+      "optionKey": "A",
+      "label": "petit",
+      "explanation": "干扰项 A “小的”（petit）：可与 important 形成对比，但非标准反义词。"
+    },
+    {
+      "itemCode": "P1B-06",
+      "optionKey": "B",
+      "label": "insignifiant",
+      "explanation": "此题为英法同源词。法语 important = “重要的”，同源英语 important = “重要的”。"
+    },
+    {
+      "itemCode": "P1B-06",
+      "optionKey": "C",
+      "label": "grand",
+      "explanation": "干扰项 C “大的”（grand）：语义接近 important，非反义。"
+    },
+    {
+      "itemCode": "P1B-06",
+      "optionKey": "D",
+      "label": "essentiel",
+      "explanation": "干扰项 D “基本的”（essentiel）：语义近似 important，非反义。"
+    },
+    {
+      "itemCode": "P1B-07",
+      "optionKey": "A",
+      "label": "amusant",
+      "explanation": "此题为纯法语对照词。法语 ennuyeux = “无聊的”，英语无直接同源词。"
+    },
+    {
+      "itemCode": "P1B-07",
+      "optionKey": "B",
+      "label": "court",
+      "explanation": "干扰项 B “短的”（court）：无关语义。"
+    },
+    {
+      "itemCode": "P1B-07",
+      "optionKey": "C",
+      "label": "vieux",
+      "explanation": "干扰项 C “老的”（vieux）：无关语义。"
+    },
+    {
+      "itemCode": "P1B-07",
+      "optionKey": "D",
+      "label": "simple",
+      "explanation": "干扰项 D “简单的”（simple）：无关语义。"
+    },
+    {
+      "itemCode": "P1B-08",
+      "optionKey": "A",
+      "label": "raisonnable",
+      "explanation": "干扰项 A “理性的”（raisonnable）：英语 sensible 的近义词，是强干扰项。"
+    },
+    {
+      "itemCode": "P1B-08",
+      "optionKey": "B",
+      "label": "irrationnelle",
+      "explanation": "干扰项 B “不理性的”（irrationnelle）：英语 sensible 的反义词，形成认知对比。"
+    },
+    {
+      "itemCode": "P1B-08",
+      "optionKey": "C",
+      "label": "logique",
+      "explanation": "干扰项 C “合乎逻辑的”（logique）：英语 sensible 的语义域成员。"
+    },
+    {
+      "itemCode": "P1B-08",
+      "optionKey": "D",
+      "label": "indifférente",
+      "explanation": "此题为假朋友（同形异义词）。法语 sensible = “敏感的”，英语形似词 sensible = “明智的”。\n（11、12、13题为一组对应）"
+    },
+    {
+      "itemCode": "P1B-09",
+      "optionKey": "A",
+      "label": "sale",
+      "explanation": "此题为假朋友（同形异义词）。法语 propre = “干净的”，英语形似词 proper = “适当的”。"
+    },
+    {
+      "itemCode": "P1B-09",
+      "optionKey": "B",
+      "label": "inappropriée",
+      "explanation": "干扰项 B “不适当的”（inappropriée）：英语 proper 的反义词，是强干扰项。"
+    },
+    {
+      "itemCode": "P1B-09",
+      "optionKey": "C",
+      "label": "ordonnée",
+      "explanation": "干扰项 C “整洁的”（ordonnée）：与 propre 近义，非反义。"
+    },
+    {
+      "itemCode": "P1B-09",
+      "optionKey": "D",
+      "label": "vide",
+      "explanation": "干扰项 D “空的”（vide）：语义无关。"
+    },
+    {
+      "itemCode": "P1B-10",
+      "optionKey": "A",
+      "label": "juste",
+      "explanation": "干扰项 A “正确的”（juste）：近义词，非反义。"
+    },
+    {
+      "itemCode": "P1B-10",
+      "optionKey": "B",
+      "label": "fausse",
+      "explanation": "此题为英法同源词。法语 exacte = “准确的”，同源英语 exact = “准确的”。\n（14、15题为一组对应）"
+    },
+    {
+      "itemCode": "P1B-10",
+      "optionKey": "C",
+      "label": "précise",
+      "explanation": "干扰项 C “精确的”（précise）：近义词，非反义。"
+    },
+    {
+      "itemCode": "P1B-10",
+      "optionKey": "D",
+      "label": "claire",
+      "explanation": "干扰项 D “清晰的”（claire）：语义相关但非反义。"
+    },
+    {
+      "itemCode": "P2-01",
+      "optionKey": "A",
+      "label": "vente",
+      "explanation": "干扰项 A “出售”（vente）：与“出租”语义相反，但英语 location 无此义。"
+    },
+    {
+      "itemCode": "P2-01",
+      "optionKey": "B",
+      "label": "achat",
+      "explanation": "干扰项 B “购买”（achat）：同样为交易行为，语义域相关。"
+    },
+    {
+      "itemCode": "P2-01",
+      "optionKey": "C",
+      "label": "louage",
+      "explanation": "此题为假朋友（同形异义词）。法语 location = “出租 / 租金”，英语形似词 location = “地点 / 位置”。"
+    },
+    {
+      "itemCode": "P2-01",
+      "optionKey": "D",
+      "label": "endroit",
+      "explanation": "干扰项 D “地点”（endroit）：英语 location 的直接翻译，是强干扰项。"
+    },
+    {
+      "itemCode": "P2-02",
+      "optionKey": "A",
+      "label": "affaires",
+      "explanation": "此题为英法同源词。法语 commerce = “贸易 / 生意”，同源英语 commerce = “商业”。"
+    },
+    {
+      "itemCode": "P2-02",
+      "optionKey": "B",
+      "label": "trafic",
+      "explanation": "干扰项 B “交通”（trafic）：词形相似（trafic / commerce），语义域不同。"
+    },
+    {
+      "itemCode": "P2-02",
+      "optionKey": "C",
+      "label": "marché",
+      "explanation": "干扰项 C “市场”（marché）：语义相近（商业活动），但非精确同义。"
+    },
+    {
+      "itemCode": "P2-02",
+      "optionKey": "D",
+      "label": "industrie",
+      "explanation": "干扰项 D “工业”（industrie）：经济领域词汇，语义相关但不同。"
+    },
+    {
+      "itemCode": "P2-03",
+      "optionKey": "A",
+      "label": "sculpture",
+      "explanation": "干扰项 A “雕塑”（sculpture）：同为艺术形式，但与“绘画”媒介不同，属于艺术域内的语义区分干扰。"
+    },
+    {
+      "itemCode": "P2-03",
+      "optionKey": "B",
+      "label": "tableau",
+      "explanation": "此题为纯法语对照词。法语 peinture 在此语境中指“绘画作品/画作”。题干 une peinture représentant une femme 即“一幅描绘女性的画作”。"
+    },
+    {
+      "itemCode": "P2-03",
+      "optionKey": "C",
+      "label": "photo",
+      "explanation": "干扰项 C “照片”（photo）：同为视觉图像，但属于不同创作媒介（绘画 vs 摄影），用于检测学生对“画作”与“图像”的精细区分能力。"
+    },
+    {
+      "itemCode": "P2-03",
+      "optionKey": "D",
+      "label": "peintre",
+      "explanation": "干扰项 D “画家”（peintre）：与 peinture 词形高度相似（同为 peint- 开头），且语义关联（画家创作画作）。但题干询问的是“画作”本身，而非创作者，若学生仅凭词形猜测或混淆派生关系，容易误选。"
+    },
+    {
+      "itemCode": "P2-04",
+      "optionKey": "A",
+      "label": "rapporter",
+      "explanation": "干扰项 A “带回 / 报告”（rapporter）：与 reporter 形近，且部分语义重叠（“带回”）。"
+    },
+    {
+      "itemCode": "P2-04",
+      "optionKey": "B",
+      "label": "refuser",
+      "explanation": "干扰项 B “拒绝”（refuser）：词形部分相似，混淆选项"
+    },
+    {
+      "itemCode": "P2-04",
+      "optionKey": "C",
+      "label": "référer",
+      "explanation": "干扰项 C “参考 / 提及”（référer）：词形部分相似，语义无关。"
+    },
+    {
+      "itemCode": "P2-04",
+      "optionKey": "D",
+      "label": "retarder",
+      "explanation": "此题为假朋友（同形异义词）。法语 reporter = “推迟”，英语形似词 report = “报道 / 报告”。"
+    },
+    {
+      "itemCode": "P2-05",
+      "optionKey": "A",
+      "label": "marquer",
+      "explanation": "干扰项 A “标记”（marquer）：语义相近（“标志着”），是强干扰项。"
+    },
+    {
+      "itemCode": "P2-05",
+      "optionKey": "B",
+      "label": "cacher",
+      "explanation": "干扰项 B “隐藏”（cacher）：语义相反。"
+    },
+    {
+      "itemCode": "P2-05",
+      "optionKey": "C",
+      "label": "informer",
+      "explanation": "此题为英法同源词。法语 annoncer = “宣布 / 告知”，同源英语 announce = “宣布”。"
+    },
+    {
+      "itemCode": "P2-05",
+      "optionKey": "D",
+      "label": "Célébrer",
+      "explanation": "干扰项 D “庆祝”（célébrer）：语义相关但不同（宣布 ≠ 庆祝）。"
+    },
+    {
+      "itemCode": "P2-06",
+      "optionKey": "A",
+      "label": "libérer",
+      "explanation": "干扰项 A “释放”（libérer）：语义相反。"
+    },
+    {
+      "itemCode": "P2-06",
+      "optionKey": "B",
+      "label": "attraper",
+      "explanation": "此题为英法同源词。法语 capturer = “捕捉”，同源英语 capture = “捕捉”。"
+    },
+    {
+      "itemCode": "P2-06",
+      "optionKey": "C",
+      "label": "tuer",
+      "explanation": "干扰项 C “杀死”（tuer）：捕捉后可能发生的行为，语义域相关但不同。"
+    },
+    {
+      "itemCode": "P2-06",
+      "optionKey": "D",
+      "label": "nourrir",
+      "explanation": "干扰项 D “喂养”（nourrir）：捕捉后可能发生的行为，用于检测语义联想过度。"
+    },
+    {
+      "itemCode": "P2-07",
+      "optionKey": "A",
+      "label": "arriver",
+      "explanation": "干扰项 A “到达”（arriver）：语义无关，但动作上“赶快”常为了“到达”，易产生联想。"
+    },
+    {
+      "itemCode": "P2-07",
+      "optionKey": "B",
+      "label": "ralentir",
+      "explanation": "干扰项 B “放慢”（ralentir）：语义相反。"
+    },
+    {
+      "itemCode": "P2-07",
+      "optionKey": "C",
+      "label": "se hâter",
+      "explanation": "此题为纯法语对照词。法语 se dépêcher = “赶快”，英语无直接同源词。"
+    },
+    {
+      "itemCode": "P2-07",
+      "optionKey": "D",
+      "label": "attendre",
+      "explanation": "干扰项 D “等待”（attendre）：语义相反，且与“赶快”形成行为对立。"
+    },
+    {
+      "itemCode": "P2-08",
+      "optionKey": "A",
+      "label": "médecin",
+      "explanation": "干扰项 A “医生”（médecin）：英语 physician 的直接翻译，是强干扰项（负迁移）。"
+    },
+    {
+      "itemCode": "P2-08",
+      "optionKey": "B",
+      "label": "scientifique en physique",
+      "explanation": "此题为假朋友（同形异义词）。法语 physicien = “物理学家”，英语形似词 physician = “医生”。"
+    },
+    {
+      "itemCode": "P2-08",
+      "optionKey": "C",
+      "label": "chirurgien",
+      "explanation": "干扰项 C “外科医生”（chirurgien）：医生的一种，进一步细化干扰。"
+    },
+    {
+      "itemCode": "P2-08",
+      "optionKey": "D",
+      "label": "pharmacien",
+      "explanation": "干扰项 D “药剂师”（pharmacien）：医疗行业相关职业，与 physician 语义域重叠。"
+    },
+    {
+      "itemCode": "P2-09",
+      "optionKey": "A",
+      "label": "mauvaise histoire",
+      "explanation": "此题为假朋友（同形异义词）。法语 sale = “肮脏的 / 坏的 / 卑鄙的”，英语形似词 sale = “促销 / 销售”。题干 une sale affaire 意为“一件坏事 / 丑闻”。"
+    },
+    {
+      "itemCode": "P2-09",
+      "optionKey": "B",
+      "label": "promotion commerciale",
+      "explanation": "干扰项 B “商业促销”（une promotion commerciale）：英语 sale 的直接翻译，是强干扰项（负迁移）。"
+    },
+    {
+      "itemCode": "P2-09",
+      "optionKey": "C",
+      "label": "bonne nouvelle",
+      "explanation": "干扰项 C “好消息”（une bonne nouvelle）：语义相反。"
+    },
+    {
+      "itemCode": "P2-09",
+      "optionKey": "D",
+      "label": "chose propre",
+      "explanation": "干扰项 D “干净的东西”（une chose propre）：利用 sale 的本义“肮脏的”与 propre（干净的）形成反义对比，但语义域偏离“事件”范畴，用于检测语义匹配能力。"
+    },
+    {
+      "itemCode": "P2-10",
+      "optionKey": "A",
+      "label": "détruire",
+      "explanation": "干扰项 A “破坏”（détruire）：语义相反。"
+    },
+    {
+      "itemCode": "P2-10",
+      "optionKey": "B",
+      "label": "former",
+      "explanation": "此题为英法同源词。法语 constituer = “构成/组成/建立”，同源英语 constitute = “构成 / 组成”。"
+    },
+    {
+      "itemCode": "P2-10",
+      "optionKey": "C",
+      "label": "instituer",
+      "explanation": "干扰项 C “设立 / 建立”（instituer）：与 constituer 前缀不同（in- vs con-），但词干相近（stituer），语义部分重叠（“建立”），易混淆。"
+    },
+    {
+      "itemCode": "P2-10",
+      "optionKey": "D",
+      "label": "contribuer",
+      "explanation": "干扰项 D “贡献”（contribuer）：前缀相同（con-），词形高度相似（contribuer / constituer），但语义完全不同，是强干扰项。"
+    },
+    {
+      "itemCode": "P3-01",
+      "optionKey": "A",
+      "label": "piste",
+      "explanation": "干扰项 A “小路 / 跑道”（piste）：与 chemin 同属“道路”语义场，但 piste 更偏向非铺装小路或特定用途路线，是强干扰项。"
+    },
+    {
+      "itemCode": "P3-01",
+      "optionKey": "B",
+      "label": "place",
+      "explanation": "干扰项 B “广场 / 位置”（place）：与“路径”语义部分重叠，但不符合“去上班所走的路线”这一语境。"
+    },
+    {
+      "itemCode": "P3-01",
+      "optionKey": "C",
+      "label": "chemin",
+      "explanation": "此题为对照词。法语 chemin = “道路 / 路径”，英语无直接同源词。"
+    },
+    {
+      "itemCode": "P3-01",
+      "optionKey": "D",
+      "label": "champ",
+      "explanation": "干扰项 D “田野 / 场地”（champ）：属于空间概念，但与日常通勤路径无关，用于检测语义区分能力。"
+    },
+    {
+      "itemCode": "P3-02",
+      "optionKey": "A",
+      "label": "garder",
+      "explanation": "干扰项 A “保留”（garder）：与“错过”语义无关，但学生可能因“保留车票”等联想而误选。"
+    },
+    {
+      "itemCode": "P3-02",
+      "optionKey": "B",
+      "label": "prendre",
+      "explanation": "干扰项 B “乘坐”（prendre）：prendre le train = “乘火车”，与 manquer le train 语义相反，是强干扰项。"
+    },
+    {
+      "itemCode": "P3-02",
+      "optionKey": "C",
+      "label": "laisser",
+      "explanation": "干扰项 C “留下”（laisser）：laisser le train 可能被误解为“让火车离开”，但法语中并不这样搭配，用于检测动宾搭配能力。"
+    },
+    {
+      "itemCode": "P3-02",
+      "optionKey": "D",
+      "label": "manquer",
+      "explanation": "此题为对照词。法语 manquer = “错过”（manquer son train = 错过火车），英语无直接同源词。"
+    },
+    {
+      "itemCode": "P3-03",
+      "optionKey": "A",
+      "label": "coutume",
+      "explanation": "干扰项 A “习惯”（coutume）：直接对应英语 habit 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 habit 意为“习惯”，从而选择 coutume。"
+    },
+    {
+      "itemCode": "P3-03",
+      "optionKey": "B",
+      "label": "habit",
+      "explanation": "此题为假朋友（同形异义词）。法语 habit = “服装 / 正装”，英语形似词 habit = “习惯”。"
+    },
+    {
+      "itemCode": "P3-03",
+      "optionKey": "C",
+      "label": "geste",
+      "explanation": "干扰项 C “手势”（geste）：与“服装”语义无关，但同属“人的外在表现”范畴，用于检测语义域区分能力。"
+    },
+    {
+      "itemCode": "P3-03",
+      "optionKey": "D",
+      "label": "manière",
+      "explanation": "干扰项 D “方式”（manière）：与“习惯”语义相近，但与“服装”无关。学生若将 habit 误判为“习惯”，可能进一步在 coutume 和 manière 之间犹豫。"
+    },
+    {
+      "itemCode": "P3-04",
+      "optionKey": "A",
+      "label": "emploi",
+      "explanation": "此题为同源词。法语 emploi = “工作 / 职业”，同源英语 employment = “就业 / 职业”。学生在英语正迁移帮助下应能理解此词。"
+    },
+    {
+      "itemCode": "P3-04",
+      "optionKey": "B",
+      "label": "stage",
+      "explanation": "干扰项 B “实习”（stage）：与 emploi 同属“职业活动”语义场，但实习通常是短期、非正式的，学生可能因语义相近而误选。"
+    },
+    {
+      "itemCode": "P3-04",
+      "optionKey": "C",
+      "label": "salaire",
+      "explanation": "干扰项 C “工资”（salaire）：与工作相关但非工作本身，学生可能将“工作”与“工资”混淆，属于语义联想过度。"
+    },
+    {
+      "itemCode": "P3-04",
+      "optionKey": "D",
+      "label": "chômage",
+      "explanation": "干扰项 D “失业”（chômage）：与 emploi 语义相反。"
+    },
+    {
+      "itemCode": "P3-05",
+      "optionKey": "A",
+      "label": "réfléchir",
+      "explanation": "干扰项 A “思考”（réfléchir）：与“回复邮件”语义相关（回复前需要思考），但 réfléchir 不直接接 à 表示“回复”，学生可能因语义联想而误选。"
+    },
+    {
+      "itemCode": "P3-05",
+      "optionKey": "B",
+      "label": "résoudre",
+      "explanation": "干扰项 B “解决”（résoudre）：résoudre un problème = “解决问题”，但 résoudre aux courriels 不成立，学生可能将“处理邮件”与“解决邮件”混淆。"
+    },
+    {
+      "itemCode": "P3-05",
+      "optionKey": "C",
+      "label": "rejoindre",
+      "explanation": "干扰项 C “加入”（rejoindre）：rejoindre quelqu’un = “与某人会合”，但 rejoindre aux courriels 不成立，用于检测动词与介词搭配能力。"
+    },
+    {
+      "itemCode": "P3-05",
+      "optionKey": "D",
+      "label": "répondre",
+      "explanation": "此题为同源词。法语 répondre = “回答 / 回复”（répondre aux courriels = 回复邮件），同源英语 respond = “回应”。"
+    },
+    {
+      "itemCode": "P3-06",
+      "optionKey": "A",
+      "label": "tendance",
+      "explanation": "干扰项 A \"趋势\"（tendance）：与 entente 同以 ten- 开头，且同为 -ance / -ence 结尾，拼写高度相似。但 tendance 指\"倾向、趋势\"，与\"人际关系\"完全无关，且 bonne tendance 在此语境中搭配不成立。"
+    },
+    {
+      "itemCode": "P3-06",
+      "optionKey": "B",
+      "label": "entente",
+      "explanation": "#题目分析：\n此题为纯法语对照词。法语 entente = \"融洽、默契\"，指人与人之间良好的理解与合作关系。英语虽有 entente 一词，但属于罕见的外交术语（如 Entente cordiale 友好协约）。"
+    },
+    {
+      "itemCode": "P3-06",
+      "optionKey": "C",
+      "label": "attente",
+      "explanation": "干扰项 C \"等待\"（attente）：与 entente 拼写高度相似（仅首字母 a 与 e 之差），但词义完全不同。attente 指\"等待、期望\"，与同事关系无任何逻辑关联，且 bonne attente 搭配不成立。"
+    },
+    {
+      "itemCode": "P3-06",
+      "optionKey": "D",
+      "label": "tente",
+      "explanation": "干扰项 D \"帐篷\"（tente）：与 entente 同为 -ente 结尾，但词义毫不相关。avoir une bonne tente avec ses collègues 在语法和语义上完全不成立，学生若仅凭词形猜测极易误选。"
+    },
+    {
+      "itemCode": "P3-07",
+      "optionKey": "A",
+      "label": "soutenir",
+      "explanation": "干扰项 A “支持 / 帮助”（soutenir）：直接对应英语 assist 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 assister 意为“帮助”，从而选择 soutenir。"
+    },
+    {
+      "itemCode": "P3-07",
+      "optionKey": "B",
+      "label": "accepter",
+      "explanation": "干扰项 B “接受”（accepter）：与“参加会议”语义相关（接受邀请才能参加会议），但 accepter à une réunion 不成立，用于检测动词搭配能力。"
+    },
+    {
+      "itemCode": "P3-07",
+      "optionKey": "C",
+      "label": "assister",
+      "explanation": "此题为假朋友（同形异义词）。法语 assister à = “参加 / 出席”，英语形似词 assist = “帮助 / 协助”。"
+    },
+    {
+      "itemCode": "P3-07",
+      "optionKey": "D",
+      "label": "attaquer",
+      "explanation": "干扰项 D “攻击”（attaquer）：语义上与“参加会议”无关，与 soutenir（支持）形成反义对比，用于检测极端错误选择。"
+    },
+    {
+      "itemCode": "P3-08",
+      "optionKey": "A",
+      "label": "décevoir",
+      "explanation": "此题为假朋友（同形异义词）。法语 décevoir = “使失望”，英语形似词 deceive = “欺骗”。"
+    },
+    {
+      "itemCode": "P3-08",
+      "optionKey": "B",
+      "label": "tromper",
+      "explanation": "干扰项 B “欺骗”（tromper）：直接对应英语 deceive 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 décevoir 意为“欺骗”，从而选择 tromper。"
+    },
+    {
+      "itemCode": "P3-08",
+      "optionKey": "C",
+      "label": "menacer",
+      "explanation": "干扰项 C “威胁”（menacer）：语义上与“失望”无关，但与 décevoir 同属负面行为范畴，用于检测语义域区分能力。"
+    },
+    {
+      "itemCode": "P3-08",
+      "optionKey": "D",
+      "label": "blesser",
+      "explanation": "干扰项 D “伤害”（blesser）：语义上与“失望”部分重叠（言语伤害可能导致失望），但 blesser 程度更重、更具体，是强干扰项。"
+    },
+    {
+      "itemCode": "P3-09",
+      "optionKey": "A",
+      "label": "preuve",
+      "explanation": "干扰项 A “证据”（preuve）：直接对应英语 evidence 的语义，是负迁移的主要来源。受英语影响的学生可能误以为 évidence 意为“证据”，从而选择 preuve。"
+    },
+    {
+      "itemCode": "P3-09",
+      "optionKey": "B",
+      "label": "détail",
+      "explanation": "干扰项 B “细节”（détail）：与“显而易见”语义部分相关（细节可能是明显的），但 détail 侧重“具体细小的点”，与 évidence 的“整体明显”不同。"
+    },
+    {
+      "itemCode": "P3-09",
+      "optionKey": "C",
+      "label": "évidence",
+      "explanation": "此题为假朋友（同形异义词）。法语 évidence = “显而易见的事 / 明摆着的事”（c’est une évidence que... = “很明显……”），英语形似词 evidence = “证据”。"
+    },
+    {
+      "itemCode": "P3-09",
+      "optionKey": "D",
+      "label": "chiffre",
+      "explanation": "干扰项 D “数字”（chiffre）：与“证据 / 明显”语义无关，但 chiffre 常作为 preuve 的一种形式（数字证据），用于检测语义联想过度。"
+    },
+    {
+      "itemCode": "P3-10",
+      "optionKey": "A",
+      "label": "simple",
+      "explanation": "干扰项 A “简单的”（simple）：语义上与“职场挫折”无直接关联，且与后文“明天会好转”缺乏逻辑呼应。学生可能因“简单的事容易过去”这一日常联想而误选，属于语义泛化干扰。"
+    },
+    {
+      "itemCode": "P3-10",
+      "optionKey": "B",
+      "label": "habituelle",
+      "explanation": "#题目分析：\n此题为英法同源词。法语 habituel = “习惯性的、通常的/常见的”，与英语 habitual 同源且语义基本重合，学生可借助英语正迁移理解词义。\n（1 3 4题为第一组2 5 7题为第二组6 9 10题为第三组8题单独列出）"
+    },
+    {
+      "itemCode": "P3-10",
+      "optionKey": "C",
+      "label": "singulière",
+      "explanation": "干扰项 C “独特的、奇特的”（singulière）：与上文 tout le monde peut vivre ce genre de déception（每个人都会经历这种失望）逻辑相反——人人都能经历的事，不可能是“独特的”，可快速排除。"
+    },
+    {
+      "itemCode": "P3-10",
+      "optionKey": "D",
+      "label": "prudente",
+      "explanation": "干扰项 D “谨慎的”（prudente）：语义方向完全偏离，与“失望/挫折”的情感色彩不匹配，且修饰 situation 不自然，属于随机猜测干扰项。"
+    },
+    {
+      "itemCode": "P4T1-01",
+      "optionKey": "A",
+      "label": "Les usines sont bénéfiques pour l'air.",
+      "explanation": "•干扰项 A “工厂对空气有益”：与原文相反。原文提到 les fumées grises provenant des usines（工厂排放的灰色烟雾），暗示工厂是污染源。"
+    },
+    {
+      "itemCode": "P4T1-01",
+      "optionKey": "B",
+      "label": "La pollution menace la planète et il faut agir vite.",
+      "explanation": "• 干扰项 B “污染威胁地球，必须快速行动”：概括了全文核心。第一段讲污染问题，第二段讲解决措施，符合主旨。"
+    },
+    {
+      "itemCode": "P4T1-01",
+      "optionKey": "C",
+      "label": "Les incendies sont déjà partout.",
+      "explanation": "• 干扰项 C “火灾已经到处都是”：原文说的是 en cas d’incendie éventuel（可能的火灾），并非已经发生。"
+    },
+    {
+      "itemCode": "P4T1-01",
+      "optionKey": "D",
+      "label": "Les animaux et les plantes n'ont aucun danger.",
+      "explanation": "• 干扰项 D “动物和植物没有任何危险”：与原文相反。原文提到火灾可能 détruire leurs habitats（摧毁它们的栖息地）。"
+    },
+    {
+      "itemCode": "P4T1-02",
+      "optionKey": "A",
+      "label": "Ils ne savent pas que les animaux sont menacés par la pollution.",
+      "explanation": "·干扰项 A “他们不知道动物受到污染的威胁”：法语 ignorer 的正确含义，是正确答案。"
+    },
+    {
+      "itemCode": "P4T1-02",
+      "optionKey": "B",
+      "label": "Ils négligent volontairement la protection des animaux.",
+      "explanation": "·干扰项 B “他们故意疏忽对动物的保护”：法语 négliger（主观疏忽）的含义，与 ignorer（不知道）形成对比，是强干扰项。"
+    },
+    {
+      "itemCode": "P4T1-02",
+      "optionKey": "C",
+      "label": "Ils pensent que la pollution n'affecte que les humains.",
+      "explanation": "·干扰项 C “他们认为污染只影响人类”：学生若混淆“不知道”与“认为相反”，可能误选。"
+    },
+    {
+      "itemCode": "P4T1-02",
+      "optionKey": "D",
+      "label": "Ils agissent déjà pour protéger l'environnement.",
+      "explanation": "·干扰项 D “他们已经在为保护环境采取行动”：与原文逻辑相反（如果已经行动就不会“不知道”），是弱干扰项。"
+    },
+    {
+      "itemCode": "P4T1-03",
+      "optionKey": "A",
+      "label": "nombreuses personnes ne s'en soucieront pas.",
+      "explanation": "• 干扰项 A “很多人不会在意”：原文未提及，且与 sensibles（敏感的）语义相反。"
+    },
+    {
+      "itemCode": "P4T1-03",
+      "optionKey": "B",
+      "label": "certaines personnes raisonnables tomberont malade.",
+      "explanation": "• 干扰项 B “一些理性的人会生病”：raisonnables（理性的）是对法语 sensible 的误译（英语 sensible = 明智的/理性的），是假朋友负迁移干扰。"
+    },
+    {
+      "itemCode": "P4T1-03",
+      "optionKey": "C",
+      "label": "certaines personnes vulnérables se sentiront mal à l'aise.",
+      "explanation": "• 干扰项 C “一些敏感的人会感到不适”：vulnérables与 sensibles 同义，se sentir mal à l’aise 对应原文 tousser（咳嗽），是正确答案。"
+    },
+    {
+      "itemCode": "P4T1-03",
+      "optionKey": "D",
+      "label": "certaines personnes seront plus tristes qu'avant.",
+      "explanation": "• 干扰项 D “一些人会比以前更难过”：过度理解。原文只提到咳嗽，未涉及情绪变化。"
+    },
+    {
+      "itemCode": "P4T1-04",
+      "optionKey": "A",
+      "label": "un incendie possible mais pas certain",
+      "explanation": "此题为假朋友（同形异义词）辨析题。法语 éventuel = “可能的、或许会发生的”，强调不确定性；英语形似词 eventual = “最终的、结局的”，强调必然性。二者词形高度相似但核心语义不同。"
+    },
+    {
+      "itemCode": "P4T1-04",
+      "optionKey": "B",
+      "label": "un incendie inévitable et sûr",
+      "explanation": "干扰项 B “un incendie inévitable et sûr”（不可避免且确定的火灾）：此为英语 eventual 的语义特征（“最终的”隐含“必然会发生”），受英语负迁移影响的学生容易误选。但法语 éventuel 不包含“必然”之义。"
+    },
+    {
+      "itemCode": "P4T1-04",
+      "optionKey": "C",
+      "label": "un incendie impossible",
+      "explanation": "干扰项 C “un incendie impossible”（不可能的火灾）：与 éventuel 的“可能的”语义完全相反，属于极端错误选项。"
+    },
+    {
+      "itemCode": "P4T1-04",
+      "optionKey": "D",
+      "label": "un incendie déjà terminé",
+      "explanation": "干扰项 D “un incendie déjà terminé”（已经结束的火灾）：与英语 eventual 的“最终的”在时间维度上部分混淆，但法语 éventuel 完全不涉及“已发生”或“已完成”的时间概念。"
+    },
+    {
+      "itemCode": "P4T1-05",
+      "optionKey": "A",
+      "label": "Agir maintenant est utile pour l'avenir",
+      "explanation": "• 干扰项 A “现在行动对未来有用”：utile（有用的）与 essentiel（必要的）语义相近但不完全相同，是弱干扰项。"
+    },
+    {
+      "itemCode": "P4T1-05",
+      "optionKey": "B",
+      "label": "Agir maintenant est dangereux pour l'avenir",
+      "explanation": "• 干扰项 B “现在行动对未来有危险”：dangereux（危险的）与原文语义相反。"
+    },
+    {
+      "itemCode": "P4T1-05",
+      "optionKey": "C",
+      "label": "Agir maintenant est premier pour l'avenir",
+      "explanation": "• 干扰项 C “现在行动是未来的首要之事”：premier（第一位的）与 essentiel（必要的）语义部分重叠，但 premier 更侧重顺序，是弱干扰项。"
+    },
+    {
+      "itemCode": "P4T1-05",
+      "optionKey": "D",
+      "label": "Agir maintenant est nécessaire pour l'avenir",
+      "explanation": "• 干扰项 D “现在行动对未来是必要的”：nécessaire（必要的）与 essentiel 同义，是正确答案。"
+    },
+    {
+      "itemCode": "P4T2-01",
+      "optionKey": "A",
+      "label": "Sophie a démissionné parce qu'elle n'aimait pas son patron.",
+      "explanation": "• 干扰项 A “Sophie 辞职因为她不喜欢老板”：原文未提及老板或辞职原因，是过度推断。"
+    },
+    {
+      "itemCode": "P4T2-01",
+      "optionKey": "B",
+      "label": "Sophie a quitté son travail pour ouvrir une librairie.",
+      "explanation": "• 干扰项 B “Sophie 辞去工作为了开一家书店”：概括了全文核心（辞职 → 梦想开店 → 正在培训）。"
+    },
+    {
+      "itemCode": "P4T2-01",
+      "optionKey": "C",
+      "label": "Sophie a déjà ouvert une librairie mais elle regrette son choix.",
+      "explanation": "• 干扰项 C “Sophie 开了一家书店但后悔她的选择”：原文未提及后悔，相反她说这段经历 très stimulante（非常振奋人心）。"
+    },
+    {
+      "itemCode": "P4T2-01",
+      "optionKey": "D",
+      "label": "Sophie travaille toujours dans une entreprise internationale.",
+      "explanation": "• 干扰项 D “Sophie 仍然在一家国际公司工作”：与原文 a quitté son poste（已离职）矛盾。"
+    },
+    {
+      "itemCode": "P4T2-02",
+      "optionKey": "A",
+      "label": "entre 6 et 10 ans",
+      "explanation": "• 干扰项 A “6–10岁”：对应小学阶段（école primaire）。法语中小学不称 collège。"
+    },
+    {
+      "itemCode": "P4T2-02",
+      "optionKey": "B",
+      "label": "entre 11 et 15 ans",
+      "explanation": "• 干扰项 B “11–15岁”：对应 collège（初中阶段），是正确答案。考察学生对法语教育体系词汇 collège的理解。"
+    },
+    {
+      "itemCode": "P4T2-02",
+      "optionKey": "C",
+      "label": "entre 18 et 22 ans",
+      "explanation": "• 干扰项 C “18–22岁”：对应大学（université）或高中最后一年（lycée），与 collège 不符，英语college可能导致混淆。"
+    },
+    {
+      "itemCode": "P4T2-02",
+      "optionKey": "D",
+      "label": "après 25 ans",
+      "explanation": "• 干扰项 D “25岁以后”：明显偏大，与 collège 的年龄范围不符。"
+    },
+    {
+      "itemCode": "P4T2-03",
+      "optionKey": "A",
+      "label": "une composition",
+      "explanation": "• 干扰项 A “构成”（une composition）：英语 formation 的常见翻译（如地质构成、军队编队），是强干扰项（负迁移）。"
+    },
+    {
+      "itemCode": "P4T2-03",
+      "optionKey": "B",
+      "label": "un stage professionnel",
+      "explanation": "• 干扰项 B “专业实习”（un stage professionnel）：与 formation 语义相近但不同（实习是培训的一种形式）。"
+    },
+    {
+      "itemCode": "P4T2-03",
+      "optionKey": "C",
+      "label": "un parcours d'études",
+      "explanation": "• 干扰项 C “学习课程 / 培训”（un parcours d’études）：后文提到 étudier beaucoup de matières（学习很多科目），可推断 formation 在此指“课程/培训”，是正确答案。"
+    },
+    {
+      "itemCode": "P4T2-03",
+      "optionKey": "D",
+      "label": "un voyage d'études",
+      "explanation": "• 干扰项 D “游学”（un voyage d’études）：语义相关但过于具体，原文未提及旅行。"
+    },
+    {
+      "itemCode": "P4T2-04",
+      "optionKey": "A",
+      "label": "annule souvent des examens",
+      "explanation": "• 干扰项 A “经常取消考试”（annule souvent des examens）：原文未提及取消，annuler 与 passer语义相反。"
+    },
+    {
+      "itemCode": "P4T2-04",
+      "optionKey": "B",
+      "label": "réussit toujours tous les examens",
+      "explanation": "• 干扰项 B “总是通过所有考试”（réussit toujours tous les examens）：英语 pass an exam = “通过考试”，是强干扰项（负迁移）。但原文只说 doit souvent passer des examens（必须经常参加考试），未提及是否通过。"
+    },
+    {
+      "itemCode": "P4T2-04",
+      "optionKey": "C",
+      "label": "prépare seulement des examens",
+      "explanation": "• 干扰项 C “只准备考试”（prépare seulement des examens）：原文未提及“只准备”，préparer 与 passer 语义不同。"
+    },
+    {
+      "itemCode": "P4T2-04",
+      "optionKey": "D",
+      "label": "participe à des examens",
+      "explanation": "• 干扰项 D “参加考试”（participe à des examens）：法语 passer un examen = “参加考试”，是正确答案。"
+    },
+    {
+      "itemCode": "P4T2-05",
+      "optionKey": "A",
+      "label": "fatigante",
+      "explanation": "• 干扰项 A “令人疲惫的”（fatigante）：语义相反。学习很多科目可能疲劳，但原文语境是积极评价。"
+    },
+    {
+      "itemCode": "P4T2-05",
+      "optionKey": "B",
+      "label": "stressante",
+      "explanation": "• 干扰项 B “压力大的”（stressante）：语义部分相关但不相同，且原文未体现压力。"
+    },
+    {
+      "itemCode": "P4T2-05",
+      "optionKey": "C",
+      "label": "excitante",
+      "explanation": "• 干扰项 C “令人兴奋的 / 振奋的”（excitante）：与 stimulante 同义，且后文提到她希望书店成功，整体语境积极，是正确答案。"
+    },
+    {
+      "itemCode": "P4T2-05",
+      "optionKey": "D",
+      "label": "compliquée",
+      "explanation": "• 干扰项 D “复杂的”（compliquée）：语义相关（学习新科目很复杂），但与 stimulante 不同，是弱干扰项。"
+    },
+    {
+      "itemCode": "P4T3-01",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-01",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-02",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-02",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-03",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-03",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-04",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-04",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-05",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-05",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-06",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-06",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-07",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-07",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-08",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-08",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-09",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-09",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-10",
+      "optionKey": "V",
+      "label": "正确",
+      "explanation": null
+    },
+    {
+      "itemCode": "P4T3-10",
+      "optionKey": "F",
+      "label": "错误",
+      "explanation": null
+    }
+  ],
+  "reviewIssues": [
+    {
+      "issueCode": "SOURCE_NUMBERING_ABSENT",
+      "severity": "REVIEW_REQUIRED",
+      "itemCode": "P1A-01",
+      "description": "The first question number is represented by Word auto-numbering and is absent from extracted text."
+    },
+    {
+      "issueCode": "ANALYSIS_ITEM_NUMBER_ABSENT",
+      "severity": "REVIEW_REQUIRED",
+      "itemCode": "P2-04",
+      "description": "The analysis document contains the answer and rationale but omits the item number and stem."
+    },
+    {
+      "issueCode": "ANALYSIS_FORMAT_INCONSISTENT",
+      "severity": "REVIEW_REQUIRED",
+      "itemCode": "P3-06",
+      "description": "The answer is present before an analysis marker that does not repeat the answer."
+    },
+    {
+      "issueCode": "ANALYSIS_FORMAT_INCONSISTENT",
+      "severity": "REVIEW_REQUIRED",
+      "itemCode": "P3-10",
+      "description": "The answer is present before an analysis marker that does not repeat the answer."
+    },
+    {
+      "issueCode": "DUPLICATED_SOURCE_SENTENCE",
+      "severity": "REVIEW_REQUIRED",
+      "itemCode": "P4T3-01",
+      "description": "The final paragraph of Texte 3 appends the first true/false statement, which is then repeated as item 1."
+    },
+    {
+      "issueCode": "UNKNOWN_TRANSFER_CATEGORY",
+      "severity": "REVIEW_REQUIRED",
+      "itemCode": "P4T1-01",
+      "description": "The analysis document does not explicitly assign a transfer category."
+    },
+    {
+      "issueCode": "UNKNOWN_TRANSFER_CATEGORY",
+      "severity": "REVIEW_REQUIRED",
+      "itemCode": "P4T2-01",
+      "description": "The analysis document does not explicitly assign a transfer category."
+    }
+  ]
+}
