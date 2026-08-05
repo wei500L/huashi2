@@ -1,7 +1,18 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Brain, CheckCircle2, ChevronRight, FileText, Timer } from 'lucide-react';
+import {
+  ArrowRight,
+  Brain,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  FileText,
+  Languages,
+  Sparkles,
+  Target,
+  Timer,
+} from 'lucide-react';
 import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DiagnosisPdfReport } from '@/components/diagnosis/DiagnosisPdfReport';
@@ -10,7 +21,6 @@ import { EChart } from '@/components/common/EChart';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
-import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { clearDiagnosisLaunchParams, parseDiagnosisLaunchNumber } from '@/lib/diagnosis-launch';
 import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { aiService, diagnosisSessionService, diagnosisTemplateService, trainingService } from '@/lib/services';
@@ -119,6 +129,119 @@ function DiagnosisInsightCard({
   );
 }
 
+function DiagnosisPreparationSteps() {
+  const { t } = useTranslation();
+  const steps = [
+    {
+      label: t('diagnosis.preparation.steps.prepare'),
+      description: t('diagnosis.preparation.steps.prepareDescription'),
+    },
+    {
+      label: t('diagnosis.preparation.steps.answer'),
+      description: t('diagnosis.preparation.steps.answerDescription'),
+    },
+    {
+      label: t('diagnosis.preparation.steps.result'),
+      description: t('diagnosis.preparation.steps.resultDescription'),
+    },
+  ];
+
+  return (
+    <nav aria-label={t('diagnosis.preparation.stepperLabel')} className="rounded-[2rem] border border-slate-200/70 bg-white/65 p-4 dark:border-white/10 dark:bg-white/5">
+      <ol className="grid gap-3 md:grid-cols-3">
+        {steps.map((step, index) => (
+          <li
+            key={step.label}
+            aria-current={index === 0 ? 'step' : undefined}
+            className={`flex items-center gap-3 rounded-[1.35rem] border px-4 py-3 ${
+              index === 0
+                ? 'border-primary/25 bg-primary/10 text-slate-900 dark:text-white'
+                : 'border-transparent text-slate-500 dark:text-white/45'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${
+                index === 0 ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-white/10'
+              }`}
+            >
+              {index + 1}
+            </span>
+            <span>
+              <span className="block text-sm font-black">{step.label}</span>
+              <span className="mt-0.5 block text-xs leading-5 opacity-75">{step.description}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+function DiagnosisPreparationOverview({ restarting = false }: { restarting?: boolean }) {
+  const { t } = useTranslation();
+  const facts = [
+    {
+      icon: Clock3,
+      title: t('diagnosis.preparation.timeTitle'),
+      description: t('diagnosis.preparation.timeDescription'),
+    },
+    {
+      icon: Languages,
+      title: t('diagnosis.preparation.measureTitle'),
+      description: t('diagnosis.preparation.measureDescription'),
+    },
+    {
+      icon: Sparkles,
+      title: t('diagnosis.preparation.outcomeTitle'),
+      description: t('diagnosis.preparation.outcomeDescription'),
+    },
+  ];
+
+  return (
+    <section className="liquid-glass-panel relative overflow-hidden rounded-[3rem] p-6 edge-light md:p-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-[0.16] dark:opacity-[0.1]"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, hsl(var(--primary) / 0.22) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--primary) / 0.16) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
+          maskImage: 'linear-gradient(to bottom right, black, transparent 72%)',
+        }}
+      />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-[18%] w-px bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
+
+      <div className="relative">
+        <div className="max-w-3xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-primary">
+            <Target size={15} />
+            {t('diagnosis.preparation.eyebrow')}
+          </div>
+          <h2 className="type-page-title mt-6 text-slate-900 dark:text-white">
+            {t(restarting ? 'diagnosis.preparation.restartTitle' : 'diagnosis.preparation.title')}
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600 dark:text-white/60">
+            {t('diagnosis.preparation.description')}
+          </p>
+        </div>
+
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          {facts.map(({ icon: Icon, title, description }) => (
+            <article key={title} className="rounded-[1.65rem] border border-white/70 bg-white/75 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/45">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Icon size={20} />
+              </div>
+              <h3 className="mt-4 font-black text-slate-900 dark:text-white">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/50">{description}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const DiagnosisPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -136,20 +259,10 @@ const DiagnosisPage: React.FC = () => {
   const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<DiagnosisHistorySummaryVO | null>(null);
   const [abandonConfirmSessionId, setAbandonConfirmSessionId] = React.useState<number | null>(null);
+  const [isRestarting, setIsRestarting] = React.useState(false);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
-  const resumeDialogRef = React.useRef<HTMLDivElement | null>(null);
-  const resumeContinueButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const requestedSource = searchParams.get('source');
   const requestedSourceSummaryId = parseDiagnosisLaunchNumber(searchParams.get('sourceSummaryId'));
-
-  const closeResumeDialog = React.useCallback(() => setResumeCandidate(null), []);
-  useBodyScrollLock(!!resumeCandidate);
-  useDialogAccessibility({
-    open: !!resumeCandidate,
-    containerRef: resumeDialogRef,
-    initialFocusRef: resumeContinueButtonRef,
-    onClose: closeResumeDialog,
-  });
 
   const historyQuery = useQuery({
     queryKey: ['diagnosis-history', 'in-progress'],
@@ -180,7 +293,7 @@ const DiagnosisPage: React.FC = () => {
   const templatesQuery = useQuery({
     queryKey: ['student-diagnosis-templates'],
     queryFn: ({ signal }) => diagnosisTemplateService.listPublished({ pageNo: 1, pageSize: 20 }, { signal }),
-    enabled: state.phase === 'select',
+    enabled: state.phase === 'select' && !resumeCandidate && !historyQuery.error,
   });
 
   const createSessionMutation = useMutation({
@@ -192,6 +305,7 @@ const DiagnosisPage: React.FC = () => {
       }),
     onSuccess: (created) => {
       setSearchParams(clearDiagnosisLaunchParams(searchParams), { replace: true });
+      setIsRestarting(false);
       dispatch({ type: 'startSession', sessionId: created.sessionId });
       void queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
     },
@@ -201,6 +315,8 @@ const DiagnosisPage: React.FC = () => {
       }
     },
   });
+  const activeSessionConflict =
+    !!createSessionMutation.error && normalizeApiError(createSessionMutation.error).code === 'ACTIVE_SESSION_EXISTS';
 
   const nextItemQuery = useQuery({
     queryKey: ['diagnosis-next-item', state.sessionId],
@@ -346,6 +462,7 @@ const DiagnosisPage: React.FC = () => {
       setSubmitErrorMessage(null);
       setSubmitInfoMessage(null);
       setResumeCandidate(null);
+      setIsRestarting(true);
       dispatch({ type: 'reset' });
       await queryClient.invalidateQueries({ queryKey: ['diagnosis-history'] });
     },
@@ -527,8 +644,25 @@ const DiagnosisPage: React.FC = () => {
 
   if (state.phase === 'boot' || historyQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl">
-        <PanelSkeleton className="min-h-[360px]" />
+      <div className="space-y-8">
+        <PageHeader title={t('diagnosis.selectTitle')} subtitle={t('diagnosis.selectSubtitle')} />
+        <DiagnosisPreparationSteps />
+        <DiagnosisPreparationOverview />
+        <section aria-labelledby="diagnosis-next-action-loading" className="space-y-4">
+          <div>
+            <SectionEyebrow>{t('diagnosis.preparation.actionEyebrow')}</SectionEyebrow>
+            <h2 id="diagnosis-next-action-loading" className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
+              {t('diagnosis.preparation.actionTitle')}
+            </h2>
+          </div>
+          <FeedbackState
+            kind="loading"
+            title={t('diagnosis.preparation.bootTitle')}
+            description={t('diagnosis.preparation.bootDescription')}
+            impact={t('diagnosis.preparation.bootImpact')}
+            nextStep={t('diagnosis.preparation.bootNextStep')}
+          />
+        </section>
       </div>
     );
   }
@@ -537,112 +671,177 @@ const DiagnosisPage: React.FC = () => {
     return (
       <div className="space-y-8">
         <PageHeader title={t('diagnosis.selectTitle')} subtitle={t('diagnosis.selectSubtitle')} />
+        <DiagnosisPreparationSteps />
+        <DiagnosisPreparationOverview restarting={isRestarting} />
         <SessionFeedbackBanners
-          submitErrorMessage={createSessionMutation.error ? getApiErrorMessage(createSessionMutation.error) : null}
+          submitErrorMessage={
+            submitErrorMessage ||
+            (createSessionMutation.error && !activeSessionConflict && !resumeCandidate
+              ? getApiErrorMessage(createSessionMutation.error)
+              : null)
+          }
         />
-        <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
+        <section aria-labelledby="diagnosis-next-action" className="space-y-5">
           <div className="max-w-3xl">
-            <div className="inline-flex rounded-3xl border border-primary/20 bg-primary/10 p-4">
-              <Brain size={32} className="text-primary" />
-            </div>
-            <h2 className="type-page-title mt-6 text-slate-900 dark:text-white">
-              {t('diagnosis.startTitle')}
+            <SectionEyebrow>{t('diagnosis.preparation.actionEyebrow')}</SectionEyebrow>
+            <h2 id="diagnosis-next-action" className="mt-2 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+              {t(isRestarting ? 'diagnosis.preparation.restartActionTitle' : 'diagnosis.preparation.actionTitle')}
             </h2>
-            <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">
-              {t('diagnosis.startDescription')}
+            <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/50">
+              {t('diagnosis.preparation.actionDescription')}
             </p>
           </div>
-        </section>
 
-        {templatesQuery.error && (
-          <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-            {getApiErrorMessage(templatesQuery.error)}
-          </div>
-        )}
-
-        {templatesQuery.isLoading ? (
-          <PanelSkeleton />
-        ) : !templatesQuery.data?.records.length ? (
-          <div className="rounded-[2rem] border border-slate-200 p-8 text-slate-500 dark:border-white/10 dark:text-white/45">
-            {t('diagnosis.noTemplates')}
-          </div>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {templatesQuery.data.records.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                disabled={createSessionMutation.isPending}
-                onClick={() => createSessionMutation.mutate(template.id)}
-                className="text-left liquid-glass rounded-[2.4rem] p-7 edge-light transition-all hover:border-primary/40 disabled:opacity-60"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
-                      {template.status}
-                    </div>
-                    <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-                      {template.templateName}
-                    </div>
-                    <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/45">
-                      {template.description || t('diagnosis.noDescription')}
-                    </div>
-                  </div>
-                  <ChevronRight className="shrink-0 text-primary" />
-                </div>
-                <div className="mt-6 flex gap-4 text-sm text-slate-500 dark:text-white/45">
-                  <span>{t('diagnosis.statusTemplateCount', { count: template.itemCount })}</span>
-                  <span>{t('diagnosis.statusDurationMinutes', { count: template.estimatedDurationMinutes })}</span>
-                  {template.targetClassName ? <span>班级：{template.targetClassName}</span> : null}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {resumeCandidate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
-            <div
-              ref={resumeDialogRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="diagnosis-resume-title"
-              tabIndex={-1}
-              className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950"
-            >
-              <span id="diagnosis-resume-title" className="sr-only">发现已保存的未完成诊断</span>
+          {resumeCandidate ? (
+            <div className="space-y-3">
               <FeedbackState
                 kind="saved"
-                compact
-                className="border-0 bg-transparent p-0 shadow-none"
-                title="发现已保存的未完成诊断"
-                description={`系统找到了上次未完成的诊断，最近保存时间：${resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。`}
-                impact="服务器保留了已完成的答题进度；继续答题不会覆盖其他已完成记录。"
-                nextStep="选择“继续答题”恢复进度；仅在确定不再需要本次诊断时选择放弃。"
+                title={t('diagnosis.preparation.resume.title')}
+                description={t('diagnosis.preparation.resume.description', {
+                  lastSavedAt: resumeCandidate.lastSavedAt
+                    ? formatDateTime(resumeCandidate.lastSavedAt)
+                    : t('diagnosis.preparation.resume.unknownTime'),
+                })}
+                impact={t('diagnosis.preparation.resume.impact')}
+                nextStep={t('diagnosis.preparation.resume.nextStep')}
+                primaryAction={{
+                  label: t('diagnosis.preparation.resume.continue'),
+                  onClick: handleResumeContinue,
+                  disabled: abandonSessionMutation.isPending,
+                }}
+                secondaryAction={{
+                  label: t('diagnosis.preparation.resume.abandon'),
+                  onClick: handleResumeAbandon,
+                  tone: 'danger',
+                  disabled: abandonSessionMutation.isPending,
+                }}
               />
-              <div className="mt-8 flex flex-wrap gap-3">
-                <button ref={resumeContinueButtonRef} type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
-                  继续答题
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResumeAbandon}
-                  disabled={abandonSessionMutation.isPending}
-                  className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
-                >
-                  放弃并重开
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/history')}
-                  className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
-                >
-                  返回历史
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/history')}
+                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:border-white/10 dark:text-white/70"
+              >
+                {t('diagnosis.preparation.viewHistory')}
+              </button>
             </div>
-          </div>
-        )}
+          ) : activeSessionConflict ? (
+            <FeedbackState
+              kind={historyQuery.isFetching ? 'loading' : 'error'}
+              title={t('diagnosis.preparation.activeSessionTitle')}
+              description={t('diagnosis.preparation.activeSessionDescription')}
+              impact={t('diagnosis.preparation.activeSessionImpact')}
+              nextStep={t('diagnosis.preparation.activeSessionNextStep')}
+              primaryAction={
+                historyQuery.isFetching
+                  ? undefined
+                  : {
+                      label: t('diagnosis.preparation.retryHistory'),
+                      onClick: () => void historyQuery.refetch(),
+                    }
+              }
+            />
+          ) : historyQuery.error ? (
+            <FeedbackState
+              kind="error"
+              title={t('diagnosis.preparation.historyErrorTitle')}
+              description={getApiErrorMessage(historyQuery.error)}
+              impact={t('diagnosis.preparation.historyErrorImpact')}
+              nextStep={t('diagnosis.preparation.historyErrorNextStep')}
+              primaryAction={{
+                label: t(historyQuery.isFetching ? 'diagnosis.preparation.retrying' : 'diagnosis.preparation.retryHistory'),
+                onClick: () => void historyQuery.refetch(),
+                disabled: historyQuery.isFetching,
+              }}
+            />
+          ) : templatesQuery.error ? (
+            <FeedbackState
+              kind="error"
+              title={t('diagnosis.preparation.templateErrorTitle')}
+              description={getApiErrorMessage(templatesQuery.error)}
+              impact={t('diagnosis.preparation.templateErrorImpact')}
+              nextStep={t('diagnosis.preparation.templateErrorNextStep')}
+              primaryAction={{
+                label: t(templatesQuery.isFetching ? 'diagnosis.preparation.retrying' : 'diagnosis.preparation.retryTemplates'),
+                onClick: () => void templatesQuery.refetch(),
+                disabled: templatesQuery.isFetching,
+              }}
+            />
+          ) : templatesQuery.isLoading ? (
+            <PanelSkeleton className="min-h-[280px]" />
+          ) : !templatesQuery.data?.records.length ? (
+            <FeedbackState
+              kind="empty"
+              title={t('diagnosis.preparation.emptyTitle')}
+              description={t('diagnosis.noTemplates')}
+              impact={t('diagnosis.preparation.emptyImpact')}
+              nextStep={t('diagnosis.preparation.emptyNextStep')}
+              primaryAction={{
+                label: t('diagnosis.preparation.backDashboard'),
+                onClick: () => navigate('/dashboard'),
+              }}
+              secondaryAction={{
+                label: t('diagnosis.preparation.viewHistory'),
+                onClick: () => navigate('/history'),
+              }}
+            />
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {templatesQuery.data.records.map((template) => {
+                const descriptionId = `diagnosis-template-${template.id}-description`;
+                const isStartingThisTemplate = createSessionMutation.isPending && createSessionMutation.variables === template.id;
+
+                return (
+                  <article key={template.id} className="liquid-glass rounded-[2.4rem] p-7 edge-light">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-primary">
+                          <Brain size={15} />
+                          {t('diagnosis.preparation.templateEyebrow')}
+                        </div>
+                        <h3 className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+                          {template.templateName}
+                        </h3>
+                        <p id={descriptionId} className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/45">
+                          {template.description || t('diagnosis.noDescription')}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                        {template.status}
+                      </span>
+                    </div>
+                    <div className="mt-6 flex flex-wrap gap-2 text-sm text-slate-600 dark:text-white/55">
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 dark:bg-white/10">
+                        {t('diagnosis.statusTemplateCount', { count: template.itemCount })}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 dark:bg-white/10">
+                        {t('diagnosis.statusDurationMinutes', { count: template.estimatedDurationMinutes })}
+                      </span>
+                      {template.targetClassName ? (
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5 dark:bg-white/10">
+                          {t('diagnosis.preparation.targetClass', { className: template.targetClassName })}
+                        </span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      aria-describedby={descriptionId}
+                      disabled={createSessionMutation.isPending}
+                      onClick={() => createSessionMutation.mutate(template.id)}
+                      className="btn-liquid mt-7 inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
+                    >
+                      {t(
+                        isStartingThisTemplate
+                          ? 'diagnosis.preparation.startingTemplate'
+                          : 'diagnosis.preparation.startTemplate'
+                      )}
+                      <ArrowRight size={17} aria-hidden="true" />
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
         {abandonConfirmation}
       </div>
     );
@@ -896,7 +1095,10 @@ const DiagnosisPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => dispatch({ type: 'reset' })}
+                      onClick={() => {
+                        setIsRestarting(true);
+                        dispatch({ type: 'reset' });
+                      }}
                       className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold dark:border-white/10"
                     >
                       {t('diagnosis.restart')}
