@@ -2,6 +2,7 @@ import React, { useEffect, useEffectEvent, useMemo, useRef, useState } from 'rea
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCheck } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FeedbackState } from '@/components/common/FeedbackState';
@@ -36,6 +37,32 @@ function levelAccent(level: string) {
   }
 }
 
+function levelLabel(level: string, t: (key: string) => string) {
+  switch (level) {
+    case 'ERROR':
+      return t('shell.notifications.levels.error');
+    case 'WARNING':
+      return t('shell.notifications.levels.warning');
+    case 'SUCCESS':
+      return t('shell.notifications.levels.success');
+    default:
+      return t('shell.notifications.levels.info');
+  }
+}
+
+function levelTone(level: string) {
+  switch (level) {
+    case 'ERROR':
+      return 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300';
+    case 'WARNING':
+      return 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+    case 'SUCCESS':
+      return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+    default:
+      return 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300';
+  }
+}
+
 export const NotificationBell: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -47,6 +74,7 @@ export const NotificationBell: React.FC = () => {
   const locale = useUIStore((state) => state.locale);
   const [isOpen, setIsOpen] = useState(false);
   const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+  const prefersReducedMotion = useReducedMotion();
   const isAuthenticated = authStatus === 'authenticated' && Boolean(session?.accessToken);
 
   const unreadCountQuery = useQuery({
@@ -246,6 +274,7 @@ export const NotificationBell: React.FC = () => {
     ? createPortal(
       <div
         ref={panelRef}
+        id="notifications-panel"
         role="dialog"
         aria-label={t('shell.notifications.title')}
         tabIndex={-1}
@@ -336,8 +365,13 @@ export const NotificationBell: React.FC = () => {
               description={t('shell.notifications.emptyDescription')}
             /></li>
           ) : (
-            notifications.map((notification) => (
-              <li key={notification.id}>
+            notifications.map((notification, index) => (
+              <motion.li
+                key={notification.id}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.16, delay: Math.min(index * 0.03, 0.12) }}
+              >
                 <button
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
@@ -351,8 +385,9 @@ export const NotificationBell: React.FC = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', levelAccent(notification.level))} />
+                      <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', levelAccent(notification.level))} aria-hidden="true" />
                       <span className="truncate text-sm font-black text-slate-900 dark:text-white">{notification.title}</span>
+                      <span className={cn('shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]', levelTone(notification.level))}>{levelLabel(notification.level, t)}</span>
                     </div>
                     <p className="mt-2 max-h-12 overflow-hidden text-sm leading-6 text-slate-500 dark:text-white/58">
                       {notification.content}
@@ -364,7 +399,7 @@ export const NotificationBell: React.FC = () => {
                   {notification.status === 'UNREAD' && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary shrink-0" />}
                 </div>
                 </button>
-              </li>
+              </motion.li>
             ))
           )}
         </ul>
@@ -381,6 +416,7 @@ export const NotificationBell: React.FC = () => {
         aria-label={buttonLabel}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
+        aria-controls="notifications-panel"
         onClick={() => setIsOpen((value) => !value)}
         title={buttonLabel}
         className="relative flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken"

@@ -7,6 +7,8 @@ import {
   Brain,
   FilePenLine,
   ChevronLeft,
+  ChevronDown,
+  CircleAlert,
   Database,
   GraduationCap,
   History,
@@ -16,6 +18,7 @@ import {
   Menu,
   Moon,
   Search,
+  ShieldCheck,
   Settings,
   Shield,
   Sparkles,
@@ -28,6 +31,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { RouteErrorBoundary } from '@/components/common/AppErrorBoundary';
+import { FeedbackState } from '@/components/common/FeedbackState';
 import { NotificationBell } from './NotificationBell';
 import { useAuthStore, useUIStore } from '@/store';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
@@ -501,68 +505,122 @@ type AssistantResponsePanelProps = {
   timestamp?: string | null;
 };
 
-const AssistantResponsePanel: React.FC<AssistantResponsePanelProps> = ({ locale, payload, t, timestamp }) => (
-  <section className="rounded-3xl border border-slate-200 dark:border-white/10 p-5 bg-white/60 dark:bg-white/5">
-    <div className="flex items-center justify-between gap-3 mb-4">
-      <div>
-        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{t('shell.answer')}</div>
-        {timestamp && (
-          <div className="mt-2 text-[11px] text-slate-400 dark:text-white/35">{formatAssistantTimestamp(timestamp, locale)}</div>
+const AssistantResponsePanel: React.FC<AssistantResponsePanelProps> = ({ locale, payload, t, timestamp }) => {
+  const confidencePercent = Math.round(Math.max(0, Math.min(1, payload.confidence)) * 100);
+  const contextByCitationId = new Map((payload.contextChunks ?? []).map((chunk) => [chunk.citationId, chunk]));
+  const GroundingIcon = payload.grounded ? ShieldCheck : CircleAlert;
+
+  return (
+    <section className="overflow-hidden rounded-3xl border border-[hsl(var(--ai)/0.24)] bg-[hsl(var(--ai)/0.045)] shadow-sm">
+      <header className="border-b border-[hsl(var(--ai)/0.14)] bg-[hsl(var(--ai)/0.06)] px-5 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[hsl(var(--ai)/0.14)] text-[hsl(var(--ai))]">
+              <Brain size={17} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-[hsl(var(--ai))]">{t('shell.answer')}</div>
+              <div className="mt-1 text-base font-black text-slate-900 dark:text-white">{t('shell.lexicalAssistant')}</div>
+              {timestamp && <div className="mt-1 text-[11px] text-slate-500 dark:text-white/45">{formatAssistantTimestamp(timestamp, locale)}</div>}
+            </div>
+          </div>
+          <span className={cn(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]',
+            payload.grounded
+              ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200'
+          )}>
+            <GroundingIcon size={13} aria-hidden="true" />
+            {payload.grounded ? t('shell.grounded') : t('shell.unverified')}
+          </span>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-500 dark:text-white/50">
+          <span className="rounded-full border border-[hsl(var(--ai)/0.18)] bg-white/60 px-2.5 py-1 dark:bg-white/5">{t('shell.confidence')}: {confidencePercent}%</span>
+          <span className="rounded-full border border-slate-200/80 bg-white/60 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{t('shell.source')}: {payload.generationSource}</span>
+          {payload.model && <span className="rounded-full border border-slate-200/80 bg-white/60 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{t('shell.model')}: {payload.model}</span>}
+        </div>
+      </header>
+
+      <div className="space-y-5 px-5 py-5">
+        <div className="border-l-4 border-[hsl(var(--ai))] pl-4">
+          <p className="whitespace-pre-wrap text-lg font-semibold leading-8 text-slate-900 dark:text-white">{payload.answer}</p>
+        </div>
+
+        <section className="rounded-2xl border border-slate-200/80 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/5" aria-labelledby={`assistant-explanation-${payload.requestId}`}>
+          <div id={`assistant-explanation-${payload.requestId}`} className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500 dark:text-white/45">{t('shell.explanation')}</div>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700 dark:text-white/70">{payload.explanation}</p>
+        </section>
+
+        {!!payload.citations?.length && (
+          <section aria-labelledby={`assistant-citations-${payload.requestId}`}>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-[hsl(var(--ai))]">{t('shell.evidence')}</div>
+                <div id={`assistant-citations-${payload.requestId}`} className="mt-1 text-sm font-bold text-slate-900 dark:text-white">{t('shell.citations')}</div>
+                <div className="mt-1 text-xs text-slate-500 dark:text-white/45">{t('shell.citationDetails')}</div>
+              </div>
+              <span className="text-xs font-bold text-[hsl(var(--ai))]">{payload.citations.length}</span>
+            </div>
+            <ol className="space-y-2">
+              {payload.citations.map((citation, index) => {
+                const context = contextByCitationId.get(citation.citationId);
+                return (
+                  <li key={citation.citationId}>
+                    <details className="group rounded-2xl border border-slate-200/80 bg-white/65 dark:border-white/10 dark:bg-white/5">
+                      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--ai)/0.12)] text-[11px] font-black text-[hsl(var(--ai))]">{index + 1}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{citation.title || citation.sourceId}</span>
+                          <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-white/45">{citation.citationId} · {citation.sourceType}</span>
+                        </span>
+                        <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="space-y-3 border-t border-slate-200/70 px-4 py-4 text-sm dark:border-white/10">
+                        <p className="whitespace-pre-wrap leading-6 text-slate-700 dark:text-white/70">{citation.snippet}</p>
+                        <dl className="grid gap-2 text-xs text-slate-500 dark:text-white/45 sm:grid-cols-3">
+                          <div><dt className="font-bold uppercase tracking-[0.12em]">{t('shell.sourceType')}</dt><dd className="mt-1 break-words">{citation.sourceType}</dd></div>
+                          <div><dt className="font-bold uppercase tracking-[0.12em]">{t('shell.sourceId')}</dt><dd className="mt-1 break-words">{citation.sourceId}</dd></div>
+                          {citation.score != null && <div><dt className="font-bold uppercase tracking-[0.12em]">{t('shell.relevance')}</dt><dd className="mt-1">{Math.round(citation.score * 100)}%</dd></div>}
+                        </dl>
+                        {context && <div className="rounded-xl border border-[hsl(var(--ai)/0.16)] bg-[hsl(var(--ai)/0.05)] px-3 py-3"><div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[hsl(var(--ai))]">{t('shell.context')}</div><p className="mt-2 whitespace-pre-wrap leading-6 text-slate-700 dark:text-white/70">{context.content || context.snippet}</p></div>}
+                      </div>
+                    </details>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
+
+        {!!payload.contextChunks?.length && !payload.citations?.length && (
+          <section aria-labelledby={`assistant-context-${payload.requestId}`}>
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.24em] text-[hsl(var(--ai))]">{t('shell.evidence')}</div>
+            <div id={`assistant-context-${payload.requestId}`} className="mb-3 text-sm font-bold text-slate-900 dark:text-white">{t('shell.context')}</div>
+            <div className="space-y-2">
+              {payload.contextChunks.map((chunk) => <details key={`${chunk.citationId}-${chunk.sourceId}`} className="rounded-2xl border border-slate-200/80 bg-white/65 px-4 py-3 dark:border-white/10 dark:bg-white/5"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-slate-900 dark:text-white [&::-webkit-details-marker]:hidden">{chunk.title || chunk.sourceId}<ChevronDown size={16} aria-hidden="true" /></summary><p className="mt-3 whitespace-pre-wrap border-t border-slate-200/70 pt-3 text-sm leading-6 text-slate-600 dark:border-white/10 dark:text-white/65">{chunk.content || chunk.snippet}</p></details>)}
+            </div>
+          </section>
+        )}
+
+        {!!payload.recommendedActions?.length && (
+          <section className="rounded-2xl border border-primary/20 bg-primary/[0.045] px-4 py-4" aria-labelledby={`assistant-actions-${payload.requestId}`}>
+            <div id={`assistant-actions-${payload.requestId}`} className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">{t('shell.actions')}</div>
+            <ol className="mt-3 space-y-2">
+              {payload.recommendedActions.map((item, index) => <li key={`${index}-${item}`} className="flex items-start gap-3 rounded-xl border border-primary/10 bg-white/60 px-3 py-3 text-sm leading-6 text-slate-700 dark:bg-white/5 dark:text-white/70"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-black text-primary">{index + 1}</span><span className="break-words">{item}</span></li>)}
+            </ol>
+          </section>
+        )}
+
+        {payload.fallbackReason && (
+          <div role="note" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-4 text-amber-900 dark:text-amber-100">
+            <CircleAlert size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <div><div className="text-[10px] font-bold uppercase tracking-[0.22em]">{t('shell.fallbackReason')}</div><p className="mt-1 text-sm leading-6">{payload.fallbackReason}</p><p className="mt-2 text-xs leading-5 opacity-75">{t('shell.fallbackDescription')}</p></div>
+          </div>
         )}
       </div>
-      {payload.fallbackReason && (
-        <span className="text-[10px] uppercase tracking-[0.24em] text-amber-500">{t('shell.fallbackReason')}</span>
-      )}
-    </div>
-    <p className="text-base leading-7 text-slate-800 dark:text-white/85">{payload.answer}</p>
-    <p className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">{payload.explanation}</p>
-
-    {!!payload.recommendedActions?.length && (
-      <div className="mt-5">
-        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-3">{t('shell.actions')}</div>
-        <div className="space-y-3">
-          {payload.recommendedActions.map((item) => (
-            <div key={item} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
-              {item}
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {!!payload.citations?.length && (
-      <div className="mt-5">
-        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-3">{t('shell.citations')}</div>
-        <div className="space-y-3">
-          {payload.citations.map((citation) => (
-            <div key={citation.citationId} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
-              <div className="font-bold text-slate-900 dark:text-white/90">{citation.title || citation.sourceId}</div>
-              <div className="text-sm text-slate-500 dark:text-white/50 mt-1">{citation.snippet}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {!!payload.contextChunks?.length && (
-      <div className="mt-5">
-        <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-3">{t('shell.context')}</div>
-        <div className="space-y-3">
-          {payload.contextChunks.map((chunk) => (
-            <details key={`${chunk.citationId}-${chunk.sourceId}`} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-3">
-              <summary className="cursor-pointer font-bold text-slate-900 dark:text-white/90">
-                {chunk.title || chunk.sourceId}
-              </summary>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-500 dark:text-white/55">
-                {chunk.content || chunk.snippet}
-              </p>
-            </details>
-          ))}
-        </div>
-      </div>
-    )}
-  </section>
-);
+    </section>
+  );
+};
 
 type ConversationMessageCardProps = {
   locale: string;
@@ -741,7 +799,7 @@ const AssistantDrawer: React.FC = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="fixed top-0 right-0 h-screen w-full max-w-6xl surface-panel z-[80] border-l border-border-subtle p-4 md:p-6 overflow-y-auto"
+            className="fixed top-0 right-0 h-screen w-full max-w-6xl surface-panel z-[80] border-l border-[hsl(var(--ai)/0.28)] p-4 md:p-6 overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -768,7 +826,7 @@ const AssistantDrawer: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleNewConversation}
-                    className="rounded-2xl border border-slate-200 dark:border-white/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/70 hover:border-primary/40 hover:text-primary"
+                    className="rounded-2xl border border-slate-200 dark:border-white/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/70 hover:border-[hsl(var(--ai)/0.4)] hover:text-[hsl(var(--ai))]"
                   >
                     {t('shell.newConversation')}
                   </button>
@@ -804,8 +862,8 @@ const AssistantDrawer: React.FC = () => {
                         className={cn(
                           'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
                           isActive
-                            ? 'border-primary/25 bg-primary/[0.08] text-primary'
-                            : 'border-slate-200/70 bg-white/60 text-slate-600 hover:border-primary/30 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/70'
+                            ? 'border-[hsl(var(--ai)/0.3)] bg-[hsl(var(--ai)/0.09)] text-[hsl(var(--ai))]'
+                            : 'border-slate-200/70 bg-white/60 text-slate-600 hover:border-[hsl(var(--ai)/0.3)] dark:border-white/10 dark:bg-slate-950/20 dark:text-white/70'
                         )}
                       >
                         <div className="text-sm font-black leading-5">{conversation.title}</div>
@@ -854,15 +912,33 @@ const AssistantDrawer: React.FC = () => {
                   ))}
 
                   {ragMutation.isPending && (
-                    <div className="rounded-3xl border border-slate-200 dark:border-white/10 p-6 bg-white/50 dark:bg-white/5">
-                      {t('common.loading.searchingKnowledge')}
+                    <div role="status" aria-live="polite" className="rounded-3xl border border-[hsl(var(--ai)/0.18)] bg-[hsl(var(--ai)/0.06)] p-5">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-[hsl(var(--ai))]">{t('shell.evidence')}</div>
+                      <div className="mt-2 text-sm font-semibold text-slate-800 dark:text-white/85">{t('common.loading.searchingKnowledge')}</div>
+                      <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-white/45">{t('shell.pendingDescription')}</div>
                     </div>
                   )}
 
                   {ragMutation.error && (
-                    <div className="rounded-3xl border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-                      {ragMutation.error.message}
-                    </div>
+                    <FeedbackState
+                      kind="retry"
+                      compact
+                      className="rounded-3xl"
+                      title={t('shell.requestFailed')}
+                      description={ragMutation.error.message}
+                      impact={t('shell.requestFailedImpact')}
+                      nextStep={t('shell.requestFailedNextStep')}
+                      primaryAction={{
+                        label: t('shell.retryRequest'),
+                        onClick: () => {
+                          const trimmed = query.trim();
+                          if (trimmed) {
+                            setAssistantDraft(trimmed);
+                            ragMutation.mutate({ query: trimmed, conversationId: activeAssistantConversationId });
+                          }
+                        },
+                      }}
+                    />
                   )}
                 </div>
 
@@ -876,7 +952,7 @@ const AssistantDrawer: React.FC = () => {
                     }}
                     rows={4}
                     placeholder={t('shell.drawerPromptPlaceholder')}
-                    className="w-full rounded-3xl bg-white/70 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 px-5 py-4 outline-none focus:border-primary/50"
+                    className="w-full rounded-3xl bg-white/70 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 px-5 py-4 outline-none focus:border-[hsl(var(--ai)/0.5)]"
                   />
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-xs text-slate-400 dark:text-white/35">
@@ -968,7 +1044,7 @@ export const Topbar: React.FC = () => {
         {canUseAssistant && (
           <div className="group relative hidden min-w-0 max-w-xl flex-1 lg:block">
             <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within:text-primary transition-colors duration-300"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within:text-[hsl(var(--ai))] transition-colors duration-300"
               size={16}
             />
             <input
@@ -985,7 +1061,7 @@ export const Topbar: React.FC = () => {
                 }
               }}
               placeholder={t('shell.searchPlaceholder')}
-              className="surface-control w-full rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-primary/60 focus:outline-none"
+              className="surface-control w-full rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-[hsl(var(--ai)/0.6)] focus:outline-none"
             />
           </div>
         )}
@@ -996,7 +1072,7 @@ export const Topbar: React.FC = () => {
             type="button"
             aria-label={t('common.actions.openAssistant')}
             onClick={() => openAssistant(search.trim())}
-            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-border-subtle px-2.5 py-2 text-xs font-semibold text-slate-600 hover:border-primary/40 hover:text-primary dark:text-white/70 sm:min-w-0 sm:px-3"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-[hsl(var(--ai)/0.28)] px-2.5 py-2 text-xs font-semibold text-[hsl(var(--ai))] hover:border-[hsl(var(--ai)/0.5)] hover:bg-[hsl(var(--ai)/0.08)] dark:text-[hsl(var(--ai))] sm:min-w-0 sm:px-3"
           >
             <Brain size={14} aria-hidden="true" />
             <span className="hidden lg:inline">{t('common.actions.openAssistant')}</span>
