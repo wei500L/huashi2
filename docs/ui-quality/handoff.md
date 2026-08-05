@@ -1,16 +1,22 @@
 # UI Quality Handoff
 
 更新时间：2026-08-05  
-当前阶段：A1 证据审计完成，下一步是 A2 品牌方向决策。
+当前阶段：A2 品牌方向决策完成，下一步是低保真视觉验证。
 
 ## 新窗口最短接手路径
 
 1. 读 [README](./README.md)。
 2. 读 [A1 完整证据地图](./01-global-visual-evidence-audit.md)，优先看 BR-03、IH-01/02、CS-04、RD-01/02、RS-01、PF-01/02/03。
-3. 执行 `git status --short`，保留新窗口开始时的任何未提交修改；本轮只新增 `docs/ui-quality/`。
-4. 进入 A2，只产出 `02-brand-direction-decision.md` 及同步沉淀，不做整站换肤。
+3. 读 [A2 品牌方向决策](./02-brand-direction-decision.md)，先区分已确认、候选和明确排除。
+4. 执行 `git status --short`，保留新窗口开始时的任何未提交修改；视觉原型阶段仍不改业务代码。
+5. 进入低保真验证，只验证关键路径和候选组件边界，不做整站换肤。
 
 ## 本轮结论
+
+- 品牌方向：确认 **Lexical Cartography / 语言迁移地图**。EF.Transfer 是连接英语起点、迁移证据和法语目标的地图；AI 是测绘工具，不是主角。
+- 品牌锚点：EN↔FR 迁移焦点 + 单条可读路线 + 证据图钉。颜色以墨色/纸张为基底，来源暖矿物色、目标冷水域色、进展亮色路线；紫色降为辅助。
+- React Bits：Topography 是最接近锚点的底图候选；TrueFocus、VariableProximity 是局部焦点/探索候选；WebThreads 仅限教师关系视图；StrokeText 与 TextLoop 明确排除为全局品牌锚点。
+- 三角色：学生是路线行者，教师是地图编辑者，管理员是测绘控制台；共享地图语法但分别强调下一步、队列/对比、密度/审计。
 
 - P0：`/admin/dashboard` 与 `/assessments/attempts/:attemptId` 大量硬编码中文，`/dashboard` 也有局部中文；英文 shell 下必然混排。当前 UI locale 仅中/英，法文按业务内容和排版韧性处理。
 - P1 主线：同一套紫色、玻璃、3rem 圆角、渐变 CTA、发光边框、磁吸/3D 被用于所有层级和角色，形成通用 AI 皮肤。
@@ -35,6 +41,6 @@
 
 ## 下一步
 
-执行 A2“比赛级品牌叙事与视觉主张”：优先评估 Lexical Cartography / 语言迁移地图，以一个品牌锚点替代全域紫色装饰；定义共享品牌骨架和学生/教师/管理员三种信息密度。把候选、确认和排除分开，不锁死像素与色值，不改业务代码。
+执行低保真视觉验证：用现有 CSS/DOM 对三角色首页与学生诊断路径做静态对照，验证 5 秒品牌辨识、首屏任务可见性、真实长英法文案、reduced-motion 与 375px 无横向溢出；再决定候选组件是否进入实现。
 
 本轮未运行任何测试、lint、typecheck 或 build。
