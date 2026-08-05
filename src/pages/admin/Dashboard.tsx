@@ -4,6 +4,8 @@ import {
   Activity,
   Bot,
   Brain,
+  CheckCircle2,
+  Clock3,
   Database,
   FileCheck2,
   GraduationCap,
@@ -208,6 +210,15 @@ const AdminDashboardPage: React.FC = () => {
   const completionTrend = dashboardQuery.data?.completionTrend ?? [];
   const aiTrend = dashboardQuery.data?.aiTrend ?? [];
   const aiSceneDistribution = dashboardQuery.data?.aiSceneDistribution ?? [];
+  const generatedAt = overview?.generatedAt ? new Date(overview.generatedAt) : null;
+  const dataAgeMinutes = generatedAt ? Math.max(0, Math.round((Date.now() - generatedAt.getTime()) / 60000)) : null;
+  const healthState = dashboardQuery.isError
+    ? { label: '查询失败', tone: 'danger' as const, description: '无法读取管理员指标，请检查 API 权限与服务状态。' }
+    : dashboardQuery.isFetching
+      ? { label: '同步中', tone: 'info' as const, description: '正在刷新指标；当前页面不会覆盖上一次成功数据。' }
+      : dataAgeMinutes != null && dataAgeMinutes > 30
+        ? { label: '数据偏旧', tone: 'warning' as const, description: `最近一次成功生成于 ${dataAgeMinutes} 分钟前，请结合审计日志确认是否需要排查。` }
+        : { label: '运行正常', tone: 'success' as const, description: '管理员指标查询成功，最近一次刷新时间可追溯。' };
 
   const statCards = React.useMemo(
     () => [
@@ -290,12 +301,12 @@ const AdminDashboardPage: React.FC = () => {
       />
 
       {dashboardQuery.error && (
-        <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
+        <div role="alert" className="rounded-lg border border-error/30 bg-error/5 px-5 py-4 text-sm text-rose-500">
           {getApiErrorMessage(dashboardQuery.error, '读取管理员仪表盘失败')}
         </div>
       )}
 
-      <section data-onboarding="admin-dashboard-overview" className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
+      <section data-onboarding="admin-dashboard-overview" className="rounded-xl border border-border-subtle bg-surface p-6 shadow-sm">
         <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <SectionEyebrow>全局概览</SectionEyebrow>
@@ -312,6 +323,31 @@ const AdminDashboardPage: React.FC = () => {
               label={`最近刷新 ${overview?.generatedAt ? formatDateTime(overview.generatedAt) : '--'}`}
               tone="neutral"
             />
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="admin-health-title" className="rounded-xl border border-border-subtle bg-surface-raised p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <SectionEyebrow>系统健康</SectionEyebrow>
+            <h2 id="admin-health-title" className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">管理员工作区状态</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-white/55">只反映当前管理员 API 查询与数据新鲜度，不替代后端监控。</p>
+          </div>
+          <StatusBadge label={healthState.label} tone={healthState.tone} />
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-white/80"><CheckCircle2 size={16} className="text-success" /> 指标 API</div>
+            <div className="mt-2 text-xs text-slate-500 dark:text-white/45">{dashboardQuery.isError ? '请求失败' : dashboardQuery.isLoading ? '首次加载中' : '可读取'}</div>
+          </div>
+          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-white/80"><Clock3 size={16} className="text-info" /> 数据时间</div>
+            <div className="mt-2 text-xs text-slate-500 dark:text-white/45">{overview?.generatedAt ? formatDateTime(overview.generatedAt) : '暂无成功刷新记录'}</div>
+          </div>
+          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-4">
+            <div className="text-sm font-medium text-slate-700 dark:text-white/80">状态说明</div>
+            <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">{healthState.description}</div>
           </div>
         </div>
       </section>
@@ -351,7 +387,7 @@ const AdminDashboardPage: React.FC = () => {
           extra={<StatusBadge label="最近 14 天" tone="warning" />}
         />
 
-        <section className="liquid-glass-panel rounded-[2.5rem] p-8">
+        <section className="rounded-xl border border-border-subtle bg-surface p-6 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
               <SectionEyebrow>AI 场景分布</SectionEyebrow>
@@ -361,7 +397,7 @@ const AdminDashboardPage: React.FC = () => {
           </div>
 
           {!dashboardQuery.isLoading && !dashboardQuery.error && !aiSceneDistribution.length ? (
-            <div className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-[2rem] border border-slate-200/80 bg-white/65 px-6 py-10 text-center dark:border-white/10 dark:bg-white/5">
+            <div className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-lg border border-border-subtle bg-surface px-6 py-10 text-center">
               <StatusBadge label="暂无内容" tone="neutral" />
               <h3 className="mt-5 text-xl font-black tracking-tight text-slate-900 dark:text-white/85">当前暂无可展示的 AI 场景分布</h3>
               <p className="mt-3 max-w-md text-sm leading-6 text-slate-500 dark:text-white/45">
@@ -383,7 +419,7 @@ const AdminDashboardPage: React.FC = () => {
                 {aiSceneDistribution.map((item) => (
                   <div
                     key={item.scene}
-                    className="rounded-[1.5rem] border border-slate-200/80 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/5"
+                    className="rounded-lg border border-border-subtle bg-surface px-4 py-4"
                   >
                     <div className="font-bold text-slate-900 dark:text-white">{formatSceneLabel(item.scene)}</div>
                     <div className="mt-1 text-sm text-slate-500 dark:text-white/45">

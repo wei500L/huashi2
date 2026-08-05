@@ -2,7 +2,7 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckSquare2, Copy, Database, FileDown, KeyRound, LayoutDashboard, MailPlus, Plus, Shield, Upload, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, Pagination } from '@/components/common';
 import {
   buildAdminUserBatchTemplate,
   buildBatchCreateRequestFromCsv,
@@ -26,6 +26,12 @@ import type {
   UserSummaryVO,
 } from '@/lib/contracts';
 import { useAuthStore } from '@/store';
+
+type UserSortKey = 'id' | 'displayName' | 'lastLoginAt' | 'enabled';
+
+function confirmAdminAction(title: string, impact: string, scope: string, rollback: string): boolean {
+  return window.confirm(`${title}\n\n影响：${impact}\n范围：${scope}\n回退：${rollback}`);
+}
 
 const roleOptions: Array<{ value: Role; label: string }> = [
   { value: 'ADMIN', label: '管理员' },
@@ -115,6 +121,7 @@ const AdminUsersPage: React.FC = () => {
   const [csvFilename, setCsvFilename] = React.useState<string | null>(null);
   const [csvPreview, setCsvPreview] = React.useState<AdminUserBatchCreateItemRequest[]>([]);
   const [batchResult, setBatchResult] = React.useState<AdminUserBatchResultVO | null>(null);
+  const [sort, setSort] = React.useState<{ key: UserSortKey; direction: 'asc' | 'desc' }>({ key: 'id', direction: 'asc' });
 
   const usersQuery = useQuery({
     queryKey: ['admin-users', filters],
@@ -229,7 +236,15 @@ const AdminUsersPage: React.FC = () => {
     setErrorMessage(null);
   };
 
-  const currentPageUsers = React.useMemo(() => usersQuery.data?.records || [], [usersQuery.data?.records]);
+  const currentPageUsers = React.useMemo(() => {
+    const source = usersQuery.data?.records || [];
+    return [...source].sort((left, right) => {
+      const leftValue = left[sort.key] ?? '';
+      const rightValue = right[sort.key] ?? '';
+      const result = String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
+      return sort.direction === 'asc' ? result : -result;
+    });
+  }, [usersQuery.data?.records, sort]);
   const currentPageUserIds = React.useMemo(() => currentPageUsers.map((user) => user.id), [currentPageUsers]);
   const currentPageUserIdSet = React.useMemo(() => new Set(currentPageUserIds), [currentPageUserIds]);
   const allUsersOnPageSelected = currentPageUserIds.length > 0 && currentPageUserIds.every((userId) => selectedUserIds.includes(userId));
@@ -258,7 +273,7 @@ const AdminUsersPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowCreateForm((value) => !value)}
-              className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-primary-foreground hover:bg-primary/90"
             >
               <Plus size={14} />
               新建用户
@@ -282,7 +297,7 @@ const AdminUsersPage: React.FC = () => {
       />
 
       {(feedback || errorMessage) && (
-        <div className={`rounded-[1.8rem] border px-5 py-4 text-sm ${
+        <div role={errorMessage ? 'alert' : 'status'} className={`rounded-lg border border-border-subtle bg-surface px-5 py-4 text-sm ${
           errorMessage
             ? 'border-rose-500/20 bg-rose-500/5 text-rose-500'
             : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
@@ -322,37 +337,37 @@ const AdminUsersPage: React.FC = () => {
       )}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 text-left dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 text-left shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">系统用户数</div>
           <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{usersQuery.data?.total ?? '--'}</div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">当前筛选后的总数</div>
         </div>
-        <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 text-left dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 text-left shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">活动会话用户</div>
           <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
-            {(usersQuery.data?.records || []).filter((user) => user.hasActiveSession).length}
+            {currentPageUsers.filter((user) => user.hasActiveSession).length}
           </div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">当前页中存在活动登录会话的账号</div>
         </div>
         <Link
           to="/admin/lexical-pairs"
-          className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 text-left dark:border-white/10 dark:bg-white/[0.03]"
+          className="rounded-xl border border-border-subtle bg-surface px-5 py-5 text-left shadow-sm"
         >
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">语料总量</div>
           <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{overviewQuery.data?.totalCount ?? '--'}</div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">待嵌入 {overviewQuery.data?.pendingEmbeddingCount ?? '--'} 条</div>
         </Link>
-        <div className="rounded-[2rem] border border-amber-500/20 bg-amber-500/5 px-5 py-5 text-left">
+        <div className="rounded-xl border border-warning/30 bg-warning/5 px-5 py-5 text-left">
           <div className="text-[11px] uppercase tracking-[0.28em] text-amber-600/70 dark:text-amber-400/70">待激活邀请</div>
           <div className="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">
-            {(usersQuery.data?.records || []).filter((user) => user.invitationStatus === 'PENDING').length}
+            {currentPageUsers.filter((user) => user.invitationStatus === 'PENDING').length}
           </div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">当前页中待激活账号数</div>
         </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-        <div className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
+        <div className="rounded-xl border border-border-subtle bg-surface-raised p-6 space-y-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">CSV 批量导入</div>
@@ -371,7 +386,7 @@ const AdminUsersPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/55 p-5 dark:border-white/15 dark:bg-white/[0.02]">
+          <div className="rounded-lg border border-dashed border-border-subtle bg-surface p-5">
             <label className="flex cursor-pointer flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="text-sm font-black text-slate-900 dark:text-white">{csvFilename || '选择 CSV 文件'}</div>
@@ -414,15 +429,24 @@ const AdminUsersPage: React.FC = () => {
 
           {csvPreview.length > 0 && (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-5 py-4">
                 <div className="text-sm text-slate-500 dark:text-white/45">
                   已解析 <span className="font-black text-slate-900 dark:text-white">{csvPreview.length}</span> 行，预览前 3 行如下。
                 </div>
                 <button
                   type="button"
-                  onClick={() => batchMutation.mutate({ operation: 'IMPORT_CREATE', createItems: csvPreview })}
+                  onClick={() => {
+                    if (confirmAdminAction(
+                      '确认批量创建账号？',
+                      '将创建新账号，并可能生成可访问系统的一次性邀请链接。',
+                      `本次导入的 ${csvPreview.length} 行 CSV 记录`,
+                      '当前没有自动撤销；请保留批量结果，必要时逐账号禁用。'
+                    )) {
+                      batchMutation.mutate({ operation: 'IMPORT_CREATE', createItems: csvPreview });
+                    }
+                  }}
                   disabled={batchMutation.isPending}
-                  className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+                  className="rounded-lg bg-primary px-6 py-3 text-primary-foreground disabled:opacity-60 hover:bg-primary/90"
                 >
                   {batchMutation.isPending ? '导入中...' : '执行批量创建'}
                 </button>
@@ -430,7 +454,7 @@ const AdminUsersPage: React.FC = () => {
 
               <div className="grid gap-3">
                 {csvPreview.slice(0, 3).map((item) => (
-                  <div key={`${item.rowNumber}-${item.username}`} className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                  <div key={`${item.rowNumber}-${item.username}`} className="rounded-lg border border-border-subtle bg-surface p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-black text-slate-900 dark:text-white">{item.displayName}</div>
@@ -450,14 +474,14 @@ const AdminUsersPage: React.FC = () => {
           )}
         </div>
 
-        <div className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
+        <div className="rounded-xl border border-border-subtle bg-surface-raised p-6 space-y-5 shadow-sm">
           <div>
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">批量角色更新</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">对当前勾选账号统一改权</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">会覆盖所选账号的角色集合，并同步更新启用状态。</div>
           </div>
 
-          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="rounded-lg border border-border-subtle bg-surface px-5 py-4">
             <div className="flex items-center gap-3">
               <Users size={16} className="text-slate-400 dark:text-white/30" />
               <div className="text-sm text-slate-500 dark:text-white/45">
@@ -490,9 +514,18 @@ const AdminUsersPage: React.FC = () => {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => batchMutation.mutate(buildBulkAccessUpdateRequest(selectedUserIds, bulkAccessForm.roles, bulkAccessForm.enabled))}
+              onClick={() => {
+                if (confirmAdminAction(
+                  '确认批量更新访问权限？',
+                  '将覆盖所选账号的角色集合和启用状态，禁用账号会立即阻止其登录。',
+                  `当前页已选择的 ${selectedUserIds.length} 个账号`,
+                  '再次执行本操作并恢复原角色/状态；请先记录当前权限。'
+                )) {
+                  batchMutation.mutate(buildBulkAccessUpdateRequest(selectedUserIds, bulkAccessForm.roles, bulkAccessForm.enabled));
+                }
+              }}
               disabled={batchMutation.isPending || selectedUserIds.length === 0}
-              className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+              className="rounded-lg bg-primary px-6 py-3 text-primary-foreground disabled:opacity-60 hover:bg-primary/90"
             >
               {batchMutation.isPending ? '更新中...' : '应用到所选账号'}
             </button>
@@ -509,7 +542,7 @@ const AdminUsersPage: React.FC = () => {
       </section>
 
       {showCreateForm && (
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
+        <section className="rounded-xl border border-border-subtle bg-surface-raised p-6 space-y-5 shadow-sm">
           <div>
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">创建用户</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">创建基础账号</div>
@@ -520,13 +553,21 @@ const AdminUsersPage: React.FC = () => {
             className="space-y-5"
             onSubmit={(event) => {
               event.preventDefault();
-              createMutation.mutate(buildCreateUserPayload(createForm));
+              const payload = buildCreateUserPayload(createForm);
+              if (confirmAdminAction(
+                '确认创建用户？',
+                `将创建${payload.enabled ? '可立即登录的' : '禁用的'}账号${payload.credentialMode === 'MANUAL_PASSWORD' ? '并设置初始密码' : '并生成邀请链接'}。`,
+                `用户名 ${payload.username || '（未填写）'}`,
+                '创建后可编辑角色/状态；邀请链接或密码凭证需单独作废或通过禁用账号回退。'
+              )) {
+                createMutation.mutate(payload);
+              }
             }}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <input value={createForm.username} onChange={(event) => setCreateForm((state) => ({ ...state, username: event.target.value }))} placeholder="用户名" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
-              <input value={createForm.email} onChange={(event) => setCreateForm((state) => ({ ...state, email: event.target.value }))} placeholder="邮箱" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
-              <input value={createForm.displayName} onChange={(event) => setCreateForm((state) => ({ ...state, displayName: event.target.value }))} placeholder="显示名称" className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5" />
+              <input value={createForm.username} onChange={(event) => setCreateForm((state) => ({ ...state, username: event.target.value }))} placeholder="用户名" className="rounded-lg border border-border-subtle bg-surface px-4 py-3" />
+              <input value={createForm.email} onChange={(event) => setCreateForm((state) => ({ ...state, email: event.target.value }))} placeholder="邮箱" className="rounded-lg border border-border-subtle bg-surface px-4 py-3" />
+              <input value={createForm.displayName} onChange={(event) => setCreateForm((state) => ({ ...state, displayName: event.target.value }))} placeholder="显示名称" className="rounded-lg border border-border-subtle bg-surface px-4 py-3" />
               <select
                 value={createForm.credentialMode}
                 onChange={(event) => {
@@ -537,7 +578,7 @@ const AdminUsersPage: React.FC = () => {
                     initialPassword: credentialMode === 'MANUAL_PASSWORD' ? state.initialPassword : undefined,
                   }));
                 }}
-                className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                className="native-select rounded-lg border border-border-subtle bg-surface px-4 py-3"
               >
                 <option value="INVITE_LINK">邀请链接</option>
                 <option value="MANUAL_PASSWORD">手动密码</option>
@@ -548,7 +589,7 @@ const AdminUsersPage: React.FC = () => {
                   value={createForm.initialPassword || ''}
                   onChange={(event) => setCreateForm((state) => ({ ...state, initialPassword: event.target.value }))}
                   placeholder="初始密码"
-                  className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                  className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
                 />
               )}
             </div>
@@ -574,7 +615,7 @@ const AdminUsersPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button type="submit" disabled={createMutation.isPending} className="btn-liquid px-6 py-3 text-white disabled:opacity-60">
+              <button type="submit" disabled={createMutation.isPending} className="rounded-lg bg-primary px-6 py-3 text-primary-foreground disabled:opacity-60 hover:bg-primary/90">
                 {createMutation.isPending ? '创建中...' : '创建用户'}
               </button>
               <button type="button" onClick={() => setShowCreateForm(false)} className="rounded-2xl border border-slate-200 px-6 py-3 text-sm dark:border-white/10">
@@ -585,24 +626,24 @@ const AdminUsersPage: React.FC = () => {
         </section>
       )}
 
-      <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
+      <section className="rounded-xl border border-border-subtle bg-surface-raised p-6 space-y-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-5">
           <input
             value={filters.keyword}
             onChange={(event) => setFilters((state) => ({ ...state, keyword: event.target.value, pageNo: 1 }))}
             placeholder="搜索用户名 / 邮箱 / 显示名"
-            className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 md:col-span-2 dark:border-white/10 dark:bg-white/5"
+            className="rounded-lg border border-border-subtle bg-surface px-4 py-3 md:col-span-2"
           />
-          <select value={filters.role} onChange={(event) => setFilters((state) => ({ ...state, role: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <select value={filters.role} onChange={(event) => setFilters((state) => ({ ...state, role: event.target.value, pageNo: 1 }))} className="native-select rounded-lg border border-border-subtle bg-surface px-4 py-3">
             <option value="">全部角色</option>
             {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
           </select>
-          <select value={filters.enabled} onChange={(event) => setFilters((state) => ({ ...state, enabled: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <select value={filters.enabled} onChange={(event) => setFilters((state) => ({ ...state, enabled: event.target.value, pageNo: 1 }))} className="native-select rounded-lg border border-border-subtle bg-surface px-4 py-3">
             <option value="ALL">全部状态</option>
             <option value="ENABLED">仅启用</option>
             <option value="DISABLED">仅禁用</option>
           </select>
-          <select value={filters.invitationStatus} onChange={(event) => setFilters((state) => ({ ...state, invitationStatus: event.target.value, pageNo: 1 }))} className="native-select rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <select value={filters.invitationStatus} onChange={(event) => setFilters((state) => ({ ...state, invitationStatus: event.target.value, pageNo: 1 }))} className="native-select rounded-lg border border-border-subtle bg-surface px-4 py-3">
             <option value="">全部邀请状态</option>
             <option value="PENDING">{invitationStatusLabel('PENDING')}</option>
             <option value="CONSUMED">{invitationStatusLabel('CONSUMED')}</option>
@@ -611,9 +652,38 @@ const AdminUsersPage: React.FC = () => {
           </select>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle pt-4">
+          <label htmlFor="user-sort" className="text-sm text-slate-500 dark:text-white/55">当前页排序</label>
+          <select
+            id="user-sort"
+            value={`${sort.key}:${sort.direction}`}
+            onChange={(event) => {
+              const [key, direction] = event.target.value.split(':') as [UserSortKey, 'asc' | 'desc'];
+              setSort({ key, direction });
+            }}
+            className="native-select rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
+          >
+            <option value="id:asc">用户 ID：从小到大</option>
+            <option value="id:desc">用户 ID：从大到小</option>
+            <option value="displayName:asc">名称：A-Z</option>
+            <option value="lastLoginAt:desc">最近登录：新到旧</option>
+            <option value="enabled:desc">状态：启用优先</option>
+          </select>
+          <span className="text-xs text-slate-400 dark:text-white/40">排序仅作用于当前页；筛选和分页由服务端执行。</span>
+          <label htmlFor="user-page-size" className="ml-auto text-sm text-slate-500 dark:text-white/55">每页</label>
+          <select
+            id="user-page-size"
+            value={filters.pageSize}
+            onChange={(event) => setFilters((state) => ({ ...state, pageSize: Number(event.target.value), pageNo: 1 }))}
+            className="native-select rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
+          >
+            {[10, 25, 50].map((size) => <option key={size} value={size}>{size} 条</option>)}
+          </select>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-[1fr_auto_auto]">
           <div className="flex flex-wrap gap-3">
-            <select value={filters.profileLinkStatus} onChange={(event) => setFilters((state) => ({ ...state, profileLinkStatus: event.target.value, pageNo: 1 }))} className="native-select min-w-[220px] rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+            <select value={filters.profileLinkStatus} onChange={(event) => setFilters((state) => ({ ...state, profileLinkStatus: event.target.value, pageNo: 1 }))} className="native-select min-w-[220px] rounded-lg border border-border-subtle bg-surface px-4 py-3">
               <option value="">全部资料关联状态</option>
               <option value="UNLINKED">{profileLinkStatusLabel('UNLINKED')}</option>
               <option value="STUDENT_ONLY">{profileLinkStatusLabel('STUDENT_ONLY')}</option>
@@ -630,17 +700,24 @@ const AdminUsersPage: React.FC = () => {
               {allUsersOnPageSelected ? '取消全选本页' : '全选本页'}
             </button>
           </div>
-          <button type="button" onClick={() => setFilters((state) => ({ ...state, pageNo: Math.max(1, state.pageNo - 1) }))} disabled={filters.pageNo <= 1} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40 dark:border-white/10">
-            上一页
-          </button>
-          <button type="button" onClick={() => setFilters((state) => ({ ...state, pageNo: Math.min(totalPages, state.pageNo + 1) }))} disabled={filters.pageNo >= totalPages} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40 dark:border-white/10">
-            下一页
-          </button>
+          <Pagination
+            page={filters.pageNo}
+            pageCount={totalPages}
+            total={totalUsers}
+            pageSize={filters.pageSize}
+            itemLabel="个账号"
+            onPageChange={(pageNo) => setFilters((state) => ({ ...state, pageNo }))}
+            label="用户列表分页"
+            previousLabel="上一页"
+            nextLabel="下一页"
+            disabled={usersQuery.isFetching}
+            className="md:col-span-2"
+          />
         </div>
 
         <div className="space-y-4">
-          {(usersQuery.data?.records || []).map((user) => (
-            <div key={user.id} className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+          {currentPageUsers.map((user) => (
+            <div key={user.id} className="rounded-lg border border-border-subtle bg-surface p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <label className="mt-1 inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs dark:border-white/10">
@@ -668,6 +745,7 @@ const AdminUsersPage: React.FC = () => {
                       </span>
                     </div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{user.username} · {user.email}</div>
+                    <div className="mt-1 text-xs tabular-nums text-slate-400 dark:text-white/35">用户 ID：{user.id}</div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">{user.roles.map((role) => roleLabel(role)).join(' / ')}</span>
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">资料：{profileLinkStatusLabel(user.profileLinkStatus)}</span>
@@ -682,11 +760,33 @@ const AdminUsersPage: React.FC = () => {
                   <button type="button" onClick={() => startEditing(user)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
                     编辑权限
                   </button>
-                  <button type="button" onClick={() => inviteMutation.mutate(user.id)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirmAdminAction(
+                        '确认生成邀请链接？',
+                        '将生成新的账号激活凭证；旧的未使用邀请链接可能失效。',
+                        `用户 ${user.id}（${user.username}）`,
+                        '重新生成链接；如链接已泄露，请立即禁用账号并检查审计日志。'
+                      )) inviteMutation.mutate(user.id);
+                    }}
+                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                  >
                     <MailPlus size={14} className="mr-2 inline-block" />
                     邀请链接
                   </button>
-                  <button type="button" onClick={() => resetMutation.mutate(user.id)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirmAdminAction(
+                        '确认生成密码重置链接？',
+                        '将生成新的密码重置凭证，持有链接者可以设置该账号密码。',
+                        `用户 ${user.id}（${user.username}）`,
+                        '重新生成链接或禁用账号；请在审计日志中核对操作者和时间。'
+                      )) resetMutation.mutate(user.id);
+                    }}
+                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+                  >
                     <KeyRound size={14} className="mr-2 inline-block" />
                     重置密码
                   </button>
@@ -695,8 +795,8 @@ const AdminUsersPage: React.FC = () => {
             </div>
           ))}
 
-          {!usersQuery.isLoading && !(usersQuery.data?.records || []).length && (
-            <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+          {!usersQuery.isLoading && !currentPageUsers.length && (
+            <div className="rounded-lg border border-dashed border-border-subtle bg-surface px-5 py-8 text-sm text-slate-500 dark:text-white/45">
               当前筛选条件下没有账号。
             </div>
           )}
@@ -704,7 +804,7 @@ const AdminUsersPage: React.FC = () => {
       </section>
 
       {batchResult && (
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
+        <section className="rounded-xl border border-border-subtle bg-surface-raised p-6 space-y-5 shadow-sm">
           <div>
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">批量结果</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
@@ -718,7 +818,7 @@ const AdminUsersPage: React.FC = () => {
           {batchResult.operation === 'IMPORT_CREATE' ? (
             <div className="grid gap-3">
               {batchResult.createdUsers.map((item) => (
-                <div key={item.user.id} className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <div key={item.user.id} className="rounded-lg border border-border-subtle bg-surface p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-black text-slate-900 dark:text-white">{item.user.displayName}</div>
@@ -759,7 +859,7 @@ const AdminUsersPage: React.FC = () => {
           ) : (
             <div className="grid gap-3">
               {batchResult.updatedUsers.map((user) => (
-                <div key={user.id} className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <div key={user.id} className="rounded-lg border border-border-subtle bg-surface p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-black text-slate-900 dark:text-white">{user.displayName}</div>
@@ -778,7 +878,7 @@ const AdminUsersPage: React.FC = () => {
       )}
 
       {editingUser && (
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-5">
+        <section className="rounded-xl border border-border-subtle bg-surface-raised p-6 space-y-5 shadow-sm">
           <div>
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">访问权限</div>
             <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{editingUser.displayName}</div>
@@ -805,9 +905,28 @@ const AdminUsersPage: React.FC = () => {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => updateAccessMutation.mutate({ userId: editingUser.id, payload: accessForm })}
+              onClick={() => {
+                if (editingUser.id === currentUserId && !accessForm.enabled) {
+                  setErrorMessage('不能在当前会话中禁用自己的账号。请由另一名管理员执行此操作。');
+                  setFeedback(null);
+                  return;
+                }
+                if (editingUser.id === currentUserId && !accessForm.roles.includes('ADMIN')) {
+                  setErrorMessage('不能在当前会话中移除自己的管理员角色。请由另一名管理员执行此操作。');
+                  setFeedback(null);
+                  return;
+                }
+                if (confirmAdminAction(
+                  '确认保存访问权限？',
+                  `将${accessForm.enabled ? '启用' : '禁用'}账号并覆盖角色为 ${accessForm.roles.map((role) => roleLabel(role)).join('、') || '无'}。`,
+                  `用户 ${editingUser.id}（${editingUser.username}）`,
+                  '再次编辑该账号并恢复原角色/状态；请保留变更前记录。'
+                )) {
+                  updateAccessMutation.mutate({ userId: editingUser.id, payload: accessForm });
+                }
+              }}
               disabled={updateAccessMutation.isPending}
-              className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+              className="rounded-lg bg-primary px-6 py-3 text-primary-foreground disabled:opacity-60 hover:bg-primary/90"
             >
               {updateAccessMutation.isPending ? '保存中...' : '保存权限'}
             </button>

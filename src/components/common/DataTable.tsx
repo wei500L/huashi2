@@ -28,15 +28,17 @@ export function DataTable<T>({ rows, columns, getRowId, caption, empty, density 
   const sortedRows = React.useMemo(() => {
     if (!sort || !activeColumn?.sortable) return rows;
     const getValue = (row: T) => activeColumn.sortValue?.(row) ?? (activeColumn.accessor ? row[activeColumn.accessor] : '');
-    return [...rows].sort((a, b) => {
+    return rows.map((row, index) => ({ row, index })).sort((aEntry, bEntry) => {
+      const a = aEntry.row;
+      const b = bEntry.row;
       const left = getValue(a);
       const right = getValue(b);
-      if (left === right) return 0;
+      if (left === right) return aEntry.index - bEntry.index;
       if (left == null) return 1;
       if (right == null) return -1;
       const result = String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
       return sort.direction === 'asc' ? result : -result;
-    });
+    }).map((entry) => entry.row);
   }, [activeColumn, rows, sort]);
 
   const toggleSort = (column: DataTableColumn<T>) => {

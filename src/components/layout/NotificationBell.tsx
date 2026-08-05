@@ -260,7 +260,7 @@ export const NotificationBell: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-black text-slate-900 dark:text-white">{t('shell.notifications.title')}</div>
-            <div className="mt-1 text-xs text-slate-400 dark:text-white/40">
+            <div aria-live="polite" className="mt-1 text-xs text-slate-400 dark:text-white/40">
               {t('shell.notifications.unreadCount', { count: unreadCount })}
             </div>
           </div>
@@ -307,7 +307,7 @@ export const NotificationBell: React.FC = () => {
           />
         )}
 
-        <ul className="mt-4 max-h-[calc(100vh-10rem)] space-y-1 overflow-y-auto pr-1" aria-label={t('shell.notifications.title')}>
+        <ul aria-live="polite" className="mt-4 max-h-[calc(100vh-10rem)] space-y-1 overflow-y-auto pr-1" aria-label={t('shell.notifications.title')}>
           {recentNotificationsQuery.isLoading ? (
             <li><FeedbackState
               kind="loading" compact className="px-4 py-5"

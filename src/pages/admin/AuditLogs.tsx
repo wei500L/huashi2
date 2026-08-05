@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { History, RefreshCw, Shield, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { PageHeader } from '@/components/common';
+import { PageHeader, Pagination } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { adminService } from '@/lib/services';
@@ -16,6 +16,8 @@ type AuditLogFilters = {
   actionType: string;
   userKeyword: string;
 };
+
+type AuditLogSort = 'createdAt' | 'actionType' | 'responseCode';
 
 const defaultFilters: AuditLogFilters = {
   pageNo: 1,
@@ -50,6 +52,7 @@ function responseTone(responseCode: string): string {
 
 const AdminAuditLogsPage: React.FC = () => {
   const [filters, setFilters] = React.useState<AuditLogFilters>(defaultFilters);
+  const [sort, setSort] = React.useState<{ key: AuditLogSort; direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
 
   const auditLogsQuery = useQuery({
     queryKey: ['admin-audit-logs', filters],
@@ -67,7 +70,15 @@ const AdminAuditLogsPage: React.FC = () => {
       ),
   });
 
-  const records = auditLogsQuery.data?.records || [];
+  const records = React.useMemo(() => {
+    const source = auditLogsQuery.data?.records || [];
+    return [...source].sort((left, right) => {
+      const leftValue = left[sort.key] ?? '';
+      const rightValue = right[sort.key] ?? '';
+      const result = String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
+      return sort.direction === 'asc' ? result : -result;
+    });
+  }, [auditLogsQuery.data?.records, sort]);
   const total = auditLogsQuery.data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
   const actionTypeOptions = React.useMemo(
@@ -112,28 +123,28 @@ const AdminAuditLogsPage: React.FC = () => {
       />
 
       {auditLogsQuery.isError && (
-        <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-600 dark:text-rose-400">
+        <div role="alert" className="rounded-lg border border-error/30 bg-error/5 px-5 py-4 text-sm text-rose-600 dark:text-rose-400">
           {getApiErrorMessage(auditLogsQuery.error, '审计日志加载失败')}
         </div>
       )}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">命中记录</div>
           <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{total || '--'}</div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">当前筛选条件下的总数</div>
         </div>
-        <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">当前页记录</div>
           <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{records.length}</div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">第 {filters.pageNo} / {totalPages} 页</div>
         </div>
-        <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 shadow-sm">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">当前页操作类型</div>
           <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{actionTypeOptions.length}</div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{actionTypeOptions.slice(0, 2).join(' / ') || '暂无数据'}</div>
         </div>
-        <div className="rounded-[2rem] border border-sky-500/20 bg-sky-500/5 px-5 py-5">
+        <div className="rounded-xl border border-info/30 bg-info/5 px-5 py-5">
           <div className="text-[11px] uppercase tracking-[0.28em] text-sky-700/70 dark:text-sky-300/70">时间窗口</div>
           <div className="mt-2 inline-flex items-center gap-2 text-lg font-black text-sky-800 dark:text-sky-200">
             <History size={18} />
@@ -143,13 +154,13 @@ const AdminAuditLogsPage: React.FC = () => {
         </div>
       </section>
 
-      <section className="rounded-[2.5rem] liquid-glass-panel space-y-5 p-8">
+      <section className="rounded-xl border border-border-subtle bg-surface-raised space-y-5 p-6 shadow-sm">
         <div className="grid gap-4 xl:grid-cols-4">
           <input
             value={filters.userKeyword}
             onChange={(event) => setFilters((state) => ({ ...state, userKeyword: event.target.value, pageNo: 1 }))}
             placeholder="用户 ID / 用户名 / 显示名 / 邮箱"
-            className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+            className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
           />
           <div>
             <input
@@ -157,7 +168,7 @@ const AdminAuditLogsPage: React.FC = () => {
               value={filters.actionType}
               onChange={(event) => setFilters((state) => ({ ...state, actionType: event.target.value, pageNo: 1 }))}
               placeholder="操作类型，例如 template_create"
-              className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+              className="w-full rounded-lg border border-border-subtle bg-surface px-4 py-3"
             />
             <datalist id="audit-action-type-options">
               {actionTypeOptions.map((actionType) => <option key={actionType} value={actionType} />)}
@@ -167,14 +178,42 @@ const AdminAuditLogsPage: React.FC = () => {
             type="datetime-local"
             value={filters.startAt}
             onChange={(event) => setFilters((state) => ({ ...state, startAt: event.target.value, pageNo: 1 }))}
-            className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+            className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
           />
           <input
             type="datetime-local"
             value={filters.endAt}
             onChange={(event) => setFilters((state) => ({ ...state, endAt: event.target.value, pageNo: 1 }))}
-            className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+            className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
           />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle pt-4">
+          <label className="text-sm text-slate-500 dark:text-white/55" htmlFor="audit-sort">当前页排序</label>
+          <select
+            id="audit-sort"
+            value={`${sort.key}:${sort.direction}`}
+            onChange={(event) => {
+              const [key, direction] = event.target.value.split(':') as [AuditLogSort, 'asc' | 'desc'];
+              setSort({ key, direction });
+            }}
+            className="native-select rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
+          >
+            <option value="createdAt:desc">时间：新到旧</option>
+            <option value="createdAt:asc">时间：旧到新</option>
+            <option value="actionType:asc">操作类型：A-Z</option>
+            <option value="responseCode:asc">响应：成功优先</option>
+          </select>
+          <label className="text-sm text-slate-500 dark:text-white/55" htmlFor="audit-page-size">每页</label>
+          <select
+            id="audit-page-size"
+            value={filters.pageSize}
+            onChange={(event) => setFilters((state) => ({ ...state, pageSize: Number(event.target.value), pageNo: 1 }))}
+            className="native-select rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
+          >
+            {[20, 50, 100].map((size) => <option key={size} value={size}>{size} 条</option>)}
+          </select>
+          <span className="text-xs text-slate-400 dark:text-white/40">排序仅作用于当前页，服务端筛选与分页仍保持不变。</span>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -185,41 +224,36 @@ const AdminAuditLogsPage: React.FC = () => {
           >
             重置筛选
           </button>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setFilters((state) => ({ ...state, pageNo: Math.max(1, state.pageNo - 1) }))}
-              disabled={filters.pageNo <= 1}
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40 dark:border-white/10"
-            >
-              上一页
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilters((state) => ({ ...state, pageNo: Math.min(totalPages, state.pageNo + 1) }))}
-              disabled={filters.pageNo >= totalPages}
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40 dark:border-white/10"
-            >
-              下一页
-            </button>
-          </div>
+          <Pagination
+            page={filters.pageNo}
+            pageCount={totalPages}
+            total={total}
+            pageSize={filters.pageSize}
+            itemLabel="条记录"
+            onPageChange={(pageNo) => setFilters((state) => ({ ...state, pageNo }))}
+            label="审计日志分页"
+            previousLabel="上一页"
+            nextLabel="下一页"
+            disabled={auditLogsQuery.isFetching}
+            className="max-w-xs"
+          />
         </div>
 
         <div className="space-y-4">
           {auditLogsQuery.isLoading && (
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
+            <div className="rounded-lg border border-border-subtle bg-surface px-5 py-8 text-sm text-slate-500 dark:text-white/45">
               正在加载审计日志...
             </div>
           )}
 
           {!auditLogsQuery.isLoading && !records.length && (
-            <div className="rounded-[1.8rem] border border-dashed border-slate-300 bg-white/55 px-5 py-8 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/45">
+            <div className="rounded-lg border border-dashed border-border-subtle bg-surface px-5 py-8 text-sm text-slate-500 dark:text-white/45">
               当前筛选条件下没有审计记录。
             </div>
           )}
 
           {records.map((log) => (
-            <article key={log.id} className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <article key={log.id} className="rounded-lg border border-border-subtle bg-surface p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-3">
@@ -236,12 +270,14 @@ const AdminAuditLogsPage: React.FC = () => {
                     {resolveActorLabel(log)} · {formatDateTime(log.createdAt)}
                   </div>
 
+                  <div className="mt-2 text-xs tabular-nums text-slate-400 dark:text-white/35">日志 ID：{log.id}</div>
+
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                    <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
-                      目标：{log.targetType}{log.targetId ? ` #${log.targetId}` : ''}
+                    <span className="rounded-full border border-border-subtle px-3 py-1">
+                      目标：{log.targetType || '--'}{log.targetId != null ? ` #${log.targetId}` : ''}
                     </span>
                     <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
-                      Trace：{log.traceId}
+                      Trace：{log.traceId || '--'}
                     </span>
                     {log.actorUserId != null && (
                       <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
@@ -250,13 +286,13 @@ const AdminAuditLogsPage: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="mt-4 rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                  <div className="mt-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-4 text-sm text-slate-600 dark:text-white/60">
                     <div className="font-bold text-slate-800 dark:text-white">请求路径</div>
                     <div className="mt-2 break-all">{log.requestPath}</div>
                   </div>
 
                   {log.requestPayload && (
-                    <details className="mt-4 rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    <details className="mt-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-4">
                       <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-white">查看请求负载</summary>
                       <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all text-xs text-slate-600 dark:text-white/60">
                         {log.requestPayload}

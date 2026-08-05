@@ -11,13 +11,20 @@ type PaginationProps = {
   nextLabel?: string;
   className?: string;
   disabled?: boolean;
+  total?: number;
+  pageSize?: number;
+  itemLabel?: string;
 };
 
-export const Pagination: React.FC<PaginationProps> = ({ page, pageCount, onPageChange, label, previousLabel = 'Previous page', nextLabel = 'Next page', className, disabled }) => {
+export const Pagination: React.FC<PaginationProps> = ({ page, pageCount, onPageChange, label, previousLabel = 'Previous page', nextLabel = 'Next page', className, disabled, total, pageSize = 20, itemLabel = 'items' }) => {
   const safePageCount = Math.max(1, pageCount);
+  const rangeStart = total && total > 0 ? (page - 1) * pageSize + 1 : 0;
+  const rangeEnd = total && total > 0 ? Math.min(total, page * pageSize) : 0;
   return (
     <nav aria-label={label ?? 'Pagination'} className={cn('flex items-center justify-between gap-3 text-sm', className)}>
-      <span className="type-body-muted tabular-nums">{page} / {safePageCount}</span>
+      <span className="type-body-muted tabular-nums">
+        {total != null ? `${rangeStart}-${rangeEnd} / ${total} ${itemLabel}` : `${page} / ${safePageCount}`}
+      </span>
       <div className="flex items-center gap-1">
         <button
           type="button"
