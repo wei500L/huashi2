@@ -20,6 +20,7 @@ const StudentAssessmentResultPage: React.FC = () => {
     retry: false,
     refetchInterval: (query) => query.state.data?.releaseStatus === 'PENDING' ? 15000 : false,
   });
+  const result = resultQuery.data;
 
   if (!isValidAttemptId) {
     return (
@@ -70,45 +71,45 @@ const StudentAssessmentResultPage: React.FC = () => {
         </section>
       )}
 
-      {resultQuery.data?.releaseStatus === 'AVAILABLE' && (
+      {result?.releaseStatus === 'AVAILABLE' && (
         <>
           <div className="grid gap-6 md:grid-cols-4">
             <div className="rounded-[2rem] liquid-glass-panel p-6">
               <SectionEyebrow>{t('ui.meta.objectiveScore')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{resultQuery.data.totalScore ?? 0}</div>
+              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{result.totalScore ?? 0}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.objectiveScore')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
               <SectionEyebrow>{t('ui.meta.correctRate')}</SectionEyebrow>
               <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">
-                {resultQuery.data.questionCount ? Math.round(((resultQuery.data.correctCount ?? 0) / resultQuery.data.questionCount) * 100) : 0}%
+                {result.questionCount ? Math.round(((result.correctCount ?? 0) / result.questionCount) * 100) : 0}%
               </div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.correctRate')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
               <SectionEyebrow>{t('ui.meta.answeredQuestionCount')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{resultQuery.data.answeredCount}</div>
+              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{result.answeredCount}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.answeredQuestionCount')}</div>
             </div>
             <div className="rounded-[2rem] liquid-glass-panel p-6">
               <SectionEyebrow>{t('ui.meta.startedAnsweringAt')}</SectionEyebrow>
-              <div className="mt-3 text-xl font-black text-slate-900 dark:text-white">{formatDateTime(resultQuery.data.startedAt)}</div>
+              <div className="mt-3 text-xl font-black text-slate-900 dark:text-white">{formatDateTime(result.startedAt)}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.startedAnsweringAt')}</div>
             </div>
           </div>
 
-          {resultQuery.data.instructionsText && (
+          {result.instructionsText && (
             <div className="rounded-[2rem] border border-dashed border-slate-200/80 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
-              {resultQuery.data.instructionsText}
+              {result.instructionsText}
             </div>
           )}
 
           <div className="space-y-5">
-            {resultQuery.data.questions.map((question) => (
+            {result.questions.map((question) => (
               <div key={question.answerId} className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <SectionEyebrow>{`${t('ui.meta.progress', { current: question.questionOrder, total: resultQuery.data.questions.length })} · ${assessmentQuestionTypeLabel(question.questionType)}`}</SectionEyebrow>
+                    <SectionEyebrow>{`${t('ui.meta.progress', { current: question.questionOrder, total: result.questions.length })} · ${assessmentQuestionTypeLabel(question.questionType)}`}</SectionEyebrow>
                     <div className="mt-3 text-xl font-black text-slate-900 dark:text-white">{question.stemText}</div>
                     {question.promptText && <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{question.promptText}</div>}
                   </div>

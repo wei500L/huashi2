@@ -7,7 +7,7 @@ COPY pom.xml pom.xml
 COPY shared-kernel/pom.xml shared-kernel/pom.xml
 COPY ai-gateway/pom.xml ai-gateway/pom.xml
 COPY app-server/pom.xml app-server/pom.xml
-RUN chmod +x mvnw
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 
 COPY shared-kernel/src shared-kernel/src
 COPY ai-gateway/src ai-gateway/src

@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DiagnosisPdfReport } from '@/components/diagnosis/DiagnosisPdfReport';
 import { PageHeader, PanelSkeleton, SectionEyebrow } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
-import { getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { clearDiagnosisLaunchParams, parseDiagnosisLaunchNumber } from '@/lib/diagnosis-launch';
 import { exportReportPagesToPdf } from '@/lib/pdf-report';

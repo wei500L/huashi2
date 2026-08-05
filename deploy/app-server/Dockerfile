@@ -7,7 +7,9 @@ COPY pom.xml pom.xml
 COPY shared-kernel/pom.xml shared-kernel/pom.xml
 COPY app-server/pom.xml app-server/pom.xml
 COPY ai-gateway/pom.xml ai-gateway/pom.xml
-RUN chmod +x mvnw && ./mvnw -pl shared-kernel,app-server -am -q dependency:go-offline
+RUN sed -i 's/\r$//' mvnw \
+    && chmod +x mvnw \
+    && ./mvnw -pl shared-kernel,app-server -am -q dependency:go-offline
 
 COPY shared-kernel/src shared-kernel/src
 COPY app-server/src app-server/src
