@@ -242,7 +242,7 @@ export const NotificationBell: React.FC = () => {
           left: panelStyle.left,
           width: panelStyle.width,
         }}
-        className="z-[140] rounded-[1.8rem] border border-slate-200/80 bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/92"
+        className="z-[140] rounded-xl border border-border-subtle bg-surface p-4 shadow-lg"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -262,7 +262,7 @@ export const NotificationBell: React.FC = () => {
           </button>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 max-h-[calc(100vh-10rem)] space-y-2 overflow-y-auto pr-1">
           {recentNotificationsQuery.isLoading ? (
             <div className="rounded-2xl border border-slate-200/70 px-4 py-6 text-sm text-slate-400 dark:border-white/10 dark:text-white/40">
               {t('shell.notifications.loading')}
@@ -316,7 +316,8 @@ export const NotificationBell: React.FC = () => {
         aria-label={buttonLabel}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((value) => !value)}
-        className="relative p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-all border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+        title={buttonLabel}
+        className="relative rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken"
       >
         <Bell size={20} className="text-slate-500 dark:text-white/70" />
         {unreadCount > 0 && (

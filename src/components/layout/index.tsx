@@ -20,13 +20,13 @@ import {
   Shield,
   Sparkles,
   Sun,
+  UserRound,
   Users,
   X,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Magnetic } from '@/components/common';
 import { RouteErrorBoundary } from '@/components/common/AppErrorBoundary';
 import { NotificationBell } from './NotificationBell';
 import { useAuthStore, useUIStore } from '@/store';
@@ -48,12 +48,12 @@ import type { WorkspaceId } from '@/lib/workspaces';
 type NavItem = {
   name: string;
   path: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>;
 };
 
 type WorkspaceMeta = {
   labelKey: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>;
 };
 
 const WORKSPACE_META: Record<WorkspaceId, WorkspaceMeta> = {
@@ -149,16 +149,16 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({ activeWorkspace, 
   }
 
   return (
-    <div className={cn(isCollapsed ? 'px-3 pt-1 pb-2' : 'px-4 pt-1 pb-2')}>
+    <div className={cn(isCollapsed ? 'px-2 pt-1 pb-2' : 'px-3 pt-1 pb-2')}>
       {!isCollapsed && (
-        <div className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-white/20">
+        <div className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
           {t('shell.switchWorkspaceLabel')}
         </div>
       )}
       <div
         className={cn(
-          'mt-3 rounded-lg border border-border-subtle bg-surface-sunken',
-          isCollapsed ? 'p-2 space-y-2' : 'p-2.5 space-y-2'
+          'mt-2 rounded-xl border border-border-subtle bg-surface-sunken/80',
+          isCollapsed ? 'p-1.5 space-y-1' : 'p-1.5 space-y-1'
         )}
       >
         {workspaces.map((workspace) => {
@@ -170,20 +170,21 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({ activeWorkspace, 
               type="button"
               aria-pressed={isActive}
               aria-label={t(meta.labelKey)}
+              title={isCollapsed ? t(meta.labelKey) : undefined}
               onClick={() => onSelect(workspace)}
               className={cn(
-                'w-full rounded-lg border transition-all duration-200',
-                isCollapsed ? 'flex items-center justify-center px-3 py-3' : 'flex items-center gap-3 px-4 py-3 text-left',
+                'w-full rounded-lg border text-left motion-feedback',
+                isCollapsed ? 'flex items-center justify-center px-2 py-2.5' : 'flex items-center gap-3 px-3 py-2.5',
                 isActive
-                  ? 'border-primary/25 bg-primary/[0.08] text-primary shadow-sm'
-                  : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900 dark:text-white/55 dark:hover:border-white/10 dark:hover:text-white'
+                  ? 'border-primary/30 bg-primary/[0.1] text-primary shadow-sm'
+                  : 'border-transparent text-slate-500 hover:border-border-strong hover:bg-surface-raised hover:text-slate-900 dark:text-white/55 dark:hover:text-white'
               )}
             >
-              <meta.icon size={16} />
+              <meta.icon size={17} aria-hidden="true" />
               {!isCollapsed && (
-                <div className="min-w-0">
-                  <div className="text-xs font-black tracking-wide">{t(meta.labelKey)}</div>
-                  <div className="mt-1 text-[10px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-semibold tracking-wide">{t(meta.labelKey)}</div>
+                  <div className="mt-0.5 truncate text-[10px] uppercase tracking-[0.16em] text-slate-400 dark:text-white/35">
                     {isActive ? t('shell.currentWorkspaceLabel') : t('shell.switchWorkspaceLabel')}
                   </div>
                 </div>
@@ -231,8 +232,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
     <>
       <div
         className={cn(
-          'relative z-10',
-          isCollapsed ? 'px-3 pb-3 pt-4 flex flex-col items-center gap-3' : 'p-8 flex items-center justify-between gap-3'
+          'relative z-10 border-b border-border-subtle',
+          isCollapsed ? 'px-3 pb-4 pt-5 flex flex-col items-center gap-3' : 'px-5 pb-5 pt-6 flex items-center justify-between gap-3'
         )}
       >
         <Link
@@ -241,17 +242,15 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
           aria-label={t('common.appName')}
           onClick={onNavigate}
         >
-          <div className="relative w-9 h-9 flex items-center justify-center">
-            <div className="absolute inset-0 bg-primary/15 rounded-xl rotate-6" />
-            <div className="absolute inset-0 border border-primary/40 rounded-xl -rotate-6" />
-            <Sparkles size={16} className="text-primary relative z-10" />
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <Sparkles size={16} aria-hidden="true" />
           </div>
           {!isCollapsed && (
             <div className="flex flex-col">
-              <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white leading-none">
+              <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-white leading-none">
                 EF<span className="text-primary">.</span>Transfer
               </span>
-              <span className="mt-1 text-[11px] font-bold text-slate-400 dark:text-white/30 leading-none">
+              <span className="mt-1 truncate text-[10px] font-medium text-slate-400 dark:text-white/40 leading-none">
                 {t('shell.brandDescriptor')}
               </span>
             </div>
@@ -264,8 +263,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
         role="navigation"
         aria-label={navigationLabel}
         className={cn(
-          'flex-1 overflow-y-auto no-scrollbar relative z-10',
-          isCollapsed ? 'px-3 py-3 space-y-4' : 'px-4 py-4 space-y-8'
+          'min-h-0 flex-1 overflow-y-auto no-scrollbar relative z-10',
+          isCollapsed ? 'px-2 py-4 space-y-5' : 'px-3 py-5 space-y-7'
         )}
       >
         {currentWorkspace && (
@@ -277,42 +276,44 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
           />
         )}
         {sections.map((section) => (
-          <div key={section.label} className={cn(isCollapsed ? 'space-y-1.5' : 'space-y-2')}>
+          <div key={section.label} className={cn(isCollapsed ? 'space-y-1' : 'space-y-2')}>
             {!isCollapsed && (
-              <h4 className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-white/20">
+              <h4 className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
                 {section.label}
               </h4>
             )}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {section.items.map((item) => (
-                <motion.div key={item.path} whileHover={isCollapsed ? undefined : { x: 4 }} whileTap={{ scale: 0.98 }}>
-                  <NavLink
-                    to={item.path}
-                    aria-label={item.name}
-                    onClick={onNavigate}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex rounded-lg transition-all duration-200 group relative',
-                        isCollapsed ? 'items-center justify-center px-3 py-3.5' : 'items-center gap-3 px-4 py-3',
-                        isActive ? 'text-primary font-black' : 'text-slate-500 dark:text-white/50 hover:text-primary dark:hover:text-white'
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {isActive && (
-                          <motion.div
-                            layoutId="active-pill"
-                            className="absolute inset-0 bg-primary/[0.08] border border-primary/20 rounded-lg shadow-sm"
-                            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                          />
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  aria-label={item.name}
+                  title={isCollapsed ? item.name : undefined}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    cn(
+                      'group relative flex min-h-10 items-center rounded-lg border motion-feedback',
+                      isCollapsed ? 'justify-center px-2.5' : 'gap-3 px-3',
+                      isActive
+                        ? 'border-primary/25 bg-primary/[0.1] text-primary font-semibold shadow-sm'
+                        : 'border-transparent text-slate-500 hover:border-border-subtle hover:bg-surface-sunken hover:text-slate-900 dark:text-white/55 dark:hover:text-white'
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary motion-feedback',
+                          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'
                         )}
-                        <item.icon size={18} className="relative z-10" />
-                        {!isCollapsed && <span className="relative z-10 tracking-wide text-xs">{item.name}</span>}
-                      </>
-                    )}
-                  </NavLink>
-                </motion.div>
+                      />
+                      <item.icon size={17} className="shrink-0" aria-hidden="true" />
+                      {!isCollapsed && <span className="min-w-0 flex-1 break-words text-sm leading-5">{item.name}</span>}
+                    </>
+                  )}
+                </NavLink>
               ))}
             </div>
           </div>
@@ -321,37 +322,39 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
 
       <div
         className={cn(
-          'relative z-10 mt-auto border-t border-white/5',
-          isCollapsed ? 'p-3' : 'p-4 space-y-4'
+          'relative z-10 mt-auto border-t border-border-subtle bg-surface-raised/60',
+          isCollapsed ? 'p-2.5' : 'p-3 space-y-3'
         )}
       >
         {!isCollapsed && user && (
-            <div className="px-4 py-3 rounded-2xl bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/5">
-              <div className="text-sm font-black text-slate-900 dark:text-white/90">{user.displayName}</div>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mt-1">
-                {roleLabels.join(' / ')}
+          <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border-subtle bg-surface p-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UserRound size={17} aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-slate-900 dark:text-white/90">{user.displayName}</div>
+              <div className="mt-0.5 truncate text-[10px] uppercase tracking-[0.16em] text-slate-400 dark:text-white/35">
+                {roleLabels.join(' / ') || user.username}
               </div>
             </div>
+          </div>
+        )}
+        <button
+          type="button"
+          aria-label={t('common.actions.signOut')}
+          title={isCollapsed ? t('common.actions.signOut') : undefined}
+          onClick={() => {
+            onNavigate?.();
+            void logout();
+          }}
+          className={cn(
+            'flex min-h-10 items-center rounded-lg border border-transparent text-rose-500 motion-feedback hover:border-rose-500/20 hover:bg-rose-500/10 dark:text-rose-400',
+            isCollapsed ? 'w-full justify-center px-2.5' : 'w-full gap-3 px-3'
           )}
-        <div className={cn(isCollapsed && 'flex justify-center')}>
-          <Magnetic strength={0.1}>
-            <button
-              type="button"
-              aria-label={t('common.actions.signOut')}
-              onClick={() => {
-                onNavigate?.();
-                void logout();
-              }}
-              className={cn(
-                'flex items-center rounded-2xl text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-all border border-transparent hover:border-rose-500/20 font-bold',
-                isCollapsed ? 'justify-center p-3' : 'w-full gap-3 px-4 py-3'
-              )}
-            >
-              <LogOut size={18} />
-              {!isCollapsed && <span className="uppercase tracking-widest text-[9px]">{t('common.actions.signOut')}</span>}
-            </button>
-          </Magnetic>
-        </div>
+        >
+          <LogOut size={17} aria-hidden="true" />
+          {!isCollapsed && <span className="text-sm font-semibold">{t('common.actions.signOut')}</span>}
+        </button>
       </div>
     </>
   );
@@ -365,7 +368,7 @@ export const Sidebar: React.FC = () => {
     <aside
       aria-label={t('shell.mobileNavigationTitle')}
       className={cn(
-        'sidebar-shell hidden lg:flex h-[calc(100vh-1.5rem)] my-3 ml-3 flex-col transition-all motion-layout duration-200 z-50 surface-panel rounded-xl',
+        'sidebar-shell sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border-subtle bg-surface transition-all motion-layout duration-200 lg:flex',
         isSidebarCollapsed ? 'w-20' : 'w-72'
       )}
     >
@@ -373,22 +376,22 @@ export const Sidebar: React.FC = () => {
         isCollapsed={isSidebarCollapsed}
         navigationLabel={t('shell.mobileNavigationTitle')}
         headerAction={
-          <Magnetic strength={0.18}>
-            <button
-              type="button"
-              aria-label={isSidebarCollapsed ? t('common.actions.expandSidebar') : t('common.actions.collapseSidebar')}
-              onClick={toggleSidebar}
-              className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-slate-200 dark:border-white/5"
-            >
-              <ChevronLeft
-                className={cn(
-                  'transition-transform duration-200 text-slate-400 dark:text-white/70',
-                  isSidebarCollapsed && 'rotate-180'
-                )}
-                size={20}
-              />
-            </button>
-          </Magnetic>
+          <button
+            type="button"
+            aria-label={isSidebarCollapsed ? t('common.actions.expandSidebar') : t('common.actions.collapseSidebar')}
+            title={isSidebarCollapsed ? t('common.actions.expandSidebar') : t('common.actions.collapseSidebar')}
+            onClick={toggleSidebar}
+            className="rounded-lg border border-border-subtle p-2 text-slate-500 hover:border-border-strong hover:bg-surface-sunken hover:text-slate-900 dark:text-white/65 dark:hover:text-white"
+          >
+            <ChevronLeft
+              className={cn(
+                'transition-transform duration-200',
+                isSidebarCollapsed && 'rotate-180'
+              )}
+              size={18}
+              aria-hidden="true"
+            />
+          </button>
         }
       />
     </aside>
@@ -930,24 +933,25 @@ export const Topbar: React.FC = () => {
   const canUseAssistant = currentWorkspace === 'STUDENT_WORKSPACE' && userHasCapability(user, 'STUDENT_WORKSPACE');
 
   return (
-    <header className="h-16 mt-3 mx-4 lg:mx-8 flex items-center justify-between px-6 sticky top-3 z-40 surface-card rounded-xl">
-      <div className="flex items-center gap-5 flex-1 relative z-10">
+    <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface/95 px-4 py-3 lg:px-8">
+      <div className="mx-auto flex min-h-14 w-full max-w-[1480px] items-center justify-between gap-4">
+        <div className="relative z-10 flex min-w-0 flex-1 items-center gap-4">
         <button
           type="button"
           aria-label={t('common.actions.openNavigation')}
           onClick={openMobileSidebar}
-          className="flex lg:hidden items-center justify-center rounded-full border border-slate-200 dark:border-white/10 p-2.5 hover:border-primary/40"
+          className="flex items-center justify-center rounded-lg border border-border-subtle p-2 lg:hidden"
         >
-          <Menu size={18} className="text-slate-500 dark:text-white/70" />
+          <Menu size={18} className="text-slate-500 dark:text-white/70" aria-hidden="true" />
         </button>
-        <div>
-          <div className="type-metadata mb-1">
+        <div className="min-w-0 shrink-0">
+          <div className="type-metadata mb-1 truncate">
             {currentWorkspaceLabel}
           </div>
-          <div className="type-section-title text-slate-900 dark:text-white">{currentTitle}</div>
+          <div className="type-section-title truncate text-slate-900 dark:text-white">{currentTitle}</div>
         </div>
         {canUseAssistant && (
-          <div className="relative max-w-lg w-full hidden md:block group">
+          <div className="group relative hidden min-w-0 max-w-xl flex-1 md:block">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within:text-primary transition-colors duration-300"
               size={16}
@@ -966,20 +970,20 @@ export const Topbar: React.FC = () => {
                 }
               }}
               placeholder={t('shell.searchPlaceholder')}
-              className="w-full bg-white/50 dark:bg-black/30 border border-slate-200 dark:border-white/5 focus:border-primary/40 rounded-full py-2.5 pl-11 pr-4 text-sm transition-all focus:outline-none"
+              className="surface-control w-full rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-primary/60 focus:outline-none"
             />
           </div>
         )}
       </div>
-      <div className="flex items-center gap-5 relative z-10">
+        <div className="relative z-10 flex shrink-0 items-center gap-2 sm:gap-3">
         {canUseAssistant && (
           <button
             type="button"
             aria-label={t('common.actions.openAssistant')}
             onClick={() => openAssistant(search.trim())}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 dark:border-white/10 hover:border-primary/40 text-xs font-black uppercase tracking-[0.2em]"
+            className="hidden items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold text-slate-600 hover:border-primary/40 hover:text-primary dark:text-white/70 sm:flex"
           >
-            <Brain size={14} />
+            <Brain size={14} aria-hidden="true" />
             {t('common.actions.openAssistant')}
           </button>
         )}
@@ -988,20 +992,31 @@ export const Topbar: React.FC = () => {
           type="button"
           aria-label={t('common.localeLabel')}
           onClick={() => setLocale(locale === 'zh-CN' ? 'en-US' : 'zh-CN')}
-          className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-full border border-slate-200 dark:border-white/10 text-xs font-black uppercase tracking-[0.2em]"
+          className="hidden items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold sm:flex"
         >
           {locale === 'zh-CN' ? 'EN' : '中'}
         </button>
-        <Magnetic strength={0.16}>
-          <button
-            type="button"
-            aria-label={isDarkMode ? t('common.actions.lightMode') : t('common.actions.darkMode')}
-            onClick={toggleDarkMode}
-            className="p-2.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-all group border border-transparent hover:border-slate-200 dark:hover:border-white/10"
-          >
-            {isDarkMode ? <Sun size={20} className="text-amber-400" /> : <Moon size={20} className="text-slate-400" />}
-          </button>
-        </Magnetic>
+        <button
+          type="button"
+          aria-label={isDarkMode ? t('common.actions.lightMode') : t('common.actions.darkMode')}
+          title={isDarkMode ? t('common.actions.lightMode') : t('common.actions.darkMode')}
+          onClick={toggleDarkMode}
+          className="rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken"
+        >
+          {isDarkMode ? <Sun size={18} className="text-amber-400" aria-hidden="true" /> : <Moon size={18} className="text-slate-500" aria-hidden="true" />}
+        </button>
+        {user && (
+          <div className="hidden max-w-44 items-center gap-2 border-l border-border-subtle pl-3 lg:flex">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UserRound size={16} aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{user.displayName}</div>
+              <div className="truncate text-[10px] uppercase tracking-[0.12em] text-slate-400 dark:text-white/35">{user.username}</div>
+            </div>
+          </div>
+        )}
+        </div>
       </div>
     </header>
   );
@@ -1022,12 +1037,14 @@ export const AppLayout: React.FC = () => {
       <MobileSidebarDrawer />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
-        <main className="px-4 lg:px-8 py-8 flex-1 relative z-10">
+        <main className="relative z-10 flex-1 px-4 py-6 lg:px-8 lg:py-8">
           <RouteErrorBoundary
             title={t('common.errors.routeTitle')}
             description={t('common.errors.routeDescription')}
           >
-            <Outlet />
+            <div className="mx-auto w-full max-w-[1480px]">
+              <Outlet />
+            </div>
           </RouteErrorBoundary>
         </main>
       </div>
