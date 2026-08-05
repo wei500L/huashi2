@@ -1,10 +1,10 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Brain, Wand2 } from 'lucide-react';
+import { Brain, Eye, EyeOff, RefreshCw, ShieldCheck, Wand2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
+import { PageHeader, PanelSkeleton, SectionEyebrow, SpotlightCard, StatusBadge } from '@/components/common';
 import InterventionEffectPanel from '@/features/interventions/InterventionEffectPanel';
 import type { TeacherInterventionSummaryVO } from '@/lib/contracts';
 import { aiService, teacherAnalyticsService, teacherInterventionService } from '@/lib/services';
@@ -49,6 +49,18 @@ function buildInterventionForm(item?: TeacherInterventionSummaryVO | null): Inte
   };
 }
 
+function maskStudentName(name?: string | null): string {
+  if (!name) return '学生';
+  const chars = Array.from(name);
+  return chars.length <= 1 ? '•' : `${chars[0]}${'•'.repeat(Math.min(chars.length - 1, 3))}`;
+}
+
+function errorStatus(error: unknown): number | null {
+  return typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number'
+    ? error.status
+    : null;
+}
+
 const TeacherStudentDetailPage: React.FC = () => {
   const { t } = useTranslation();
   const params = useParams();
@@ -57,6 +69,7 @@ const TeacherStudentDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [selectedInterventionId, setSelectedInterventionId] = React.useState<number | null>(null);
   const [form, setForm] = React.useState<InterventionFormState>(buildInterventionForm());
+  const [showIdentity, setShowIdentity] = React.useState(false);
 
   const detailQuery = useQuery({
     queryKey: ['teacher-student-detail', classId, studentUserId],
@@ -150,7 +163,7 @@ const TeacherStudentDetailPage: React.FC = () => {
     <div className="space-y-10 pb-20">
       <PageHeader
         eyebrow={t('ui.sections.studentMetrics')}
-        title={detail?.studentName || t('ui.pages.studentDetail.fallbackTitle')}
+        title={detail ? (showIdentity ? detail.studentName : maskStudentName(detail.studentName)) : t('ui.pages.studentDetail.fallbackTitle')}
         subtitle={
           detail
             ? t('ui.meta.classRankPercentile', {
@@ -160,25 +173,86 @@ const TeacherStudentDetailPage: React.FC = () => {
             : t('ui.labels.loadingStudentContext')
         }
         actions={
-          <button
-            type="button"
-            onClick={() => suggestMutation.mutate()}
-            disabled={suggestMutation.isPending}
-            className="btn-liquid px-5 py-3 text-white flex items-center gap-2 disabled:opacity-60"
-          >
-            <Wand2 size={14} /> {t('ui.actions.generateIntervention')}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {detail ? (
+              <button
+                type="button"
+                onClick={() => setShowIdentity((current) => !current)}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-600 dark:border-white/10 dark:text-white/65"
+                aria-pressed={showIdentity}
+              >
+                {showIdentity ? <EyeOff size={14} /> : <Eye size={14} />}
+                {showIdentity ? '隐藏身份' : '显示身份'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => suggestMutation.mutate()}
+              disabled={suggestMutation.isPending || !analysis}
+              className="btn-liquid px-5 py-3 text-white flex items-center gap-2 disabled:opacity-60"
+            >
+              <Wand2 size={14} /> {t('ui.actions.generateIntervention')}
+            </button>
+          </div>
         }
       />
 
       {detailQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          {detailQuery.error.message}
+        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-700 dark:text-rose-300">
+          <div className="flex items-start gap-3">
+            <ShieldCheck size={18} className="mt-0.5 shrink-0" />
+            <div>
+              <div className="font-black">{errorStatus(detailQuery.error) === 403 || errorStatus(detailQuery.error) === 404 ? '学生已不在当前班级' : '学生分析暂时不可用'}</div>
+              <div className="mt-2 text-sm leading-6">{getApiErrorMessage(detailQuery.error)}</div>
+              <button type="button" onClick={() => void detailQuery.refetch()} className="mt-4 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-4 py-2 text-xs font-bold">
+                <RefreshCw size={13} /> 重新加载
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
+      {detailQuery.isLoading ? <PanelSkeleton /> : null}
+
+      {!detailQuery.isLoading && !detailQuery.error && !analysis ? (
+        <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white/60 p-8 text-sm leading-6 text-slate-500 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/50">
+          当前没有可用的诊断或训练证据。学生完成一次诊断后，这里会出现可追溯的薄弱点和干预建议。
+        </div>
+      ) : null}
+
       {analysis && (
         <>
+          {(() => {
+            const snapshot = analysis.overview.latestSnapshot;
+            const topPair = snapshot.topRiskPairs[0] || analysis.highRiskPairs[0];
+            const activeIntervention = studentInterventions.find((item) => item.status !== 'COMPLETED') || studentInterventions[0];
+            return (
+              <SpotlightCard eyebrow="教师判断" title="先处理一个最重要的薄弱点">
+                <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+                  <div>
+                    <div className="text-lg font-black text-slate-900 dark:text-white">
+                      {topPair ? `${topPair.englishWord} / ${topPair.frenchWord}` : '暂无明确薄弱点'}
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/65">
+                      {topPair
+                        ? `风险 ${formatMaybePercent(topPair.riskScore)}，${topPair.incorrectCount}/${topPair.attemptCount} 次答题出错。先用短练习验证这一词对，再决定是否扩大干预范围。`
+                        : '当前样本不足以形成可靠判断，先让学生完成一次诊断或训练。'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-primary/20 bg-white/70 p-4 dark:bg-white/[0.04]">
+                    <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">下一步</div>
+                    <div className="mt-2 text-sm font-bold text-slate-800 dark:text-white/85">
+                      {activeIntervention?.suggestedAction || `建议模式：${snapshot.recommendedTrainingMode}`}
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500 dark:text-white/45">
+                      {activeIntervention ? `已有干预：${interventionStatusLabel(activeIntervention.status)}` : '尚未采取行动'}
+                    </div>
+                  </div>
+                </div>
+              </SpotlightCard>
+            );
+          })()}
+
           <div className="grid md:grid-cols-3 gap-6">
             <div className="rounded-[2rem] liquid-glass p-6">
               <SectionEyebrow className="text-xs">{t('ui.meta.correctRate')}</SectionEyebrow>
@@ -214,21 +288,21 @@ const TeacherStudentDetailPage: React.FC = () => {
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
               <SectionEyebrow className="mb-6">{t('ui.sections.highRiskPairs')}</SectionEyebrow>
               <div className="space-y-4">
-                {analysis.highRiskPairs.map((item) => (
+                {analysis.highRiskPairs.length ? analysis.highRiskPairs.slice(0, 6).map((item) => (
                   <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
                     <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                       {lexicalPairTypeLabel(item.lexicalPairType)} · {t('ui.meta.risk')} {formatMaybePercent(item.riskScore)}
                     </div>
                   </div>
-                ))}
+                )) : <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 dark:border-white/15 dark:text-white/45">暂无足够的词对证据。</div>}
               </div>
             </section>
 
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">
               <SectionEyebrow className="mb-6">{t('ui.sections.errorDistribution')}</SectionEyebrow>
               <div className="space-y-4">
-                {analysis.errorDistribution.map((item) => (
+                {analysis.errorDistribution.length ? analysis.errorDistribution.slice(0, 6).map((item) => (
                   <div key={item.key} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
                     <div className="flex items-center justify-between gap-4">
                       <span className="font-bold text-slate-900 dark:text-white">{item.label}</span>
@@ -237,7 +311,7 @@ const TeacherStudentDetailPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                ))}
+                )) : <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 dark:border-white/15 dark:text-white/45">暂无错误分布数据。</div>}
               </div>
             </section>
 
@@ -257,7 +331,10 @@ const TeacherStudentDetailPage: React.FC = () => {
                   </div>
                 </div>
               ) : suggestMutation.error ? (
-                <div className="text-sm text-rose-500">{getApiErrorMessage(suggestMutation.error)}</div>
+                <div className="space-y-3 text-sm text-rose-500">
+                  <div>{getApiErrorMessage(suggestMutation.error)}</div>
+                  <button type="button" onClick={() => suggestMutation.mutate()} className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-4 py-2 text-xs font-bold"><RefreshCw size={13} /> 重试建议</button>
+                </div>
               ) : (
                 <div className="text-sm text-slate-500 dark:text-white/45">点击右上角按钮生成一条新的 AI 干预建议。</div>
               )}
@@ -265,7 +342,7 @@ const TeacherStudentDetailPage: React.FC = () => {
           </div>
 
           <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8 xl:max-h-[720px] xl:overflow-y-auto">
               <div className="flex items-center justify-between gap-4 mb-6">
                 <SectionEyebrow>{t('ui.sections.interventionRecords')}</SectionEyebrow>
                 <div className="text-sm text-slate-500 dark:text-white/45">{studentInterventions.length} 条</div>
@@ -275,7 +352,8 @@ const TeacherStudentDetailPage: React.FC = () => {
                 <PanelSkeleton />
               ) : interventionsQuery.error ? (
                 <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                  {getApiErrorMessage(interventionsQuery.error)}
+                  <div>{getApiErrorMessage(interventionsQuery.error)}</div>
+                  <button type="button" onClick={() => void interventionsQuery.refetch()} className="mt-3 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-4 py-2 text-xs font-bold"><RefreshCw size={13} /> 重试加载</button>
                 </div>
               ) : !studentInterventions.length ? (
                 <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
@@ -314,7 +392,7 @@ const TeacherStudentDetailPage: React.FC = () => {
               )}
             </section>
 
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+            <section className="rounded-[2.5rem] liquid-glass-panel p-8 xl:sticky xl:top-6 xl:self-start">
               <div className="flex items-center justify-between gap-4 mb-6">
                 <SectionEyebrow>{t('ui.sections.interventionRecords')}</SectionEyebrow>
                 {selectedIntervention && (
@@ -411,7 +489,8 @@ const TeacherStudentDetailPage: React.FC = () => {
 
                   {(saveInterventionMutation.error || completeInterventionMutation.error) && (
                     <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                      {getApiErrorMessage(saveInterventionMutation.error || completeInterventionMutation.error)}
+                      <div>{getApiErrorMessage(saveInterventionMutation.error || completeInterventionMutation.error)}</div>
+                      <button type="button" onClick={() => (saveInterventionMutation.error ? saveInterventionMutation.mutate() : completeInterventionMutation.mutate())} className="mt-3 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-4 py-2 text-xs font-bold"><RefreshCw size={13} /> 重试保存</button>
                     </div>
                   )}
                 </div>

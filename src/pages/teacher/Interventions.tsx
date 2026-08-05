@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader, PanelSkeleton, SectionEyebrow, StatusBadge } from '@/components/common';
@@ -160,6 +161,13 @@ const TeacherInterventionsPage: React.FC = () => {
   });
   const [source] = React.useState(() => searchParams.get('source') || '');
   const [form, setForm] = React.useState<InterventionFormState>(buildInterventionForm());
+  const [showIdentity, setShowIdentity] = React.useState(false);
+
+  const maskStudentName = React.useCallback((name?: string | null) => {
+    if (showIdentity || !name) return name || '学生';
+    const chars = Array.from(name);
+    return chars.length <= 1 ? '•' : `${chars[0]}${'•'.repeat(Math.min(chars.length - 1, 3))}`;
+  }, [showIdentity]);
 
   const classesQuery = useQuery({
     queryKey: ['teacher-classes'],
@@ -271,6 +279,17 @@ const TeacherInterventionsPage: React.FC = () => {
         eyebrow={t('taskPages.teacherInterventions.eyebrow')}
         title={t('taskPages.teacherInterventions.pageTitle')}
         subtitle={t('taskPages.teacherInterventions.pageSubtitle')}
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowIdentity((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-600 dark:border-white/10 dark:text-white/65"
+            aria-pressed={showIdentity}
+          >
+            {showIdentity ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showIdentity ? '隐藏身份' : '显示身份'}
+          </button>
+        }
       />
 
       {source && (
@@ -344,12 +363,13 @@ const TeacherInterventionsPage: React.FC = () => {
 
       <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
         <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="space-y-4">
+          <div className="max-h-[760px] space-y-4 overflow-y-auto pr-1">
             {interventionsQuery.isLoading ? (
               <PanelSkeleton />
             ) : interventionsQuery.error ? (
               <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                {getApiErrorMessage(interventionsQuery.error)}
+                <div>{getApiErrorMessage(interventionsQuery.error)}</div>
+                <button type="button" onClick={() => void interventionsQuery.refetch()} className="mt-3 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-4 py-2 text-xs font-bold"><RefreshCw size={13} /> 重试加载</button>
               </div>
             ) : records.length ? (
               records.map((item) => (
@@ -370,7 +390,7 @@ const TeacherInterventionsPage: React.FC = () => {
                         <StatusBadge label={interventionPriorityLabel(item.priority)} tone={priorityTone(item.priority)} />
                         <StatusBadge label={interventionStatusLabel(item.status)} tone={interventionStatusTone(item.status)} />
                       </div>
-                      <div className="text-xl font-black text-slate-900 dark:text-white">{item.studentName}</div>
+                      <div className="text-xl font-black text-slate-900 dark:text-white">{maskStudentName(item.studentName)}</div>
                       <div className="text-sm font-bold text-slate-800 dark:text-white/85">{item.patternDetected}</div>
                       <div className="text-sm text-slate-500 dark:text-white/45 leading-6">{item.suggestedAction}</div>
                     </div>
@@ -411,7 +431,7 @@ const TeacherInterventionsPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+        <section className="rounded-[2.5rem] liquid-glass-panel p-8 xl:sticky xl:top-6 xl:self-start">
           <div className="flex items-center justify-between gap-4 mb-6">
             <SectionEyebrow>{t('taskPages.teacherInterventions.editorEyebrow')}</SectionEyebrow>
             {selectedIntervention && (
@@ -428,7 +448,7 @@ const TeacherInterventionsPage: React.FC = () => {
               <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <div className="text-xl font-black text-slate-900 dark:text-white">{selectedIntervention.studentName}</div>
+                    <div className="text-xl font-black text-slate-900 dark:text-white">{maskStudentName(selectedIntervention.studentName)}</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{selectedIntervention.patternDetected}</div>
                   </div>
                   <div className="text-right text-sm text-slate-500 dark:text-white/45">
@@ -514,7 +534,8 @@ const TeacherInterventionsPage: React.FC = () => {
 
               {(saveMutation.error || completeMutation.error) && (
                 <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
-                  {getApiErrorMessage(saveMutation.error || completeMutation.error)}
+                  <div className="flex items-start gap-2"><ShieldCheck size={15} className="mt-0.5" /><span>{getApiErrorMessage(saveMutation.error || completeMutation.error)}</span></div>
+                  <button type="button" onClick={() => (saveMutation.error ? saveMutation.mutate() : completeMutation.mutate())} className="mt-3 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-4 py-2 text-xs font-bold"><RefreshCw size={13} /> 重试保存</button>
                 </div>
               )}
             </div>

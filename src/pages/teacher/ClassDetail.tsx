@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Download, FileText, PencilLine, Search, Trash2, UserPlus } from 'lucide-react';
+import { AlertTriangle, Download, Eye, EyeOff, FileText, PencilLine, RefreshCw, Search, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { flushSync } from 'react-dom';
 import { ClassAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
@@ -34,11 +34,18 @@ const TeacherClassDetailPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [exportErrorMessage, setExportErrorMessage] = React.useState<string | null>(null);
   const [isPdfExporting, setIsPdfExporting] = React.useState(false);
+  const [showIdentity, setShowIdentity] = React.useState(false);
   const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = React.useState(false);
   const [removeStudentConfirmId, setRemoveStudentConfirmId] = React.useState<number | null>(null);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
   const currentUser = useAuthStore((state) => state.user);
+
+  const maskStudentName = React.useCallback((name?: string | null) => {
+    if (showIdentity || !name) return name || '学生';
+    const chars = Array.from(name);
+    return chars.length <= 1 ? '•' : `${chars[0]}${'•'.repeat(Math.min(chars.length - 1, 3))}`;
+  }, [showIdentity]);
 
   const detailQuery = useQuery({
     queryKey: ['teacher-class-detail', classId],
@@ -272,6 +279,15 @@ const TeacherClassDetailPage: React.FC = () => {
           .join(' · ')}
         actions={
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowIdentity((current) => !current)}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-600 dark:border-white/10 dark:text-white/65"
+              aria-pressed={showIdentity}
+            >
+              {showIdentity ? <EyeOff size={14} /> : <Eye size={14} />}
+              {showIdentity ? '隐藏身份' : '显示身份'}
+            </button>
             <Link
               to={`/teacher/assessments/new?classId=${classId}&source=class-detail`}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-white"
@@ -322,6 +338,12 @@ const TeacherClassDetailPage: React.FC = () => {
         </div>
       )}
 
+      {!detailQuery.isLoading && detailQuery.data && !detailQuery.data.active ? (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          <div className="flex items-start gap-3"><ShieldCheck size={16} className="mt-0.5" /><span>该班级已归档，历史证据仍可查看；新增学生和批量操作已停用。</span></div>
+        </div>
+      ) : null}
+
       {feedback && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
           {feedback}
@@ -366,7 +388,7 @@ const TeacherClassDetailPage: React.FC = () => {
               <tbody className="divide-y divide-slate-200/70 dark:divide-white/10">
                 {highRiskStudents.slice(0, 6).map((student) => (
                   <tr key={student.studentUserId}>
-                    <td className="py-2.5 pr-4 font-black text-slate-900 dark:text-white">{student.studentName}</td>
+                    <td className="py-2.5 pr-4 font-black text-slate-900 dark:text-white">{maskStudentName(student.studentName)}</td>
                     <td className="px-4 py-2.5"><StatusBadge tone="danger" icon={<AlertTriangle size={11} />} label={riskLevelLabel(student.primaryRiskLevel)} /></td>
                     <td className="px-4 py-2.5 text-right font-black tabular-nums text-rose-600 dark:text-rose-300">{formatMaybePercent(student.recentNegativeTransferRisk)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 dark:text-white/60">{formatMaybePercent(student.recentAccuracy)}</td>
@@ -449,8 +471,8 @@ const TeacherClassDetailPage: React.FC = () => {
                     const analyticsStudent = analyticsStudentMap.get(student.studentUserId);
                     return (
                       <tr key={student.studentUserId} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.025]">
-                        <td className="max-w-[200px] px-3 py-2.5"><div className="truncate font-black text-slate-900 dark:text-white" title={student.studentName}>{student.studentName}</div><div className="mt-0.5 text-[11px] text-slate-400">加入 {formatDateTime(student.joinedAt) || '--'}</div></td>
-                        <td className="max-w-[220px] px-3 py-2.5"><div className="truncate text-xs text-slate-600 dark:text-white/60" title={[student.studentNo, student.gradeName, student.username].filter(Boolean).join(' · ')}>{[student.studentNo, student.gradeName, student.username].filter(Boolean).join(' · ') || '尚未补齐学生档案'}</div></td>
+                        <td className="max-w-[200px] px-3 py-2.5"><div className="truncate font-black text-slate-900 dark:text-white">{maskStudentName(student.studentName)}</div><div className="mt-0.5 text-[11px] text-slate-400">加入 {formatDateTime(student.joinedAt) || '--'}</div></td>
+                        <td className="max-w-[220px] px-3 py-2.5"><div className="truncate text-xs text-slate-600 dark:text-white/60">{showIdentity ? [student.studentNo, student.gradeName, student.username].filter(Boolean).join(' · ') || '尚未补齐学生档案' : [student.gradeName].filter(Boolean).join(' · ') || '身份信息已遮蔽'}</div></td>
                         <td className="px-3 py-2.5"><StatusBadge tone={analyticsStudent?.primaryRiskLevel === 'HIGH' ? 'danger' : 'neutral'} label={`${riskLevelLabel(analyticsStudent?.primaryRiskLevel)} · ${formatMaybePercent(analyticsStudent?.recentNegativeTransferRisk)}`} /></td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-slate-600 dark:text-white/60">{formatMaybePercent(analyticsStudent?.recentAccuracy)}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-slate-600 dark:text-white/60">{formatMs(analyticsStudent?.recentAvgReactionTimeMs)}</td>
@@ -477,13 +499,20 @@ const TeacherClassDetailPage: React.FC = () => {
             <button
               type="button"
               onClick={() => addStudentsMutation.mutate(selectedStudentIds)}
-              disabled={!selectedStudentIds.length || addStudentsMutation.isPending}
+              disabled={!detailQuery.data?.active || !selectedStudentIds.length || addStudentsMutation.isPending}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <UserPlus size={14} />
               加入 {selectedStudentIds.length || 0} 人
             </button>
           </div>
+
+          {addStudentsMutation.error ? (
+            <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5 text-xs text-rose-600 dark:text-rose-300">
+              <div>{addStudentsMutation.error instanceof Error ? addStudentsMutation.error.message : '批量加入失败'}</div>
+              <button type="button" onClick={() => addStudentsMutation.mutate(selectedStudentIds)} disabled={!selectedStudentIds.length || addStudentsMutation.isPending} className="mt-2 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-3 py-1.5 font-bold disabled:opacity-50"><RefreshCw size={12} /> 重试批量加入</button>
+            </div>
+          ) : null}
 
           <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
             <Search size={16} className="text-slate-400" />
@@ -495,7 +524,28 @@ const TeacherClassDetailPage: React.FC = () => {
             />
           </label>
 
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-white/45">
+            <span>已选择 {selectedStudentIds.length} 人。确认后会一次提交，失败时保留选择以便重试。</span>
+            <button
+              type="button"
+              onClick={() => {
+                const availableIds = (candidateQuery.data || []).filter((candidate) => !candidate.assigned).map((candidate) => candidate.studentUserId);
+                setSelectedStudentIds((current) => current.length === availableIds.length ? [] : availableIds);
+              }}
+              disabled={!candidateQuery.data?.some((candidate) => !candidate.assigned) || !detailQuery.data?.active}
+              className="rounded-full border border-slate-200 px-3 py-1.5 font-bold disabled:opacity-50 dark:border-white/10"
+            >
+              全选 / 清空
+            </button>
+          </div>
+
+          <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto pr-1">
+            {candidateQuery.error ? (
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5 text-xs text-rose-600 dark:text-rose-300">
+                <div>候选学生加载失败，请稍后重试。</div>
+                <button type="button" onClick={() => void candidateQuery.refetch()} className="mt-2 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-3 py-1.5 font-bold"><RefreshCw size={12} /> 重试</button>
+              </div>
+            ) : null}
             {(candidateQuery.data || []).map((candidate) => {
               const selected = selectedStudentIds.includes(candidate.studentUserId);
               return (
@@ -514,9 +564,9 @@ const TeacherClassDetailPage: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-semibold text-slate-900 dark:text-white">{candidate.studentName}</div>
+                      <div className="font-semibold text-slate-900 dark:text-white">{maskStudentName(candidate.studentName)}</div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-white/45">
-                        {[candidate.studentNo, candidate.gradeName, candidate.username].filter(Boolean).join(' · ') || '未补齐学生资料'}
+                        {showIdentity ? [candidate.studentNo, candidate.gradeName, candidate.username].filter(Boolean).join(' · ') || '未补齐学生资料' : [candidate.gradeName].filter(Boolean).join(' · ') || '身份信息已遮蔽'}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">

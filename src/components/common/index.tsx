@@ -369,3 +369,4 @@ export { DataTable } from './DataTable';
 export type { DataTableColumn } from './DataTable';
 export { WorkflowStepper } from './WorkflowStepper';
 export type { WorkflowStage, WorkflowStageStatus, WorkflowStepperProps } from './WorkflowStepper';
+export { SpotlightCard } from './SpotlightCard';
