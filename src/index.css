@@ -943,6 +943,27 @@
 
 }
 
+@keyframes workspace-todo-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.workspace-todo-enter {
+  animation: workspace-todo-enter 240ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-todo-enter {
+    animation: none;
+  }
+}
+
 @layer components {
   /* Research entry: an editorial surface for the language-migration story. */
   .research-entry,

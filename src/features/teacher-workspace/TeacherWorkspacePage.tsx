@@ -2,13 +2,9 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, PanelSkeleton } from '@/components/common';
-import {
-  diagnosisTemplateSyncStateLabel,
-  formatDateTime,
-  interventionPriorityLabel,
-  interventionStatusLabel,
-} from '@/lib/format';
+import { ArrowRight, ClipboardCheck, FileEdit, ListChecks, Users } from 'lucide-react';
+import { PanelSkeleton } from '@/components/common';
+import { diagnosisTemplateSyncStateLabel, formatDateTime, interventionPriorityLabel } from '@/lib/format';
 import { teacherWorkspaceService } from '@/lib/services';
 import { teacherWorkspaceQueryKeys } from './queryKeys';
 import {
@@ -23,7 +19,18 @@ import {
   StatusBanner,
   WorkspaceEmptyState,
   WorkspaceHero,
+  WorkspaceSectionHeader,
 } from './components';
+
+type RecentActivity = {
+  id: string;
+  label: string;
+  title: string;
+  meta: string;
+  time?: string | null;
+  to: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+};
 
 const TeacherWorkspacePage: React.FC = () => {
   const { t } = useTranslation();
@@ -34,11 +41,7 @@ const TeacherWorkspacePage: React.FC = () => {
     queryFn: ({ signal }) => teacherWorkspaceService.getOverview({ signal }),
   });
 
-  const todoItems = React.useMemo(
-    () => buildTeacherWorkspaceTodoItems(t, overviewQuery.data),
-    [overviewQuery.data, t]
-  );
-
+  const todoItems = React.useMemo(() => buildTeacherWorkspaceTodoItems(t, overviewQuery.data), [overviewQuery.data, t]);
   const onboardingCard = React.useMemo(
     () => buildTeacherWorkspaceOnboardingCard(t, overviewQuery.data),
     [overviewQuery.data, t]
@@ -49,23 +52,16 @@ const TeacherWorkspacePage: React.FC = () => {
       setShowOnboardingCard(false);
       return;
     }
-    if (typeof window === 'undefined') {
-      return;
-    }
+    if (typeof window === 'undefined') return;
 
     const storageKey = `teacher-workspace-onboarding-seen:${overviewQuery.data?.teacherName || 'default'}`;
     const seen = window.localStorage.getItem(storageKey) === '1';
     setShowOnboardingCard(!seen);
-    if (!seen) {
-      window.localStorage.setItem(storageKey, '1');
-    }
+    if (!seen) window.localStorage.setItem(storageKey, '1');
   }, [onboardingCard, overviewQuery.data?.teacherName]);
 
   const dedupedTodoItems = React.useMemo(() => {
-    if (!showOnboardingCard || !onboardingCard) {
-      return todoItems;
-    }
-
+    if (!showOnboardingCard || !onboardingCard) return todoItems;
     const onboardingTodoIdMap: Record<string, string> = {
       'setup-classes': 'classes-empty',
       'setup-draft': 'drafts-empty',
@@ -80,7 +76,6 @@ const TeacherWorkspacePage: React.FC = () => {
     () => (showAllTodos ? dedupedTodoItems : dedupedTodoItems.slice(0, 4)),
     [dedupedTodoItems, showAllTodos]
   );
-
   const overflowTodoCount = Math.max(dedupedTodoItems.length - 4, 0);
 
   const quickActions = React.useMemo(
@@ -89,10 +84,25 @@ const TeacherWorkspacePage: React.FC = () => {
         id: 'create-draft',
         label: t('teacherWorkspace.quickActions.createDraft'),
         description: t('teacherWorkspace.quickActions.createDraftDescription'),
-        to: buildWorkspaceLink('/teacher/diagnosis-templates', {
-          intent: 'create-draft',
-          source: 'workspace',
-        }),
+        to: buildWorkspaceLink('/teacher/diagnosis-templates', { intent: 'create-draft', source: 'workspace' }),
+      },
+      {
+        id: 'assessments',
+        label: t('teacherWorkspace.quickActions.assessments'),
+        description: t('teacherWorkspace.quickActions.assessmentsDescription'),
+        to: buildWorkspaceLink('/teacher/assessments', { source: 'workspace' }),
+      },
+      {
+        id: 'interventions',
+        label: t('teacherWorkspace.quickActions.interventions'),
+        description: t('teacherWorkspace.quickActions.interventionsDescription'),
+        to: buildWorkspaceLink('/teacher/interventions', { view: 'pending', source: 'workspace' }),
+      },
+      {
+        id: 'classes',
+        label: t('teacherWorkspace.quickActions.classes'),
+        description: t('teacherWorkspace.quickActions.classesDescription'),
+        to: buildWorkspaceLink('/teacher/classes', { source: 'workspace' }),
       },
       {
         id: 'lexical-pairs',
@@ -105,27 +115,6 @@ const TeacherWorkspacePage: React.FC = () => {
         label: t('teacherWorkspace.quickActions.lexicalLists'),
         description: t('teacherWorkspace.quickActions.lexicalListsDescription'),
         to: buildWorkspaceLink('/teacher/lexical-lists', { source: 'workspace' }),
-      },
-      {
-        id: 'interventions',
-        label: t('teacherWorkspace.quickActions.interventions'),
-        description: t('teacherWorkspace.quickActions.interventionsDescription'),
-        to: buildWorkspaceLink('/teacher/interventions', {
-          view: 'pending',
-          source: 'workspace',
-        }),
-      },
-      {
-        id: 'assessments',
-        label: t('teacherWorkspace.quickActions.assessments'),
-        description: t('teacherWorkspace.quickActions.assessmentsDescription'),
-        to: buildWorkspaceLink('/teacher/assessments', { source: 'workspace' }),
-      },
-      {
-        id: 'classes',
-        label: t('teacherWorkspace.quickActions.classes'),
-        description: t('teacherWorkspace.quickActions.classesDescription'),
-        to: buildWorkspaceLink('/teacher/classes', { source: 'workspace' }),
       },
     ],
     [t]
@@ -146,27 +135,23 @@ const TeacherWorkspacePage: React.FC = () => {
         hint: t('teacherWorkspace.metrics.studentsHint'),
       },
       {
+        id: 'interventions',
+        label: t('teacherWorkspace.sections.interventionsSubtitle'),
+        value: overviewQuery.data?.summary.pendingInterventionCount ?? '--',
+        hint: t('teacherWorkspace.emptyInterventionsDescription'),
+      },
+      {
         id: 'drafts',
         label: t('teacherWorkspace.metrics.drafts'),
         value: overviewQuery.data?.summary.draftTemplateCount ?? '--',
         hint: t('teacherWorkspace.metrics.draftsHint'),
       },
       {
-        id: 'assets',
-        label: t('teacherWorkspace.metrics.assets'),
-        value:
-          overviewQuery.data
-            ? `${overviewQuery.data.summary.lexicalPairCount}/${overviewQuery.data.summary.lexicalListCount}`
-            : '--',
-        hint: t('teacherWorkspace.metrics.assetsHint'),
-      },
-      {
         id: 'assessments',
         label: t('teacherWorkspace.metrics.assessments'),
-        value:
-          overviewQuery.data
-            ? `${overviewQuery.data.summary.assessmentPaperCount}/${overviewQuery.data.summary.activeAssessmentPublishCount}`
-            : '--',
+        value: overviewQuery.data
+          ? `${overviewQuery.data.summary.assessmentPaperCount}/${overviewQuery.data.summary.activeAssessmentPublishCount}`
+          : '--',
         hint: t('teacherWorkspace.metrics.assessmentsHint', {
           pendingCount: overviewQuery.data?.summary.pendingAssessmentSubmissionCount ?? 0,
         }),
@@ -175,309 +160,216 @@ const TeacherWorkspacePage: React.FC = () => {
     [overviewQuery.data, t]
   );
 
+  const recentActivity = React.useMemo<RecentActivity[]>(() => {
+    if (!overviewQuery.data) return [];
+    const activities: RecentActivity[] = [
+      ...overviewQuery.data.recentAssessmentPublishes.map((item) => ({
+        id: `assessment-${item.publishId}`,
+        label: t('teacherWorkspace.sections.assessments'),
+        title: item.title,
+        meta: `${item.className} · ${t('teacherWorkspace.assessmentMeta', {
+          assignedCount: item.assignedCount,
+          submittedCount: item.submittedCount,
+          pendingCount: item.pendingCount,
+        })}`,
+        time: item.publishedAt || item.dueAt,
+        to: buildWorkspaceLink(`/teacher/assessments/publishes/${item.publishId}`, { source: 'workspace' }),
+        icon: ClipboardCheck,
+      })),
+      ...overviewQuery.data.draftTemplates.map((item) => ({
+        id: `draft-${item.draftId}`,
+        label: t('teacherWorkspace.sections.drafts'),
+        title: item.templateName,
+        meta: diagnosisTemplateSyncStateLabel(item.syncState),
+        time: item.updatedAt,
+        to: buildWorkspaceLink(`/teacher/diagnosis-template-drafts/${item.draftId}`, { step: 4, source: 'workspace' }),
+        icon: FileEdit,
+      })),
+      ...overviewQuery.data.recentClasses.map((item) => ({
+        id: `class-${item.classId}`,
+        label: t('teacherWorkspace.sections.classes'),
+        title: item.className,
+        meta: t('teacherWorkspace.classMeta', {
+          studentCount: item.studentCount,
+          highRiskStudentCount: item.highRiskStudentCount,
+        }),
+        time: item.lastActiveAt,
+        to: buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' }),
+        icon: Users,
+      })),
+      ...overviewQuery.data.recentLexicalLists.map((item) => ({
+        id: `list-${item.id}`,
+        label: t('teacherWorkspace.sections.lexicalLists'),
+        title: item.listName,
+        meta: t('teacherWorkspace.lexicalListMeta', { itemCount: item.itemCount, updatedAt: formatDateTime(item.updatedAt) }),
+        time: item.updatedAt,
+        to: buildWorkspaceLink('/teacher/lexical-lists', { listId: item.id, source: 'workspace' }),
+        icon: ListChecks,
+      })),
+    ];
+
+    return activities
+      .sort((left, right) => new Date(right.time || 0).getTime() - new Date(left.time || 0).getTime())
+      .slice(0, 7);
+  }, [overviewQuery.data, t]);
+
+  const riskClasses = React.useMemo(
+    () => (overviewQuery.data?.recentClasses || []).filter((item) => item.highRiskStudentCount > 0),
+    [overviewQuery.data?.recentClasses]
+  );
+
   return (
-    <div className="space-y-8 pb-20">
-      <PageHeader
-        title={t('teacherWorkspace.pageTitle')}
-        subtitle={t('teacherWorkspace.pageSubtitle')}
+    <div className="space-y-6 pb-16">
+      <WorkspaceHero
+        eyebrow={t('teacherWorkspace.heroEyebrow')}
+        title={t('teacherWorkspace.heroTitle', {
+          teacherName: overviewQuery.data?.teacherName || t('teacherWorkspace.defaultTeacherName'),
+        })}
+        subtitle={t('teacherWorkspace.heroSubtitle')}
+        meta={overviewQuery.data?.organizationLabel || t('teacherWorkspace.organizationFallback')}
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <Link
-              to={buildWorkspaceLink('/teacher/diagnosis-templates', { source: 'workspace' })}
-              className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+              to={buildWorkspaceLink('/teacher/classes', { source: 'workspace' })}
+              className="rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-white/75"
+            >
+              {t('teacherWorkspace.actions.classes')}
+            </Link>
+            <Link
+              to={buildWorkspaceLink('/teacher/diagnosis-templates', { intent: 'create-draft', source: 'workspace' })}
+              className="rounded-xl bg-primary px-3.5 py-2 text-xs font-black text-white"
             >
               {t('teacherWorkspace.actions.templates')}
-            </Link>
-            <Link to={buildWorkspaceLink('/teacher/classes', { source: 'workspace' })} className="btn-liquid px-5 py-3 text-white">
-              {t('teacherWorkspace.actions.classes')}
             </Link>
           </div>
         }
       />
 
-      {overviewQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+      {overviewQuery.error ? (
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
           {overviewQuery.error.message}
         </div>
-      )}
+      ) : null}
 
       {overviewQuery.isLoading && !overviewQuery.data ? (
-        <div className="grid gap-8">
-          <PanelSkeleton />
-          <PanelSkeleton />
-        </div>
+        <div className="grid gap-4"><PanelSkeleton /><PanelSkeleton /></div>
       ) : (
         <>
-          <WorkspaceHero
-            eyebrow={t('teacherWorkspace.heroEyebrow')}
-            title={t('teacherWorkspace.heroTitle', { teacherName: overviewQuery.data?.teacherName || t('teacherWorkspace.defaultTeacherName') })}
-            subtitle={t('teacherWorkspace.heroSubtitle')}
-            meta={overviewQuery.data?.organizationLabel || t('teacherWorkspace.organizationFallback')}
-          />
+          <MetricGrid items={metricItems} />
 
-          {showOnboardingCard && onboardingCard && (
-            <section className="space-y-4">
-              <div className="space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                  {t('teacherWorkspace.onboardingCardTitle')}
-                </div>
-                <div className="text-sm text-slate-500 dark:text-white/45">
-                  {t('teacherWorkspace.onboardingCardSubtitle')}
-                </div>
-              </div>
-              <StatusBanner
-                title={onboardingCard.title}
-                description={onboardingCard.description}
-                actionLabel={onboardingCard.actionLabel}
-                to={onboardingCard.to}
-                tone={onboardingCard.tone}
-              />
+          {showOnboardingCard && onboardingCard ? (
+            <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 dark:border-white/10 dark:bg-white/[0.03]">
+              <StatusBanner {...onboardingCard} />
             </section>
-          )}
+          ) : null}
 
-          {!!dedupedTodoItems.length && (
-            <section className="space-y-4">
-              <div className="space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                  {t('teacherWorkspace.todayTodoTitle')}
-                </div>
-                <div className="text-sm text-slate-500 dark:text-white/45">
-                  {t('teacherWorkspace.todayTodoSubtitle')}
-                </div>
-              </div>
-              {visibleTodoItems.map((item) => (
-                <StatusBanner
-                  key={item.id}
-                  title={item.title}
-                  description={item.description}
-                  actionLabel={item.actionLabel}
-                  to={item.to}
-                  tone={item.tone}
+          <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+            <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="border-b border-slate-200/70 px-4 py-3 dark:border-white/10">
+                <WorkspaceSectionHeader
+                  eyebrow={t('teacherWorkspace.todayTodoTitle')}
+                  title={t('teacherWorkspace.todayTodoSubtitle')}
+                  action={<span className="text-xs font-black tabular-nums text-amber-600 dark:text-amber-300">{dedupedTodoItems.length}</span>}
                 />
-              ))}
-              {overflowTodoCount > 0 && (
+              </div>
+              {visibleTodoItems.map((item, index) => <StatusBanner key={item.id} {...item} index={index} />)}
+              {overflowTodoCount > 0 ? (
                 <button
                   type="button"
                   onClick={() => setShowAllTodos((current) => !current)}
-                  className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/70 px-4 py-2 text-sm font-bold text-slate-600 transition-all hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/5 dark:text-white/60"
+                  className="w-full border-t border-slate-200/70 px-4 py-2.5 text-left text-xs font-bold text-primary dark:border-white/10"
                 >
                   {showAllTodos
                     ? t('teacherWorkspace.todayTodoCollapse')
                     : t('teacherWorkspace.todayTodoExpand', { count: overflowTodoCount })}
                 </button>
-              )}
+              ) : null}
             </section>
-          )}
 
-          <ActionGrid
-            title={t('teacherWorkspace.quickActionsTitle')}
-            description={t('teacherWorkspace.quickActionsSubtitle')}
-            actions={quickActions}
-          />
-
-          <MetricGrid items={metricItems} />
-
-          <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-              {t('teacherWorkspace.sections.assessments')}
-            </div>
-            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-              {t('teacherWorkspace.sections.assessmentsSubtitle')}
-            </div>
-            <div className="mt-6 space-y-4">
-              {overviewQuery.data?.recentAssessmentPublishes.length ? (
-                overviewQuery.data.recentAssessmentPublishes.map((item) => (
-                  <Link
-                    key={item.publishId}
-                    to={buildWorkspaceLink(`/teacher/assessments/publishes/${item.publishId}`, { source: 'workspace' })}
-                    className="block rounded-[1.8rem] border border-slate-200/80 bg-white/65 p-5 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
-                          {item.className}
-                        </div>
-                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{item.title}</div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                          {t('teacherWorkspace.assessmentMeta', {
-                            assignedCount: item.assignedCount,
-                            submittedCount: item.submittedCount,
-                            pendingCount: item.pendingCount,
-                          })}
-                        </div>
-                      </div>
-                      <div className="text-sm text-slate-500 dark:text-white/45">
-                        {t('teacherWorkspace.assessmentDue', { dueAt: formatDateTime(item.dueAt) })}
-                      </div>
-                    </div>
+            <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <WorkspaceSectionHeader
+                eyebrow={t('teacherWorkspace.riskStudentsEyebrow')}
+                title={t('teacherWorkspace.riskStudentsTitle')}
+                action={
+                  <Link to={buildWorkspaceLink('/teacher/interventions', { view: 'pending', source: 'workspace' })} className="text-xs font-bold text-primary">
+                    {t('teacherWorkspace.viewAll')}
                   </Link>
-                ))
-              ) : (
-                <WorkspaceEmptyState
-                  {...buildTeacherWorkspaceEmptyState(t, 'assessments', overviewQuery.data)}
-                />
-              )}
-            </div>
-          </section>
-
-          <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                {t('teacherWorkspace.sections.classes')}
+                }
+              />
+              <div className="mt-3 divide-y divide-slate-200/70 dark:divide-white/10">
+                {(overviewQuery.data?.pendingInterventions || []).slice(0, 4).map((item) => (
+                  <Link
+                    key={item.id}
+                    to={buildWorkspaceLink('/teacher/interventions', {
+                      view: 'pending', focusId: item.id, classId: item.classId, studentUserId: item.studentUserId, source: 'workspace',
+                    })}
+                    className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-slate-900 dark:text-white">{item.studentName || '--'}</div>
+                      <div className="mt-0.5 text-xs text-slate-500 dark:text-white/45">{interventionPriorityLabel(item.priority)} · {formatDateTime(item.plannedAt)}</div>
+                    </div>
+                    <ArrowRight size={13} className="shrink-0 text-slate-400" />
+                  </Link>
+                ))}
+                {!overviewQuery.data?.pendingInterventions.length && riskClasses.slice(0, 3).map((item) => (
+                  <Link key={item.classId} to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span className="min-w-0 truncate text-sm font-bold text-slate-900 dark:text-white" title={item.className}>{item.className}</span>
+                    <span className="shrink-0 text-xs font-black text-rose-600 dark:text-rose-300">{t('teacherWorkspace.riskStudentCount', { count: item.highRiskStudentCount })}</span>
+                  </Link>
+                ))}
+                {!overviewQuery.data?.pendingInterventions.length && !riskClasses.length ? (
+                  <div className="py-5 text-xs leading-5 text-slate-500 dark:text-white/45">{t('teacherWorkspace.emptyInterventionsDescription')}</div>
+                ) : null}
               </div>
-              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-                {t('teacherWorkspace.sections.classesSubtitle')}
-              </div>
-              <div className="mt-6 space-y-4">
-                {overviewQuery.data?.recentClasses.length ? (
-                  overviewQuery.data.recentClasses.map((item) => (
-                    <Link
-                      key={item.classId}
-                      to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })}
-                      className="block rounded-[1.8rem] border border-slate-200/80 bg-white/65 p-5 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
-                            {item.classCode}
-                          </div>
-                          <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{item.className}</div>
-                          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                            {t('teacherWorkspace.classMeta', {
-                              studentCount: item.studentCount,
-                              highRiskStudentCount: item.highRiskStudentCount,
-                            })}
-                          </div>
-                        </div>
-                        <div className="text-sm text-slate-500 dark:text-white/45">
-                          {t('teacherWorkspace.lastActive', { time: formatDateTime(item.lastActiveAt) })}
-                        </div>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <WorkspaceEmptyState
-                    {...buildTeacherWorkspaceEmptyState(t, 'classes', overviewQuery.data)}
-                  />
-                )}
-              </div>
-            </section>
-
-            <section className="space-y-8">
-              <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                  {t('teacherWorkspace.sections.drafts')}
-                </div>
-                <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-                  {t('teacherWorkspace.sections.draftsSubtitle')}
-                </div>
-                <div className="mt-6 space-y-4">
-                  {overviewQuery.data?.draftTemplates.length ? (
-                    overviewQuery.data.draftTemplates.map((draft) => (
-                      <Link
-                        key={draft.draftId}
-                        to={buildWorkspaceLink(`/teacher/diagnosis-template-drafts/${draft.draftId}`, {
-                          step: 4,
-                          source: 'workspace',
-                        })}
-                        className="block rounded-[1.6rem] border border-slate-200/80 bg-white/65 p-4 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="font-black text-slate-900 dark:text-white">{draft.templateName}</div>
-                            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                              {t('teacherWorkspace.draftMeta', {
-                                syncState: diagnosisTemplateSyncStateLabel(draft.syncState),
-                                updatedAt: formatDateTime(draft.updatedAt),
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    ))
-                  ) : (
-                    <WorkspaceEmptyState
-                      {...buildTeacherWorkspaceEmptyState(t, 'drafts', overviewQuery.data)}
-                    />
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                  {t('teacherWorkspace.sections.interventions')}
-                </div>
-                <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-                  {t('teacherWorkspace.sections.interventionsSubtitle')}
-                </div>
-                <div className="mt-6 space-y-4">
-                  {overviewQuery.data?.pendingInterventions.length ? (
-                    overviewQuery.data.pendingInterventions.map((item) => (
-                      <Link
-                        key={item.id}
-                        to={buildWorkspaceLink('/teacher/interventions', {
-                          view: 'pending',
-                          focusId: item.id,
-                          classId: item.classId,
-                          studentUserId: item.studentUserId,
-                          source: 'workspace',
-                        })}
-                        className="block rounded-[1.6rem] border border-slate-200/80 bg-white/65 p-4 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
-                      >
-                        <div className="font-black text-slate-900 dark:text-white">{item.studentName || '--'}</div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                          {t('teacherWorkspace.interventionMeta', {
-                            priority: interventionPriorityLabel(item.priority),
-                            status: interventionStatusLabel(item.status),
-                            plannedAt: formatDateTime(item.plannedAt),
-                          })}
-                        </div>
-                      </Link>
-                    ))
-                  ) : (
-                    <WorkspaceEmptyState
-                      {...buildTeacherWorkspaceEmptyState(t, 'interventions', overviewQuery.data)}
-                    />
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
-                  {t('teacherWorkspace.sections.lexicalLists')}
-                </div>
-                <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-                  {t('teacherWorkspace.sections.lexicalListsSubtitle')}
-                </div>
-                <div className="mt-6 space-y-4">
-                  {overviewQuery.data?.recentLexicalLists.length ? (
-                    overviewQuery.data.recentLexicalLists.map((item) => (
-                      <Link
-                        key={item.id}
-                        to={buildWorkspaceLink('/teacher/lexical-lists', {
-                          listId: item.id,
-                          source: 'workspace',
-                        })}
-                        className="block rounded-[1.6rem] border border-slate-200/80 bg-white/65 p-4 transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
-                      >
-                        <div className="font-black text-slate-900 dark:text-white">{item.listName}</div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                          {t('teacherWorkspace.lexicalListMeta', {
-                            itemCount: item.itemCount,
-                            updatedAt: formatDateTime(item.updatedAt),
-                          })}
-                        </div>
-                      </Link>
-                    ))
-                  ) : (
-                    <WorkspaceEmptyState
-                      {...buildTeacherWorkspaceEmptyState(t, 'lexicalLists', overviewQuery.data)}
-                    />
-                  )}
-                </div>
-              </section>
             </section>
           </div>
+
+          <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+            <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <WorkspaceSectionHeader eyebrow={t('teacherWorkspace.recentActivityEyebrow')} title={t('teacherWorkspace.recentActivityTitle')} />
+              <div className="mt-3 divide-y divide-slate-200/70 dark:divide-white/10">
+                {recentActivity.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.id} to={item.to} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                      <span className="rounded-lg bg-slate-100 p-2 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"><Icon size={14} /></span>
+                      <span className="min-w-0">
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-white/30">{item.label}</span>
+                        <span className="mt-0.5 block truncate text-sm font-bold text-slate-900 dark:text-white" title={item.title}>{item.title}</span>
+                        <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-white/45" title={item.meta}>{item.meta}</span>
+                      </span>
+                      <span className="hidden shrink-0 text-xs tabular-nums text-slate-400 sm:block">{formatDateTime(item.time)}</span>
+                    </Link>
+                  );
+                })}
+                {!recentActivity.length ? <div className="py-5 text-xs text-slate-500 dark:text-white/45">{t('teacherWorkspace.noRecentActivity')}</div> : null}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+              <WorkspaceSectionHeader
+                eyebrow={t('teacherWorkspace.sections.classes')}
+                title={t('teacherWorkspace.sections.classesSubtitle')}
+                action={<Link to={buildWorkspaceLink('/teacher/classes', { source: 'workspace' })} className="text-xs font-bold text-primary">{t('teacherWorkspace.viewAll')}</Link>}
+              />
+              <div className="mt-3 space-y-2">
+                {overviewQuery.data?.recentClasses.length ? overviewQuery.data.recentClasses.slice(0, 4).map((item) => (
+                  <Link key={item.classId} to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })} className="block rounded-xl border border-slate-200/70 px-3 py-2.5 transition-colors hover:border-primary/35 dark:border-white/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-bold text-slate-900 dark:text-white" title={item.className}>{item.className}</div>
+                        <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-white/45">{item.classCode} · {t('teacherWorkspace.classMeta', { studentCount: item.studentCount, highRiskStudentCount: item.highRiskStudentCount })}</div>
+                      </div>
+                      <ArrowRight size={13} className="shrink-0 text-slate-400" />
+                    </div>
+                  </Link>
+                )) : <WorkspaceEmptyState {...buildTeacherWorkspaceEmptyState(t, 'classes', overviewQuery.data)} />}
+              </div>
+            </section>
+          </div>
+
+          <ActionGrid title={t('teacherWorkspace.quickActionsTitle')} description={t('teacherWorkspace.quickActionsSubtitle')} actions={quickActions} />
         </>
       )}
     </div>

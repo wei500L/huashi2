@@ -331,11 +331,12 @@ interface PageHeaderProps {
   subtitle?: string;
   breadcrumbs?: string[];
   actions?: React.ReactNode;
+  compact?: boolean;
 }
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle, breadcrumbs, actions }) => (
-  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-    <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.42, ease: 'easeOut' }}>
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle, breadcrumbs, actions, compact = false }) => (
+  <div className={cn('flex flex-col justify-between md:flex-row md:items-center', compact ? 'mb-6 gap-4' : 'mb-10 gap-6')}>
+    <motion.div className="min-w-0" initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.42, ease: 'easeOut' }}>
       {breadcrumbs && (
         <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-3">
           {breadcrumbs.map((b, i) => (
@@ -347,7 +348,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
         </div>
       )}
       {eyebrow ? <SectionEyebrow className="mb-3">{eyebrow}</SectionEyebrow> : null}
-      <h1 className="type-page-title text-slate-900 dark:text-white">{title}</h1>
+      <h1 className="type-page-title break-words text-slate-900 dark:text-white" title={title}>{title}</h1>
       {subtitle && <p className="type-body-muted mt-3 max-w-xl">{subtitle}</p>}
     </motion.div>
     {actions && (

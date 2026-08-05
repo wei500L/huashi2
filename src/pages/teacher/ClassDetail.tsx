@@ -1,18 +1,20 @@
 import React from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, FileText, PencilLine, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { AlertTriangle, Download, FileText, PencilLine, Search, Trash2, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { flushSync } from 'react-dom';
 import { ClassAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { saveBlob } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
 import { exportReportPagesToPdf } from '@/lib/pdf-report';
 import { teacherAnalyticsService, teacherClassService } from '@/lib/services';
-import { buildHeatmapOption, buildRadarOption, buildTrendOption, formatDateTime, formatMaybePercent, formatMs } from '@/lib/format';
+import { buildHeatmapOption, buildRadarOption, buildTrendOption, formatDateTime, formatMaybePercent, formatMs, riskLevelLabel } from '@/lib/format';
+import { useAuthStore } from '@/store';
+import { cn } from '@/lib/utils';
 
 const TeacherClassDetailPage: React.FC = () => {
   const { t } = useTranslation();
@@ -25,6 +27,8 @@ const TeacherClassDetailPage: React.FC = () => {
   const hasValidClassId = Number.isFinite(classId) && classId > 0;
 
   const [candidateKeyword, setCandidateKeyword] = React.useState('');
+  const [studentKeyword, setStudentKeyword] = React.useState('');
+  const [rosterView, setRosterView] = React.useState<'all' | 'risk'>('all');
   const [selectedStudentIds, setSelectedStudentIds] = React.useState<number[]>([]);
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -34,6 +38,7 @@ const TeacherClassDetailPage: React.FC = () => {
   const [archiveConfirmOpen, setArchiveConfirmOpen] = React.useState(false);
   const [removeStudentConfirmId, setRemoveStudentConfirmId] = React.useState<number | null>(null);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
+  const currentUser = useAuthStore((state) => state.user);
 
   const detailQuery = useQuery({
     queryKey: ['teacher-class-detail', classId],
@@ -73,13 +78,33 @@ const TeacherClassDetailPage: React.FC = () => {
   const candidateQuery = useQuery({
     queryKey: ['teacher-class-student-candidates', classId, candidateKeyword],
     queryFn: ({ signal }) => teacherClassService.listStudentCandidates(classId, candidateKeyword, { signal }),
-    enabled: hasValidClassId,
+    enabled: hasValidClassId && Boolean(detailQuery.data && currentUser?.id === detailQuery.data.teacherUserId),
   });
+
+  const isClassOwner = Boolean(detailQuery.data && currentUser?.id === detailQuery.data.teacherUserId);
 
   const analyticsStudentMap = React.useMemo(
     () => new Map((analyticsStudentsQuery.data || []).map((item) => [item.studentUserId, item])),
     [analyticsStudentsQuery.data]
   );
+
+  const highRiskStudents = React.useMemo(
+    () => [...(analyticsStudentsQuery.data || [])]
+      .filter((student) => student.primaryRiskLevel === 'HIGH')
+      .sort((left, right) => right.recentNegativeTransferRisk - left.recentNegativeTransferRisk),
+    [analyticsStudentsQuery.data]
+  );
+
+  const visibleRosterStudents = React.useMemo(() => {
+    const normalizedKeyword = studentKeyword.trim().toLocaleLowerCase();
+    return (detailQuery.data?.students || []).filter((student) => {
+      const analyticsStudent = analyticsStudentMap.get(student.studentUserId);
+      const matchesRisk = rosterView === 'all' || analyticsStudent?.primaryRiskLevel === 'HIGH';
+      const matchesKeyword = !normalizedKeyword || [student.studentName, student.studentNo, student.gradeName, student.username]
+        .some((value) => value?.toLocaleLowerCase().includes(normalizedKeyword));
+      return matchesRisk && matchesKeyword;
+    });
+  }, [analyticsStudentMap, detailQuery.data?.students, rosterView, studentKeyword]);
 
   React.useEffect(() => {
     const assignedIds = new Set(
@@ -233,8 +258,9 @@ const TeacherClassDetailPage: React.FC = () => {
     Boolean(analyticsStudentsQuery.data);
 
   return (
-    <div className="space-y-10 pb-20">
+    <div className="space-y-6 pb-16">
       <PageHeader
+        compact
         eyebrow={t('ui.sections.students')}
         title={detailQuery.data?.className || overviewQuery.data?.className || t('ui.pages.classDetail.fallbackTitle')}
         subtitle={[
@@ -245,76 +271,117 @@ const TeacherClassDetailPage: React.FC = () => {
           .filter(Boolean)
           .join(' · ')}
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to={`/teacher/assessments/new?classId=${classId}&source=class-detail`}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-white"
+            >
+              <FileText size={14} /> 发布测评
+            </Link>
             <button
               type="button"
               onClick={() => void handlePdfExport()}
               disabled={!canExportPdf || isPdfExporting}
-              className="btn-liquid flex items-center gap-2 px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-white/75"
             >
               <FileText size={14} /> {isPdfExporting ? t('common.actions.exportingPdf') : t('common.actions.exportPdf')}
             </button>
             <button
               type="button"
               onClick={() => void handleExport()}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/80"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/75"
             >
               <Download size={14} /> {t('common.actions.exportCsv')}
             </button>
-            <button
-              type="button"
-              onClick={() =>
-                navigate(source ? `/teacher/classes/${classId}/edit?source=${encodeURIComponent(source)}` : `/teacher/classes/${classId}/edit`)
-              }
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/80"
-            >
-              <PencilLine size={14} />
-              编辑班级
-            </button>
-            <button
-              type="button"
-              onClick={handleArchive}
-              disabled={archiveMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-full border border-rose-500/20 px-4 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300"
-            >
-              <Trash2 size={14} />
-              归档班级
-            </button>
+            {isClassOwner ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate(source ? `/teacher/classes/${classId}/edit?source=${encodeURIComponent(source)}` : `/teacher/classes/${classId}/edit`)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/75"
+                >
+                  <PencilLine size={14} /> 编辑班级
+                </button>
+                <button
+                  type="button"
+                  onClick={handleArchive}
+                  disabled={archiveMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 px-3 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300"
+                >
+                  <Trash2 size={14} /> 归档
+                </button>
+              </>
+            ) : null}
           </div>
         }
       />
 
       {managementErrorMessage && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">
           {managementErrorMessage}
         </div>
       )}
 
       {feedback && (
-        <div className="rounded-[2rem] border border-emerald-500/20 bg-emerald-500/10 p-6 text-emerald-700 dark:text-emerald-300">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
           {feedback}
         </div>
       )}
 
-      <section className="rounded-[2.4rem] liquid-glass-panel p-6">
-        <div className="flex flex-wrap items-center gap-3">
+      <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusBadge label={`建档 ${formatDateTime(detailQuery.data?.createdAt) || '--'}`} />
           <StatusBadge label={`最近更新 ${formatDateTime(detailQuery.data?.updatedAt) || '--'}`} />
           <StatusBadge label={`年级 ${detailQuery.data?.gradeName || '--'}`} />
           <StatusBadge label={`邀请码 ${detailQuery.data?.classCode || '--'}`} />
         </div>
-        <div className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/45">
+        <div className="mt-3 text-xs leading-5 text-slate-500 dark:text-white/45">
           把邀请码发给学生即可。学生在 `/register` 完成注册后，会自动进入当前班级。
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 sm:grid-cols-2 xl:grid-cols-4 dark:border-white/10 dark:bg-white/[0.03]">
         {(overviewQuery.data?.cards || []).slice(0, 4).map((card) => (
-          <StatCard key={card.key} title={card.label} value={`${card.value}${card.unit || ''}`} icon={Users} />
+          <div key={card.key} className="border-b border-slate-200/70 px-4 py-3.5 last:border-b-0 sm:border-r xl:border-b-0 dark:border-white/10">
+            <div className="truncate text-[11px] font-semibold text-slate-500 dark:text-white/45">{card.label}</div>
+            <div className="mt-1 text-xl font-black tabular-nums text-slate-900 dark:text-white">{card.value}{card.unit || ''}</div>
+          </div>
         ))}
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+      <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <SectionEyebrow>风险学生</SectionEyebrow>
+            <div className="mt-1 text-base font-black text-slate-900 dark:text-white">现在需要优先跟进</div>
+          </div>
+          <StatusBadge tone={highRiskStudents.length ? 'danger' : 'success'} label={`高风险 ${highRiskStudents.length} 人`} />
+        </div>
+        {highRiskStudents.length ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[660px] text-left text-sm">
+              <thead className="text-[11px] font-bold text-slate-500 dark:text-white/40">
+                <tr><th className="py-2 pr-4">学生</th><th className="px-4 py-2">风险等级</th><th className="px-4 py-2 text-right">负迁移风险</th><th className="px-4 py-2 text-right">近期正确率</th><th className="py-2 pl-4 text-right">操作</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/70 dark:divide-white/10">
+                {highRiskStudents.slice(0, 6).map((student) => (
+                  <tr key={student.studentUserId}>
+                    <td className="py-2.5 pr-4 font-black text-slate-900 dark:text-white">{student.studentName}</td>
+                    <td className="px-4 py-2.5"><StatusBadge tone="danger" icon={<AlertTriangle size={11} />} label={riskLevelLabel(student.primaryRiskLevel)} /></td>
+                    <td className="px-4 py-2.5 text-right font-black tabular-nums text-rose-600 dark:text-rose-300">{formatMaybePercent(student.recentNegativeTransferRisk)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 dark:text-white/60">{formatMaybePercent(student.recentAccuracy)}</td>
+                    <td className="py-2.5 pl-4 text-right"><Link to={`/teacher/classes/${classId}/students/${student.studentUserId}`} className="text-xs font-black text-primary">查看分析</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-xl border border-dashed border-slate-300 px-4 py-5 text-xs text-slate-500 dark:border-white/15 dark:text-white/45">当前没有标记为高风险的学生；仍可在下方名册查看全部学生指标。</div>
+        )}
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <ChartCard
           title={t('ui.charts.classRadar')}
           option={buildRadarOption(overviewQuery.data?.radar)}
@@ -329,7 +396,7 @@ const TeacherClassDetailPage: React.FC = () => {
         />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-3">
+      <div className="grid gap-5 xl:grid-cols-3">
         <ChartCard
           title={t('ui.charts.riskBuckets')}
           option={riskDistributionOption}
@@ -350,94 +417,75 @@ const TeacherClassDetailPage: React.FC = () => {
         />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+      <div className={cn('grid gap-5', isClassOwner && 'xl:grid-cols-[1.1fr_0.9fr]')}>
+        <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="flex items-center justify-between gap-4">
             <div>
               <SectionEyebrow>在班学生</SectionEyebrow>
-              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">名册管理</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                这里负责班级名册本身。查看学生分析仍然从每位学生详情继续下钻。
-              </div>
+              <div className="mt-1 text-base font-black text-slate-900 dark:text-white">名册与学习指标</div>
             </div>
             <StatusBadge label={`共 ${detailQuery.data?.studentCount || 0} 人`} />
           </div>
 
-          <div className="mt-6 space-y-4">
-            {(detailQuery.data?.students || []).map((student) => {
-              const analyticsStudent = analyticsStudentMap.get(student.studentUserId);
-              return (
-                <div
-                  key={student.studentUserId}
-                  className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="font-black text-slate-900 dark:text-white">{student.studentName}</div>
-                      <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                        {[student.studentNo, student.gradeName, student.username].filter(Boolean).join(' · ') || '尚未补齐学生档案'}
-                      </div>
-                      <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
-                        加入时间 {formatDateTime(student.joinedAt) || '--'}
-                      </div>
-                    </div>
-                    <div className="text-right text-sm text-slate-500 dark:text-white/45">
-                      <div>正确率 {formatMaybePercent(analyticsStudent?.recentAccuracy)}</div>
-                      <div>风险 {formatMaybePercent(analyticsStudent?.recentNegativeTransferRisk)}</div>
-                      <div>{formatMs(analyticsStudent?.recentAvgReactionTimeMs)}</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <Link
-                      to={`/teacher/classes/${classId}/students/${student.studentUserId}`}
-                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-                    >
-                      查看学生分析
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setRemoveStudentConfirmId(student.studentUserId)}
-                      disabled={removeStudentMutation.isPending}
-                      className="inline-flex items-center gap-2 rounded-full border border-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300"
-                    >
-                      <Trash2 size={14} />
-                      移出班级
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {!detailQuery.isLoading && !detailQuery.data?.students.length && (
-              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/40 p-6 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/45">
-                当前班级还没有学生。先在右侧搜索并分配学生。
-              </div>
-            )}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.04]">
+              <Search size={14} className="text-slate-400" />
+              <input value={studentKeyword} onChange={(event) => setStudentKeyword(event.target.value)} placeholder="搜索姓名、学号、账号或年级" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-slate-400" />
+            </label>
+            <div className="inline-flex self-start rounded-xl bg-slate-100 p-1 dark:bg-white/[0.06]">
+              <button type="button" onClick={() => setRosterView('all')} className={cn('rounded-lg px-3 py-2 text-xs font-bold', rosterView === 'all' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-white/45')}>全部</button>
+              <button type="button" onClick={() => setRosterView('risk')} className={cn('rounded-lg px-3 py-2 text-xs font-bold', rosterView === 'risk' ? 'bg-white text-rose-600 shadow-sm dark:bg-slate-800 dark:text-rose-300' : 'text-slate-500 dark:text-white/45')}>高风险</button>
+            </div>
           </div>
+
+          {visibleRosterStudents.length ? (
+            <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200/70 dark:border-white/10">
+              <table className="w-full min-w-[860px] text-left text-sm">
+                <thead className="bg-slate-50/80 text-[11px] font-bold text-slate-500 dark:bg-white/[0.025] dark:text-white/40">
+                  <tr><th className="px-3 py-2.5">学生</th><th className="px-3 py-2.5">档案</th><th className="px-3 py-2.5">风险</th><th className="px-3 py-2.5 text-right">正确率</th><th className="px-3 py-2.5 text-right">反应时</th><th className="px-3 py-2.5 text-right">操作</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/70 dark:divide-white/10">
+                  {visibleRosterStudents.map((student) => {
+                    const analyticsStudent = analyticsStudentMap.get(student.studentUserId);
+                    return (
+                      <tr key={student.studentUserId} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.025]">
+                        <td className="max-w-[200px] px-3 py-2.5"><div className="truncate font-black text-slate-900 dark:text-white" title={student.studentName}>{student.studentName}</div><div className="mt-0.5 text-[11px] text-slate-400">加入 {formatDateTime(student.joinedAt) || '--'}</div></td>
+                        <td className="max-w-[220px] px-3 py-2.5"><div className="truncate text-xs text-slate-600 dark:text-white/60" title={[student.studentNo, student.gradeName, student.username].filter(Boolean).join(' · ')}>{[student.studentNo, student.gradeName, student.username].filter(Boolean).join(' · ') || '尚未补齐学生档案'}</div></td>
+                        <td className="px-3 py-2.5"><StatusBadge tone={analyticsStudent?.primaryRiskLevel === 'HIGH' ? 'danger' : 'neutral'} label={`${riskLevelLabel(analyticsStudent?.primaryRiskLevel)} · ${formatMaybePercent(analyticsStudent?.recentNegativeTransferRisk)}`} /></td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-600 dark:text-white/60">{formatMaybePercent(analyticsStudent?.recentAccuracy)}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-slate-600 dark:text-white/60">{formatMs(analyticsStudent?.recentAvgReactionTimeMs)}</td>
+                        <td className="px-3 py-2.5"><div className="flex items-center justify-end gap-2"><Link to={`/teacher/classes/${classId}/students/${student.studentUserId}`} className="text-xs font-black text-primary">查看分析</Link>{isClassOwner ? <button type="button" onClick={() => setRemoveStudentConfirmId(student.studentUserId)} disabled={removeStudentMutation.isPending} className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-500/10 disabled:opacity-50" aria-label={`移出学生 ${student.studentName}`} title="移出班级"><Trash2 size={14} /></button> : null}</div></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-xs leading-5 text-slate-500 dark:border-white/15 dark:text-white/45">
+              {detailQuery.data?.students.length ? '没有符合当前搜索或风险筛选的学生。' : isClassOwner ? '当前班级还没有学生。可在右侧搜索并批量加入。' : '当前班级还没有学生。'}
+            </div>
+          )}
         </section>
 
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+        {isClassOwner ? <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="flex items-center justify-between gap-4">
             <div>
               <SectionEyebrow>学生分配</SectionEyebrow>
-              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">候选学生</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                搜索学生后批量加入当前班级。已在班学生会自动标记，不会重复加入。
-              </div>
+              <div className="mt-1 text-base font-black text-slate-900 dark:text-white">候选学生</div>
             </div>
             <button
               type="button"
               onClick={() => addStudentsMutation.mutate(selectedStudentIds)}
               disabled={!selectedStudentIds.length || addStudentsMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <UserPlus size={14} />
               加入 {selectedStudentIds.length || 0} 人
             </button>
           </div>
 
-          <label className="mt-6 flex items-center gap-3 rounded-[1.4rem] border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
             <Search size={16} className="text-slate-400" />
             <input
               value={candidateKeyword}
@@ -447,7 +495,7 @@ const TeacherClassDetailPage: React.FC = () => {
             />
           </label>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-3 space-y-2">
             {(candidateQuery.data || []).map((candidate) => {
               const selected = selectedStudentIds.includes(candidate.studentUserId);
               return (
@@ -456,7 +504,7 @@ const TeacherClassDetailPage: React.FC = () => {
                   type="button"
                   disabled={candidate.assigned}
                   onClick={() => toggleStudentSelection(candidate.studentUserId)}
-                  className={`w-full rounded-[1.4rem] border p-4 text-left transition ${
+                  className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
                     candidate.assigned
                       ? 'border-emerald-500/20 bg-emerald-500/10 text-slate-500 dark:text-white/55'
                       : selected
@@ -467,7 +515,7 @@ const TeacherClassDetailPage: React.FC = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold text-slate-900 dark:text-white">{candidate.studentName}</div>
-                      <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                      <div className="mt-1 text-xs text-slate-500 dark:text-white/45">
                         {[candidate.studentNo, candidate.gradeName, candidate.username].filter(Boolean).join(' · ') || '未补齐学生资料'}
                       </div>
                     </div>
@@ -482,12 +530,12 @@ const TeacherClassDetailPage: React.FC = () => {
             })}
 
             {!candidateQuery.isLoading && !candidateQuery.data?.length && (
-              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-white/40 p-6 text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/45">
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white/40 p-5 text-xs leading-5 text-slate-500 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/45">
                 没有匹配到候选学生。可以先清空搜索词，或先到后台补齐学生账号和学生档案。
               </div>
             )}
           </div>
-        </section>
+        </section> : null}
       </div>
 
       {reportGeneratedAt ? (
