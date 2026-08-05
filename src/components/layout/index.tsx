@@ -941,10 +941,10 @@ export const Topbar: React.FC = () => {
           <Menu size={18} className="text-slate-500 dark:text-white/70" />
         </button>
         <div>
-          <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30 mb-1">
+          <div className="type-metadata mb-1">
             {currentWorkspaceLabel}
           </div>
-          <div className="text-lg font-black text-slate-900 dark:text-white">{currentTitle}</div>
+          <div className="type-section-title text-slate-900 dark:text-white">{currentTitle}</div>
         </div>
         {canUseAssistant && (
           <div className="relative max-w-lg w-full hidden md:block group">

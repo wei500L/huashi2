@@ -55,6 +55,10 @@
     --social-bg: hsl(var(--surface-sunken));
     --shadow: 0 12px 30px hsl(222 33% 16% / 0.12);
     --radius: 0.75rem;
+    /* Cross-script typography: Latin, French diacritics and CJK fallbacks. */
+    --font-sans: "Inter", "Avenir Next", "Segoe UI", "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
+    --font-display: "Inter Tight", "Avenir Next", "Segoe UI", "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", "Cascadia Mono", "Roboto Mono", "Noto Sans Mono CJK SC", ui-monospace, monospace;
     --texture-grain:
       radial-gradient(circle at 20% 20%, rgba(15, 23, 42, 0.09) 0 0.8px, transparent 1px),
       radial-gradient(circle at 80% 10%, rgba(59, 130, 246, 0.08) 0 1px, transparent 1.2px),
@@ -125,7 +129,45 @@
   body {
     background: var(--background);
     @apply text-foreground font-sans antialiased min-h-screen bg-fixed relative;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    font-kerning: normal;
+    font-variant-ligatures: common-ligatures contextual;
+    font-feature-settings: "kern", "liga", "clig", "calt";
+    text-rendering: optimizeLegibility;
+    overflow-wrap: break-word;
+  }
+
+  /* Keep French accents clear and avoid artificial tracking on ideographic text. */
+  :lang(fr), [lang^="fr"] {
+    hyphens: auto;
+    font-variant-ligatures: common-ligatures;
+  }
+
+  :lang(zh), [lang^="zh"] {
+    font-kerning: none;
+    font-feature-settings: "kern" 0;
+  }
+
+  :lang(zh) .type-label,
+  :lang(zh) .type-metadata,
+  [lang^="zh"] .type-label,
+  [lang^="zh"] .type-metadata {
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  h1 { line-height: 1.08; }
+  h2, h3 { line-height: 1.2; }
+
+  button, input, textarea, select {
+    font: inherit;
   }
   
   body::before {
@@ -240,6 +282,131 @@
 }
 
 @layer utilities {
+  /* Semantic type roles. Prefer these for new UI and page-level headings. */
+  .type-display {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw, 5.25rem);
+    font-weight: 760;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+    max-inline-size: 18ch;
+    text-wrap: balance;
+  }
+
+  .type-page-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3.4vw, 3.25rem);
+    font-weight: 720;
+    letter-spacing: -0.04em;
+    line-height: 1.06;
+    text-wrap: balance;
+    max-inline-size: 22ch;
+  }
+
+  .type-section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.125rem, 1.5vw, 1.5rem);
+    font-weight: 680;
+    letter-spacing: -0.018em;
+    line-height: 1.22;
+    text-wrap: balance;
+  }
+
+  .type-body {
+    font-size: 0.9375rem;
+    font-weight: 430;
+    line-height: 1.65;
+    letter-spacing: 0;
+  }
+
+  .type-body-muted {
+    color: hsl(var(--text-muted));
+    font-size: 0.875rem;
+    line-height: 1.65;
+    letter-spacing: 0;
+  }
+
+  .type-label,
+  .type-metadata {
+    font-size: 0.6875rem;
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: 0.08em;
+  }
+
+  .type-label {
+    color: hsl(var(--text));
+  }
+
+  .type-metadata {
+    color: hsl(var(--text-subtle));
+    text-transform: uppercase;
+  }
+
+  .type-numeric,
+  .numeric-data,
+  .tabular-nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    letter-spacing: -0.015em;
+  }
+
+  /* Existing Tailwind-heavy screens use font-black widely; keep hierarchy without
+     the poster-like 900 weight that makes accented and CJK glyphs muddy. */
+  .font-black { font-weight: 720 !important; }
+
+  table {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  table th {
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    white-space: normal;
+  }
+
+  :lang(zh) table th,
+  [lang^="zh"] table th {
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  table td {
+    line-height: 1.45;
+  }
+
+  label {
+    letter-spacing: 0;
+  }
+
+  label > span:first-child,
+  label > .type-label {
+    line-height: 1.35;
+  }
+
+  input, textarea, select {
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+
+  @media (max-width: 640px) {
+    .type-display { font-size: clamp(2.25rem, 12vw, 3.75rem); }
+    .type-page-title { max-inline-size: 18ch; font-size: clamp(1.9rem, 9vw, 2.5rem); }
+    .type-section-title { font-size: 1.125rem; }
+    table th { letter-spacing: 0.035em; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+
   .native-select {
     @apply text-slate-900 dark:text-white/90 disabled:text-slate-400 dark:disabled:text-white/35;
   }

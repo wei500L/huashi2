@@ -10,9 +10,9 @@ export const WorkspaceHero: React.FC<{
   meta?: string | null;
 }> = ({ eyebrow, title, subtitle, meta }) => (
   <section className="rounded-[3rem] liquid-glass-panel edge-light p-8 md:p-10">
-    <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{eyebrow}</div>
-    <div className="mt-4 text-4xl font-black tracking-tight text-slate-900 dark:text-white">{title}</div>
-    <div className="mt-4 max-w-3xl text-base leading-7 text-slate-500 dark:text-white/45">{subtitle}</div>
+    <div className="type-metadata">{eyebrow}</div>
+    <h1 className="type-page-title mt-4 text-slate-900 dark:text-white">{title}</h1>
+    <div className="type-body mt-4 max-w-3xl text-slate-500 dark:text-white/45">{subtitle}</div>
     {meta && (
       <div className="mt-6 inline-flex rounded-full border border-slate-200/80 bg-white/70 px-4 py-2 text-xs font-bold text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
         {meta}

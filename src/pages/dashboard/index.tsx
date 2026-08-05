@@ -345,7 +345,7 @@ const DashboardPage: React.FC = () => {
         <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
           <div className="max-w-3xl">
             <SectionEyebrow>{t('ui.sections.studentProfile')}</SectionEyebrow>
-            <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900 dark:text-white md:text-5xl">
+            <h1 className="type-page-title mt-3 text-slate-900 dark:text-white">
               {overview?.studentName || t('common.loading.initializingSession')}，{t('ui.meta.primaryRisk', { risk: riskLevelLabel(overview?.primaryRiskLevel) })}
             </h1>
             <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">

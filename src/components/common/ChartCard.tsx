@@ -61,12 +61,12 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     >
       {!embedded && <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(139,92,246,0.8)]" />
-          <h3 className="text-base font-black tracking-tight text-slate-800 dark:text-white/85">{title}</h3>
+          <div className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+          <h3 className="type-section-title text-slate-800 dark:text-white/85">{title}</h3>
         </div>
         <div className="flex items-center gap-4">
           {extra}
-          {loading && <RefreshCcw className="animate-spin text-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.8)]" size={16} />}
+          {loading && <RefreshCcw className="animate-spin text-primary" size={16} />}
         </div>
       </div>}
       

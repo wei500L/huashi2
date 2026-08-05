@@ -65,7 +65,7 @@ const STATUS_TONE_CLASSNAME: Record<StatusTone, string> = {
 export const SectionEyebrow: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
   <div
     className={cn(
-      'text-[10px] font-black uppercase tracking-[0.28em] text-slate-400 dark:text-white/30',
+      'type-metadata',
       className
     )}
   >
@@ -236,7 +236,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       <div className="flex items-start justify-between relative z-10" style={{ transform: 'translateZ(30px)' }}>
         <div>
           <SectionEyebrow className="mb-1">{title}</SectionEyebrow>
-          <h3 className={cn('stat-card-value text-4xl font-black tracking-tighter tabular-nums', iconGlowClass)}>
+          <h3 className={cn('stat-card-value type-numeric text-4xl font-semibold tabular-nums', iconGlowClass)}>
             {!isNaN(numericValue) ? (
               <>
                 <AnimatedNumber value={numericValue} />
@@ -300,8 +300,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
         </div>
       )}
       {eyebrow ? <SectionEyebrow className="mb-3">{eyebrow}</SectionEyebrow> : null}
-      <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white drop-shadow-none dark:drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">{title}</h1>
-      {subtitle && <p className="text-sm text-slate-500 dark:text-white/40 mt-3 font-medium max-w-xl leading-relaxed">{subtitle}</p>}
+      <h1 className="type-page-title text-slate-900 dark:text-white">{title}</h1>
+      {subtitle && <p className="type-body-muted mt-3 max-w-xl">{subtitle}</p>}
     </motion.div>
     {actions && (
       <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }} className="flex items-center gap-4">

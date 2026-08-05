@@ -105,7 +105,7 @@ const Login: React.FC = () => {
               <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 text-xs font-black uppercase tracking-[0.24em] text-slate-500 dark:text-white/40">
                 {t('login.badge')}
               </div>
-              <h1 className="mt-8 text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.05]">
+              <h1 className="type-display mt-8 text-slate-900 dark:text-white">
                 {t('login.title')}
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-500 dark:text-white/50">
@@ -129,10 +129,10 @@ const Login: React.FC = () => {
 
           <section className="liquid-glass rounded-[3rem] edge-light p-8 md:p-10 self-center">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{t('login.accountLogin')}</div>
-            <h2 className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{t('login.accountLoginTitle')}</h2>
+            <h2 className="type-section-title mt-3 text-slate-900 dark:text-white">{t('login.accountLoginTitle')}</h2>
             <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
               <label className="block">
-                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('login.usernameLabel')}</div>
+                <div className="type-label mb-2 text-slate-700 dark:text-white/70">{t('login.usernameLabel')}</div>
                 <input
                   {...register('usernameOrEmail')}
                   className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/75 dark:bg-slate-950/40 px-4 py-3 outline-none focus:border-primary/50"
@@ -142,7 +142,7 @@ const Login: React.FC = () => {
               </label>
 
               <label className="block">
-                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('login.passwordLabel')}</div>
+                <div className="type-label mb-2 text-slate-700 dark:text-white/70">{t('login.passwordLabel')}</div>
                 <input
                   type="password"
                   {...register('password')}

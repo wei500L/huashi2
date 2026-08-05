@@ -519,7 +519,7 @@ const DiagnosisPage: React.FC = () => {
             <div className="inline-flex rounded-3xl border border-primary/20 bg-primary/10 p-4">
               <Brain size={32} className="text-primary" />
             </div>
-            <h2 className="mt-6 text-4xl font-black text-slate-900 dark:text-white">
+            <h2 className="type-page-title mt-6 text-slate-900 dark:text-white">
               {t('diagnosis.startTitle')}
             </h2>
             <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">
@@ -674,7 +674,7 @@ const DiagnosisPage: React.FC = () => {
           <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
             <div className="max-w-2xl">
               <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Generating Result</div>
-              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">正在生成诊断结果</h2>
+              <h2 className="type-section-title mt-4 text-slate-900 dark:text-white">正在生成诊断结果</h2>
               <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
                 所有答案均已记录，系统正在完成评分并生成结果，请稍候。
               </p>
@@ -835,7 +835,7 @@ const DiagnosisPage: React.FC = () => {
                   <CheckCircle2 size={14} />
                   {t('diagnosis.completedBadge')}
                 </div>
-                <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">
+                <h2 className="type-page-title mt-5 text-slate-900 dark:text-white">
                   {t('diagnosis.completedTitle')}
                 </h2>
                 <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
@@ -881,7 +881,7 @@ const DiagnosisPage: React.FC = () => {
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 {t('diagnosis.metrics.positiveTransferScore')}
               </div>
-              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+              <div className="type-numeric mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
                 {formatMaybePercent(result.metrics.positiveTransferScore)}
               </div>
             </div>
@@ -889,7 +889,7 @@ const DiagnosisPage: React.FC = () => {
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 {t('diagnosis.metrics.negativeTransferRisk')}
               </div>
-              <div className="mt-3 text-3xl font-black text-rose-500">
+              <div className="type-numeric mt-3 text-3xl font-semibold text-rose-500">
                 {formatMaybePercent(result.metrics.negativeTransferRisk)}
               </div>
             </div>
@@ -897,7 +897,7 @@ const DiagnosisPage: React.FC = () => {
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 {t('diagnosis.metrics.semanticDiscrimination')}
               </div>
-              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+              <div className="type-numeric mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
                 {formatMaybePercent(result.metrics.semanticDiscrimination)}
               </div>
             </div>
@@ -905,7 +905,7 @@ const DiagnosisPage: React.FC = () => {
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 {t('diagnosis.metrics.averageReactionTime')}
               </div>
-              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+              <div className="type-numeric mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
                 {formatMs(result.metrics.averageReactionTime)}
               </div>
             </div>

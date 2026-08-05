@@ -112,7 +112,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         disabled={disabled}
         onClick={() => setIsOpen((current) => !current)}
         className={cn(
-          'flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-left text-sm outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out focus:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/45 dark:focus:border-primary/50 dark:focus:shadow-[0_0_0_1px_rgba(139,92,246,0.22)]',
+          'flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-left text-sm outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out focus:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/45 dark:focus:border-primary/50 dark:focus:shadow-[0_0_0_1px_hsl(var(--focus)/0.24)]',
           triggerClassName,
         )}
       >

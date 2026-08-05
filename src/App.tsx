@@ -163,6 +163,7 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     void i18n.changeLanguage(locale);
+    window.document.documentElement.lang = locale;
   }, [locale]);
 
   React.useEffect(() => {

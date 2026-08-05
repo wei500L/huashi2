@@ -299,7 +299,7 @@ const AdminDashboardPage: React.FC = () => {
         <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <SectionEyebrow>全局概览</SectionEyebrow>
-            <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900 dark:text-white md:text-5xl">
+            <h1 className="type-page-title mt-3 text-slate-900 dark:text-white">
               {integerFormatter.format(overview?.totalUsers ?? 0)} 名用户，{integerFormatter.format(overview?.enabledUsers ?? 0)} 名可用账号
             </h1>
             <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">

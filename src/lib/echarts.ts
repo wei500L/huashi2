@@ -45,11 +45,30 @@ echarts.use([
 
 const LIGHT_THEME = 'ef-transfer-light';
 const DARK_THEME = 'ef-transfer-dark';
+const CHART_FONT_FAMILY = 'Inter, Avenir Next, Segoe UI, Noto Sans, Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif';
 
 echarts.registerTheme(LIGHT_THEME, {
   backgroundColor: 'transparent',
   textStyle: {
     color: '#0f172a',
+    fontFamily: CHART_FONT_FAMILY,
+    fontSize: 12,
+  },
+  legend: {
+    textStyle: { color: '#475569', fontFamily: CHART_FONT_FAMILY, fontSize: 11 },
+  },
+  tooltip: {
+    textStyle: { color: '#0f172a', fontFamily: CHART_FONT_FAMILY, fontSize: 12 },
+  },
+  categoryAxis: {
+    axisLabel: { color: '#64748b', fontFamily: CHART_FONT_FAMILY, fontSize: 11 },
+    axisLine: { lineStyle: { color: '#cbd5e1' } },
+    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } },
+  },
+  valueAxis: {
+    axisLabel: { color: '#64748b', fontFamily: CHART_FONT_FAMILY, fontSize: 11 },
+    axisLine: { lineStyle: { color: '#cbd5e1' } },
+    splitLine: { lineStyle: { color: 'rgba(148,163,184,0.16)' } },
   },
 });
 
@@ -59,10 +78,14 @@ echarts.registerTheme(DARK_THEME, {
   backgroundColor: 'transparent',
   textStyle: {
     color: '#cbd5f5',
+    fontFamily: CHART_FONT_FAMILY,
+    fontSize: 12,
   },
   legend: {
     textStyle: {
       color: '#cbd5f5',
+      fontFamily: CHART_FONT_FAMILY,
+      fontSize: 11,
     },
   },
   tooltip: {
@@ -70,6 +93,8 @@ echarts.registerTheme(DARK_THEME, {
     borderColor: 'rgba(148,163,184,0.25)',
     textStyle: {
       color: '#e2e8f0',
+      fontFamily: CHART_FONT_FAMILY,
+      fontSize: 12,
     },
   },
   categoryAxis: {
@@ -80,6 +105,8 @@ echarts.registerTheme(DARK_THEME, {
     },
     axisLabel: {
       color: '#94a3b8',
+      fontFamily: CHART_FONT_FAMILY,
+      fontSize: 11,
     },
     splitLine: {
       lineStyle: {
@@ -95,6 +122,8 @@ echarts.registerTheme(DARK_THEME, {
     },
     axisLabel: {
       color: '#94a3b8',
+      fontFamily: CHART_FONT_FAMILY,
+      fontSize: 11,
     },
     splitLine: {
       lineStyle: {

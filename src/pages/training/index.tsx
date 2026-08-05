@@ -692,7 +692,7 @@ const TrainingPage: React.FC = () => {
           <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
             <div className="max-w-2xl">
               <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Generating Summary</div>
-              <h2 className="mt-4 text-3xl font-black text-slate-900 dark:text-white">正在生成训练总结</h2>
+              <h2 className="type-section-title mt-4 text-slate-900 dark:text-white">正在生成训练总结</h2>
               <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
                 所有答案均已记录，系统正在完成本轮总结，请稍候。
               </p>
@@ -871,7 +871,7 @@ const TrainingPage: React.FC = () => {
                     <Award size={14} />
                     {t('training.sessionCompleted')}
                   </div>
-                  <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">
+                  <h2 className="type-page-title mt-5 text-slate-900 dark:text-white">
                     {t('training.sessionCompletedTitle')}
                   </h2>
                   <p className="mt-4 leading-7 text-slate-500 dark:text-white/45">
@@ -914,7 +914,7 @@ const TrainingPage: React.FC = () => {
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                   {t('training.accuracy')}
                 </div>
-                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+                <div className="type-numeric mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
                   {formatMaybePercent(summary.accuracy)}
                 </div>
               </div>
@@ -922,7 +922,7 @@ const TrainingPage: React.FC = () => {
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                   {t('training.averageReactionTime')}
                 </div>
-                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+                <div className="type-numeric mt-3 text-3xl font-semibold text-slate-900 dark:text-white">
                   {formatMs(summary.averageReactionTime)}
                 </div>
               </div>
@@ -930,7 +930,7 @@ const TrainingPage: React.FC = () => {
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                   {t('training.nextMode')}
                 </div>
-                <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
+                <div className="type-section-title mt-3 text-slate-900 dark:text-white">
                   {summary.nextRecommendedMode}
                 </div>
               </div>
@@ -1034,7 +1034,7 @@ const TrainingPage: React.FC = () => {
                     <TrainingModeSummaryCard mode={recommendedPlanQuery.data.priorityMode} />
                   </div>
                 ) : (
-                  <h2 className="mt-5 text-4xl font-black text-slate-900 dark:text-white">
+                  <h2 className="type-page-title mt-5 text-slate-900 dark:text-white">
                     {t('training.recommendationLoading')}
                   </h2>
                 )}
