@@ -1,21 +1,24 @@
 # UI Quality Handoff
 
 更新时间：2026-08-05  
-当前阶段：A2 品牌方向决策完成，下一步是低保真视觉验证。
+当前阶段：A3 React Bits 采用矩阵与依赖预算完成，下一步是按白名单做低保真视觉验证。
 
 ## 新窗口最短接手路径
 
 1. 读 [README](./README.md)。
 2. 读 [A1 完整证据地图](./01-global-visual-evidence-audit.md)，优先看 BR-03、IH-01/02、CS-04、RD-01/02、RS-01、PF-01/02/03。
 3. 读 [A2 品牌方向决策](./02-brand-direction-decision.md)，先区分已确认、候选和明确排除。
-4. 执行 `git status --short`，保留新窗口开始时的任何未提交修改；视觉原型阶段仍不改业务代码。
-5. 进入低保真验证，只验证关键路径和候选组件边界，不做整站换肤。
+4. 读 [A3 React Bits 采用矩阵与依赖预算](./03-react-bits-adoption-matrix.md)，按 adopt/adapt/evaluate/reject 和静态降级执行。
+5. 执行 `git status --short`，保留新窗口开始时的任何未提交修改；视觉原型阶段仍不改业务代码。
+6. 进入低保真验证，只验证关键路径和白名单组件边界，不做整站换肤。
 
 ## 本轮结论
 
 - 品牌方向：确认 **Lexical Cartography / 语言迁移地图**。EF.Transfer 是连接英语起点、迁移证据和法语目标的地图；AI 是测绘工具，不是主角。
 - 品牌锚点：EN↔FR 迁移焦点 + 单条可读路线 + 证据图钉。颜色以墨色/纸张为基底，来源暖矿物色、目标冷水域色、进展亮色路线；紫色降为辅助。
-- React Bits：Topography 是最接近锚点的底图候选；TrueFocus、VariableProximity 是局部焦点/探索候选；WebThreads 仅限教师关系视图；StrokeText 与 TextLoop 明确排除为全局品牌锚点。
+- React Bits 白名单：Stepper 为 adopt；Topography、TrueFocus、CountUp、AnimatedList、Radar、WebThreads 为 adapt。MaskedHeading、Stack、Scanner 仅 evaluate；StrokeText、TextLoop、CardSwap、PillNav、SpotlightCard、Masonry、ElasticSlider、MorphSlider 为 reject。
+- 依赖预算：本轮新增运行时依赖 0；不安装 React Bits 整库，不新增 GSAP、OGL、Three.js 或第二套动画库。动效复用现有 Framer Motion，WebGL/Canvas 上下文预算为 0；关系/地形优先 CSS/SVG/DOM，并必须提供文本或列表等价物。
+- 高频工作台边界：`/teacher/workspace` 与 `/admin/dashboard` 禁止 cursor-only、全屏 WebGL、玻璃拟态、默认霓虹、自动轮播、持续 RAF 和指针驱动 3D/磁吸。
 - 三角色：学生是路线行者，教师是地图编辑者，管理员是测绘控制台；共享地图语法但分别强调下一步、队列/对比、密度/审计。
 
 - P0：`/admin/dashboard` 与 `/assessments/attempts/:attemptId` 大量硬编码中文，`/dashboard` 也有局部中文；英文 shell 下必然混排。当前 UI locale 仅中/英，法文按业务内容和排版韧性处理。
@@ -41,6 +44,6 @@
 
 ## 下一步
 
-执行低保真视觉验证：用现有 CSS/DOM 对三角色首页与学生诊断路径做静态对照，验证 5 秒品牌辨识、首屏任务可见性、真实长英法文案、reduced-motion 与 375px 无横向溢出；再决定候选组件是否进入实现。
+执行低保真视觉验证：第一批只验证学生 `/diagnosis`、`/assessments/attempts/:attemptId` 的 Topography、TrueFocus、Stepper；第二批再验证教师 `/teacher/workspace`、`/teacher/research` 的 AnimatedList、WebThreads 静态变体。必须覆盖 5 秒品牌辨识、首屏任务可见性、真实长英法文案、键盘焦点、reduced-motion、静态降级与 375px 无横向溢出；不安装新依赖。
 
 本轮未运行任何测试、lint、typecheck 或 build。
