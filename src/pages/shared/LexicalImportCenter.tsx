@@ -863,7 +863,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                     disabled={commitBatchMutation.isPending || isBatchProcessing(selectedBatch) || selectedBatch.readyRows <= 0}
                     className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
                   >
-                    <RefreshCw size={14} className={isBatchProcessing(selectedBatch) ? 'animate-spin' : ''} />
+                    <RefreshCw size={14} className={isBatchProcessing(selectedBatch) ? 'animate-pulse' : ''} />
                     {commitBatchMutation.isPending || selectedBatch.status === 'IMPORTING' ? '提交中...' : '正式导入可用行'}
                   </button>
                   {isAdmin && (
@@ -1106,7 +1106,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
 
           {batchDetailQuery.isLoading && (
             <div className="flex items-center gap-3 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-6 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
-              <LoaderCircle size={16} className="animate-spin" />
+                    <LoaderCircle size={16} className="animate-pulse" />
               正在加载批次详情...
             </div>
           )}

@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Check, Link as LinkIcon, Plus, Search, Trash2 } fro
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { LexicalPairSuggestionInput } from '@/components/common/LexicalPairSuggestionInput';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, riskLevelLabel } from '@/lib/format';
 import type {
@@ -78,6 +79,7 @@ const TeacherLexicalListsPage: React.FC = () => {
   const [editorForm, setEditorForm] = React.useState<ListEditorState>(emptyEditorForm);
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [deleteListConfirmOpen, setDeleteListConfirmOpen] = React.useState(false);
 
   const listsQuery = useQuery({
     queryKey: ['lexical-lists', listKeyword],
@@ -261,6 +263,7 @@ const TeacherLexicalListsPage: React.FC = () => {
     mutationFn: () => lexicalListService.delete(selectedId as number),
     onSuccess: async () => {
       const deletedId = selectedId;
+      setDeleteListConfirmOpen(false);
       setFeedback('词表已删除。');
       setErrorMessage(null);
       setSelectedId(null);
@@ -271,6 +274,7 @@ const TeacherLexicalListsPage: React.FC = () => {
       }
     },
     onError: (error) => {
+      setDeleteListConfirmOpen(false);
       setFeedback(null);
       setErrorMessage(error instanceof Error ? error.message : '词表删除失败');
     },
@@ -553,10 +557,7 @@ const TeacherLexicalListsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!window.confirm(`确认删除词表“${detailQuery.data.listName}”吗？此操作不可撤销。`)) {
-                        return;
-                      }
-                      deleteListMutation.mutate();
+                      setDeleteListConfirmOpen(true);
                     }}
                     disabled={deleteListMutation.isPending}
                     className="rounded-2xl border border-rose-500/20 px-5 py-3 text-sm text-rose-500 disabled:opacity-60"
@@ -802,6 +803,20 @@ const TeacherLexicalListsPage: React.FC = () => {
             </div>
           )}
         </section>
+        <ConfirmationDialog
+          open={deleteListConfirmOpen && Boolean(detailQuery.data)}
+          title="确认删除当前词表？"
+          description={`词表“${detailQuery.data?.listName ?? '--'}”及其维护关系将被删除。`}
+          safety="此操作不可撤销；词表中的关联关系会被移除，但词对本身不会被删除。"
+          nextStep="先确认词表名称和影响范围；如需保留请取消，仅在确认无误后删除。"
+          confirmLabel="确认删除词表"
+          cancelLabel="取消，保留词表"
+          pending={deleteListMutation.isPending}
+          pendingTitle="正在删除词表"
+          pendingDescription="删除请求已经提交，请等待服务器确认。"
+          onCancel={() => setDeleteListConfirmOpen(false)}
+          onConfirm={() => deleteListMutation.mutate()}
+        />
       </div>
     </div>
   );

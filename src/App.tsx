@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppLayout } from './components/layout';
+import { FeedbackState } from './components/common/FeedbackState';
 import { RouteSkeleton } from './components/common';
 import i18n from './lib/i18n';
 import { buildDocumentTitle } from './lib/page-title';
@@ -55,18 +56,27 @@ const AdminLexicalPairImportsPage = React.lazy(() => import('./pages/admin/Lexic
 
 const BootScreen: React.FC = () => <RouteSkeleton />;
 
-const RouteStatusPage: React.FC<{ code: 403 | 404; title: string; description: string }> = ({ code, title, description }) => (
-  <div className="mx-auto flex min-h-[60vh] max-w-2xl items-center px-6 py-16">
-    <div className="w-full rounded-xl surface-panel p-8 md:p-10">
-      <div className="text-sm font-black tracking-[0.24em] text-primary">{code}</div>
-      <h1 className="mt-4 text-4xl font-black text-slate-900 dark:text-white">{title}</h1>
-      <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">{description}</p>
-      <Link to="/" className="btn-liquid mt-7 inline-flex px-5 py-3 text-white">
-        返回可用工作区
-      </Link>
+const RouteStatusPage: React.FC<{ code: 403 | 404; title: string; description: string }> = ({ code, title, description }) => {
+  const navigate = useNavigate();
+  const isPermission = code === 403;
+  return (
+    <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center px-6 py-16">
+      <FeedbackState
+        kind={isPermission ? 'permission' : 'empty'}
+        className="w-full surface-panel"
+        eyebrow={`${code} · ${i18n.t(isPermission ? 'ui.routeStatus.permissionEyebrow' : 'ui.routeStatus.notFoundEyebrow')}`}
+        title={title}
+        description={description}
+        impact={i18n.t(isPermission ? 'ui.routeStatus.permissionSafety' : 'ui.routeStatus.notFoundSafety')}
+        nextStep={i18n.t(isPermission ? 'ui.routeStatus.permissionNextStep' : 'ui.routeStatus.notFoundNextStep')}
+        primaryAction={{
+          label: i18n.t('ui.routeStatus.backHome'),
+          onClick: () => navigate('/'),
+        }}
+      />
     </div>
-  </div>
-);
+  );
+};
 
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();

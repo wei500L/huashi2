@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Save, Send } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { FeedbackState } from '@/components/common/FeedbackState';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
-import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { assessmentQuestionTypeLabel, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
 import type { AssessmentAttemptDetailVO, AssessmentAttemptQuestionVO } from '@/lib/contracts';
@@ -112,8 +113,6 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const saveQueueRef = React.useRef<Promise<void>>(Promise.resolve());
   const currentVersionRef = React.useRef(1);
   const questionTitleRef = React.useRef<HTMLDivElement | null>(null);
-  const submitDialogRef = React.useRef<HTMLDivElement | null>(null);
-  const submitCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['student-assessment-attempt', attemptId],
@@ -225,14 +224,6 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   const unansweredQuestionOrders = orderedQuestions.filter((question) => !hasResponses(responsesByOrder[question.questionOrder])).map((question) => question.questionOrder);
   const canEdit = detail?.status === 'IN_PROGRESS' && !submitLocked;
   const shouldWarnBeforeLeave = detail?.status === 'IN_PROGRESS' && !submitLocked;
-
-  useBodyScrollLock(submitConfirmOpen);
-  useDialogAccessibility({
-    open: submitConfirmOpen,
-    containerRef: submitDialogRef,
-    initialFocusRef: submitCancelButtonRef,
-    onClose: () => setSubmitConfirmOpen(false),
-  });
 
   React.useEffect(() => {
     questionTitleRef.current?.focus();
@@ -642,33 +633,67 @@ const StudentAssessmentAttemptPage: React.FC = () => {
       />
 
       {(saveNotice || saveErrorMessage || submitErrorMessage) && (
-        <div
-          aria-live="polite"
-          className={`rounded-[1.8rem] px-5 py-4 text-sm ${
-            submitErrorMessage || saveErrorMessage
-              ? 'border border-rose-500/20 bg-rose-500/5 text-rose-500'
-              : isSubmitting || isSaving
-                ? 'border border-sky-500/20 bg-sky-500/5 text-sky-700 dark:text-sky-300'
-                : 'border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
-          }`}
-        >
-          {submitErrorMessage || saveErrorMessage || saveNotice}
-        </div>
+        submitErrorMessage ? (
+          <FeedbackState
+            kind="retry"
+            compact
+            title="答卷未能提交"
+            description={submitErrorMessage}
+            impact="失败请求不会重复计入结果，当前答卷仍保留在页面中。"
+            nextStep="检查答案后点击“重新提交”；成功前请不要关闭当前页面。"
+          />
+        ) : saveErrorMessage ? (
+          <FeedbackState
+            kind="retry"
+            compact
+            title="答案未能保存"
+            description={saveErrorMessage}
+            impact="服务器未确认本轮答案变更；上一次已保存的答案仍然安全。"
+            nextStep="点击“保存答案”重试，成功前请留在当前页面。"
+          />
+        ) : isSubmitting ? (
+          <FeedbackState
+            kind="saving"
+            compact
+            title="正在提交答卷"
+            description={saveNotice ?? '系统正在提交答卷，请不要关闭页面。'}
+          />
+        ) : isSaving ? (
+          <FeedbackState
+            kind="saving"
+            compact
+            title="正在保存答案"
+            description={saveNotice ?? '系统正在保存当前答案。'}
+          />
+        ) : (
+          <FeedbackState
+            kind="saved"
+            compact
+            title="答案已保存"
+            description={saveNotice ?? '服务器已确认保存当前答案。'}
+          />
+        )
       )}
 
       {detailQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-          <div>{getApiErrorMessage(detailQuery.error)}</div>
-          <button type="button" onClick={() => void detailQuery.refetch()} className="mt-4 rounded-full border border-rose-500/30 px-4 py-2 text-sm font-bold">
-            重试加载
-          </button>
-        </div>
+        <FeedbackState
+          kind="retry"
+          title="测评内容未能加载"
+          description={getApiErrorMessage(detailQuery.error)}
+          impact="加载失败不会修改或覆盖此前保存的答案。"
+          nextStep="点击重试加载；如果持续失败，请返回测评列表稍后再试。"
+          primaryAction={{ label: '重试加载', onClick: () => void detailQuery.refetch() }}
+        />
       )}
 
       {detailQuery.isLoading && (
-        <div className="rounded-[2.2rem] liquid-glass-panel p-8 text-sm text-slate-500 dark:text-white/45">
-          正在加载测评内容...
-        </div>
+        <FeedbackState
+          kind="loading"
+          title="正在加载测评内容"
+          description="系统正在读取答卷、题目和当前保存位置。"
+          impact="当前仅读取数据，不会提交或覆盖答案。"
+          nextStep="请稍等，题目准备好后会直接显示。"
+        />
       )}
 
       {detail && currentQuestion && (
@@ -791,25 +816,24 @@ const StudentAssessmentAttemptPage: React.FC = () => {
         </div>
       )}
 
-      {submitConfirmOpen && detail?.status === 'IN_PROGRESS' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
-          <div
-            ref={submitDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="assessment-submit-title"
-            className="w-full max-w-xl rounded-[2rem] border border-slate-200/80 bg-white/96 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/96"
-          >
-            <SectionEyebrow>交卷确认</SectionEyebrow>
-            <div id="assessment-submit-title" className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
-              {unansweredQuestionOrders.length > 0
-                ? `你还有 ${unansweredQuestionOrders.length} 题未作答，确认提交？`
-                : '所有题目已作答，确认提交？'}
-            </div>
-            <div className="mt-3 text-sm leading-7 text-slate-500 dark:text-white/50">
-              提交后将锁定答卷，不能继续修改。建议先检查未完成题目，再决定是否立即交卷。
-            </div>
-            {unansweredQuestionOrders.length > 0 && (
+      <ConfirmationDialog
+        open={Boolean(submitConfirmOpen && detail?.status === 'IN_PROGRESS')}
+        title={unansweredQuestionOrders.length > 0
+          ? `你还有 ${unansweredQuestionOrders.length} 题未作答，确认提交？`
+          : '所有题目已作答，确认提交？'}
+        description="系统将提交当前答卷并结束本次作答。"
+        safety="提交后答卷会被锁定，不能继续修改；已保存答案会随本次答卷一起提交。"
+        nextStep="建议先检查未作答题目；确认答案完整后再提交。"
+        confirmLabel="确认交卷并锁定"
+        cancelLabel="继续检查"
+        pending={isSubmitting}
+        pendingTitle="正在提交答卷"
+        pendingDescription="交卷请求已经提交，请留在当前页面等待结果。"
+        onCancel={() => setSubmitConfirmOpen(false)}
+        onConfirm={() => {
+          void handleSubmit('manual');
+        }}
+        details={unansweredQuestionOrders.length > 0 ? (
               <div className="mt-5">
                 <div className="text-sm font-bold text-slate-900 dark:text-white">未作答题号</div>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -828,30 +852,8 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                   ))}
                 </div>
               </div>
-            )}
-            <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <button
-                ref={submitCancelButtonRef}
-                type="button"
-                onClick={() => setSubmitConfirmOpen(false)}
-                className="rounded-full border border-slate-200 px-4 py-3 text-sm font-bold dark:border-white/10"
-              >
-                继续检查
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSubmitConfirmOpen(false);
-                  void handleSubmit('manual');
-                }}
-                className="btn-liquid px-5 py-3 text-white"
-              >
-                确认交卷
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        ) : undefined}
+      />
     </div>
   );
 };

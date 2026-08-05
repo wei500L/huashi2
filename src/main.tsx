@@ -33,11 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <MotionConfig reducedMotion="user">
-          <RouteErrorBoundary
-            variant="fullscreen"
-            title="应用加载失败"
-            description="当前页面未能完成初始化。请重新加载；如果问题持续存在，先回到登录页或首页再重试。"
-          >
+          <RouteErrorBoundary variant="fullscreen">
             <App />
           </RouteErrorBoundary>
         </MotionConfig>

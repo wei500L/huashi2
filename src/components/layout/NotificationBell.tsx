@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { FeedbackState } from '@/components/common/FeedbackState';
 import type { NotificationItemVO, NotificationSocketMessage, PageResult } from '@/lib/contracts';
+import { getProductizedErrorState } from '@/lib/async-state';
 import { buildNotificationWebSocketUrl } from '@/lib/notifications';
 import { notificationService } from '@/lib/services';
 import { cn } from '@/lib/utils';
@@ -103,6 +105,13 @@ export const NotificationBell: React.FC = () => {
 
   const unreadCount = unreadCountQuery.data?.unreadCount ?? 0;
   const notifications = recentNotificationsQuery.data?.records ?? [];
+  const notificationErrorState = recentNotificationsQuery.error
+    ? getProductizedErrorState(recentNotificationsQuery.error, {
+        resourceLabel: t('shell.notifications.resourceLabel'),
+        taskLabel: t('shell.notifications.taskLabel'),
+        retryActionLabel: t('shell.notifications.retry'),
+      })
+    : null;
   const buttonLabel = useMemo(
     () => (unreadCount > 0 ? `${t('shell.notifications.open')} (${unreadCount})` : t('shell.notifications.open')),
     [t, unreadCount]
@@ -236,6 +245,9 @@ export const NotificationBell: React.FC = () => {
     ? createPortal(
       <div
         ref={panelRef}
+        role="dialog"
+        aria-label={t('shell.notifications.title')}
+        tabIndex={-1}
         style={{
           position: 'fixed',
           top: panelStyle.top,
@@ -262,15 +274,69 @@ export const NotificationBell: React.FC = () => {
           </button>
         </div>
 
+        {markAllReadMutation.isPending && (
+          <FeedbackState
+            kind="saving"
+            compact
+            className="mt-4 px-4 py-4"
+            title={t('shell.notifications.markingAllReadTitle')}
+            description={t('shell.notifications.markingAllReadDescription')}
+          />
+        )}
+        {markAllReadMutation.isSuccess && !markAllReadMutation.isPending && (
+          <FeedbackState
+            kind="success"
+            compact
+            className="mt-4 px-4 py-4"
+            title={t('shell.notifications.markedAllReadTitle')}
+            description={t('shell.notifications.markedAllReadDescription')}
+          />
+        )}
+        {markAllReadMutation.isError && (
+          <FeedbackState
+            kind="retry"
+            compact
+            className="mt-4 px-4 py-4"
+            title={t('shell.notifications.markAllReadErrorTitle')}
+            description={t('shell.notifications.markAllReadErrorDescription')}
+            primaryAction={{
+              label: t('shell.notifications.retry'),
+              onClick: () => markAllReadMutation.mutate(),
+            }}
+          />
+        )}
+
         <div className="mt-4 max-h-[calc(100vh-10rem)] space-y-2 overflow-y-auto pr-1">
           {recentNotificationsQuery.isLoading ? (
-            <div className="rounded-2xl border border-slate-200/70 px-4 py-6 text-sm text-slate-400 dark:border-white/10 dark:text-white/40">
-              {t('shell.notifications.loading')}
-            </div>
+            <FeedbackState
+              kind="loading"
+              compact
+              className="px-4 py-5"
+              title={t('shell.notifications.loadingTitle')}
+              description={t('shell.notifications.loadingDescription')}
+            />
+          ) : notificationErrorState ? (
+            <FeedbackState
+              kind={notificationErrorState.kind}
+              compact
+              className="px-4 py-5"
+              title={notificationErrorState.title}
+              description={notificationErrorState.description}
+              impact={notificationErrorState.impact}
+              nextStep={notificationErrorState.nextStep}
+              primaryAction={{
+                label: t('shell.notifications.retry'),
+                onClick: () => void recentNotificationsQuery.refetch(),
+              }}
+            />
           ) : notifications.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200/80 px-4 py-8 text-center text-sm text-slate-400 dark:border-white/10 dark:text-white/35">
-              {t('shell.notifications.empty')}
-            </div>
+            <FeedbackState
+              kind="empty"
+              compact
+              className="px-4 py-5"
+              title={t('shell.notifications.emptyTitle')}
+              description={t('shell.notifications.emptyDescription')}
+            />
           ) : (
             notifications.map((notification) => (
               <button

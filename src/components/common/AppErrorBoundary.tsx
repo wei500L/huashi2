@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { FeedbackState } from './FeedbackState';
 
@@ -12,6 +13,9 @@ type BoundaryProps = {
   variant: ErrorBoundaryVariant;
   title?: string;
   description?: string;
+  impact: string;
+  nextStep: string;
+  reloadLabel: string;
 };
 
 type BoundaryState = {
@@ -87,10 +91,10 @@ class ErrorBoundaryRoot extends React.Component<BoundaryProps, BoundaryState> {
             className="w-full max-w-3xl surface-panel rounded-xl p-8 md:p-10"
             title={title}
             description={description}
-            impact="当前页面无法继续完成渲染，但你已经保存的数据不会因此丢失。"
-            nextStep="请先重新加载页面；如果仍然出现相同问题，可稍后再试或返回可用页面继续操作。"
+            impact={this.props.impact}
+            nextStep={this.props.nextStep}
             primaryAction={{
-              label: '重新加载页面',
+              label: this.props.reloadLabel,
               onClick: this.reloadPage,
             }}
             secondaryAction={{
@@ -118,9 +122,12 @@ export const RouteErrorBoundary: React.FC<RouteErrorBoundaryProps> = ({
   title,
   description,
 }) => {
+  const { t } = useTranslation();
   const location = useLocation();
   const homePath = location.pathname === '/login' ? '/login' : '/';
-  const homeLabel = location.pathname === '/login' ? '返回登录页' : '返回首页';
+  const homeLabel = location.pathname === '/login'
+    ? t('ui.errorBoundary.backToLogin')
+    : t('ui.errorBoundary.backToHome');
 
   return (
     <ErrorBoundaryRoot
@@ -128,8 +135,11 @@ export const RouteErrorBoundary: React.FC<RouteErrorBoundaryProps> = ({
       homePath={homePath}
       homeLabel={homeLabel}
       variant={variant}
-      title={title}
-      description={description}
+      title={title ?? t('ui.errorBoundary.title')}
+      description={description ?? t('ui.errorBoundary.description')}
+      impact={t('ui.errorBoundary.safety')}
+      nextStep={t('ui.errorBoundary.nextStep')}
+      reloadLabel={t('ui.errorBoundary.reload')}
     >
       {children}
     </ErrorBoundaryRoot>

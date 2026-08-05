@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Award, Brain, Clock3, Rocket } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, PanelSkeleton } from '@/components/common';
+import { FeedbackState } from '@/components/common/FeedbackState';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { TrainingModeSummaryCard } from '@/components/common/TrainingModeSummaryCard';
 import { buildDiagnosisHref } from '@/lib/diagnosis-launch';
 import { aiService, trainingService } from '@/lib/services';
@@ -149,6 +151,7 @@ const TrainingPage: React.FC = () => {
   const [answerFeedback, setAnswerFeedback] = React.useState<TrainingAnswerFeedback | null>(null);
   const [completionRefreshSessionId, setCompletionRefreshSessionId] = React.useState<number | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<TrainingHistorySummaryVO | null>(null);
+  const [abandonConfirmSessionId, setAbandonConfirmSessionId] = React.useState<number | null>(null);
   const resumeDialogRef = React.useRef<HTMLDivElement | null>(null);
   const resumeContinueButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -622,19 +625,42 @@ const TrainingPage: React.FC = () => {
     setResumeCandidate(null);
   };
 
-  const handleResumeAbandon = async () => {
+  const handleResumeAbandon = () => {
     if (!resumeCandidate) {
       return;
     }
-    await abandonMutation.mutateAsync(resumeCandidate.sessionId);
+    setAbandonConfirmSessionId(resumeCandidate.sessionId);
   };
 
-  const handleRunningAbandon = async () => {
-    if (!state.sessionId || !window.confirm('确认放弃当前训练吗？本次未完成内容将标记为已废弃。')) {
+  const handleRunningAbandon = () => {
+    if (!state.sessionId) {
       return;
     }
-    await abandonMutation.mutateAsync(state.sessionId);
+    setAbandonConfirmSessionId(state.sessionId);
   };
+
+  const abandonConfirmation = (
+    <ConfirmationDialog
+      open={abandonConfirmSessionId !== null}
+      title="确认放弃当前训练？"
+      description="系统将结束这次未完成训练，并把会话标记为已放弃。"
+      safety="已完成的训练历史不会受影响，但本次未完成内容不能再从当前进度继续。"
+      nextStep="如需保留当前进度请取消；仅在确定重新开始时确认放弃。"
+      confirmLabel="确认放弃训练"
+      cancelLabel="取消，保留进度"
+      pending={abandonMutation.isPending}
+      pendingTitle="正在结束训练"
+      pendingDescription="放弃请求已经提交，请等待服务器确认。"
+      onCancel={() => setAbandonConfirmSessionId(null)}
+      onConfirm={() => {
+        if (abandonConfirmSessionId !== null) {
+          abandonMutation.mutate(abandonConfirmSessionId, {
+            onSettled: () => setAbandonConfirmSessionId(null),
+          });
+        }
+      }}
+    />
+  );
 
   if (state.phase === 'boot' || historyQuery.isLoading) {
     return (
@@ -654,14 +680,15 @@ const TrainingPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => void handleRunningAbandon()}
+                onClick={handleRunningAbandon}
                 disabled={isAnswerLocked}
                 className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
               >
                 放弃本次
               </button>
               <SessionSaveActions
-                isBusy={runtime.isSaving || isAnswerLocked}
+                isSaving={runtime.isSaving}
+                disabled={isAnswerLocked}
                 onSave={() => {
                   void runtime.saveProgressManually();
                 }}
@@ -677,6 +704,7 @@ const TrainingPage: React.FC = () => {
         />
 
         <SessionFeedbackBanners
+          isSaving={runtime.isSaving}
           saveMessage={runtime.saveMessage}
           saveErrorMessage={runtime.saveErrorMessage}
           submitErrorMessage={submitErrorMessage}
@@ -809,6 +837,7 @@ const TrainingPage: React.FC = () => {
             </section>
           </>
         )}
+        {abandonConfirmation}
       </div>
     );
   }
@@ -1266,24 +1295,23 @@ const TrainingPage: React.FC = () => {
             tabIndex={-1}
             className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950"
           >
-            <div className="flex items-start gap-4">
-              <div className="rounded-full bg-amber-500/10 p-3 text-amber-500">
-                <AlertTriangle size={20} />
-              </div>
-              <div className="flex-1">
-                <div id="training-resume-title" className="text-2xl font-black text-slate-900 dark:text-white">发现未完成训练</div>
-                <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/50">
-                  上次保存时间：{resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。你可以继续本次训练，也可以放弃后重新开始。
-                </div>
-              </div>
-            </div>
+            <span id="training-resume-title" className="sr-only">发现已保存的未完成训练</span>
+            <FeedbackState
+              kind="saved"
+              compact
+              className="border-0 bg-transparent p-0 shadow-none"
+              title="发现已保存的未完成训练"
+              description={`系统找到了上次未完成的训练，最近保存时间：${resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。`}
+              impact="服务器保留了已完成的训练进度；继续训练不会覆盖其他历史记录。"
+              nextStep="选择“继续训练”恢复进度；仅在确定不再需要本次训练时选择放弃。"
+            />
             <div className="mt-8 flex flex-wrap gap-3">
               <button ref={resumeContinueButtonRef} type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
                 继续训练
               </button>
               <button
                 type="button"
-                onClick={() => void handleResumeAbandon()}
+                onClick={handleResumeAbandon}
                 disabled={abandonMutation.isPending}
                 className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
               >
@@ -1300,6 +1328,7 @@ const TrainingPage: React.FC = () => {
           </div>
         </div>
       )}
+      {abandonConfirmation}
     </div>
   );
 };

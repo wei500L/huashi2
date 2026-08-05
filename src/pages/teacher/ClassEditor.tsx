@@ -171,7 +171,7 @@ const TeacherClassEditorPage: React.FC = () => {
                   disabled={isGeneratingInviteCode || mutation.isPending}
                   className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-white/70"
                 >
-                  <RefreshCw size={12} className={isGeneratingInviteCode ? 'animate-spin' : undefined} />
+                      <RefreshCw size={12} className={isGeneratingInviteCode ? 'animate-pulse' : undefined} />
                   {form.classCode.trim() ? '重新生成' : '生成邀请码'}
                 </button>
               </div>

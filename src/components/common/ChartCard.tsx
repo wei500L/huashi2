@@ -1,5 +1,4 @@
 import React from 'react';
-import { RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { EChart } from '@/components/common/EChart';
@@ -66,7 +65,6 @@ export const ChartCard: React.FC<ChartCardProps> = ({
         </div>
         <div className="flex items-center gap-4">
           {extra}
-          {loading && <RefreshCcw className="animate-spin text-primary" size={16} />}
         </div>
       </div>}
       

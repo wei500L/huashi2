@@ -1,10 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, ChevronDown, Info, LoaderCircle, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Info, Pencil, Play, Plus, RefreshCw, Save, ShieldCheck, Trash2, X } from 'lucide-react';
 import { z } from 'zod';
 import { PageHeader } from '@/components/common';
+import { FeedbackState } from '@/components/common/FeedbackState';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { ApiError } from '@/lib/api';
+import { getProductizedErrorState } from '@/lib/async-state';
 import { formatDateTime } from '@/lib/format';
 import { adminService } from '@/lib/services';
 import { AiOpsProtocolValues } from '@/lib/contracts/generated/session-domain';
@@ -1936,6 +1939,7 @@ const AdminConfigCenterPage: React.FC = () => {
     sourceIds: [],
     forceReembed: false,
   });
+  const [reindexConfirmOpen, setReindexConfirmOpen] = React.useState(false);
   const [jobId, setJobId] = React.useState<string | null>(null);
   const [pollJob, setPollJob] = React.useState(false);
   const [outboxStatus, setOutboxStatus] = React.useState('FAILED');
@@ -2480,10 +2484,22 @@ const AdminConfigCenterPage: React.FC = () => {
   const validationNotices = validation?.notices ?? [];
 
   if (configQuery.error) {
+    const errorState = getProductizedErrorState(configQuery.error, {
+      resourceLabel: '运维配置',
+      taskLabel: '查看 AI 运行态',
+      retryActionLabel: '重新加载配置',
+    });
     return (
       <div className="space-y-8 pb-20">
         <PageHeader title="运维管理员配置中心" subtitle="加载失败时不隐藏原因，直接显示后端返回错误。" />
-        <div className="rounded-[2.5rem] border border-rose-500/20 bg-rose-500/5 p-8 text-rose-500">{configQuery.error.message}</div>
+        <FeedbackState
+          kind={errorState.kind}
+          title={errorState.title}
+          description={errorState.description}
+          impact={errorState.impact}
+          nextStep={errorState.nextStep}
+          primaryAction={{ label: '重新加载配置', onClick: () => void configQuery.refetch() }}
+        />
       </div>
     );
   }
@@ -2492,10 +2508,13 @@ const AdminConfigCenterPage: React.FC = () => {
     return (
       <div className="space-y-8 pb-20">
         <PageHeader title="运维管理员配置中心" subtitle="正在读取 ai-gateway 运行态和数据库存储快照。" />
-        <div className="rounded-[2.5rem] liquid-glass-panel p-10 flex items-center gap-3 text-slate-500 dark:text-white/45">
-          <LoaderCircle className="animate-spin" size={18} />
-          <span>配置加载中...</span>
-        </div>
+        <FeedbackState
+          kind="loading"
+          title="正在加载运维配置"
+          description="系统正在读取 ai-gateway 运行态和数据库存储快照。"
+          impact="当前只读配置，不会修改任何运行参数或数据。"
+          nextStep="请稍等；读取完成后会显示可编辑配置。"
+        />
       </div>
     );
   }
@@ -3782,10 +3801,8 @@ const AdminConfigCenterPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  if (
-                    reindexRiskHints.length > 0 &&
-                    !window.confirm(`本次 RAG Reindex 包含以下风险项：\n- ${reindexRiskHints.join('\n- ')}\n\n确认继续吗？`)
-                  ) {
+                  if (reindexRiskHints.length > 0) {
+                    setReindexConfirmOpen(true);
                     return;
                   }
                   reindexMutation.mutate(reindexForm);
@@ -3870,6 +3887,22 @@ const AdminConfigCenterPage: React.FC = () => {
                   )}
                 </div>
               )}
+              <ConfirmationDialog
+                open={reindexConfirmOpen}
+                title="确认执行高影响 RAG Reindex？"
+                description="本次任务会按当前范围重新计算并写入检索索引。"
+                safety={`风险提示：${reindexRiskHints.join('；')}。现有业务数据不会被删除，但索引更新期间检索结果可能暂时不稳定。`}
+                nextStep="先核对范围和风险提示；确认窗口、provider 与模型无误后再执行。"
+                confirmLabel="确认执行 Reindex"
+                cancelLabel="取消，返回编辑"
+                pending={reindexMutation.isPending}
+                pendingTitle="正在提交 Reindex"
+                pendingDescription="任务请求已提交，请等待服务端返回任务状态。"
+                onCancel={() => setReindexConfirmOpen(false)}
+                onConfirm={() => {
+                  reindexMutation.mutate(reindexForm, { onSettled: () => setReindexConfirmOpen(false) });
+                }}
+              />
             </SectionCard>
           </div>
 

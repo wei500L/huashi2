@@ -7,6 +7,7 @@ import { flushSync } from 'react-dom';
 import { ClassAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader, SectionEyebrow, StatCard, StatusBadge } from '@/components/common';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { saveBlob } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
 import { exportReportPagesToPdf } from '@/lib/pdf-report';
@@ -30,6 +31,8 @@ const TeacherClassDetailPage: React.FC = () => {
   const [exportErrorMessage, setExportErrorMessage] = React.useState<string | null>(null);
   const [isPdfExporting, setIsPdfExporting] = React.useState(false);
   const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = React.useState(false);
+  const [removeStudentConfirmId, setRemoveStudentConfirmId] = React.useState<number | null>(null);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
 
   const detailQuery = useQuery({
@@ -116,11 +119,13 @@ const TeacherClassDetailPage: React.FC = () => {
   const removeStudentMutation = useMutation({
     mutationFn: (studentUserId: number) => teacherClassService.removeStudents(classId, { studentUserIds: [studentUserId] }),
     onSuccess: async () => {
+      setRemoveStudentConfirmId(null);
       setFeedback('学生已移出当前班级。');
       setErrorMessage(null);
       await invalidateClassQueries();
     },
     onError: (error) => {
+      setRemoveStudentConfirmId(null);
       setFeedback(null);
       setErrorMessage(error instanceof Error ? error.message : '学生移出班级失败');
     },
@@ -129,6 +134,7 @@ const TeacherClassDetailPage: React.FC = () => {
   const archiveMutation = useMutation({
     mutationFn: () => teacherClassService.archiveClass(classId),
     onSuccess: async () => {
+      setArchiveConfirmOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['teacher-classes-management'] });
       navigate(source ? `/teacher/classes?source=${encodeURIComponent(source)}` : '/teacher/classes');
     },
@@ -192,11 +198,7 @@ const TeacherClassDetailPage: React.FC = () => {
   };
 
   const handleArchive = () => {
-    const label = detailQuery.data?.className || `#${classId}`;
-    if (!window.confirm(`确认归档班级“${label}”吗？归档后它会从教师班级列表中隐藏，但历史测评和分析记录会保留。`)) {
-      return;
-    }
-    archiveMutation.mutate();
+    setArchiveConfirmOpen(true);
   };
 
   const toggleStudentSelection = (studentUserId: number) => {
@@ -395,12 +397,7 @@ const TeacherClassDetailPage: React.FC = () => {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!window.confirm(`确认将 ${student.studentName} 移出当前班级吗？`)) {
-                          return;
-                        }
-                        removeStudentMutation.mutate(student.studentUserId);
-                      }}
+                      onClick={() => setRemoveStudentConfirmId(student.studentUserId)}
                       disabled={removeStudentMutation.isPending}
                       className="inline-flex items-center gap-2 rounded-full border border-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-300"
                     >
@@ -506,6 +503,38 @@ const TeacherClassDetailPage: React.FC = () => {
           students={analyticsStudentsQuery.data}
         />
       ) : null}
+      <ConfirmationDialog
+        open={archiveConfirmOpen}
+        title={`确认归档班级“${detailQuery.data?.className || `#${classId}`}”？`}
+        description="归档请求会将当前班级从教师班级列表中隐藏。"
+        safety="历史测评和分析记录会保留；班级归档后不会自动删除学生或历史数据。"
+        nextStep="先确认班级名称；如需继续管理请取消，确认后归档。"
+        confirmLabel="确认归档班级"
+        cancelLabel="取消，保留班级"
+        pending={archiveMutation.isPending}
+        pendingTitle="正在归档班级"
+        pendingDescription="归档请求已经提交，请等待服务器确认。"
+        onCancel={() => setArchiveConfirmOpen(false)}
+        onConfirm={() => archiveMutation.mutate()}
+      />
+      <ConfirmationDialog
+        open={removeStudentConfirmId !== null}
+        title="确认移出当前班级？"
+        description="该学生将从当前班级的成员列表中移除。"
+        safety="学生账号、学习数据和历史测评不会被删除，只会解除当前班级关系。"
+        nextStep="如需保留班级关系请取消；确认后可重新搜索并加入。"
+        confirmLabel="确认移出学生"
+        cancelLabel="取消，保留关系"
+        pending={removeStudentMutation.isPending}
+        pendingTitle="正在移出学生"
+        pendingDescription="移出请求已经提交，请等待服务器确认。"
+        onCancel={() => setRemoveStudentConfirmId(null)}
+        onConfirm={() => {
+          if (removeStudentConfirmId !== null) {
+            removeStudentMutation.mutate(removeStudentConfirmId);
+          }
+        }}
+      />
     </div>
   );
 };

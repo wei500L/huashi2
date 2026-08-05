@@ -2,7 +2,16 @@ import { normalizeApiError } from './api';
 import i18n from './i18n';
 import { DEFAULT_LOCALE, type SupportedLocale } from './locale';
 
-export type AsyncStateKind = 'loading' | 'empty' | 'permission' | 'error' | 'retry';
+export type AsyncStateKind =
+  | 'loading'
+  | 'empty'
+  | 'permission'
+  | 'error'
+  | 'retry'
+  | 'saving'
+  | 'saved'
+  | 'success'
+  | 'destructive';
 
 export type ProductizedErrorState = {
   kind: Extract<AsyncStateKind, 'permission' | 'error' | 'retry'>;

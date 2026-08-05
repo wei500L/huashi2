@@ -225,7 +225,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           {selectedOption?.label ?? placeholder}
         </span>
         {loading ? (
-          <LoaderCircle size={18} className="ml-3 shrink-0 animate-spin text-text-muted" aria-hidden="true" />
+          <LoaderCircle size={18} className="ml-3 shrink-0 animate-pulse text-text-muted" aria-hidden="true" />
         ) : (
           <ChevronDown
             size={18}

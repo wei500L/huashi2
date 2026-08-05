@@ -1,40 +1,54 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
-import { getApiErrorMessage } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
+import { FeedbackState } from '@/components/common/FeedbackState';
+import { getProductizedErrorState } from '@/lib/async-state';
 import { buildProgressPercent } from './helpers';
 
 type SessionSaveActionsProps = {
-  isBusy?: boolean;
+  isSaving?: boolean;
+  disabled?: boolean;
   onSave: () => void;
   onSaveAndExit: () => void;
 };
 
 export const SessionSaveActions: React.FC<SessionSaveActionsProps> = ({
-  isBusy,
+  isSaving,
+  disabled,
   onSave,
   onSaveAndExit,
-}) => (
+}) => {
+  const { t } = useTranslation();
+
+  return (
   <div className="flex flex-wrap items-center gap-3">
     <button
       type="button"
       onClick={onSave}
-      disabled={isBusy}
+      disabled={disabled || isSaving}
       className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold disabled:opacity-60 dark:border-white/10"
     >
-      保存进度
+      {isSaving ? t('ui.sessionState.savingAction') : t('ui.sessionState.saveAction')}
     </button>
     <button
       type="button"
       onClick={onSaveAndExit}
-      disabled={isBusy}
+      disabled={disabled || isSaving}
       className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
     >
-      保存并退出
+      {isSaving ? t('ui.sessionState.savingAction') : t('ui.sessionState.saveAndExitAction')}
     </button>
+    {isSaving && (
+      <span role="status" aria-live="polite" className="text-sm font-bold text-sky-700 dark:text-sky-300">
+        {t('ui.sessionState.savingInline')}
+      </span>
+    )}
   </div>
-);
+  );
+};
 
 type SessionFeedbackBannersProps = {
+  isSaving?: boolean;
   saveMessage?: string | null;
   saveErrorMessage?: string | null;
   submitErrorMessage?: string | null;
@@ -45,6 +59,7 @@ type SessionFeedbackBannersProps = {
 };
 
 export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
+  isSaving,
   saveMessage,
   saveErrorMessage,
   submitErrorMessage,
@@ -52,52 +67,84 @@ export const SessionFeedbackBanners: React.FC<SessionFeedbackBannersProps> = ({
   loadInfoMessage,
   loadError,
   onRetryLoad,
-}) => (
+}) => {
+  const { t } = useTranslation();
+  const loadErrorState = loadError
+    ? getProductizedErrorState(loadError, {
+        resourceLabel: t('ui.sessionState.currentItem'),
+        taskLabel: t('ui.sessionState.continueSession'),
+        retryActionLabel: t('ui.sessionState.retryLoad'),
+      })
+    : null;
+
+  return (
   <>
+    {isSaving && (
+      <FeedbackState
+        kind="saving"
+        compact
+        title={t('ui.sessionState.savingTitle')}
+        description={t('ui.sessionState.savingDescription')}
+      />
+    )}
     {saveMessage && (
-      <div aria-live="polite" className="rounded-[1.6rem] border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-600 dark:text-emerald-400">
-        {saveMessage}
-      </div>
+      <FeedbackState
+        kind="saved"
+        compact
+        title={t('ui.sessionState.savedTitle')}
+        description={saveMessage}
+      />
     )}
     {saveErrorMessage && (
-      <div role="alert" className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
-        {saveErrorMessage}
-      </div>
+      <FeedbackState
+        kind="retry"
+        compact
+        title={t('ui.sessionState.saveFailedTitle')}
+        description={saveErrorMessage}
+        impact={t('ui.sessionState.saveFailedSafety')}
+        nextStep={t('ui.sessionState.saveFailedNextStep')}
+      />
     )}
     {submitInfoMessage && (
-      <div aria-live="polite" className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-600 dark:text-amber-400">
-        {submitInfoMessage}
-      </div>
+      <FeedbackState
+        kind="saving"
+        compact
+        title={t('ui.sessionState.submittingTitle')}
+        description={submitInfoMessage}
+      />
     )}
     {loadInfoMessage && (
-      <div aria-live="polite" className="rounded-[1.6rem] border border-sky-500/20 bg-sky-500/5 px-5 py-4 text-sm text-sky-700 dark:text-sky-300">
-        <div>{loadInfoMessage}</div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sky-500/10">
-          <div className="h-full w-1/3 animate-pulse rounded-full bg-sky-500/70" />
-        </div>
-      </div>
+      <FeedbackState
+        kind="loading"
+        compact
+        title={t('ui.sessionState.loadingTitle')}
+        description={loadInfoMessage}
+      />
     )}
     {submitErrorMessage && (
-      <div role="alert" className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">
-        {submitErrorMessage}
-      </div>
+      <FeedbackState
+        kind="retry"
+        compact
+        title={t('ui.sessionState.submitFailedTitle')}
+        description={submitErrorMessage}
+        impact={t('ui.sessionState.submitFailedSafety')}
+        nextStep={t('ui.sessionState.submitFailedNextStep')}
+      />
     )}
-    {loadError && (
-      <div role="alert" className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
-        <div>{getApiErrorMessage(loadError)}</div>
-        {onRetryLoad && (
-          <button
-            type="button"
-            onClick={onRetryLoad}
-            className="mt-4 rounded-full border border-rose-500/20 px-4 py-2 text-sm font-bold"
-          >
-            重试加载当前题
-          </button>
-        )}
-      </div>
+    {loadErrorState && (
+      <FeedbackState
+        kind={loadErrorState.kind}
+        compact
+        title={loadErrorState.title}
+        description={loadErrorState.description}
+        impact={loadErrorState.impact}
+        nextStep={loadErrorState.nextStep}
+        primaryAction={onRetryLoad ? { label: t('ui.sessionState.retryLoad'), onClick: onRetryLoad } : undefined}
+      />
     )}
   </>
-);
+  );
+};
 
 type SessionProgressHeaderProps = {
   icon?: React.ReactNode;

@@ -1,12 +1,14 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Brain, CheckCircle2, ChevronRight, FileText, Timer } from 'lucide-react';
+import { Brain, CheckCircle2, ChevronRight, FileText, Timer } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DiagnosisPdfReport } from '@/components/diagnosis/DiagnosisPdfReport';
 import { PageHeader, PanelSkeleton, SectionEyebrow } from '@/components/common';
 import { EChart } from '@/components/common/EChart';
+import { FeedbackState } from '@/components/common/FeedbackState';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { clearDiagnosisLaunchParams, parseDiagnosisLaunchNumber } from '@/lib/diagnosis-launch';
@@ -133,6 +135,7 @@ const DiagnosisPage: React.FC = () => {
   const [isPdfExporting, setIsPdfExporting] = React.useState(false);
   const [reportGeneratedAt, setReportGeneratedAt] = React.useState<string | null>(null);
   const [resumeCandidate, setResumeCandidate] = React.useState<DiagnosisHistorySummaryVO | null>(null);
+  const [abandonConfirmSessionId, setAbandonConfirmSessionId] = React.useState<number | null>(null);
   const reportRef = React.useRef<HTMLDivElement | null>(null);
   const resumeDialogRef = React.useRef<HTMLDivElement | null>(null);
   const resumeContinueButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -485,19 +488,42 @@ const DiagnosisPage: React.FC = () => {
     setResumeCandidate(null);
   };
 
-  const handleResumeAbandon = async () => {
+  const handleResumeAbandon = () => {
     if (!resumeCandidate) {
       return;
     }
-    await abandonSessionMutation.mutateAsync(resumeCandidate.sessionId);
+    setAbandonConfirmSessionId(resumeCandidate.sessionId);
   };
 
-  const handleRunningAbandon = async () => {
-    if (!state.sessionId || !window.confirm('确认放弃当前诊断吗？本次未完成内容将标记为已废弃。')) {
+  const handleRunningAbandon = () => {
+    if (!state.sessionId) {
       return;
     }
-    await abandonSessionMutation.mutateAsync(state.sessionId);
+    setAbandonConfirmSessionId(state.sessionId);
   };
+
+  const abandonConfirmation = (
+    <ConfirmationDialog
+      open={abandonConfirmSessionId !== null}
+      title="确认放弃当前诊断？"
+      description="系统将结束这次未完成诊断，并把会话标记为已放弃。"
+      safety="已完成的历史诊断不会受影响，但本次未完成内容不能再从当前进度继续。"
+      nextStep="如需保留当前进度请取消；仅在确定重新开始时确认放弃。"
+      confirmLabel="确认放弃诊断"
+      cancelLabel="取消，保留进度"
+      pending={abandonSessionMutation.isPending}
+      pendingTitle="正在结束诊断"
+      pendingDescription="放弃请求已经提交，请等待服务器确认。"
+      onCancel={() => setAbandonConfirmSessionId(null)}
+      onConfirm={() => {
+        if (abandonConfirmSessionId !== null) {
+          abandonSessionMutation.mutate(abandonConfirmSessionId, {
+            onSettled: () => setAbandonConfirmSessionId(null),
+          });
+        }
+      }}
+    />
+  );
 
   if (state.phase === 'boot' || historyQuery.isLoading) {
     return (
@@ -584,24 +610,23 @@ const DiagnosisPage: React.FC = () => {
               tabIndex={-1}
               className="w-full max-w-xl rounded-[2.4rem] border border-slate-200/70 bg-white p-8 shadow-2xl dark:border-white/10 dark:bg-slate-950"
             >
-              <div className="flex items-start gap-4">
-                <div className="rounded-full bg-amber-500/10 p-3 text-amber-500">
-                  <AlertTriangle size={20} />
-                </div>
-                <div className="flex-1">
-                  <div id="diagnosis-resume-title" className="text-2xl font-black text-slate-900 dark:text-white">发现未完成诊断</div>
-                  <div className="mt-3 text-sm leading-6 text-slate-500 dark:text-white/50">
-                    上次保存时间：{resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。你可以继续答题，也可以放弃本次后重新开始。
-                  </div>
-                </div>
-              </div>
+              <span id="diagnosis-resume-title" className="sr-only">发现已保存的未完成诊断</span>
+              <FeedbackState
+                kind="saved"
+                compact
+                className="border-0 bg-transparent p-0 shadow-none"
+                title="发现已保存的未完成诊断"
+                description={`系统找到了上次未完成的诊断，最近保存时间：${resumeCandidate.lastSavedAt ? formatDateTime(resumeCandidate.lastSavedAt) : '未知'}。`}
+                impact="服务器保留了已完成的答题进度；继续答题不会覆盖其他已完成记录。"
+                nextStep="选择“继续答题”恢复进度；仅在确定不再需要本次诊断时选择放弃。"
+              />
               <div className="mt-8 flex flex-wrap gap-3">
                 <button ref={resumeContinueButtonRef} type="button" onClick={handleResumeContinue} className="btn-liquid px-5 py-3 text-white">
                   继续答题
                 </button>
                 <button
                   type="button"
-                  onClick={() => void handleResumeAbandon()}
+                  onClick={handleResumeAbandon}
                   disabled={abandonSessionMutation.isPending}
                   className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
                 >
@@ -618,6 +643,7 @@ const DiagnosisPage: React.FC = () => {
             </div>
           </div>
         )}
+        {abandonConfirmation}
       </div>
     );
   }
@@ -636,14 +662,15 @@ const DiagnosisPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => void handleRunningAbandon()}
+                onClick={handleRunningAbandon}
                 disabled={isAnswerLocked}
                 className="rounded-full border border-rose-200 px-5 py-3 text-sm font-bold text-rose-600 disabled:opacity-60 dark:border-rose-500/20"
               >
                 放弃本次
               </button>
               <SessionSaveActions
-                isBusy={runtime.isSaving || isAnswerLocked}
+                isSaving={runtime.isSaving}
+                disabled={isAnswerLocked}
                 onSave={() => {
                   void runtime.saveProgressManually();
                 }}
@@ -659,6 +686,7 @@ const DiagnosisPage: React.FC = () => {
         />
 
         <SessionFeedbackBanners
+          isSaving={runtime.isSaving}
           saveMessage={runtime.saveMessage}
           saveErrorMessage={runtime.saveErrorMessage}
           submitErrorMessage={submitErrorMessage}
@@ -760,6 +788,7 @@ const DiagnosisPage: React.FC = () => {
             </section>
           </>
         )}
+        {abandonConfirmation}
       </div>
     );
   }
@@ -962,8 +991,8 @@ const DiagnosisPage: React.FC = () => {
               ) : (
                 <div className="text-sm text-slate-500 dark:text-white/45">{t('diagnosis.noExplanation')}</div>
               )}
-            </section>
-          </div>
+        </section>
+      </div>
 
           <div className="grid gap-8 xl:grid-cols-2">
             <section className="rounded-[2.5rem] liquid-glass-panel p-8">

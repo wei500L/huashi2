@@ -4,9 +4,25 @@ import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } fro
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
-export const RouteSkeleton: React.FC = () => (
-  <div className="min-h-screen bg-background px-6 py-10">
+export const RouteSkeleton: React.FC = () => {
+  const { t } = useTranslation();
+
+  return (
+  <div
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+    className="min-h-screen bg-background px-6 py-10"
+  >
     <div className="mx-auto max-w-6xl space-y-8">
+      <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.06] px-5 py-4 text-sky-900 dark:text-sky-100">
+        <div className="text-sm font-black">{t('ui.skeleton.route.title')}</div>
+        <div className="mt-2 grid gap-1 text-xs leading-5 opacity-75 md:grid-cols-3">
+          <span>{t('ui.skeleton.route.happened')}</span>
+          <span>{t('ui.skeleton.route.safety')}</span>
+          <span>{t('ui.skeleton.route.nextStep')}</span>
+        </div>
+      </div>
       <div className="space-y-3">
         <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/80 dark:bg-white/10" />
         <div className="h-10 w-72 animate-pulse rounded-full bg-slate-200/80 dark:bg-white/10" />
@@ -29,11 +45,25 @@ export const RouteSkeleton: React.FC = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
-export const PanelSkeleton: React.FC<{ className?: string }> = ({ className }) => (
-  <div className={cn('rounded-xl surface-panel p-8', className)}>
+export const PanelSkeleton: React.FC<{ className?: string }> = ({ className }) => {
+  const { t } = useTranslation();
+
+  return (
+  <div
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+    aria-label={t('ui.skeleton.panel.label')}
+    className={cn('rounded-xl surface-panel p-8', className)}
+  >
     <div className="space-y-5">
+      <div className="rounded-lg border border-sky-500/15 bg-sky-500/[0.05] px-4 py-3 text-xs leading-5 text-sky-800 dark:text-sky-200">
+        <div className="font-black">{t('ui.skeleton.panel.title')}</div>
+        <div className="mt-1 opacity-75">{t('ui.skeleton.panel.summary')}</div>
+      </div>
       <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/80 dark:bg-white/10" />
       <div className="grid gap-5 md:grid-cols-2">
         <div className="h-32 animate-pulse rounded-[2rem] border border-slate-200/80 bg-white/65 dark:border-white/10 dark:bg-white/5" />
@@ -50,7 +80,8 @@ export const PanelSkeleton: React.FC<{ className?: string }> = ({ className }) =
       </div>
     </div>
   </div>
-);
+  );
+};
 
 type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
@@ -326,3 +357,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
     )}
   </div>
 );
+
+export { FeedbackState } from './FeedbackState';
+export type { FeedbackStateAction, FeedbackStateProps } from './FeedbackState';
+export { ConfirmationDialog } from './ConfirmationDialog';

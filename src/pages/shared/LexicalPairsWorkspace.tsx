@@ -16,9 +16,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common';
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { CustomSelect } from '@/components/common/CustomSelect';
 import { LexicalPairSuggestionInput } from '@/components/common/LexicalPairSuggestionInput';
-import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import { saveBlob } from '@/lib/api';
 import { contextLevelLabel, formatDateTime, lexicalPairTypeLabel, userHasCapability } from '@/lib/format';
 import type {
@@ -481,10 +481,6 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
   const showImportSection = view === 'all' || view === 'imports';
   const editorSectionRef = React.useRef<HTMLDivElement | null>(null);
   const englishWordInputRef = React.useRef<HTMLInputElement | null>(null);
-  const deleteDialogRef = React.useRef<HTMLDivElement | null>(null);
-  const deleteCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const deleteDialogTitleId = React.useId();
-  const deleteDialogDescriptionId = React.useId();
   const [filters, setFilters] = React.useState<FilterState>(defaultFilters);
   const deferredKeyword = React.useDeferredValue(filters.keyword);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
@@ -523,14 +519,6 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
     },
     []
   );
-
-  useBodyScrollLock(pendingDeleteId !== null);
-  useDialogAccessibility({
-    open: pendingDeleteId !== null,
-    containerRef: deleteDialogRef,
-    initialFocusRef: deleteCancelButtonRef,
-    onClose: closeDeleteDialog,
-  });
 
   const templateQuery = useQuery({
     queryKey: ['lexical-pair-import-template'],
@@ -1367,7 +1355,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               <div className="flex flex-wrap items-center gap-3">
                 {detailQuery.isFetching ? (
                   <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 px-4 py-2 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                    <LoaderCircle size={14} className="animate-spin" />
+                    <LoaderCircle size={14} className="animate-pulse" />
                     正在加载详情
                   </div>
                 ) : (
@@ -1692,7 +1680,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               disabled={saveMutation.isPending}
               className="btn-liquid inline-flex items-center gap-2 px-6 py-3 text-white disabled:opacity-60"
             >
-              {saveMutation.isPending ? <LoaderCircle size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+{saveMutation.isPending ? <LoaderCircle size={16} className="animate-pulse" /> : <CheckCircle2 size={16} />}
               {editor.id ? '更新词对' : '创建词对'}
             </button>
 
@@ -1723,53 +1711,24 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
         )}
       </div>
 
-      {pendingDeleteId !== null && (
-        <>
-          <div
-            aria-hidden="true"
-            onClick={closeDeleteDialog}
-            className="fixed inset-0 z-[60] bg-slate-950/45 backdrop-blur-sm"
-          />
-          <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
-            <div
-              ref={deleteDialogRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={deleteDialogTitleId}
-              aria-describedby={deleteDialogDescriptionId}
-              tabIndex={-1}
-              className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-white/90 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.28)] backdrop-blur-xl dark:bg-slate-950/90"
-            >
-              <div className="text-[11px] uppercase tracking-[0.28em] text-rose-500">删除操作</div>
-              <div id={deleteDialogTitleId} className="mt-3 text-2xl font-black text-slate-900 dark:text-white">确认删除当前词对？</div>
-              <div id={deleteDialogDescriptionId} className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/50">
-                词对 <span className="font-bold text-slate-900 dark:text-white">{editor.englishWord || '--'} / {editor.frenchWord || '--'}</span> 将被删除。
-                这个操作会移除词对及其义项、例句和关联关系，误删后需要重新录入。
-              </div>
-
-              <div className="mt-6 flex flex-wrap justify-end gap-3">
-                <button
-                  ref={deleteCancelButtonRef}
-                  type="button"
-                  onClick={closeDeleteDialog}
-                  className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:text-white/45"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteMutation.mutate(pendingDeleteId)}
-                  disabled={deleteMutation.isPending}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
-                >
-                  {deleteMutation.isPending ? <LoaderCircle size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                  确认删除
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <ConfirmationDialog
+        open={pendingDeleteId !== null}
+        title="确认删除当前词对？"
+        description={`词对 ${editor.englishWord || '--'} / ${editor.frenchWord || '--'} 及其关联内容将被删除。`}
+        safety="此操作会移除词对、义项、例句和关联关系，系统不会自动恢复；其他词对不会受到影响。"
+        nextStep="先核对词对名称；如需保留请取消，仅在确认无误后删除。"
+        confirmLabel="确认删除"
+        cancelLabel="取消，保留词对"
+        pending={deleteMutation.isPending}
+        pendingTitle="正在删除词对"
+        pendingDescription="删除请求已经提交，系统尚未确认完成。"
+        onCancel={closeDeleteDialog}
+        onConfirm={() => {
+          if (pendingDeleteId !== null) {
+            deleteMutation.mutate(pendingDeleteId);
+          }
+        }}
+      />
     </div>
   );
 };
