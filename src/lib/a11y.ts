@@ -11,6 +11,7 @@ const FOCUSABLE_SELECTOR = [
 
 let scrollLockCount = 0;
 let previousBodyOverflow = '';
+let previousBodyOverscrollBehavior = '';
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
@@ -26,7 +27,9 @@ export function useBodyScrollLock(locked: boolean): void {
 
     if (scrollLockCount === 0) {
       previousBodyOverflow = window.document.body.style.overflow;
+      previousBodyOverscrollBehavior = window.document.body.style.overscrollBehavior;
       window.document.body.style.overflow = 'hidden';
+      window.document.body.style.overscrollBehavior = 'none';
     }
     scrollLockCount += 1;
 
@@ -34,6 +37,7 @@ export function useBodyScrollLock(locked: boolean): void {
       scrollLockCount = Math.max(0, scrollLockCount - 1);
       if (scrollLockCount === 0) {
         window.document.body.style.overflow = previousBodyOverflow;
+        window.document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
       }
     };
   }, [locked]);

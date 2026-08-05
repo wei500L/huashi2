@@ -173,7 +173,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({ activeWorkspace, 
               title={isCollapsed ? t(meta.labelKey) : undefined}
               onClick={() => onSelect(workspace)}
               className={cn(
-                'w-full rounded-lg border text-left motion-feedback',
+                'w-full min-h-11 rounded-lg border text-left motion-feedback',
                 isCollapsed ? 'flex items-center justify-center px-2 py-2.5' : 'flex items-center gap-3 px-3 py-2.5',
                 isActive
                   ? 'border-primary/30 bg-primary/[0.1] text-primary shadow-sm'
@@ -292,7 +292,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      'group relative flex min-h-10 items-center rounded-lg border motion-feedback',
+                      'group relative flex min-h-11 items-center rounded-lg border motion-feedback',
                       isCollapsed ? 'justify-center px-2.5' : 'gap-3 px-3',
                       isActive
                         ? 'border-primary/25 bg-primary/[0.1] text-primary font-semibold shadow-sm'
@@ -348,7 +348,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
             void logout();
           }}
           className={cn(
-            'flex min-h-10 items-center rounded-lg border border-transparent text-rose-500 motion-feedback hover:border-rose-500/20 hover:bg-rose-500/10 dark:text-rose-400',
+            'flex min-h-11 items-center rounded-lg border border-transparent text-rose-500 motion-feedback hover:border-rose-500/20 hover:bg-rose-500/10 dark:text-rose-400',
             isCollapsed ? 'w-full justify-center px-2.5' : 'w-full gap-3 px-3'
           )}
         >
@@ -447,8 +447,9 @@ const MobileSidebarDrawer: React.FC = () => {
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
-            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="sidebar-shell fixed inset-y-3 left-3 z-[80] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col surface-panel rounded-xl lg:hidden"
+            /* A short, deterministic reveal keeps navigation responsive. */
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="sidebar-shell safe-area-drawer fixed left-3 top-3 z-[80] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col surface-panel rounded-xl lg:hidden"
           >
             <h2 id="mobile-sidebar-title" className="sr-only">{t('shell.mobileNavigationTitle')}</h2>
             <SidebarContent
@@ -461,7 +462,7 @@ const MobileSidebarDrawer: React.FC = () => {
                   type="button"
                   aria-label={t('common.actions.closeNavigation')}
                   onClick={closeMobileSidebar}
-                  className="p-2.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition-colors backdrop-blur-md border border-slate-200 dark:border-white/5"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-slate-200 p-2.5 hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/10"
                 >
                   <X size={20} className="text-slate-400 dark:text-white/70" />
                 </button>
@@ -898,6 +899,7 @@ const AssistantDrawer: React.FC = () => {
 export const Topbar: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
     activeWorkspace,
@@ -931,27 +933,40 @@ export const Topbar: React.FC = () => {
   );
   const currentWorkspaceLabel = currentWorkspace ? t(WORKSPACE_META[currentWorkspace].labelKey) : '--';
   const canUseAssistant = currentWorkspace === 'STUDENT_WORKSPACE' && userHasCapability(user, 'STUDENT_WORKSPACE');
+  const workspaceHomePath = homePathForWorkspace(currentWorkspace);
+  const isWorkspaceHome = location.pathname === workspaceHomePath;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface/95 px-4 py-3 lg:px-8">
-      <div className="mx-auto flex min-h-14 w-full max-w-[1480px] items-center justify-between gap-4">
-        <div className="relative z-10 flex min-w-0 flex-1 items-center gap-4">
+    <header className="sticky top-0 z-40 overflow-x-clip border-b border-border-subtle bg-surface/95 px-3 py-2.5 sm:px-4 sm:py-3 lg:px-8">
+      <div className="mx-auto flex min-h-14 w-full max-w-[1480px] items-center justify-between gap-2 sm:gap-4">
+        <div className="relative z-10 flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <button
           type="button"
           aria-label={t('common.actions.openNavigation')}
           onClick={openMobileSidebar}
-          className="flex items-center justify-center rounded-lg border border-border-subtle p-2 lg:hidden"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-border-subtle p-2 lg:hidden"
         >
           <Menu size={18} className="text-slate-500 dark:text-white/70" aria-hidden="true" />
         </button>
-        <div className="min-w-0 shrink-0">
-          <div className="type-metadata mb-1 truncate">
+        {!isWorkspaceHome && (
+          <button
+            type="button"
+            aria-label={t('common.actions.backToWorkspace')}
+            title={t('common.actions.backToWorkspace')}
+            onClick={() => navigate(workspaceHomePath)}
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-border-subtle text-slate-500 hover:border-border-strong hover:bg-surface-sunken dark:text-white/70 lg:hidden"
+          >
+            <ChevronLeft size={18} aria-hidden="true" />
+          </button>
+        )}
+        <div className="min-w-0 flex-1 sm:flex-none">
+          <div className="type-metadata mb-1 truncate text-[0.625rem] sm:text-[0.6875rem]">
             {currentWorkspaceLabel}
           </div>
           <div className="type-section-title truncate text-slate-900 dark:text-white">{currentTitle}</div>
         </div>
         {canUseAssistant && (
-          <div className="group relative hidden min-w-0 max-w-xl flex-1 md:block">
+          <div className="group relative hidden min-w-0 max-w-xl flex-1 lg:block">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within:text-primary transition-colors duration-300"
               size={16}
@@ -975,16 +990,16 @@ export const Topbar: React.FC = () => {
           </div>
         )}
       </div>
-        <div className="relative z-10 flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="relative z-10 flex shrink-0 items-center gap-1.5 sm:gap-3">
         {canUseAssistant && (
           <button
             type="button"
             aria-label={t('common.actions.openAssistant')}
             onClick={() => openAssistant(search.trim())}
-            className="hidden items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold text-slate-600 hover:border-primary/40 hover:text-primary dark:text-white/70 sm:flex"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-border-subtle px-2.5 py-2 text-xs font-semibold text-slate-600 hover:border-primary/40 hover:text-primary dark:text-white/70 sm:min-w-0 sm:px-3"
           >
             <Brain size={14} aria-hidden="true" />
-            {t('common.actions.openAssistant')}
+            <span className="hidden lg:inline">{t('common.actions.openAssistant')}</span>
           </button>
         )}
         <NotificationBell />
@@ -1001,10 +1016,20 @@ export const Topbar: React.FC = () => {
           aria-label={isDarkMode ? t('common.actions.lightMode') : t('common.actions.darkMode')}
           title={isDarkMode ? t('common.actions.lightMode') : t('common.actions.darkMode')}
           onClick={toggleDarkMode}
-          className="rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken"
+          className="hidden min-h-11 min-w-11 items-center justify-center rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken sm:flex"
         >
           {isDarkMode ? <Sun size={18} className="text-amber-400" aria-hidden="true" /> : <Moon size={18} className="text-slate-500" aria-hidden="true" />}
         </button>
+        {user && (
+          <Link
+            to="/settings"
+            aria-label={`${t('shell.nav.settings')}: ${user.displayName}`}
+            title={user.displayName}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border-subtle text-primary hover:border-primary/40 hover:bg-primary/5 lg:hidden"
+          >
+            <UserRound size={18} aria-hidden="true" />
+          </Link>
+        )}
         {user && (
           <div className="hidden max-w-44 items-center gap-2 border-l border-border-subtle pl-3 lg:flex">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -1032,12 +1057,12 @@ export const AppLayout: React.FC = () => {
   }, [closeMobileSidebar, location.pathname]);
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen min-w-0 overflow-x-clip flex bg-background">
       <Sidebar />
       <MobileSidebarDrawer />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
-        <main className="relative z-10 flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main className="safe-area-bottom relative z-10 flex-1 min-w-0 px-3 py-5 sm:px-4 sm:py-6 lg:px-8 lg:py-8">
           <RouteErrorBoundary
             title={t('common.errors.routeTitle')}
             description={t('common.errors.routeDescription')}

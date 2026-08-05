@@ -24,6 +24,7 @@ export const commonSlice: TranslationSlice = {
         exportingPdf: '导出中...',
         startDiagnosis: '开始风险诊断',
         backToTrainingHome: '返回训练首页',
+        backToWorkspace: '返回工作区首页',
         close: '关闭',
       },
       loading: {
@@ -65,6 +66,7 @@ export const commonSlice: TranslationSlice = {
         exportingPdf: 'Exporting...',
         startDiagnosis: 'Start Risk Diagnosis',
         backToTrainingHome: 'Back to training home',
+        backToWorkspace: 'Back to workspace home',
         close: 'Close',
       },
       loading: {

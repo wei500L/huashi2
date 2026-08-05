@@ -315,9 +315,10 @@ export const NotificationBell: React.FC = () => {
         type="button"
         aria-label={buttonLabel}
         aria-expanded={isOpen}
+        aria-haspopup="dialog"
         onClick={() => setIsOpen((value) => !value)}
         title={buttonLabel}
-        className="relative rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken"
+        className="relative flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken"
       >
         <Bell size={20} className="text-slate-500 dark:text-white/70" />
         {unreadCount > 0 && (

@@ -542,6 +542,15 @@
     isolation: isolate;
   }
 
+  /* Keep the drawer clear of gesture/navigation areas on notched devices. */
+  .safe-area-drawer {
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-bottom {
+    padding-bottom: max(1.5rem, calc(1.5rem + env(safe-area-inset-bottom)));
+  }
+
   .dark .sidebar-shell {
     box-shadow: var(--shadow-md);
   }
