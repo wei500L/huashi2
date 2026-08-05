@@ -361,3 +361,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
 export { FeedbackState } from './FeedbackState';
 export type { FeedbackStateAction, FeedbackStateProps } from './FeedbackState';
 export { ConfirmationDialog } from './ConfirmationDialog';
+export { Tabs } from './Tabs';
+export type { TabItem, TabsProps } from './Tabs';
+export { Pagination } from './Pagination';
+export { DataTable } from './DataTable';
+export type { DataTableColumn } from './DataTable';

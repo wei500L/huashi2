@@ -227,6 +227,11 @@ export const uiSlice: TranslationSlice = {
         learningGoalsSaveFailed: '学习目标保存失败',
       },
       labels: {
+        student: '学生',
+        status: '状态',
+        action: '操作',
+        lastSaved: '最后保存',
+        progress: '进度',
         noDescription: '无描述',
         loadingSession: '正在加载会话信息...',
         sessionLoadFailed: '会话信息加载失败',
@@ -476,6 +481,7 @@ export const uiSlice: TranslationSlice = {
           destructive: { safety: 'Continuing may remove or lock data and might not be reversible.', nextStep: 'Review the impact, then continue only if it is correct.' },
         },
       },
+      pagination: { previous: '上一页', next: '下一页', rows: '导入行分页' },
       skeleton: {
         route: {
           title: 'Preparing the page structure',
@@ -673,6 +679,11 @@ export const uiSlice: TranslationSlice = {
         learningGoalsSaveFailed: 'Failed to save learning goals',
       },
       labels: {
+        student: 'Student',
+        status: 'Status',
+        action: 'Action',
+        lastSaved: 'Last saved',
+        progress: 'Progress',
         noDescription: 'No description',
         loadingSession: 'Loading session details...',
         sessionLoadFailed: 'Failed to load session details',
@@ -721,6 +732,7 @@ export const uiSlice: TranslationSlice = {
         goalUnset: 'Not set',
         goalCompleted: 'Completed',
       },
+      pagination: { previous: 'Previous page', next: 'Next page', rows: 'Import rows pagination' },
       achievements: {
         summary: '{{count}} / {{total}} badges unlocked',
         subtitle: 'Surface streaks and milestone wins so students can see momentum building on the dashboard.',

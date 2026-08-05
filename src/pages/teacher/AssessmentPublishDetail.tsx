@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { DataTable, PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
 import { assessmentAttemptStatusLabel, assessmentAttemptStatusTone, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
@@ -133,51 +133,55 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
                 {t('ui.labels.noRoster')}
               </div>
             ) : (
-              <div className="space-y-4">
-                {publish.roster.map((item) => (
-                  <div key={item.studentUserId} className="rounded-[1.8rem] border border-slate-200/70 bg-white/70 p-5 dark:border-white/10 dark:bg-white/5">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <div className="text-xl font-black text-slate-900 dark:text-white">{item.studentName}</div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                          <StatusBadge
-                            label={assessmentAttemptStatusLabel(item.attemptStatus)}
-                            tone={assessmentAttemptStatusTone(item.attemptStatus)}
-                          />
-                          <StatusBadge label={t('ui.meta.progress', { current: item.answeredCount || 0, total: item.questionCount || publish.questionCount })} />
-                          {item.totalScore !== null && item.totalScore !== undefined && (
-                            <StatusBadge label={`${t('ui.meta.averageScore')} ${item.totalScore}`} />
-                          )}
-                        </div>
-                        <div className="mt-3 grid gap-2 text-sm text-slate-500 dark:text-white/45 md:grid-cols-2">
-                          <div>{t('ui.meta.startsAt', { time: formatDateTime(item.startedAt) })}</div>
-                          <div>{t('ui.meta.lastSavedAt', { time: formatDateTime(item.lastSavedAt) })}</div>
-                          <div>{t('ui.meta.expiresAt', { time: formatDateTime(item.expiresAt) })}</div>
-                          <div>{t('ui.meta.submittedAt', { time: formatDateTime(item.submittedAt) })}</div>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        {item.attemptStatus === 'SUBMITTED' && item.attemptId ? (
-                          <Link
-                            to={`/teacher/assessments/attempts/${item.attemptId}/result`}
-                            className="btn-liquid px-5 py-3 text-sm text-white"
-                          >
-                            {t('ui.actions.viewResult')}
-                          </Link>
-                        ) : item.attemptId ? (
-                          <div className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-                            {t('ui.labels.stillAnswering')}
-                          </div>
-                        ) : (
-                          <div className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                            {t('ui.labels.notEnteredAssessment')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <DataTable
+                rows={publish.roster}
+                getRowId={(item) => item.studentUserId}
+                caption={t('ui.sections.roster')}
+                density="compact"
+                columns={[
+                  {
+                    id: 'student',
+                    header: t('ui.labels.student'),
+                    accessor: 'studentName',
+                    sortable: true,
+                    className: 'min-w-40 font-semibold text-slate-900 dark:text-white',
+                  },
+                  {
+                    id: 'status',
+                    header: t('ui.labels.status'),
+                    sortable: true,
+                    sortValue: (item) => item.attemptStatus,
+                    render: (item) => <StatusBadge label={assessmentAttemptStatusLabel(item.attemptStatus)} tone={assessmentAttemptStatusTone(item.attemptStatus)} />,
+                  },
+                  {
+                    id: 'progress',
+                    header: t('ui.labels.progress'),
+                    sortable: true,
+                    sortValue: (item) => item.answeredCount || 0,
+                    render: (item) => t('ui.meta.progress', { current: item.answeredCount || 0, total: item.questionCount || publish.questionCount }),
+                  },
+                  {
+                    id: 'score',
+                    header: t('ui.meta.averageScore'),
+                    sortable: true,
+                    sortValue: (item) => item.totalScore,
+                    render: (item) => item.totalScore === null || item.totalScore === undefined ? '—' : item.totalScore,
+                  },
+                  {
+                    id: 'updated',
+                    header: t('ui.labels.lastSaved'),
+                    sortValue: (item) => item.lastSavedAt,
+                    render: (item) => formatDateTime(item.lastSavedAt),
+                  },
+                  {
+                    id: 'action',
+                    header: t('ui.labels.action'),
+                    render: (item) => item.attemptStatus === 'SUBMITTED' && item.attemptId ? (
+                      <Link to={`/teacher/assessments/attempts/${item.attemptId}/result`} className="btn-secondary px-3 py-2 text-xs">{t('ui.actions.viewResult')}</Link>
+                    ) : item.attemptId ? <StatusBadge label={t('ui.labels.stillAnswering')} tone="warning" /> : <StatusBadge label={t('ui.labels.notEnteredAssessment')} />,
+                  },
+                ]}
+              />
             )}
           </section>
         </>

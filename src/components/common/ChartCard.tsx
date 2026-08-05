@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 
 interface ChartCardProps {
   title: string;
+  description?: string;
+  anomalyNote?: string;
   option: AppChartOption;
   loading?: boolean;
   isEmpty?: boolean;
@@ -23,6 +25,8 @@ interface ChartCardProps {
 
 export const ChartCard: React.FC<ChartCardProps> = ({
   title,
+  description,
+  anomalyNote,
   option,
   loading = false,
   isEmpty = false,
@@ -58,10 +62,13 @@ export const ChartCard: React.FC<ChartCardProps> = ({
         className
       )}
     >
-      {!embedded && <div className="px-6 py-4 border-b border-border-subtle flex items-center justify-between bg-surface-sunken relative z-10">
+      {!embedded && <div className="px-6 py-4 border-b border-border-subtle flex items-start justify-between gap-4 bg-surface-sunken relative z-10">
         <div className="flex items-center gap-3">
           <div className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-          <h3 className="type-section-title text-slate-800 dark:text-white/85">{title}</h3>
+          <div>
+            <h3 className="type-section-title text-slate-800 dark:text-white/85">{title}</h3>
+            {description ? <p className="type-body-muted mt-1 max-w-2xl">{description}</p> : null}
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {extra}
@@ -69,6 +76,12 @@ export const ChartCard: React.FC<ChartCardProps> = ({
       </div>}
       
       <div className={cn('relative z-10', embedded ? 'p-0' : 'p-8')} style={containerStyle}>
+        {anomalyNote && !loading && !errorState && !isEmpty ? (
+          <div className="anomaly-note mb-4" role="note">
+            <span aria-hidden="true">!</span>
+            <span>{anomalyNote}</span>
+          </div>
+        ) : null}
         {loading ? (
           <div className="absolute inset-0 z-20 bg-surface/90 dark:bg-surface/90">
             <FeedbackState
@@ -116,7 +129,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
             transition={{ duration: 0.42, ease: 'easeOut' }}
             style={{ height: '100%', width: '100%' }}
           >
-            <EChart option={option} style={{ height: '100%', width: '100%' }} />
+            <EChart option={option} ariaLabel={description ? `${title}. ${description}` : title} style={{ height: '100%', width: '100%' }} />
           </motion.div>
         )}
       </div>

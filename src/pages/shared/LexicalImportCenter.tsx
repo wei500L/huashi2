@@ -2,6 +2,8 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileSpreadsheet, LoaderCircle, RefreshCw, Save, Upload } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Pagination } from '@/components/common';
 import type {
   LexicalImportBatchDetailVO,
   LexicalImportBatchStatus,
@@ -327,6 +329,7 @@ function normalizeImportView(value?: string | null): ImportView {
 }
 
 export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = ({ mode }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -944,14 +947,15 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                   </div>
 
                   <div className="overflow-x-auto rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                    <table className="w-full min-w-[760px] text-left text-sm">
+                    <table className="data-table-compact w-full min-w-[760px] text-left text-sm" aria-label="Import rows">
+                      <caption className="sr-only">Import rows with validation status and edit actions</caption>
                       <thead className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                         <tr>
-                          <th className="pb-3">行号</th>
-                          <th className="pb-3">词对</th>
-                          <th className="pb-3">状态</th>
-                          <th className="pb-3">错误 / 结果</th>
-                          <th className="pb-3">操作</th>
+                          <th scope="col" className="pb-3">行号</th>
+                          <th scope="col" className="pb-3">词对</th>
+                          <th scope="col" className="pb-3">状态</th>
+                          <th scope="col" className="pb-3">错误 / 结果</th>
+                          <th scope="col" className="pb-3">操作</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1006,29 +1010,16 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                     </table>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-slate-200/70 bg-white/55 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
-                    <div>
-                      第 {rowPageNo} / {rowTotalPages} 页
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRowPageNo((current) => Math.max(1, current - 1))}
-                        disabled={rowPageNo <= 1 || rowsQuery.isFetching}
-                        className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
-                      >
-                        上一页
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRowPageNo((current) => Math.min(rowTotalPages, current + 1))}
-                        disabled={rowPageNo >= rowTotalPages || rowsQuery.isFetching}
-                        className="rounded-full border border-slate-200/70 px-4 py-2 disabled:opacity-40 dark:border-white/10"
-                      >
-                        下一页
-                      </button>
-                    </div>
-                  </div>
+                  <Pagination
+                    page={rowPageNo}
+                    pageCount={rowTotalPages}
+                    onPageChange={setRowPageNo}
+                    disabled={rowsQuery.isFetching}
+                    label={t('ui.pagination.rows')}
+                    previousLabel={t('ui.pagination.previous')}
+                    nextLabel={t('ui.pagination.next')}
+                    className="rounded-lg border border-border-subtle bg-surface-sunken px-4 py-2"
+                  />
 
                   {selectedRow && (
                     <div className="space-y-4 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">

@@ -174,6 +174,7 @@ export const NotificationBell: React.FC = () => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsOpen(false);
+        buttonRef.current?.focus();
       }
     };
     window.addEventListener('resize', updatePanelPosition);
@@ -306,17 +307,14 @@ export const NotificationBell: React.FC = () => {
           />
         )}
 
-        <div className="mt-4 max-h-[calc(100vh-10rem)] space-y-2 overflow-y-auto pr-1">
+        <ul className="mt-4 max-h-[calc(100vh-10rem)] space-y-1 overflow-y-auto pr-1" aria-label={t('shell.notifications.title')}>
           {recentNotificationsQuery.isLoading ? (
-            <FeedbackState
-              kind="loading"
-              compact
-              className="px-4 py-5"
-              title={t('shell.notifications.loadingTitle')}
-              description={t('shell.notifications.loadingDescription')}
-            />
+            <li><FeedbackState
+              kind="loading" compact className="px-4 py-5"
+              title={t('shell.notifications.loadingTitle')} description={t('shell.notifications.loadingDescription')}
+            /></li>
           ) : notificationErrorState ? (
-            <FeedbackState
+            <li><FeedbackState
               kind={notificationErrorState.kind}
               compact
               className="px-4 py-5"
@@ -328,28 +326,28 @@ export const NotificationBell: React.FC = () => {
                 label: t('shell.notifications.retry'),
                 onClick: () => void recentNotificationsQuery.refetch(),
               }}
-            />
+            /></li>
           ) : notifications.length === 0 ? (
-            <FeedbackState
+            <li><FeedbackState
               kind="empty"
               compact
               className="px-4 py-5"
               title={t('shell.notifications.emptyTitle')}
               description={t('shell.notifications.emptyDescription')}
-            />
+            /></li>
           ) : (
             notifications.map((notification) => (
-              <button
-                key={notification.id}
-                type="button"
-                onClick={() => handleNotificationClick(notification)}
-                className={cn(
-                  'w-full rounded-[1.35rem] border px-4 py-3 text-left transition-all',
+              <li key={notification.id}>
+                <button
+                  type="button"
+                  onClick={() => handleNotificationClick(notification)}
+                  className={cn(
+                  'w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
                   notification.status === 'UNREAD'
                     ? 'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-white/5'
                     : 'border-transparent bg-transparent hover:border-slate-200/70 hover:bg-slate-50/70 dark:hover:border-white/10 dark:hover:bg-white/5'
                 )}
-              >
+                >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -365,10 +363,11 @@ export const NotificationBell: React.FC = () => {
                   </div>
                   {notification.status === 'UNREAD' && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary shrink-0" />}
                 </div>
-              </button>
+                </button>
+              </li>
             ))
           )}
-        </div>
+        </ul>
       </div>,
       document.body
     )

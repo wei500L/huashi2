@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { PageHeader, SectionEyebrow, StatusBadge, Tabs } from '@/components/common';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import { getProductizedErrorState } from '@/lib/async-state';
 import { buildDiagnosisHref } from '@/lib/diagnosis-launch';
@@ -353,52 +353,22 @@ const HistoryPage: React.FC = () => {
         subtitle={t('taskPages.history.pageSubtitle')}
       />
 
-      <section className="rounded-[2.5rem] liquid-glass-panel p-4">
-        <div className="grid gap-3 md:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab('diagnosis')}
-            className={`rounded-[1.8rem] px-5 py-4 text-left transition-all ${
-              activeTab === 'diagnosis'
-                ? 'border border-primary/30 bg-primary/10'
-                : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
-            }`}
-          >
-            <SectionEyebrow>诊断记录</SectionEyebrow>
-            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">诊断历史</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看模板、结果得分和完成时间。</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('training')}
-            className={`rounded-[1.8rem] px-5 py-4 text-left transition-all ${
-              activeTab === 'training'
-                ? 'border border-primary/30 bg-primary/10'
-                : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
-            }`}
-          >
-            <SectionEyebrow>训练记录</SectionEyebrow>
-            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">训练历史</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看模式、正确率和风险词复习建议。</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('assessment')}
-            className={`rounded-[1.8rem] px-5 py-4 text-left transition-all ${
-              activeTab === 'assessment'
-                ? 'border border-primary/30 bg-primary/10'
-                : 'border border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
-            }`}
-          >
-            <SectionEyebrow>通用测评</SectionEyebrow>
-            <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">测评历史</div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-white/45">查看整卷测评、继续作答与题目级回看。</div>
-          </button>
-        </div>
+      <section className="surface-panel rounded-xl p-3" aria-label="History sections">
+        <Tabs<HistoryTab>
+          variant="page"
+          ariaLabel={t('taskPages.history.pageTitle')}
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { id: 'diagnosis', label: '璇婃柇鍘嗗彶' },
+            { id: 'training', label: '璁粌鍘嗗彶' },
+            { id: 'assessment', label: '娴嬭瘎鍘嗗彶' },
+          ]}
+        />
       </section>
 
       {activeTab === 'diagnosis' ? (
-        <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+        <div id="tabpanel-diagnosis" role="tabpanel" className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
               <SectionEyebrow>筛选</SectionEyebrow>
@@ -634,7 +604,7 @@ const HistoryPage: React.FC = () => {
           </section>
         </div>
       ) : activeTab === 'training' ? (
-        <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+        <div id="tabpanel-training" role="tabpanel" className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
               <SectionEyebrow>筛选</SectionEyebrow>
@@ -863,7 +833,7 @@ const HistoryPage: React.FC = () => {
           </section>
         </div>
       ) : (
-        <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+        <div id="tabpanel-assessment" role="tabpanel" className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
             <div className="flex flex-wrap items-center gap-3">
               <SectionEyebrow>筛选</SectionEyebrow>

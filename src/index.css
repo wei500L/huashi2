@@ -640,6 +640,60 @@
   .surface-control:hover { border-color: hsl(var(--border-strong)); box-shadow: var(--shadow-sm); }
   .surface-divider { border-color: hsl(var(--border-subtle)); }
 
+  /* Reusable data-display grammar: calm tabs and predictable density. */
+  .page-tabs,
+  .local-tabs {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .page-tabs {
+    border-bottom: 1px solid hsl(var(--border-subtle));
+  }
+  .tab-trigger {
+    position: relative;
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    color: hsl(var(--text-muted));
+    font-size: 0.8125rem;
+    font-weight: 650;
+    line-height: 1.35;
+    text-align: left;
+    transition: color var(--motion-feedback-duration) var(--motion-ease-standard), background-color var(--motion-feedback-duration) var(--motion-ease-standard);
+  }
+  .tab-trigger:hover { color: hsl(var(--text)); background: hsl(var(--surface-sunken) / 0.75); }
+  .tab-trigger-active { color: hsl(var(--action)); background: hsl(var(--action) / 0.08); }
+  .page-tabs .tab-trigger { border-radius: 0; }
+  .page-tabs .tab-trigger-active::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0.75rem;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 999px;
+    background: hsl(var(--action));
+  }
+  .tab-description { color: hsl(var(--text-subtle)); font-size: 0.6875rem; font-weight: 500; }
+  .data-table-compact th,
+  .data-table-compact td { padding-block: 0.625rem; }
+  .data-table-comfortable th,
+  .data-table-comfortable td { padding-block: 0.875rem; }
+  .anomaly-note {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    border: 1px solid hsl(var(--warning) / 0.22);
+    border-radius: 0.5rem;
+    background: hsl(var(--warning) / 0.07);
+    color: hsl(var(--text-muted));
+    font-size: 0.75rem;
+    line-height: 1.5;
+    padding: 0.625rem 0.75rem;
+  }
+
   .sidebar-shell {
     isolation: isolate;
   }

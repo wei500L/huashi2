@@ -5,6 +5,7 @@ import { useUIStore } from '@/store';
 
 type EChartProps = {
   option: AppChartOption;
+  ariaLabel?: string;
   className?: string;
   style?: React.CSSProperties;
   theme?: 'light' | 'dark';
@@ -14,6 +15,7 @@ type EChartProps = {
 
 export const EChart: React.FC<EChartProps> = ({
   option,
+  ariaLabel,
   className,
   style,
   theme,
@@ -63,5 +65,13 @@ export const EChart: React.FC<EChartProps> = ({
     chartRef.current?.setOption(option, { notMerge, lazyUpdate });
   }, [lazyUpdate, notMerge, option]);
 
-  return <div ref={containerRef} className={cn('h-full w-full', className)} style={style} />;
+  return (
+    <div
+      ref={containerRef}
+      role="img"
+      aria-label={ariaLabel}
+      className={cn('h-full w-full', className)}
+      style={style}
+    />
+  );
 };
