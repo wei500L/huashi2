@@ -1,7 +1,8 @@
 import React from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Clock3, FileText, PlayCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, FileText, Microscope, PlayCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
 import { assessmentAttemptStatusLabel, assessmentAttemptStatusTone, formatDateTime } from '@/lib/format';
@@ -70,6 +71,22 @@ const StudentAssessmentsPage: React.FC = () => {
         title={t('shell.titles.assessments')}
         subtitle={t('taskPages.studentAssessments.pageSubtitle')}
       />
+
+      <section className="flex flex-col gap-5 rounded-[2rem] border border-primary/15 bg-primary/[0.06] p-6 sm:flex-row sm:items-center sm:justify-between dark:bg-primary/[0.08]">
+        <div className="flex items-start gap-4">
+          <div className="rounded-2xl bg-primary/10 p-3 text-primary"><Microscope size={20} /></div>
+          <div>
+            <SectionEyebrow>VOLUNTARY RESEARCH</SectionEyebrow>
+            <h2 className="mt-2 text-lg font-black text-slate-900 dark:text-white">收到研究问卷发布编号？</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-white/55">
+              研究问卷属于自愿参与的社会研究，不计入这里的课堂必测任务；请前往独立入口验证发布编号和参与码。
+            </p>
+          </div>
+        </div>
+        <Link to="/student/research" className="btn-liquid inline-flex shrink-0 items-center justify-center gap-2 px-5 py-3 text-sm font-bold text-white">
+          进入研究问卷 <Microscope size={16} />
+        </Link>
+      </section>
 
       {errorMessage && (
         <div className="rounded-[1.8rem] border border-rose-500/20 bg-rose-500/5 px-5 py-4 text-sm text-rose-500">

@@ -8,6 +8,11 @@ import java.util.Map;
 @Component
 public class AiOutputSchemaFactory {
 
+    /**
+     * Guidance schema optimized for DeepSeek json_object compatibility:
+     * models primarily supply IDs, reasons and free-text; the server back-fills
+     * approved lexical pair metadata and training mode labels.
+     */
     public Map<String, Object> guidanceSchema() {
         return Map.of(
                 "type", "object",
@@ -43,16 +48,7 @@ public class AiOutputSchemaFactory {
                                                 "dominantErrorType", Map.of("type", "string"),
                                                 "focusReason", Map.of("type", "string")
                                         ),
-                                        "required", List.of(
-                                                "lexicalPairId",
-                                                "englishWord",
-                                                "frenchWord",
-                                                "chineseGloss",
-                                                "lexicalPairType",
-                                                "riskScore",
-                                                "dominantErrorType",
-                                                "focusReason"
-                                        )
+                                        "required", List.of("lexicalPairId", "focusReason")
                                 )
                         ),
                         "recommendedTrainingModes", Map.of(
@@ -66,7 +62,7 @@ public class AiOutputSchemaFactory {
                                                 "label", Map.of("type", "string"),
                                                 "reason", Map.of("type", "string")
                                         ),
-                                        "required", List.of("mode", "label", "reason")
+                                        "required", List.of("mode", "reason")
                                 )
                         ),
                         "explanation", Map.of("type", "string"),

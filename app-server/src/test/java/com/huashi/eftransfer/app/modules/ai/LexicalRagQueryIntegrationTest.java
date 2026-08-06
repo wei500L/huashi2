@@ -52,6 +52,23 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void shouldAllowTeacherToQueryLexicalRag() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+
+        mockMvc.perform(post("/api/ai/lexical-rag/query")
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "query": "coin 和 coin 有什么区别？"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.generationSource").value("AI"))
+                .andExpect(jsonPath("$.data.grounded").value(true));
+    }
+
+    @Test
     void shouldReturnStructuredLexicalRagAnswerWithCitations() throws Exception {
         String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
 
@@ -168,6 +185,7 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.generationSource").value("RULE_FALLBACK"))
                 .andExpect(jsonPath("$.data.fallbackReason").value(AiGatewayFailureReason.INVALID_JSON.name()))
+                .andExpect(jsonPath("$.data.fallbackDetail").isString())
                 .andExpect(jsonPath("$.data.grounded").value(true))
                 .andExpect(jsonPath("$.data.citations.length()").value(2))
                 .andExpect(jsonPath("$.data.contextChunks.length()").value(2))
@@ -205,6 +223,7 @@ class LexicalRagQueryIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.generationSource").value("RULE_FALLBACK"))
                 .andExpect(jsonPath("$.data.fallbackReason").value(AiGatewayFailureReason.NO_GROUNDED_CONTEXT.name()))
+                .andExpect(jsonPath("$.data.fallbackDetail").isString())
                 .andExpect(jsonPath("$.data.grounded").value(false))
                 .andExpect(jsonPath("$.data.citations.length()").value(0))
                 .andExpect(jsonPath("$.data.contextChunks.length()").value(0))

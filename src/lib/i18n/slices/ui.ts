@@ -861,7 +861,6 @@ export const uiSlice: TranslationSlice = {
         goalUnset: 'Not set',
         goalCompleted: 'Completed',
       },
-      pagination: { previous: 'Previous page', next: 'Next page', rows: 'Import rows pagination' },
       achievements: {
         summary: '{{count}} / {{total}} badges unlocked',
         subtitle: 'Surface streaks and milestone wins so students can see momentum building on the dashboard.',

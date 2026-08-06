@@ -1,7 +1,7 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Plus, Send, Trash2 } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge, WorkflowStepper } from '@/components/common';
 import type { WorkflowStage } from '@/components/common';
 import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
@@ -42,6 +42,7 @@ type PaperDraft = {
 
 type PublishDraft = {
   teachingClassId: string;
+  participantCodeCount: string;
   startsAt: string;
   dueAt: string;
   instructionsText: string;
@@ -169,13 +170,16 @@ function validatePaperDraft(draft: PaperDraft): string[] {
 
 const TeacherAssessmentEditorPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const params = useParams<{ paperId?: string }>();
   const paperId = params.paperId ? Number(params.paperId) : null;
   const isCreateMode = !paperId;
+  const requestedResearchContext = searchParams.get('context') === 'research';
   const [draft, setDraft] = React.useState<PaperDraft>(createEmptyDraft);
   const [publishDraft, setPublishDraft] = React.useState<PublishDraft>({
     teachingClassId: '',
+    participantCodeCount: '',
     startsAt: '',
     dueAt: '',
     instructionsText: '',
@@ -192,9 +196,21 @@ const TeacherAssessmentEditorPage: React.FC = () => {
     enabled: !!paperId,
   });
 
+  const isResearchContext = detailQuery.data
+    ? detailQuery.data.paperPurpose === 'RESEARCH_SURVEY'
+    : requestedResearchContext;
+
+  React.useEffect(() => {
+    if (detailQuery.data?.paperPurpose !== 'RESEARCH_SURVEY' || requestedResearchContext) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('context', 'research');
+    setSearchParams(next, { replace: true });
+  }, [detailQuery.data?.paperPurpose, requestedResearchContext, searchParams, setSearchParams]);
+
   const classesQuery = useQuery({
     queryKey: ['teacher-assessment-classes'],
     queryFn: ({ signal }) => teacherAnalyticsService.listClasses({ signal }),
+    enabled: !requestedResearchContext,
   });
 
   React.useEffect(() => {
@@ -213,19 +229,26 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   const isEditLocked = !!detailQuery.data?.publishes.length;
 
   const saveMutation = useMutation({
-    mutationFn: (payload: AssessmentPaperSaveRequest) =>
-      paperId ? assessmentService.updateTeacherPaper(paperId, payload) : assessmentService.createTeacherPaper(payload),
+    mutationFn: (payload: AssessmentPaperSaveRequest) => {
+      if (paperId) {
+        return assessmentService.updateTeacherPaper(paperId, payload);
+      }
+      return assessmentService.createTeacherPaper({
+        ...payload,
+        paperPurpose: isResearchContext ? 'RESEARCH_SURVEY' : 'CLASS_ASSESSMENT',
+      });
+    },
     onSuccess: async (data) => {
       hydratedPaperIdRef.current = data.paperId;
       const nextDraft = toDraft(data);
       savedDraftSignatureRef.current = JSON.stringify(serializeDraft(nextDraft));
       setDraft(nextDraft);
-      setFeedback(paperId ? '试卷已保存。' : '试卷已创建。');
+      setFeedback(isResearchContext ? (paperId ? '研究问卷已保存。' : '研究问卷已创建。') : (paperId ? '试卷已保存。' : '试卷已创建。'));
       setErrorMessage(null);
       await queryClient.invalidateQueries({ queryKey: ['teacher-assessment-papers'] });
       await queryClient.invalidateQueries({ queryKey: ['teacher-assessment-paper', data.paperId] });
       if (!paperId) {
-        navigate(`/teacher/assessments/${data.paperId}`, { replace: true });
+        navigate(`/teacher/assessments/${data.paperId}${isResearchContext ? '?context=research' : ''}`, { replace: true });
       }
     },
     onError: (error) => {
@@ -237,17 +260,22 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   const publishMutation = useMutation({
     mutationFn: () =>
       assessmentService.publishTeacherPaper(paperId as number, {
-        teachingClassId: Number(publishDraft.teachingClassId),
+        deliveryMode: isResearchContext ? 'PUBLIC_CODE' : 'CLASS',
+        teachingClassId: isResearchContext ? undefined : Number(publishDraft.teachingClassId),
+        participantCodeCount: isResearchContext ? Number(publishDraft.participantCodeCount) : undefined,
         startsAt: publishDraft.startsAt || undefined,
         dueAt: publishDraft.dueAt || undefined,
         instructionsText: publishDraft.instructionsText.trim() || undefined,
         resultReleasePolicy: publishDraft.resultReleasePolicy,
       }),
-    onSuccess: async () => {
-      setFeedback('试卷已发布到班级。');
+    onSuccess: async (published) => {
+      setFeedback(isResearchContext
+        ? `研究问卷已发布。发布编号：${published.releaseCode || '已生成'}；参与码已生成 ${published.participationCodes?.length || 0} 个。`
+        : '试卷已发布到班级。');
       setErrorMessage(null);
       setPublishDraft({
         teachingClassId: '',
+        participantCodeCount: '',
         startsAt: '',
         dueAt: '',
         instructionsText: '',
@@ -284,7 +312,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   const draftSignature = JSON.stringify(serializeDraft(draft));
   const isDraftDirty = draftSignature !== savedDraftSignatureRef.current;
   const isPublishDraftDirty = Boolean(
-    publishDraft.teachingClassId || publishDraft.startsAt || publishDraft.dueAt || publishDraft.instructionsText.trim() ||
+    publishDraft.teachingClassId || publishDraft.participantCodeCount || publishDraft.startsAt || publishDraft.dueAt || publishDraft.instructionsText.trim() ||
     publishDraft.resultReleasePolicy !== 'AFTER_DUE'
   );
   const hasUnsavedChanges = (!isEditLocked && isDraftDirty) || isPublishDraftDirty;
@@ -627,17 +655,19 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        eyebrow="通用测评"
-        title={isCreateMode ? '新建通用测评' : '编辑通用测评'}
+        eyebrow={isResearchContext ? '研究问卷' : '通用测评'}
+        title={isResearchContext ? (isCreateMode ? '新建研究问卷' : '编辑研究问卷') : (isCreateMode ? '新建通用测评' : '编辑通用测评')}
         subtitle={
           isCreateMode
-            ? '本页负责整卷编辑。v1 只开放单选、多选、填空三种题型，并使用整卷统一倒计时。'
-            : `试卷 #${paperId} · 最近发布 ${formatDateTime(detailQuery.data?.latestPublishAt)}`
+            ? isResearchContext
+              ? '本页复用测评编辑器创建社会研究问卷；保存后仍只会出现在研究问卷工作区。'
+              : '本页负责整卷编辑。v1 只开放单选、多选、填空三种题型，并使用整卷统一倒计时。'
+            : `${isResearchContext ? '研究问卷' : '试卷'} #${paperId} · 最近发布 ${formatDateTime(detailQuery.data?.latestPublishAt)}`
         }
         actions={
           <div className="flex flex-wrap gap-3">
-            <Link to="/teacher/assessments" className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
-              返回列表
+            <Link to={isResearchContext ? '/teacher/research?tab=questionnaires' : '/teacher/assessments'} className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
+              {isResearchContext ? '返回研究问卷' : '返回列表'}
             </Link>
             <button
               type="button"
@@ -645,14 +675,14 @@ const TeacherAssessmentEditorPage: React.FC = () => {
               onClick={() => saveMutation.mutate(serializeDraft(draft))}
               className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
             >
-              {saveMutation.isPending ? '保存中...' : isDraftDirty ? '保存试卷 · 有改动' : '保存试卷'}
+              {saveMutation.isPending ? '保存中...' : isDraftDirty ? `保存${isResearchContext ? '问卷' : '试卷'} · 有改动` : `保存${isResearchContext ? '问卷' : '试卷'}`}
             </button>
           </div>
         }
       />
 
       <WorkflowStepper
-        title="测评制作流程"
+        title={isResearchContext ? '研究问卷制作流程' : '测评制作流程'}
         description="阶段卡片始终显示状态、阻塞原因、回退路径、保存状态和下一步动作。点击阶段可返回对应区域。"
         stages={workflowStages}
       />
@@ -782,8 +812,10 @@ const TeacherAssessmentEditorPage: React.FC = () => {
           <div id="assessment-publish" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
             <div>
               <SectionEyebrow>发布</SectionEyebrow>
-              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">发布到班级</div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">先保存试卷，再选择班级和时间窗。整卷计时会在学生开始作答后立即生效。</div>
+              <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{isResearchContext ? '发布公开研究问卷' : '发布到班级'}</div>
+              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                {isResearchContext ? '先保存问卷，再设置参与码数量和时间窗。发布后会生成 RES- 开头的公开编号。' : '先保存试卷，再选择班级和时间窗。整卷计时会在学生开始作答后立即生效。'}
+              </div>
             </div>
 
             {isCreateMode ? (
@@ -792,21 +824,37 @@ const TeacherAssessmentEditorPage: React.FC = () => {
               </div>
             ) : (
               <>
-                <label className="block space-y-2 text-sm">
-                  <span className="text-slate-500 dark:text-white/45">班级</span>
-                  <select
-                    value={publishDraft.teachingClassId}
-                    onChange={(event) => setPublishDraft((current) => ({ ...current, teachingClassId: event.target.value }))}
-                    className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
-                  >
-                    <option value="">选择班级</option>
-                    {(classesQuery.data || []).map((item) => (
-                      <option key={item.classId} value={item.classId}>
-                        {item.className}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {isResearchContext ? (
+                  <label className="block space-y-2 text-sm">
+                    <span className="text-slate-500 dark:text-white/45">参与码数量（1–5000）</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={5000}
+                      step={1}
+                      value={publishDraft.participantCodeCount}
+                      onChange={(event) => setPublishDraft((current) => ({ ...current, participantCodeCount: event.target.value }))}
+                      className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                      placeholder="例如：100"
+                    />
+                  </label>
+                ) : (
+                  <label className="block space-y-2 text-sm">
+                    <span className="text-slate-500 dark:text-white/45">班级</span>
+                    <select
+                      value={publishDraft.teachingClassId}
+                      onChange={(event) => setPublishDraft((current) => ({ ...current, teachingClassId: event.target.value }))}
+                      className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    >
+                      <option value="">选择班级</option>
+                      {(classesQuery.data || []).map((item) => (
+                        <option key={item.classId} value={item.classId}>
+                          {item.className}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-2 text-sm">
@@ -865,14 +913,16 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                     accessDenied ||
                     isDraftDirty ||
                     validationErrors.length > 0 ||
-                    !publishDraft.teachingClassId ||
+                    (isResearchContext
+                      ? !publishDraft.participantCodeCount || Number(publishDraft.participantCodeCount) < 1 || Number(publishDraft.participantCodeCount) > 5000
+                      : !publishDraft.teachingClassId) ||
                     (publishDraft.resultReleasePolicy === 'AFTER_DUE' && !publishDraft.dueAt)
                   }
                   onClick={() => publishMutation.mutate()}
                   className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white disabled:opacity-60"
                 >
                   <Send size={14} />
-                  发布到班级
+                  {isResearchContext ? '发布并生成参与码' : '发布到班级'}
                 </button>
               </>
             )}
@@ -895,12 +945,12 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                 {(detailQuery.data?.publishes || []).map((publish) => (
                   <Link
                     key={publish.publishId}
-                    to={`/teacher/assessments/publishes/${publish.publishId}`}
+                    to={`/teacher/assessments/publishes/${publish.publishId}${isResearchContext ? '?context=research' : ''}`}
                     className="block rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 text-sm transition-all hover:border-primary/40 dark:border-white/10 dark:bg-white/5"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <div className="font-black text-slate-900 dark:text-white">{publish.className}</div>
+                        <div className="font-black text-slate-900 dark:text-white">{isResearchContext ? '公开研究发布' : publish.className}</div>
                         <div className="mt-2 text-slate-500 dark:text-white/45">
                           开始 {formatDateTime(publish.startsAt)} · 截止 {formatDateTime(publish.dueAt)}
                         </div>
@@ -919,7 +969,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                         {publish.instructionsText}
                       </div>
                     )}
-                    <div className="mt-3 text-xs font-bold text-primary">查看发布详情与学生名册</div>
+                    <div className="mt-3 text-xs font-bold text-primary">{isResearchContext ? '查看发布详情与参与数据' : '查看发布详情与学生名册'}</div>
                   </Link>
                 ))}
               </div>

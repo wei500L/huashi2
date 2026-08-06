@@ -88,9 +88,40 @@ public class KnowledgeSearchService {
                 .toList();
 
         if (recallCandidates.isEmpty()) {
+            log.info("event=knowledge_search_empty_recall queryChars={} sourceTypes={}",
+                    query.length(), filter.sourceTypes());
             return RagRetrievalResult.empty(query);
         }
 
+        log.info("event=knowledge_search_recall_ready candidateCount={} queryChars={} sourceTypes={}",
+                recallCandidates.size(), query.length(), filter.sourceTypes());
+
+        List<RagRetrievedChunk> finalChunks = rerankCandidates(query, recallCandidates, retrieval.rerankTopN(),
+                retrieval.rerankThreshold(), finalTopK);
+        if (finalChunks.isEmpty()) {
+            // Small corpora / strict rerank thresholds can zero-out an otherwise usable recall set.
+            // Prefer imperfect grounded evidence over silent empty retrieval.
+            log.warn(
+                    "event=knowledge_search_rerank_empty_fallback candidateCount={} rerankThreshold={} finalTopK={}",
+                    recallCandidates.size(),
+                    retrieval.rerankThreshold(),
+                    finalTopK
+            );
+            finalChunks = takeRecallFallback(recallCandidates, finalTopK);
+        }
+
+        log.info("event=knowledge_search_completed finalChunkCount={} candidateCount={} queryChars={}",
+                finalChunks.size(), recallCandidates.size(), query.length());
+        return buildRetrievalResult(query, finalChunks);
+    }
+
+    private List<RagRetrievedChunk> rerankCandidates(
+            String query,
+            List<KnowledgeSearchCandidate> recallCandidates,
+            int rerankTopN,
+            double rerankThreshold,
+            int finalTopK
+    ) {
         List<String> rerankDocuments = recallCandidates.stream()
                 .map(this::toRerankDocument)
                 .toList();
@@ -100,7 +131,7 @@ public class KnowledgeSearchService {
                     null,
                     query,
                     rerankDocuments,
-                    Math.min(retrieval.rerankTopN(), rerankDocuments.size()),
+                    Math.min(rerankTopN, rerankDocuments.size()),
                     Boolean.TRUE,
                     null,
                     "Rank lexical transfer knowledge by relevance to the user query."
@@ -108,12 +139,13 @@ public class KnowledgeSearchService {
         } catch (RuntimeException exception) {
             log.warn("event=knowledge_search_rerank_failed candidateCount={} message={}",
                     recallCandidates.size(), exception.getMessage());
-            return RagRetrievalResult.empty(query);
+            return List.of();
         }
 
         if (rerankResponse == null || rerankResponse.items() == null || rerankResponse.items().isEmpty()) {
-            log.warn("event=knowledge_search_rerank_unavailable candidateCount={} reason=empty_response", recallCandidates.size());
-            return RagRetrievalResult.empty(query);
+            log.warn("event=knowledge_search_rerank_unavailable candidateCount={} reason=empty_response",
+                    recallCandidates.size());
+            return List.of();
         }
 
         Map<Integer, KnowledgeSearchCandidate> candidateByIndex = new LinkedHashMap<>();
@@ -123,38 +155,67 @@ public class KnowledgeSearchService {
 
         List<RagRetrievedChunk> finalChunks = new ArrayList<>();
         Map<String, Integer> lexicalPairChunkCounts = new HashMap<>();
-        if (rerankResponse.items() != null) {
-            int citationIndex = 1;
-            for (RerankItem rerankItem : rerankResponse.items()) {
-                KnowledgeSearchCandidate candidate = candidateByIndex.get(rerankItem.index());
-                if (candidate == null) {
-                    continue;
-                }
-                if (rerankItem.relevanceScore() < retrieval.rerankThreshold()) {
-                    continue;
-                }
-                if (!withinLexicalPairDiversityLimit(candidate, lexicalPairChunkCounts)) {
-                    continue;
-                }
-                String citationId = "C" + citationIndex++;
-                finalChunks.add(new RagRetrievedChunk(
-                        candidate.chunkId(),
-                        citationId,
-                        candidate.sourceType(),
-                        candidate.sourceId(),
-                        candidate.title(),
-                        candidate.content(),
-                        snippet(candidate.content()),
-                        rerankItem.relevanceScore(),
-                        candidate.metadata()
-                ));
-                if (finalChunks.size() >= finalTopK) {
-                    break;
-                }
+        int citationIndex = 1;
+        for (RerankItem rerankItem : rerankResponse.items()) {
+            KnowledgeSearchCandidate candidate = candidateByIndex.get(rerankItem.index());
+            if (candidate == null) {
+                continue;
+            }
+            if (rerankItem.relevanceScore() < rerankThreshold) {
+                continue;
+            }
+            if (!withinLexicalPairDiversityLimit(candidate, lexicalPairChunkCounts)) {
+                continue;
+            }
+            String citationId = "C" + citationIndex++;
+            finalChunks.add(new RagRetrievedChunk(
+                    candidate.chunkId(),
+                    citationId,
+                    candidate.sourceType(),
+                    candidate.sourceId(),
+                    candidate.title(),
+                    candidate.content(),
+                    snippet(candidate.content()),
+                    rerankItem.relevanceScore(),
+                    candidate.metadata()
+            ));
+            if (finalChunks.size() >= finalTopK) {
+                break;
             }
         }
+        return finalChunks;
+    }
 
-        return buildRetrievalResult(query, finalChunks);
+    private List<RagRetrievedChunk> takeRecallFallback(
+            List<KnowledgeSearchCandidate> recallCandidates,
+            int finalTopK
+    ) {
+        List<RagRetrievedChunk> finalChunks = new ArrayList<>();
+        Map<String, Integer> lexicalPairChunkCounts = new HashMap<>();
+        int citationIndex = 1;
+        for (KnowledgeSearchCandidate candidate : recallCandidates) {
+            if (!withinLexicalPairDiversityLimit(candidate, lexicalPairChunkCounts)) {
+                continue;
+            }
+            double score = candidate.similarityScore() > 0
+                    ? candidate.similarityScore()
+                    : 0.01d;
+            finalChunks.add(new RagRetrievedChunk(
+                    candidate.chunkId(),
+                    "C" + citationIndex++,
+                    candidate.sourceType(),
+                    candidate.sourceId(),
+                    candidate.title(),
+                    candidate.content(),
+                    snippet(candidate.content()),
+                    score,
+                    candidate.metadata()
+            ));
+            if (finalChunks.size() >= finalTopK) {
+                break;
+            }
+        }
+        return finalChunks;
     }
 
     private void addVectorCandidates(

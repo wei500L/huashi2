@@ -1,17 +1,24 @@
 import type { TFunction } from 'i18next';
 
-export function resolveRouteTitle(pathname: string, t: TFunction): string {
+export function resolveRouteTitle(pathname: string, t: TFunction, search = ''): string {
   if (pathname === '/login') {
     return t('login.accountLogin');
   }
   if (pathname === '/register') {
     return t('register.accountRegister');
   }
+  if (pathname === '/research' || pathname.startsWith('/research/')) {
+    return t('shell.titles.publicResearch');
+  }
   if (pathname.startsWith('/teacher/workspace')) {
     return t('shell.titles.teacherWorkspace');
   }
   if (pathname.startsWith('/teacher/classes')) {
     return t('shell.titles.teacherClasses');
+  }
+  if (pathname.startsWith('/teacher/research')
+    || (pathname.startsWith('/teacher/assessments/') && new URLSearchParams(search).get('context') === 'research')) {
+    return t('shell.titles.teacherResearch');
   }
   if (pathname.startsWith('/teacher/assessments')) {
     return t('shell.titles.teacherAssessments');
@@ -27,6 +34,9 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   }
   if (pathname.startsWith('/teacher/interventions')) {
     return t('shell.titles.teacherInterventions');
+  }
+  if (pathname.startsWith('/student/research')) {
+    return t('shell.titles.studentResearch');
   }
   if (pathname.startsWith('/admin/dashboard')) {
     return t('shell.titles.adminDashboard');
@@ -67,9 +77,9 @@ export function resolveRouteTitle(pathname: string, t: TFunction): string {
   return t('shell.titles.dashboard');
 }
 
-export function buildDocumentTitle(pathname: string, t: TFunction): string {
+export function buildDocumentTitle(pathname: string, t: TFunction, search = ''): string {
   const appName = t('common.appName');
-  const pageTitle = resolveRouteTitle(pathname, t);
+  const pageTitle = resolveRouteTitle(pathname, t, search);
   if (pageTitle === appName) {
     return appName;
   }

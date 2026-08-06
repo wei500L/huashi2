@@ -39,7 +39,8 @@ public record AiGuidanceResponseVO(
         boolean grounded,
         List<@NotBlank(message = "citationIds item must not be blank") String> citationIds,
         List<@Valid RagCitation> citations,
-        String uncertaintyNote
+        String uncertaintyNote,
+        String fallbackDetail
 ) {
 
     public AiGuidanceResponseVO(
@@ -74,7 +75,31 @@ public record AiGuidanceResponseVO(
                 false,
                 List.of(),
                 List.of(),
+                null,
                 null
+        );
+    }
+
+    public AiGuidanceResponseVO withFallbackMeta(String reason, String detail) {
+        return new AiGuidanceResponseVO(
+                requestId,
+                generationSource,
+                promptVersion,
+                model,
+                latencyMs,
+                recommendationPath,
+                focusLexicalPairs,
+                recommendedTrainingModes,
+                explanation,
+                teacherNote,
+                diagnosisInsight,
+                confidence,
+                reason,
+                grounded,
+                citationIds == null ? List.of() : citationIds,
+                citations == null ? List.of() : citations,
+                uncertaintyNote,
+                detail
         );
     }
 }

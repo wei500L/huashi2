@@ -26,6 +26,12 @@ root
 
 `analytics snapshot + diagnosis/training 结果 -> app-server 上下文组装 -> ai-gateway chat / rag -> 诊断解释、训练建议、教师干预建议`
 
+长耗时场景（explain / recommend / lexical-rag）另提供异步 job：
+
+- `POST /api/ai/explain-diagnosis/async`、`/recommend-training/async`、`/lexical-rag/query/async` → `{ jobId, status: PENDING }`
+- `GET /api/ai/jobs/{jobId}` 轮询至 `SUCCEEDED` / `FAILED`
+- 前端容器 nginx 对 `/api/ai/` 单独设置 `proxy_read_timeout 180s`；同步路径仍保留
+
 ### 知识链路
 
 `词对/词义/例句变更 -> app-server 发布 LexicalKnowledgeChangedEvent -> RabbitMQ -> ai-gateway 消费并定向 reindex -> retrieve / rerank`

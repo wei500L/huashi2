@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.modules.assessment.service;
 
+import com.huashi.eftransfer.shared.enums.AssessmentPaperPurpose;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,7 +52,11 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) throws IOException {
-        if (!enabled || exists("assessment_questionnaire", "questionnaire_code", PACKAGE_CODE)) {
+        if (!enabled) {
+            return;
+        }
+        if (exists("assessment_questionnaire", "questionnaire_code", PACKAGE_CODE)) {
+            backfillResearchPaperPurpose();
             return;
         }
         JsonNode seed = readSeed();
@@ -65,6 +70,15 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         insertReviewIssues(bankId, importId, seed);
         log.info("event=lexibridge_seed_ready packageCode={} scoredItems=60 formalSections=7 status=REVIEW_REQUIRED",
                 PACKAGE_CODE);
+    }
+
+    private void backfillResearchPaperPurpose() {
+        jdbcTemplate.update("""
+                UPDATE assessment_paper
+                SET paper_purpose = ?
+                WHERE paper_code LIKE ? AND deleted = FALSE AND paper_purpose <> ?
+                """, AssessmentPaperPurpose.RESEARCH_SURVEY.name(), PACKAGE_CODE + "%",
+                AssessmentPaperPurpose.RESEARCH_SURVEY.name());
     }
 
     private JsonNode readSeed() throws IOException {
@@ -103,10 +117,10 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         JsonNode questionnaire = seed.path("questionnaire");
         jdbcTemplate.update("""
                 INSERT INTO assessment_paper
-                    (paper_code,title,description,owner_user_id,status,duration_minutes,question_count,total_score,created_by,updated_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
+                    (paper_code,title,description,owner_user_id,paper_purpose,status,duration_minutes,question_count,total_score,created_by,updated_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
                 """, PACKAGE_CODE, questionnaire.path("title").asString(), questionnaire.path("description").asString(),
-                ownerId, "DRAFT", questionnaire.path("durationMinutes").asInt(40), 60, 60, ownerId, ownerId);
+                ownerId, AssessmentPaperPurpose.RESEARCH_SURVEY.name(), "DRAFT", questionnaire.path("durationMinutes").asInt(40), 60, 60, ownerId, ownerId);
         return id("assessment_paper", "paper_code", PACKAGE_CODE);
     }
 

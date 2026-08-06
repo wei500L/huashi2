@@ -12,7 +12,7 @@ const TeacherAssessmentsPage: React.FC = () => {
   const navigate = useNavigate();
   const papersQuery = useQuery({
     queryKey: ['teacher-assessment-papers'],
-    queryFn: ({ signal }) => assessmentService.listTeacherPapers({ signal }),
+    queryFn: ({ signal }) => assessmentService.listTeacherPapers({ purpose: 'CLASS_ASSESSMENT' }, { signal }),
   });
 
   return (

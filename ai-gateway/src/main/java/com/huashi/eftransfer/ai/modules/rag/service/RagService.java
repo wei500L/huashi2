@@ -20,6 +20,8 @@ import com.huashi.eftransfer.shared.ai.RagRetrieveRequest;
 import com.huashi.eftransfer.shared.ai.RagRetrieveResponse;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +36,7 @@ import java.util.regex.Pattern;
 @Service
 public class RagService {
 
+    private static final Logger log = LoggerFactory.getLogger(RagService.class);
     private static final Pattern CITATION_PATTERN = Pattern.compile("\\[C\\d+\\]");
     private static final int MAX_PROMPT_CONTEXT_CHARS = 72_000;
     private static final int MAX_HISTORY_MESSAGES = 12;
@@ -105,6 +108,14 @@ public class RagService {
         RagRetrievalResult retrievalResult = knowledgeSearchService.search(retrievalQuery, filter);
         boolean grounded = !retrievalResult.chunks().isEmpty();
         String uncertaintyNote = grounded ? null : "No sufficiently relevant knowledge chunks were retrieved from the knowledge base.";
+        log.info(
+                "event=rag_retrieve_completed grounded={} chunkCount={} citationCount={} sourceTypes={} queryChars={}",
+                grounded,
+                retrievalResult.chunks() == null ? 0 : retrievalResult.chunks().size(),
+                retrievalResult.chunks() == null ? 0 : toCitations(retrievalResult).size(),
+                filter.sourceTypes(),
+                retrievalQuery == null ? 0 : retrievalQuery.length()
+        );
         return new RagRetrieveResponse(
                 grounded,
                 uncertaintyNote,

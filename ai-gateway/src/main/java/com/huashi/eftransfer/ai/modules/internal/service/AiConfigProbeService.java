@@ -192,7 +192,7 @@ public class AiConfigProbeService {
                     structuredOutputValid,
                     1
             );
-            chatProbeStates.put(providerName, new ChatProbeState(providerName, config, ok, result.testedAt()));
+            rememberChatProbe(providerName, config, ok, result.testedAt());
             return result;
         } catch (RuntimeException exception) {
             AdminAiChatProbeVO result = new AdminAiChatProbeVO(
@@ -207,9 +207,22 @@ public class AiConfigProbeService {
                     false,
                     1
             );
-            chatProbeStates.put(providerName, new ChatProbeState(providerName, config, false, result.testedAt()));
+            rememberChatProbe(providerName, config, false, result.testedAt());
             return result;
         }
+    }
+
+    private void rememberChatProbe(String providerName, AiOpsChatConfig config, boolean ok, OffsetDateTime testedAt) {
+        if (ok) {
+            chatProbeStates.put(providerName, new ChatProbeState(providerName, config, true, testedAt));
+            return;
+        }
+        ChatProbeState previous = chatProbeStates.get(providerName);
+        if (previous != null && previous.matches(providerName, config) && previous.isRecentAndSuccessful()) {
+            // Keep last successful readiness through transient probe failures.
+            return;
+        }
+        chatProbeStates.put(providerName, new ChatProbeState(providerName, config, false, testedAt));
     }
 
     public AdminAiEmbeddingProbeVO probeEmbedding(AiOpsConfigPayload payload) {
@@ -312,12 +325,7 @@ public class AiConfigProbeService {
                     unrelatedSimilarity,
                     similarityMargin
             );
-            embeddingProbeStates.put(providerName, new EmbeddingProbeState(
-                    providerName,
-                    runtime.definition().embedding(),
-                    ok,
-                    result.testedAt()
-            ));
+            rememberEmbeddingProbe(providerName, runtime.definition().embedding(), ok, result.testedAt());
             List<List<Double>> vectors = response.items() == null
                     ? List.of()
                     : response.items().stream().map(item -> item.embedding()).toList();
@@ -338,14 +346,26 @@ public class AiConfigProbeService {
                     null,
                     null
             );
-            embeddingProbeStates.put(providerName, new EmbeddingProbeState(
-                    providerName,
-                    runtime.definition().embedding(),
-                    false,
-                    result.testedAt()
-            ));
+            rememberEmbeddingProbe(providerName, runtime.definition().embedding(), false, result.testedAt());
             return new EmbeddingProbeExecution(result, List.of());
         }
+    }
+
+    private void rememberEmbeddingProbe(
+            String providerName,
+            AiOpsEmbeddingConfig config,
+            boolean ok,
+            OffsetDateTime testedAt
+    ) {
+        if (ok) {
+            embeddingProbeStates.put(providerName, new EmbeddingProbeState(providerName, config, true, testedAt));
+            return;
+        }
+        EmbeddingProbeState previous = embeddingProbeStates.get(providerName);
+        if (previous != null && previous.matches(providerName, config) && previous.isRecentAndSuccessful()) {
+            return;
+        }
+        embeddingProbeStates.put(providerName, new EmbeddingProbeState(providerName, config, false, testedAt));
     }
 
     public AdminAiRerankProbeVO probeRerank(AiOpsConfigPayload payload) {
@@ -420,12 +440,7 @@ public class AiConfigProbeService {
                     topDocumentIndex,
                     topScore
             );
-            rerankProbeStates.put(providerName, new RerankProbeState(
-                    providerName,
-                    runtime.definition().rerank(),
-                    ok,
-                    result.testedAt()
-            ));
+            rememberRerankProbe(providerName, runtime.definition().rerank(), ok, result.testedAt());
             return result;
         } catch (RuntimeException exception) {
             AdminAiRerankProbeVO result = new AdminAiRerankProbeVO(
@@ -442,14 +457,26 @@ public class AiConfigProbeService {
                     null,
                     null
             );
-            rerankProbeStates.put(providerName, new RerankProbeState(
-                    providerName,
-                    runtime.definition().rerank(),
-                    false,
-                    result.testedAt()
-            ));
+            rememberRerankProbe(providerName, runtime.definition().rerank(), false, result.testedAt());
             return result;
         }
+    }
+
+    private void rememberRerankProbe(
+            String providerName,
+            AiOpsRerankConfig config,
+            boolean ok,
+            OffsetDateTime testedAt
+    ) {
+        if (ok) {
+            rerankProbeStates.put(providerName, new RerankProbeState(providerName, config, true, testedAt));
+            return;
+        }
+        RerankProbeState previous = rerankProbeStates.get(providerName);
+        if (previous != null && previous.matches(providerName, config) && previous.isRecentAndSuccessful()) {
+            return;
+        }
+        rerankProbeStates.put(providerName, new RerankProbeState(providerName, config, false, testedAt));
     }
 
     public boolean isEmbeddingReady(String providerName, AiOpsEmbeddingConfig config) {
@@ -482,7 +509,7 @@ public class AiConfigProbeService {
 
     @Scheduled(
             initialDelayString = "${ai.provider-probes.initial-delay:PT15S}",
-            fixedDelayString = "${ai.provider-probes.interval:PT10M}"
+            fixedDelayString = "${ai.provider-probes.interval:PT5M}"
     )
     public void refreshCurrentProviderReadiness() {
         if (!scheduledProbeInProgress.compareAndSet(false, true)) {
@@ -643,7 +670,9 @@ public class AiConfigProbeService {
         }
 
         private boolean isRecentAndSuccessful() {
-            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+            // Keep last success fresh longer than the schedule interval so brief probe failures
+            // do not immediately flip health to DEGRADED after idle periods.
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(30));
         }
     }
 
@@ -659,7 +688,7 @@ public class AiConfigProbeService {
         }
 
         private boolean isRecentAndSuccessful() {
-            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(30));
         }
     }
 
@@ -681,7 +710,7 @@ public class AiConfigProbeService {
         }
 
         private boolean isRecentAndSuccessful() {
-            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(30));
         }
     }
 
@@ -697,7 +726,7 @@ public class AiConfigProbeService {
         }
 
         private boolean isRecentAndSuccessful() {
-            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(15));
+            return successful && checkedAt != null && checkedAt.isAfter(OffsetDateTime.now().minusMinutes(30));
         }
     }
 }

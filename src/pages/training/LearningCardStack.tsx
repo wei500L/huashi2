@@ -160,7 +160,6 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
             )}
           </FadeContent>
       </div>
-      </div>
 
       <div className="mt-2 flex items-center justify-between gap-3">
         <button

@@ -16,6 +16,7 @@ import {
   LineChart,
   LogOut,
   Menu,
+  Microscope,
   Moon,
   Search,
   ShieldCheck,
@@ -98,6 +99,7 @@ function buildSections(t: (key: string) => string, workspace?: WorkspaceId | nul
           { name: t('shell.nav.teacherWorkspace'), path: '/teacher/workspace', icon: LayoutDashboard },
           { name: t('shell.nav.teacherClasses'), path: '/teacher/classes', icon: Users },
           { name: t('shell.nav.teacherAssessments'), path: '/teacher/assessments', icon: FilePenLine },
+          { name: t('shell.nav.teacherResearch'), path: '/teacher/research', icon: Microscope },
           { name: t('shell.nav.teacherTemplates'), path: '/teacher/diagnosis-templates', icon: Brain },
           { name: t('shell.nav.teacherLexicalPairs'), path: '/teacher/lexical-pairs', icon: BookOpen },
           { name: t('shell.nav.teacherLexicalLists'), path: '/teacher/lexical-lists', icon: BookCopy },
@@ -113,6 +115,7 @@ function buildSections(t: (key: string) => string, workspace?: WorkspaceId | nul
           { name: t('shell.nav.diagnosis'), path: '/diagnosis', icon: Activity },
           { name: t('shell.nav.training'), path: '/training', icon: GraduationCap },
           { name: t('shell.nav.assessments'), path: '/assessments', icon: BookCopy },
+          { name: t('shell.nav.studentResearch'), path: '/student/research', icon: Microscope },
           { name: t('shell.nav.analytics'), path: '/analytics', icon: LineChart },
           { name: t('shell.nav.errors'), path: '/errors', icon: Database },
           { name: t('shell.nav.history'), path: '/history', icon: History },
@@ -184,7 +187,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({ activeWorkspace, 
                   : 'border-transparent text-slate-500 hover:border-border-strong hover:bg-surface-raised hover:text-slate-900 dark:text-white/55 dark:hover:text-white'
               )}
             >
-              <meta.icon size={17} aria-hidden="true" />
+              <meta.icon size={17} aria-hidden={true} />
               {!isCollapsed && (
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs font-semibold tracking-wide">{t(meta.labelKey)}</div>
@@ -222,6 +225,21 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
   const sections = useMemo(() => buildSections(t, currentWorkspace), [t, currentWorkspace]);
   const homePath = homePathForWorkspace(currentWorkspace);
   const roleLabels = (user?.roles || []).map((role) => t(`shell.roles.${role}`));
+  const researchNavigationActive = location.pathname === '/teacher/research'
+    || (location.pathname.startsWith('/teacher/assessments/')
+      && new URLSearchParams(location.search).get('context') === 'research');
+  const resolveNavActive = (item: NavItem, routerActive: boolean) => {
+    if (!researchNavigationActive) {
+      return routerActive;
+    }
+    if (item.path === '/teacher/research') {
+      return true;
+    }
+    if (item.path === '/teacher/assessments') {
+      return false;
+    }
+    return routerActive;
+  };
 
   const handleWorkspaceSelect = (workspace: WorkspaceId) => {
     const targetPath = mapPathBetweenWorkspaces(location.pathname, location.search, workspace);
@@ -298,7 +316,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
                     cn(
                       'group relative flex min-h-11 items-center rounded-lg border motion-feedback',
                       isCollapsed ? 'justify-center px-2.5' : 'gap-3 px-3',
-                      isActive
+                      resolveNavActive(item, isActive)
                         ? 'border-primary/25 bg-primary/[0.1] text-primary font-semibold shadow-sm'
                         : 'border-transparent text-slate-500 hover:border-border-subtle hover:bg-surface-sunken hover:text-slate-900 dark:text-white/55 dark:hover:text-white'
                     )
@@ -310,10 +328,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ isCollapsed, navigation
                         aria-hidden="true"
                         className={cn(
                           'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary motion-feedback',
-                          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'
+                          resolveNavActive(item, isActive) ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'
                         )}
                       />
-                      <item.icon size={17} className="shrink-0" aria-hidden="true" />
+                      <item.icon size={17} className="shrink-0" aria-hidden={true} />
                       {!isCollapsed && <span className="min-w-0 flex-1 break-words text-sm leading-5">{item.name}</span>}
                     </>
                   )}
@@ -615,7 +633,7 @@ const AssistantResponsePanel: React.FC<AssistantResponsePanelProps> = ({ locale,
         {payload.fallbackReason && (
           <div role="note" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-4 text-amber-900 dark:text-amber-100">
             <CircleAlert size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <div><div className="text-[10px] font-bold uppercase tracking-[0.22em]">{t('shell.fallbackReason')}</div><p className="mt-1 text-sm leading-6">{payload.fallbackReason}</p><p className="mt-2 text-xs leading-5 opacity-75">{t('shell.fallbackDescription')}</p></div>
+            <div><div className="text-[10px] font-bold uppercase tracking-[0.22em]">{t('shell.fallbackReason')}</div><p className="mt-1 text-sm leading-6">{payload.fallbackReason}{payload.fallbackDetail ? ` — ${payload.fallbackDetail}` : ''}</p><p className="mt-2 text-xs leading-5 opacity-75">{t('shell.fallbackDescription')}</p></div>
           </div>
         )}
       </div>
@@ -997,7 +1015,7 @@ export const Topbar: React.FC = () => {
     setSearch(assistantDraft);
   }, [assistantDraft]);
 
-  const currentTitle = useMemo(() => resolveRouteTitle(location.pathname, t), [location.pathname, t]);
+  const currentTitle = useMemo(() => resolveRouteTitle(location.pathname, t, location.search), [location.pathname, location.search, t]);
   const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
   const currentWorkspace = useMemo(
     () =>

@@ -18,6 +18,7 @@ import {
 const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
 const AccountActionPage = React.lazy(() => import('./pages/AccountAction'));
+const ResearchLandingPage = React.lazy(() => import('./pages/research/landing'));
 const ResearchParticipantPage = React.lazy(() => import('./pages/research/index'));
 const Dashboard = React.lazy(() => import('./pages/dashboard/index'));
 const DiagnosisPage = React.lazy(() => import('./pages/diagnosis/index'));
@@ -26,6 +27,7 @@ const AnalyticsPage = React.lazy(() => import('./pages/analytics/index'));
 const ErrorsPage = React.lazy(() => import('./pages/student/Errors'));
 const HistoryPage = React.lazy(() => import('./pages/student/History'));
 const StudentAssessmentsPage = React.lazy(() => import('./pages/student/Assessments'));
+const StudentResearchPage = React.lazy(() => import('./pages/student/Research'));
 const StudentAssessmentAttemptPage = React.lazy(() => import('./pages/student/AssessmentAttempt'));
 const StudentAssessmentResultPage = React.lazy(() => import('./pages/student/AssessmentResult'));
 const SettingsPage = React.lazy(() => import('./pages/student/Settings'));
@@ -177,12 +179,12 @@ const App: React.FC = () => {
   }, [locale]);
 
   React.useEffect(() => {
-    window.document.title = buildDocumentTitle(location.pathname, i18n.t.bind(i18n));
-  }, [locale, location.pathname]);
+    window.document.title = buildDocumentTitle(location.pathname, i18n.t.bind(i18n), location.search);
+  }, [locale, location.pathname, location.search]);
 
   React.useEffect(() => {
     const handler = () => {
-      if (location.pathname.startsWith('/research/')) {
+      if (location.pathname === '/research' || location.pathname.startsWith('/research/')) {
         return;
       }
       const routeState = location.state as { expired?: boolean; from?: string; passwordChanged?: boolean } | null;
@@ -232,6 +234,7 @@ const App: React.FC = () => {
         element={status === 'authenticated' && user ? <Navigate to={resolvedHomePath} replace /> : withSuspense(<Register />)}
       />
       <Route path="/account-action/:token" element={withSuspense(<AccountActionPage />)} />
+      <Route path="/research" element={withSuspense(<ResearchLandingPage />)} />
       <Route path="/research/:releaseCode" element={withSuspense(<ResearchParticipantPage />)} />
 
       <Route
@@ -272,6 +275,12 @@ const App: React.FC = () => {
           path="assessments"
           element={
             <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<StudentAssessmentsPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="student/research"
+          element={
+            <RequireCapability capability="STUDENT_WORKSPACE">{withSuspense(<StudentResearchPage />)}</RequireCapability>
           }
         />
         <Route

@@ -76,6 +76,7 @@ export function workspaceFromPathname(pathname: string): WorkspaceId | null {
     return 'ADMIN_CONSOLE';
   }
   if (
+    pathname.startsWith('/student') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/diagnosis') ||
     pathname.startsWith('/training') ||

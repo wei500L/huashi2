@@ -12,6 +12,9 @@ export type AssessmentAttemptStatus = typeof AssessmentAttemptStatusValues[numbe
 export const AssessmentDeliveryModeValues = ["CLASS","PUBLIC_CODE"] as const;
 export type AssessmentDeliveryMode = typeof AssessmentDeliveryModeValues[number];
 
+export const AssessmentPaperPurposeValues = ["CLASS_ASSESSMENT","RESEARCH_SURVEY"] as const;
+export type AssessmentPaperPurpose = typeof AssessmentPaperPurposeValues[number];
+
 export const AssessmentPaperStatusValues = ["DRAFT","PUBLISHED"] as const;
 export type AssessmentPaperStatus = typeof AssessmentPaperStatusValues[number];
 

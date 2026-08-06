@@ -46,6 +46,24 @@ class AssessmentIntegrationTest extends AbstractWebIntegrationTest {
     private NotificationMapper notificationMapper;
 
     @Test
+    void shouldReturnValidationErrorForInvalidPaperPurposeEnum() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+
+        mockMvc.perform(get("/api/teacher/assessments/papers")
+                        .with(bearer(teacherToken))
+                        .param("purpose", "RESEARCH"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        mockMvc.perform(post("/api/teacher/assessments/papers")
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not-json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void shouldAcceptAnyOneFillBlankAlternativeAndRejectMultipleResponses() throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
         String studentToken = loginAndGetAccessToken("student.li", "Student@123456");

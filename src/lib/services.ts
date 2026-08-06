@@ -3,6 +3,8 @@ import { apiDelete, apiDownload, apiGet, apiPost, apiPostKeepalive, apiPut, apiU
 import type {
   AddLexicalListItemsRequest,
   AddLexicalListItemsResultVO,
+  AiAsyncJobSubmitVO,
+  AiAsyncJobVO,
   AiGuidanceResponseVO,
   ClassAnalyticsOverviewVO,
   ClassCompletionRateVO,
@@ -125,6 +127,7 @@ import type {
   QuestionBankImportCommitRequest,
   QuestionBankImportCommitVO,
   QuestionBankItemSummaryVO,
+  AssessmentPaperPurpose,
   QuestionBankListParams,
   ChangePasswordRequest,
   CompleteAccountActionRequest,
@@ -295,7 +298,8 @@ export const assessmentService = {
     apiPost<QuestionBankImportCommitVO>(`/teacher/assessments/question-bank/imports/${importId}/commit`, payload),
   approveQuestionBankImport: (importId: number | string) =>
     apiPost<QuestionBankImportCommitVO>(`/teacher/assessments/question-bank/imports/${importId}/approve`),
-  listTeacherPapers: (options?: RequestOptions) => apiGet<AssessmentPaperSummaryVO[]>('/teacher/assessments/papers', options),
+  listTeacherPapers: (params?: { purpose?: AssessmentPaperPurpose }, options?: RequestOptions) =>
+    apiGet<AssessmentPaperSummaryVO[]>('/teacher/assessments/papers', { ...options, params }),
   getTeacherPaper: (paperId: number, options?: RequestOptions) =>
     apiGet<AssessmentPaperDetailVO>(`/teacher/assessments/papers/${paperId}`, options),
   createTeacherPaper: (payload: AssessmentPaperSaveRequest) =>
@@ -354,6 +358,31 @@ export const publicAssessmentService = {
     apiGet<PublicAssessmentResultVO>(`${publicAssessmentPath(releaseCode)}/result`, publicAssessmentOptions(options)),
 };
 
+async function pollAiJob<T>(
+  jobId: string,
+  options?: RequestOptions,
+  intervalMs = 2000,
+  maxWaitMs = 180_000
+): Promise<T> {
+  const started = Date.now();
+  while (Date.now() - started < maxWaitMs) {
+    if (options?.signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError');
+    }
+    const job = await apiGet<AiAsyncJobVO>(`/ai/jobs/${jobId}`, options);
+    if (job.status === 'SUCCEEDED') {
+      return job.result as T;
+    }
+    if (job.status === 'FAILED') {
+      throw new Error(job.errorMessage || 'AI async job failed');
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, intervalMs);
+    });
+  }
+  throw new Error('AI async job timed out');
+}
+
 export const aiService = {
   explainDiagnosis: (diagnosisSummaryId?: number | null, options?: RequestOptions) => {
     const payload: ExplainDiagnosisRequest | undefined = diagnosisSummaryId ? { diagnosisSummaryId } : undefined;
@@ -363,7 +392,22 @@ export const aiService = {
     const payload: RecommendTrainingRequest | undefined = diagnosisSummaryId ? { diagnosisSummaryId } : undefined;
     return apiPost<AiGuidanceResponseVO>('/ai/recommend-training', payload, options);
   },
+  explainDiagnosisAsync: async (diagnosisSummaryId?: number | null, options?: RequestOptions) => {
+    const payload: ExplainDiagnosisRequest | undefined = diagnosisSummaryId ? { diagnosisSummaryId } : undefined;
+    const submitted = await apiPost<AiAsyncJobSubmitVO>('/ai/explain-diagnosis/async', payload, options);
+    return pollAiJob<AiGuidanceResponseVO>(submitted.jobId, options);
+  },
+  recommendTrainingAsync: async (diagnosisSummaryId?: number | null, options?: RequestOptions) => {
+    const payload: RecommendTrainingRequest | undefined = diagnosisSummaryId ? { diagnosisSummaryId } : undefined;
+    const submitted = await apiPost<AiAsyncJobSubmitVO>('/ai/recommend-training/async', payload, options);
+    return pollAiJob<AiGuidanceResponseVO>(submitted.jobId, options);
+  },
+  getAiJob: (jobId: string, options?: RequestOptions) => apiGet<AiAsyncJobVO>(`/ai/jobs/${jobId}`, options),
   queryLexicalRag: (payload: LexicalRagQueryRequest) => apiPost<LexicalRagAnswerVO>('/ai/lexical-rag/query', payload),
+  queryLexicalRagAsync: async (payload: LexicalRagQueryRequest, options?: RequestOptions) => {
+    const submitted = await apiPost<AiAsyncJobSubmitVO>('/ai/lexical-rag/query/async', payload, options);
+    return pollAiJob<LexicalRagAnswerVO>(submitted.jobId, options);
+  },
   listLexicalRagConversations: (params?: { pageNo?: number; pageSize?: number }, options?: RequestOptions) =>
     apiGet<PageResult<LexicalRagConversationSummaryVO>>('/ai/lexical-rag/conversations', { ...options, params }),
   getLexicalRagConversation: (conversationId: string, options?: RequestOptions) =>

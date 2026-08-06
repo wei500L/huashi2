@@ -11,7 +11,7 @@ import {
   Send,
   Upload,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
 import { getApiErrorMessage } from '@/lib/api';
 import { saveBlob } from '@/lib/api';
@@ -20,6 +20,9 @@ import { assessmentPaperStatusLabel, assessmentPaperStatusTone, formatDateTime }
 import { assessmentService } from '@/lib/services';
 
 type ResearchTab = 'bank' | 'questionnaires' | 'releases' | 'data';
+
+const isResearchTab = (value: string | null): value is ResearchTab =>
+  value === 'bank' || value === 'questionnaires' || value === 'releases' || value === 'data';
 
 const tabs: Array<{ id: ResearchTab; label: string; description: string; icon: typeof BookOpen }> = [
   { id: 'bank', label: '项目题库', description: '共享题目、版本与内容审核', icon: BookOpen },
@@ -51,8 +54,10 @@ const EmptyPanel: React.FC<{ title: string; description: string; action?: React.
 
 const ResearchAssessmentsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = React.useState<ResearchTab>('bank');
+  const requestedTab = searchParams.get('tab');
+  const activeTab: ResearchTab = isResearchTab(requestedTab) ? requestedTab : 'bank';
   const [keyword, setKeyword] = React.useState('');
   const [tag, setTag] = React.useState('');
   const [reviewStatus, setReviewStatus] = React.useState('');
@@ -61,6 +66,13 @@ const ResearchAssessmentsPage: React.FC = () => {
   const [uploading, setUploading] = React.useState(false);
   const [downloading, setDownloading] = React.useState(false);
   const [committing, setCommitting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isResearchTab(requestedTab)) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', 'bank');
+    setSearchParams(next, { replace: true });
+  }, [requestedTab, searchParams, setSearchParams]);
 
   const bankQuery = useQuery({
     queryKey: ['teacher-question-bank', keyword.trim(), tag, reviewStatus],
@@ -76,10 +88,16 @@ const ResearchAssessmentsPage: React.FC = () => {
   });
 
   const papersQuery = useQuery({
-    queryKey: ['teacher-assessment-papers'],
-    queryFn: ({ signal }) => assessmentService.listTeacherPapers({ signal }),
+    queryKey: ['teacher-assessment-papers', 'RESEARCH_SURVEY'],
+    queryFn: ({ signal }) => assessmentService.listTeacherPapers({ purpose: 'RESEARCH_SURVEY' }, { signal }),
     enabled: activeTab !== 'bank',
   });
+
+  const selectTab = (tab: ResearchTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    setSearchParams(next);
+  };
 
   const downloadTemplate = async () => {
     setDownloading(true);
@@ -133,11 +151,19 @@ const ResearchAssessmentsPage: React.FC = () => {
         title="研究问卷"
         subtitle="从共享题库组织问卷版本，发布到班级或公开参与码，并查看规则分析与后续 AI 解读。"
         actions={
-          <button type="button" onClick={() => navigate('/teacher/assessments/new')} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">
+          <button type="button" onClick={() => navigate('/teacher/assessments/new?context=research')} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">
             <Plus size={16} />新建问卷
           </button>
         }
       />
+
+      <section className="rounded-[2rem] border border-primary/15 bg-primary/[0.06] p-6 dark:bg-primary/[0.08]">
+        <SectionEyebrow>RESEARCH SURVEY WORKSPACE</SectionEyebrow>
+        <h2 className="mt-3 text-lg font-black text-slate-900 dark:text-white">社会研究测试独立工作区</h2>
+        <p className="mt-2 max-w-4xl text-sm leading-7 text-slate-600 dark:text-white/55">
+          这里的问卷用于自愿参与的社会研究，不属于课堂必测任务，也不会出现在“课堂测评”列表中。编辑、发布、答卷与分析仍复用现有测评能力。
+        </p>
+      </section>
 
       <nav aria-label="研究问卷板块" className="grid gap-3 rounded-[2rem] liquid-glass-panel p-3 md:grid-cols-4">
         {tabs.map((tab) => {
@@ -148,7 +174,7 @@ const ResearchAssessmentsPage: React.FC = () => {
               key={tab.id}
               type="button"
               aria-current={selected ? 'page' : undefined}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={`rounded-[1.45rem] px-4 py-4 text-left transition ${selected ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/70 dark:hover:bg-white/5'}`}
             >
               <div className="flex items-center gap-2 font-black"><Icon size={17} />{tab.label}</div>
@@ -239,10 +265,10 @@ const ResearchAssessmentsPage: React.FC = () => {
       {activeTab === 'questionnaires' ? (
         <div className="space-y-5">
           {papersQuery.isLoading ? <div className="rounded-[2rem] liquid-glass-panel p-8 text-sm text-slate-500">正在加载问卷版本…</div> : null}
-          {!papersQuery.isLoading && !papers.length ? <EmptyPanel title="还没有问卷版本" description="从项目题库选择题目创建第一份问卷；现有课堂测评编辑器会继续保持兼容。" action={<button className="btn-liquid px-5 py-3 text-sm text-white" onClick={() => navigate('/teacher/assessments/new')}>新建问卷</button>} /> : null}
+          {!papersQuery.isLoading && !papers.length ? <EmptyPanel title="还没有问卷版本" description="从项目题库选择题目创建第一份问卷；现有课堂测评编辑器会继续保持兼容。" action={<button className="btn-liquid px-5 py-3 text-sm text-white" onClick={() => navigate('/teacher/assessments/new?context=research')}>新建问卷</button>} /> : null}
           <div className="grid gap-5 xl:grid-cols-2">
             {papers.map((paper) => (
-              <button key={paper.paperId} type="button" onClick={() => navigate(`/teacher/assessments/${paper.paperId}`)} className="rounded-[2rem] liquid-glass-panel p-6 text-left transition hover:border-primary/40">
+              <button key={paper.paperId} type="button" onClick={() => navigate(`/teacher/assessments/${paper.paperId}?context=research`)} className="rounded-[2rem] liquid-glass-panel p-6 text-left transition hover:border-primary/40">
                 <div className="flex items-start justify-between gap-3"><SectionEyebrow>{paper.paperCode}</SectionEyebrow><StatusBadge label={assessmentPaperStatusLabel(paper.status)} tone={assessmentPaperStatusTone(paper.status)} /></div>
                 <h2 className="mt-3 text-xl font-black text-slate-900 dark:text-white">{paper.title}</h2>
                 <p className="mt-2 text-sm text-slate-500">{paper.questionCount} 题 · {paper.durationMinutes} 分钟 · 更新于 {formatDateTime(paper.updatedAt)}</p>
@@ -254,7 +280,7 @@ const ResearchAssessmentsPage: React.FC = () => {
 
       {activeTab === 'releases' ? (
         publishedPapers.length ? (
-          <div className="grid gap-5 xl:grid-cols-2">{publishedPapers.map((paper) => <article key={paper.paperId} className="rounded-[2rem] liquid-glass-panel p-6"><SectionEyebrow>{paper.paperCode}</SectionEyebrow><h2 className="mt-3 text-xl font-black">{paper.title}</h2><p className="mt-3 text-sm text-slate-500">最近发布：{formatDateTime(paper.latestPublishAt)}</p><button onClick={() => navigate(`/teacher/assessments/${paper.paperId}`)} className="mt-5 text-sm font-bold text-primary">查看问卷与发布记录 →</button></article>)}</div>
+          <div className="grid gap-5 xl:grid-cols-2">{publishedPapers.map((paper) => <article key={paper.paperId} className="rounded-[2rem] liquid-glass-panel p-6"><SectionEyebrow>{paper.paperCode}</SectionEyebrow><h2 className="mt-3 text-xl font-black">{paper.title}</h2><p className="mt-3 text-sm text-slate-500">最近发布：{formatDateTime(paper.latestPublishAt)}</p><button onClick={() => navigate(`/teacher/assessments/${paper.paperId}?context=research`)} className="mt-5 text-sm font-bold text-primary">查看问卷与发布记录 →</button></article>)}</div>
         ) : <EmptyPanel title="暂无研究问卷发布" description="问卷通过内容审核后，可在问卷详情中选择班级发布或公开参与码发布。" />
       ) : null}
 

@@ -400,7 +400,7 @@ const DiagnosisPage: React.FC = () => {
   const resultSummaryId = resultQuery.data?.summaryId;
   const explanationQuery = useQuery({
     queryKey: ['diagnosis-explanation', resultSummaryId],
-    queryFn: ({ signal }) => aiService.explainDiagnosis(resultSummaryId, { signal }),
+    queryFn: ({ signal }) => aiService.explainDiagnosisAsync(resultSummaryId, { signal }),
     enabled: state.phase === 'result' && !!resultSummaryId,
     retry: false,
   });

@@ -66,6 +66,7 @@ vi.mock('@/lib/pdf-report', () => ({
 vi.mock('@/lib/services', () => ({
   aiService: {
     explainDiagnosis: vi.fn(),
+    explainDiagnosisAsync: vi.fn(),
   },
   diagnosisSessionService: {
     listHistory: vi.fn(),
@@ -254,7 +255,7 @@ describe('DiagnosisPage PDF export', () => {
   beforeEach(() => {
     vi.mocked(diagnosisSessionService.listHistory).mockResolvedValue({ records: [] } as never);
     vi.mocked(diagnosisSessionService.getResult).mockResolvedValue(createResult() as never);
-    vi.mocked(aiService.explainDiagnosis).mockResolvedValue(createExplanation() as never);
+    vi.mocked(aiService.explainDiagnosisAsync).mockResolvedValue(createExplanation() as never);
     vi.mocked(diagnosisTemplateService.listPublished).mockResolvedValue({ records: [] } as never);
     vi.mocked(trainingService.getRecommendedPlan).mockResolvedValue({ suggestedSessions: [], priorityMode: null } as never);
     vi.mocked(exportReportPagesToPdf).mockResolvedValue(undefined);
@@ -284,7 +285,7 @@ describe('DiagnosisPage PDF export', () => {
 
   it('keeps PDF export disabled until explanation data is loaded', async () => {
     const explanationDeferred = createDeferred<ReturnType<typeof createExplanation>>();
-    vi.mocked(aiService.explainDiagnosis).mockReturnValueOnce(explanationDeferred.promise as never);
+    vi.mocked(aiService.explainDiagnosisAsync).mockReturnValueOnce(explanationDeferred.promise as never);
 
     renderPage();
 
@@ -298,7 +299,7 @@ describe('DiagnosisPage PDF export', () => {
   });
 
   it('allows PDF export when explanation loading fails', async () => {
-    vi.mocked(aiService.explainDiagnosis).mockRejectedValueOnce(new Error('AI explain failed'));
+    vi.mocked(aiService.explainDiagnosisAsync).mockRejectedValueOnce(new Error('AI explain failed'));
     renderPage();
     const user = userEvent.setup();
 

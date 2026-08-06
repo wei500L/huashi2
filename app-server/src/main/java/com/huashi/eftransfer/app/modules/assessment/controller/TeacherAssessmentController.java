@@ -9,6 +9,7 @@ import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPaperSummaryVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentPublishSummaryVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.TeacherAssessmentAttemptResultVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
+import com.huashi.eftransfer.shared.enums.AssessmentPaperPurpose;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.validation.annotation.Validated;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -34,8 +36,10 @@ public class TeacherAssessmentController {
     }
 
     @GetMapping("/papers")
-    public ApiResponse<List<AssessmentPaperSummaryVO>> listPapers() {
-        return ApiResponse.success(assessmentService.listTeacherPapers(), MDC.get("traceId"));
+    public ApiResponse<List<AssessmentPaperSummaryVO>> listPapers(
+            @RequestParam(required = false) AssessmentPaperPurpose purpose
+    ) {
+        return ApiResponse.success(assessmentService.listTeacherPapers(purpose), MDC.get("traceId"));
     }
 
     @PostMapping("/papers")

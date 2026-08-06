@@ -27,10 +27,12 @@ import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class QwenChatProviderClient {
@@ -40,6 +42,11 @@ public class QwenChatProviderClient {
     private final ResilientAiExecutor resilientAiExecutor;
     private final AiProviderObservationService observationService;
     private final ProviderRequestContextHolder requestContextHolder;
+    /**
+     * Providers that reject OpenAI-style json_schema response_format (e.g. DeepSeek only supports json_object).
+     * true = supports json_schema, false = use json_object + schema-in-prompt fallback.
+     */
+    private final ConcurrentHashMap<String, Boolean> jsonSchemaSupportByProvider = new ConcurrentHashMap<>();
 
     public QwenChatProviderClient(
             AiRuntimeConfigService runtimeConfigService,
@@ -175,34 +182,7 @@ public class QwenChatProviderClient {
             ProviderStructuredChatResult providerResult = resilientAiExecutor.execute(
                     runtime,
                     "chat",
-                    () -> {
-                        ProviderChatResult validated = validateChatResponse(
-                                runtime.chatModel().call(toStructuredPrompt(runtime, request, model)),
-                                model
-                        );
-                        try {
-                            Map<String, Object> structuredData = objectMapper.readValue(
-                                    validated.content(),
-                                    new TypeReference<Map<String, Object>>() {
-                                    }
-                            );
-                            if (structuredData == null || structuredData.isEmpty()) {
-                                throw new InvalidProviderResponseException("Structured chat provider returned an empty JSON object");
-                            }
-                            return new ProviderStructuredChatResult(
-                                    validated.response(),
-                                    validated.content(),
-                                    structuredData
-                            );
-                        } catch (InvalidProviderResponseException exception) {
-                            throw exception;
-                        } catch (Exception exception) {
-                            throw new InvalidProviderResponseException(
-                                    "Structured chat provider returned invalid JSON",
-                                    exception
-                            );
-                        }
-                    }
+                    () -> callStructuredChatCompat(runtime, provider, request, model)
             );
             org.springframework.ai.chat.model.ChatResponse response = providerResult.response();
             StructuredChatResponse structuredResponse = new StructuredChatResponse(
@@ -370,22 +350,227 @@ public class QwenChatProviderClient {
         return node != null && node.isNumber() ? node.intValue() : null;
     }
 
-    private Prompt toStructuredPrompt(AiProviderRuntime runtime, StructuredChatRequest request, String model) {
-        boolean strict = request.strict() == null || request.strict();
-        ResponseFormat responseFormat = ResponseFormat.builder()
-                .type(ResponseFormat.Type.JSON_SCHEMA)
-                .jsonSchema(ResponseFormat.JsonSchema.builder()
-                        .name(request.schemaName())
-                        .strict(strict)
-                        .schema(writeSchema(request.schema()))
-                        .build())
-                .build();
+    private ProviderStructuredChatResult callStructuredChatCompat(
+            AiProviderRuntime runtime,
+            String providerName,
+            StructuredChatRequest request,
+            String model
+    ) {
+        boolean preferJsonSchema = jsonSchemaSupportByProvider.getOrDefault(providerName, Boolean.TRUE);
+        if (preferJsonSchema) {
+            try {
+                return invokeStructuredChat(runtime, request, model, true);
+            } catch (RuntimeException exception) {
+                if (!isJsonSchemaUnsupported(exception)) {
+                    throw exception;
+                }
+                jsonSchemaSupportByProvider.put(providerName, Boolean.FALSE);
+            }
+        }
+        return invokeStructuredChat(runtime, request, model, false);
+    }
 
-        return new Prompt(toMessages(request.messages()), OpenAiChatOptions.builder()
+    private ProviderStructuredChatResult invokeStructuredChat(
+            AiProviderRuntime runtime,
+            StructuredChatRequest request,
+            String model,
+            boolean useJsonSchema
+    ) {
+        ProviderChatResult validated = validateChatResponse(
+                runtime.chatModel().call(toStructuredPrompt(runtime, request, model, useJsonSchema)),
+                model
+        );
+        Map<String, Object> structuredData = parseStructuredJson(validated.content());
+        validateAgainstSchema(structuredData, request.schema());
+        return new ProviderStructuredChatResult(validated.response(), validated.content(), structuredData);
+    }
+
+    private Prompt toStructuredPrompt(
+            AiProviderRuntime runtime,
+            StructuredChatRequest request,
+            String model,
+            boolean useJsonSchema
+    ) {
+        ResponseFormat responseFormat;
+        List<Message> messages;
+        if (useJsonSchema) {
+            boolean strict = request.strict() == null || request.strict();
+            responseFormat = ResponseFormat.builder()
+                    .type(ResponseFormat.Type.JSON_SCHEMA)
+                    .jsonSchema(ResponseFormat.JsonSchema.builder()
+                            .name(request.schemaName() == null || request.schemaName().isBlank()
+                                    ? "StructuredOutput"
+                                    : request.schemaName())
+                            .strict(strict)
+                            .schema(writeSchema(request.schema()))
+                            .build())
+                    .build();
+            messages = toMessages(request.messages());
+        } else {
+            // DeepSeek and some OpenAI-compat providers only support json_object, not json_schema.
+            responseFormat = ResponseFormat.builder()
+                    .type(ResponseFormat.Type.JSON_OBJECT)
+                    .build();
+            messages = toMessagesWithJsonObjectSchemaHint(request);
+        }
+
+        OpenAiChatOptions.Builder options = OpenAiChatOptions.builder()
                 .model(model)
                 .temperature(request.temperature() != null ? request.temperature() : defaultChat(runtime).temperature())
-                .responseFormat(responseFormat)
-                .build());
+                .responseFormat(responseFormat);
+        Integer maxTokens = defaultChat(runtime).maxTokens();
+        if (maxTokens != null) {
+            options.maxTokens(maxTokens);
+        }
+        return new Prompt(messages, options.build());
+    }
+
+    private List<Message> toMessagesWithJsonObjectSchemaHint(StructuredChatRequest request) {
+        List<Message> messages = new ArrayList<>(toMessages(request.messages()));
+        String schemaJson = writeSchema(request.schema() == null ? Map.of() : request.schema());
+        String schemaName = request.schemaName() == null || request.schemaName().isBlank()
+                ? "StructuredOutput"
+                : request.schemaName();
+        String hint = """
+                You must return a single valid json object only (no markdown fences, no prose).
+                The json object must conform to schema "%s":
+                %s
+                """.formatted(schemaName, schemaJson).trim();
+        messages.add(0, new SystemMessage(hint));
+        return messages;
+    }
+
+    private Map<String, Object> parseStructuredJson(String content) {
+        String normalized = extractJsonObject(content);
+        try {
+            Map<String, Object> structuredData = objectMapper.readValue(
+                    normalized,
+                    new TypeReference<Map<String, Object>>() {
+                    }
+            );
+            if (structuredData == null || structuredData.isEmpty()) {
+                throw new InvalidProviderResponseException("Structured chat provider returned an empty JSON object");
+            }
+            return structuredData;
+        } catch (InvalidProviderResponseException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new InvalidProviderResponseException(
+                    "Structured chat provider returned invalid JSON",
+                    exception
+            );
+        }
+    }
+
+    private String extractJsonObject(String content) {
+        if (content == null || content.isBlank()) {
+            throw new InvalidProviderResponseException("Structured chat provider returned empty content");
+        }
+        String trimmed = content.trim();
+        if (trimmed.startsWith("```")) {
+            int firstNewline = trimmed.indexOf('\n');
+            int lastFence = trimmed.lastIndexOf("```");
+            if (firstNewline > 0 && lastFence > firstNewline) {
+                trimmed = trimmed.substring(firstNewline + 1, lastFence).trim();
+                if (trimmed.regionMatches(true, 0, "json", 0, 4)) {
+                    int nl = trimmed.indexOf('\n');
+                    trimmed = nl >= 0 ? trimmed.substring(nl + 1).trim() : trimmed.substring(4).trim();
+                }
+            }
+        }
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            return trimmed;
+        }
+        int start = trimmed.indexOf('{');
+        int end = trimmed.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return trimmed.substring(start, end + 1);
+        }
+        return trimmed;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void validateAgainstSchema(Map<String, Object> structuredData, Map<String, Object> schema) {
+        if (schema == null || schema.isEmpty() || structuredData == null) {
+            return;
+        }
+        Object required = schema.get("required");
+        if (required instanceof List<?> requiredKeys) {
+            for (Object keyObj : requiredKeys) {
+                if (keyObj == null) {
+                    continue;
+                }
+                String key = String.valueOf(keyObj);
+                if (!structuredData.containsKey(key)) {
+                    throw new InvalidProviderResponseException(
+                            "Structured chat JSON missing required field: " + key
+                    );
+                }
+            }
+        }
+        Object propertiesObj = schema.get("properties");
+        if (!(propertiesObj instanceof Map<?, ?> properties) || properties.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<?, ?> entry : properties.entrySet()) {
+            if (entry.getKey() == null || !(entry.getValue() instanceof Map<?, ?> propertySchema)) {
+                continue;
+            }
+            String key = String.valueOf(entry.getKey());
+            if (!structuredData.containsKey(key)) {
+                continue;
+            }
+            Object enumObj = propertySchema.get("enum");
+            if (enumObj instanceof List<?> allowed && !allowed.isEmpty()) {
+                Object value = structuredData.get(key);
+                boolean match = allowed.stream().anyMatch(candidate ->
+                        candidate == null ? value == null : String.valueOf(candidate).equals(String.valueOf(value))
+                );
+                if (!match) {
+                    throw new InvalidProviderResponseException(
+                            "Structured chat JSON field '" + key + "' is not one of the allowed enum values"
+                    );
+                }
+            }
+        }
+    }
+
+    private boolean isJsonSchemaUnsupported(Throwable throwable) {
+        String message = flattenExceptionMessages(throwable).toLowerCase(Locale.ROOT);
+        if (message.isBlank()) {
+            return false;
+        }
+        if (message.contains("this response_format type is unavailable")
+                || message.contains("response_format type is unavailable")
+                || message.contains("json_schema is not supported")
+                || message.contains("unsupported response_format")
+                || message.contains("unknown response_format")
+                || message.contains("invalid response_format")) {
+            return true;
+        }
+        // Common OpenAI-compat wording when json_schema is rejected.
+        return message.contains("response_format")
+                && (message.contains("json_schema")
+                || message.contains("unavailable")
+                || message.contains("not supported")
+                || message.contains("invalid_request"));
+    }
+
+    private String flattenExceptionMessages(Throwable throwable) {
+        StringBuilder builder = new StringBuilder();
+        Throwable current = throwable;
+        int depth = 0;
+        while (current != null && depth < 8) {
+            if (current.getMessage() != null && !current.getMessage().isBlank()) {
+                if (!builder.isEmpty()) {
+                    builder.append(' ');
+                }
+                builder.append(current.getMessage());
+            }
+            current = current.getCause();
+            depth++;
+        }
+        return builder.toString();
     }
 
     private List<Message> toMessages(List<ChatMessage> messages) {

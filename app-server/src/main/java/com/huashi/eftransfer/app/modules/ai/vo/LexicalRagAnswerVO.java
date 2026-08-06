@@ -34,6 +34,61 @@ public record LexicalRagAnswerVO(
         List<@NotBlank(message = "citationIds item must not be blank") String> citationIds,
         List<@Valid RagCitation> citations,
         List<@Valid RagContextChunk> contextChunks,
-        String fallbackReason
+        String fallbackReason,
+        String fallbackDetail
 ) {
+    public LexicalRagAnswerVO(
+            String requestId,
+            String conversationId,
+            String generationSource,
+            String model,
+            Long latencyMs,
+            boolean grounded,
+            String answer,
+            String explanation,
+            List<String> recommendedActions,
+            double confidence,
+            List<String> citationIds,
+            List<RagCitation> citations,
+            List<RagContextChunk> contextChunks,
+            String fallbackReason
+    ) {
+        this(
+                requestId,
+                conversationId,
+                generationSource,
+                model,
+                latencyMs,
+                grounded,
+                answer,
+                explanation,
+                recommendedActions,
+                confidence,
+                citationIds,
+                citations,
+                contextChunks,
+                fallbackReason,
+                null
+        );
+    }
+
+    public LexicalRagAnswerVO withFallbackMeta(String reason, String detail) {
+        return new LexicalRagAnswerVO(
+                requestId,
+                conversationId,
+                generationSource,
+                model,
+                latencyMs,
+                grounded,
+                answer,
+                explanation,
+                recommendedActions,
+                confidence,
+                citationIds,
+                citations,
+                contextChunks,
+                reason,
+                detail
+        );
+    }
 }

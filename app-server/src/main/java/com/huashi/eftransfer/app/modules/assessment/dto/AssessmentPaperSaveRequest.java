@@ -1,5 +1,6 @@
 package com.huashi.eftransfer.app.modules.assessment.dto;
 
+import com.huashi.eftransfer.shared.enums.AssessmentPaperPurpose;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -18,6 +19,7 @@ public record AssessmentPaperSaveRequest(
         @NotNull(message = "durationMinutes must not be null")
         @Min(value = 1, message = "durationMinutes must be greater than 0")
         Integer durationMinutes,
+        AssessmentPaperPurpose paperPurpose,
         @Valid
         @NotEmpty(message = "questions must not be empty")
         List<AssessmentQuestionRequest> questions

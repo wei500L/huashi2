@@ -244,7 +244,7 @@ const TrainingPage: React.FC = () => {
   const aiRecommendationQuery = useQuery({
     queryKey: ['ai-recommend-training', recommendedPlanQuery.data?.sourceDiagnosisSummaryId],
     queryFn: ({ signal }) =>
-      aiService.recommendTraining(recommendedPlanQuery.data?.sourceDiagnosisSummaryId, { signal }),
+      aiService.recommendTrainingAsync(recommendedPlanQuery.data?.sourceDiagnosisSummaryId, { signal }),
     enabled: state.phase === 'home' && !!recommendedPlanQuery.data,
     retry: false,
   });
@@ -1151,6 +1151,9 @@ const TrainingPage: React.FC = () => {
                     {aiRecommendationQuery.data.fallbackReason && (
                       <div className="text-xs uppercase tracking-[0.24em] text-amber-500">
                         {t('training.fallbackReason')} {aiRecommendationQuery.data.fallbackReason}
+                        {aiRecommendationQuery.data.fallbackDetail
+                          ? ` — ${aiRecommendationQuery.data.fallbackDetail}`
+                          : ''}
                       </div>
                     )}
                   </div>

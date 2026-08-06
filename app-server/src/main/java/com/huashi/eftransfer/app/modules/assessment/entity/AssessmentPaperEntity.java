@@ -18,6 +18,9 @@ public class AssessmentPaperEntity extends BaseAuditEntity {
     @TableField("owner_user_id")
     private Long ownerUserId;
 
+    @TableField("paper_purpose")
+    private String paperPurpose;
+
     private String status;
 
     @TableField("duration_minutes")
@@ -62,6 +65,14 @@ public class AssessmentPaperEntity extends BaseAuditEntity {
 
     public void setOwnerUserId(Long ownerUserId) {
         this.ownerUserId = ownerUserId;
+    }
+
+    public String getPaperPurpose() {
+        return paperPurpose;
+    }
+
+    public void setPaperPurpose(String paperPurpose) {
+        this.paperPurpose = paperPurpose;
     }
 
     public String getStatus() {

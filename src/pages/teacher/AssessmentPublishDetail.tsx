@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { DataTable, PageHeader, SectionEyebrow, StatusBadge, WorkflowStepper } from '@/components/common';
 import type { WorkflowStage } from '@/components/common';
 import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
@@ -10,6 +10,8 @@ import { assessmentService } from '@/lib/services';
 
 const TeacherAssessmentPublishDetailPage: React.FC = () => {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const isResearchContext = searchParams.get('context') === 'research';
   const params = useParams<{ publishId: string }>();
   const publishId = Number(params.publishId);
   const publishQuery = useQuery({
@@ -71,7 +73,7 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <PageHeader
-        eyebrow={t('ui.sections.assessments')}
+        eyebrow={isResearchContext ? '研究问卷' : t('ui.sections.assessments')}
         title={publish?.paperTitle || t('ui.pages.publishDetail.fallbackTitle')}
         subtitle={
           publish
@@ -80,15 +82,15 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
         }
         actions={
           <div className="flex flex-wrap gap-3">
-            <Link to="/teacher/assessments" className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
-              {t('ui.actions.backToAssessments')}
+            <Link to={isResearchContext ? '/teacher/research?tab=releases' : '/teacher/assessments'} className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
+              {isResearchContext ? '返回研究问卷' : t('ui.actions.backToAssessments')}
             </Link>
             {publish && (
               <Link
-                to={`/teacher/assessments/${publish.paperId}`}
+                to={`/teacher/assessments/${publish.paperId}${isResearchContext ? '?context=research' : ''}`}
                 className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
               >
-                {t('ui.actions.backToPaper')}
+                {isResearchContext ? '返回问卷' : t('ui.actions.backToPaper')}
               </Link>
             )}
           </div>

@@ -102,6 +102,27 @@ CREATE TABLE ai_conversation_session (
   UNIQUE KEY uk_ai_conversation_session_conversation_id (conversation_id),
   KEY idx_ai_conversation_session_student_scene_last_message (student_user_id,scene,last_message_at)
 );
+CREATE TABLE ai_async_job (
+  id bigint NOT NULL AUTO_INCREMENT,
+  job_id varchar(64) NOT NULL,
+  user_id bigint NOT NULL,
+  scene varchar(64) NOT NULL,
+  status varchar(32) NOT NULL,
+  request_json longtext NOT NULL,
+  result_json longtext,
+  error_message varchar(1000) DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  started_at timestamp NULL DEFAULT NULL,
+  finished_at timestamp NULL DEFAULT NULL,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_ai_async_job_job_id (job_id),
+  KEY idx_ai_async_job_user_created (user_id, created_at),
+  KEY idx_ai_async_job_status_created (status, created_at)
+);
 CREATE TABLE ai_generation_record (
   id bigint NOT NULL AUTO_INCREMENT,
   request_id varchar(64) NOT NULL,
@@ -246,6 +267,7 @@ CREATE TABLE assessment_paper (
   title varchar(255) NOT NULL,
   description varchar(1000) DEFAULT NULL,
   owner_user_id bigint NOT NULL,
+  paper_purpose varchar(32) NOT NULL DEFAULT 'CLASS_ASSESSMENT',
   status varchar(32) NOT NULL DEFAULT 'DRAFT',
   duration_minutes int NOT NULL DEFAULT '30',
   question_count int NOT NULL DEFAULT '0',
@@ -258,6 +280,7 @@ CREATE TABLE assessment_paper (
   deleted tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (id),
   UNIQUE KEY uk_assessment_paper_code (paper_code),
+  KEY idx_assessment_paper_purpose (paper_purpose,owner_user_id,status,updated_at),
   KEY idx_assessment_paper_owner_status (owner_user_id,status,updated_at)
 );
 CREATE TABLE assessment_publish (

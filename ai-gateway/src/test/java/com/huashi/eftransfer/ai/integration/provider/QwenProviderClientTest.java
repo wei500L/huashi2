@@ -18,6 +18,8 @@ import com.huashi.eftransfer.shared.ai.ChatRequest;
 import com.huashi.eftransfer.shared.ai.ChatResponse;
 import com.huashi.eftransfer.shared.ai.EmbeddingBatchRequest;
 import com.huashi.eftransfer.shared.ai.EmbeddingResponse;
+import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
+import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
@@ -253,6 +255,150 @@ class QwenProviderClientTest {
         )))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("text-only request contract");
+    }
+
+    @Test
+    void shouldCallStructuredChatWithJsonSchemaWhenSupported() {
+        stubFor(post(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_schema")))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "id": "chatcmpl-structured-schema",
+                                  "object": "chat.completion",
+                                  "created": 1710000000,
+                                  "model": "qwen-max",
+                                  "choices": [
+                                    {
+                                      "index": 0,
+                                      "message": {
+                                        "role": "assistant",
+                                        "content": "{\\"status\\":\\"ok\\"}"
+                                      },
+                                      "finish_reason": "stop"
+                                    }
+                                  ],
+                                  "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+                                }
+                                """)));
+
+        StructuredChatResponse response = chatProviderClient.structuredChat("qwen", probeRequest());
+
+        assertThat(response.structuredData()).containsEntry("status", "ok");
+        assertThat(response.providerRequestId()).isEqualTo("chatcmpl-structured-schema");
+        wireMockServer.verify(1, postRequestedFor(urlEqualTo("/v1/chat/completions")));
+    }
+
+    @Test
+    void shouldFallbackToJsonObjectWhenJsonSchemaUnsupported() {
+        stubFor(post(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_schema")))
+                .willReturn(aResponse()
+                        .withStatus(400)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "error": {
+                                    "message": "This response_format type is unavailable now",
+                                    "type": "invalid_request_error",
+                                    "code": "invalid_request_error"
+                                  }
+                                }
+                                """)));
+        stubFor(post(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_object")))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "id": "chatcmpl-structured-object",
+                                  "object": "chat.completion",
+                                  "created": 1710000000,
+                                  "model": "qwen-max",
+                                  "choices": [
+                                    {
+                                      "index": 0,
+                                      "message": {
+                                        "role": "assistant",
+                                        "content": "{\\"status\\":\\"ok\\"}"
+                                      },
+                                      "finish_reason": "stop"
+                                    }
+                                  ],
+                                  "usage": {"prompt_tokens": 12, "completion_tokens": 6, "total_tokens": 18}
+                                }
+                                """)));
+
+        StructuredChatResponse response = chatProviderClient.structuredChat("qwen", probeRequest());
+
+        assertThat(response.structuredData()).containsEntry("status", "ok");
+        assertThat(response.providerRequestId()).isEqualTo("chatcmpl-structured-object");
+        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_schema"))));
+        wireMockServer.verify(postRequestedFor(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_object"))));
+    }
+
+    @Test
+    void shouldReuseJsonObjectAfterProviderMarkedUnsupported() {
+        stubFor(post(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_schema")))
+                .willReturn(aResponse()
+                        .withStatus(400)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {"error":{"message":"This response_format type is unavailable now","type":"invalid_request_error"}}
+                                """)));
+        stubFor(post(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_object")))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "id": "chatcmpl-cached",
+                                  "object": "chat.completion",
+                                  "created": 1710000000,
+                                  "model": "qwen-max",
+                                  "choices": [
+                                    {"index": 0, "message": {"role": "assistant", "content": "{\\"status\\":\\"ok\\"}"}, "finish_reason": "stop"}
+                                  ],
+                                  "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+                                }
+                                """)));
+
+        chatProviderClient.structuredChat("qwen", probeRequest());
+        wireMockServer.resetRequests();
+        StructuredChatResponse second = chatProviderClient.structuredChat("qwen", probeRequest());
+
+        assertThat(second.structuredData()).containsEntry("status", "ok");
+        wireMockServer.verify(0, postRequestedFor(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_schema"))));
+        wireMockServer.verify(1, postRequestedFor(urlEqualTo("/v1/chat/completions"))
+                .withRequestBody(matchingJsonPath("$.response_format.type", equalTo("json_object"))));
+    }
+
+    private StructuredChatRequest probeRequest() {
+        return new StructuredChatRequest(
+                List.of(
+                        new ChatMessage("system", "Return only the JSON object required by the schema."),
+                        new ChatMessage("user", "Respond with status ok to confirm structured generation readiness.")
+                ),
+                null,
+                0.0D,
+                "AiConfigProbe",
+                Boolean.TRUE,
+                Map.of(
+                        "type", "object",
+                        "additionalProperties", false,
+                        "properties", Map.of(
+                                "status", Map.of("type", "string", "enum", List.of("ok"))
+                        ),
+                        "required", List.of("status")
+                ),
+                "low",
+                Boolean.FALSE
+        );
     }
 
     private AiProviderProperties buildProperties() {

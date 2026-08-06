@@ -153,7 +153,8 @@ rag:
     failed-retry-interval: ${RAG_FAILED_RETRY_INTERVAL:PT1M}
   retrieval:
     recall-top-k: ${RAG_RECALL_TOP_K:50}
-    recall-threshold: ${RAG_RECALL_THRESHOLD:0.45}
+    # Slightly lower default helps small corpora (e.g. few lexical pairs after import) still ground.
+    recall-threshold: ${RAG_RECALL_THRESHOLD:0.35}
     rerank-top-n: ${RAG_RERANK_TOP_N:16}
     rerank-threshold: ${RAG_RERANK_THRESHOLD:0.2}
     final-top-k: ${RAG_FINAL_TOP_K:8}

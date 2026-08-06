@@ -213,6 +213,7 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.generationSource").value(AiConstants.GENERATION_SOURCE_RULE_FALLBACK))
                 .andExpect(jsonPath("$.data.fallbackReason").value(AiGatewayFailureReason.INVALID_JSON.name()))
+                .andExpect(jsonPath("$.data.fallbackDetail").isString())
                 .andExpect(jsonPath("$.data.recommendationPath.length()").value(3))
                 .andExpect(jsonPath("$.data.explanation").isString())
                 .andReturn();
@@ -223,6 +224,32 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(generationRecord.getGenerationSource()).isEqualTo(AiConstants.GENERATION_SOURCE_RULE_FALLBACK);
         assertThat(generationRecord.getFallbackReason()).isEqualTo(AiGatewayFailureReason.INVALID_JSON.name());
         assertThat(generationRecord.getValidatedOutputJson()).contains("recommendationPath");
+    }
+
+    @Test
+    void shouldSubmitExplainDiagnosisAsyncAndReturnSucceededJob() throws Exception {
+        AiScenario scenario = prepareAiScenario(1, true);
+
+        MvcResult submitResult = mockMvc.perform(post("/api/ai/explain-diagnosis/async")
+                        .with(bearer(scenario.studentToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "diagnosisSummaryId": %d
+                                }
+                                """.formatted(scenario.latestDiagnosisSummaryId())))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.jobId").isString())
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andReturn();
+
+        String jobId = readJson(submitResult).path("data").path("jobId").asText();
+        mockMvc.perform(get("/api/ai/jobs/{jobId}", jobId)
+                        .with(bearer(scenario.studentToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.result.generationSource").value(AiConstants.GENERATION_SOURCE_AI))
+                .andExpect(jsonPath("$.data.result.requestId").isString());
     }
 
     @Test
@@ -679,12 +706,19 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                         "/internal/ai/chat/structured"
                 );
             }
+            Map<String, Object> structuredData = "GuidanceGroundingVerification".equals(request.schemaName())
+                    ? Map.of(
+                    "supported", true,
+                    "unsupportedClaims", List.of(),
+                    "uncertaintyNote", ""
+            )
+                    : successStructuredPayload(request);
             return AiGatewayCallResult.success(
                     new StructuredChatResponse(
                             "stub",
                             STRUCTURED_MODEL,
                             "structured-output",
-                            successStructuredPayload(),
+                            structuredData,
                             "stop",
                             "structured-success",
                             new TokenUsage(118, 48, 166)
@@ -706,6 +740,24 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                     1,
                     4L,
                     "/internal/ai/rerank"
+            );
+        }
+
+        @Override
+        public AiGatewayCallResult<com.huashi.eftransfer.shared.ai.RagRetrieveResponse> ragRetrieve(
+                com.huashi.eftransfer.shared.ai.RagRetrieveRequest request
+        ) {
+            // Keep guidance tests free of citation obligations unless a future test needs grounding.
+            return AiGatewayCallResult.success(
+                    new com.huashi.eftransfer.shared.ai.RagRetrieveResponse(
+                            false,
+                            "No stub grounding",
+                            List.of(),
+                            List.of()
+                    ),
+                    1,
+                    3L,
+                    "/internal/ai/rag/retrieve"
             );
         }
 
@@ -778,20 +830,35 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
             );
         }
 
-        private Map<String, Object> successStructuredPayload() {
+        private Map<String, Object> successStructuredPayload(StructuredChatRequest request) {
+            List<Long> pairIds = extractLexicalPairIds(request);
+            if (pairIds.isEmpty()) {
+                pairIds = List.of(1L, 2L);
+            }
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("recommendationPath", List.of(
                     pathItem("锁定高风险词对", "先围绕 false friend 误判最集中的词对做短时对比辨析。", "HIGH"),
                     pathItem("切入专项训练", "先做错因拆解，再进入语境修正和短时巩固。", "HIGH"),
                     pathItem("安排课堂复盘", "教师在下次课堂中追问判断依据，确认学生不再只看词形。", "MEDIUM")
             ));
-            payload.put("focusLexicalPairs", List.of(
-                    focusPair(1001L, "coin", "coin", "硬币；角落", "FALSE_FRIEND", 0.91d, "FALSE_FRIEND_CONFUSION", "最近诊断中误判最稳定，优先级最高。"),
-                    focusPair(1002L, "actually", "actuellement", "实际上；目前", "FALSE_FRIEND", 0.87d, "CONTEXT_IGNORANCE", "语境切换时仍会被英文熟词义误导。")
-            ));
+            payload.put("focusLexicalPairs", pairIds.stream()
+                    .limit(2)
+                    .map(pairId -> focusPair(
+                            pairId,
+                            "coin",
+                            "coin",
+                            "硬币；角落",
+                            "FALSE_FRIEND",
+                            0.91d,
+                            "FALSE_FRIEND_CONFUSION",
+                            "最近诊断中误判最稳定，优先级最高。"
+                    ))
+                    .toList());
             payload.put("recommendedTrainingModes", List.of(
                     modeItem("FALSE_FRIEND_DISCRIM", "假朋友辨析训练", "先修正近形近义词的主导误判模式。"),
-                    modeItem("CONTEXT_FIX", "语境修正训练", "在修正错因后，立刻迁移到新语境验证。")
+                    modeItem("CONTEXT_FIX", "语境修正训练", "在修正错因后，立刻迁移到新语境验证。"),
+                    modeItem("COGNATE_BOOST", "强化：正迁移促进", "优先修复当前最突出的迁移风险。"),
+                    modeItem("SPEED_CHALLENGE", "速度挑战", "在稳定准确率后提升反应速度。")
             ));
             payload.put("explanation", "学生当前最需要先稳住高风险词对辨析，再把正确判断迁移到新语境中。");
             payload.put("teacherNote", "教师可先讲清最小语义差异，再让学生口头复述判断路径，避免只凭词形作答。");
@@ -810,7 +877,27 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                     )
             ));
             payload.put("confidence", 0.91d);
+            payload.put("citationIds", List.of());
+            payload.put("uncertaintyNote", "");
             return payload;
+        }
+
+        private List<Long> extractLexicalPairIds(StructuredChatRequest request) {
+            if (request == null || request.messages() == null) {
+                return List.of();
+            }
+            java.util.LinkedHashSet<Long> ids = new java.util.LinkedHashSet<>();
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"lexicalPairId\"\\s*:\\s*(\\d+)");
+            for (var message : request.messages()) {
+                if (message == null || message.content() == null) {
+                    continue;
+                }
+                java.util.regex.Matcher matcher = pattern.matcher(message.content());
+                while (matcher.find()) {
+                    ids.add(Long.parseLong(matcher.group(1)));
+                }
+            }
+            return List.copyOf(ids);
         }
 
         private Map<String, Object> pathItem(String title, String reason, String priority) {

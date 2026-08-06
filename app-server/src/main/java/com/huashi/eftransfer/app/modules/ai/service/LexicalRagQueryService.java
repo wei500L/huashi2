@@ -125,19 +125,30 @@ public class LexicalRagQueryService {
                     conversation.getConversationId(),
                     request.query(),
                     retrieveResult.failureReason(),
-                    elapsedMillis(startedAt)
+                    elapsedMillis(startedAt),
+                    retrieveResult.failureMessage()
             );
             return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
 
         RagRetrieveResponse retrieved = retrieveResult.data();
         if (retrieved == null || !retrieved.grounded() || retrieved.citations() == null || retrieved.citations().isEmpty()) {
+            String detail = retrieved == null
+                    ? "RAG retrieve returned null payload"
+                    : "RAG retrieve returned grounded=%s citationCount=%d uncertaintyNote=%s"
+                    .formatted(
+                            retrieved.grounded(),
+                            retrieved.citations() == null ? 0 : retrieved.citations().size(),
+                            retrieved.uncertaintyNote()
+                    );
+            rawResponses.put("noGroundedContextDetail", detail);
             LexicalRagAnswerVO fallback = buildFallbackWithoutContext(
                     requestId,
                     conversation.getConversationId(),
                     request.query(),
                     AiGatewayFailureReason.NO_GROUNDED_CONTEXT,
-                    elapsedMillis(startedAt)
+                    elapsedMillis(startedAt),
+                    detail
             );
             return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
@@ -149,7 +160,7 @@ public class LexicalRagQueryService {
                 SCHEMA_NAME,
                 Boolean.TRUE,
                 aiOutputSchemaFactory.lexicalRagAnswerSchema(),
-                "high",
+                "medium",
                 Boolean.FALSE
         );
 
@@ -163,7 +174,8 @@ public class LexicalRagQueryService {
                     request.query(),
                     retrieved,
                     structuredResult.failureReason(),
-                    elapsedMillis(startedAt)
+                    elapsedMillis(startedAt),
+                    structuredResult.failureMessage()
             );
             return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
@@ -177,7 +189,8 @@ public class LexicalRagQueryService {
                     request.query(),
                     retrieved,
                     AiGatewayFailureReason.INVALID_JSON,
-                    elapsedMillis(startedAt)
+                    elapsedMillis(startedAt),
+                    "Structured lexical RAG payload was empty"
             );
             return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
@@ -197,7 +210,8 @@ public class LexicalRagQueryService {
                         request.query(),
                         retrieved,
                         AiGatewayFailureReason.GROUNDING_VALIDATION_FAILED,
-                        elapsedMillis(startedAt)
+                        elapsedMillis(startedAt),
+                        "Independent grounding verification rejected the candidate answer"
                 );
                 return finalizeResponse(
                         fallback,
@@ -227,6 +241,7 @@ public class LexicalRagQueryService {
                     payload.citationIds(),
                     citations,
                     contextChunks,
+                    null,
                     null
             );
             return finalizeResponse(
@@ -248,7 +263,8 @@ public class LexicalRagQueryService {
                     request.query(),
                     retrieved,
                     AiGatewayFailureReason.SCHEMA_VALIDATION_FAILED,
-                    elapsedMillis(startedAt)
+                    elapsedMillis(startedAt),
+                    validationException.getMessage()
             );
             return finalizeResponse(fallback, conversation, studentUserId, promptVersion, null, null, usageSummary, inputPayload, rawResponses);
         }
@@ -403,7 +419,7 @@ public class LexicalRagQueryService {
                 "LexicalGroundingVerification",
                 Boolean.TRUE,
                 aiOutputSchemaFactory.groundingVerificationSchema(),
-                "high",
+                "low",
                 Boolean.FALSE
         );
         AiGatewayCallResult<StructuredChatResponse> verificationResult = aiGatewayClient.structuredChat(verificationRequest);
@@ -411,6 +427,12 @@ public class LexicalRagQueryService {
         if (!verificationResult.success()
                 || verificationResult.data() == null
                 || verificationResult.data().structuredData() == null) {
+            rawResponses.put(
+                    "groundingVerificationError",
+                    verificationResult.failureMessage() == null
+                            ? "Grounding verification call failed"
+                            : verificationResult.failureMessage()
+            );
             return false;
         }
         usageSummary.addStructured(verificationResult.data());
@@ -432,6 +454,17 @@ public class LexicalRagQueryService {
             String query,
             AiGatewayFailureReason failureReason,
             long latencyMs
+    ) {
+        return buildFallbackWithoutContext(requestId, conversationId, query, failureReason, latencyMs, null);
+    }
+
+    private LexicalRagAnswerVO buildFallbackWithoutContext(
+            String requestId,
+            String conversationId,
+            String query,
+            AiGatewayFailureReason failureReason,
+            long latencyMs,
+            String fallbackDetail
     ) {
         ensureFallbackAllowed(requestId);
         String normalizedQuery = query == null ? "" : query.toLowerCase(Locale.ROOT);
@@ -472,7 +505,8 @@ public class LexicalRagQueryService {
                 List.of(),
                 List.of(),
                 List.of(),
-                failureReason == null ? AiGatewayFailureReason.UNKNOWN.name() : failureReason.name()
+                failureReason == null ? AiGatewayFailureReason.UNKNOWN.name() : failureReason.name(),
+                truncateDetail(fallbackDetail)
         );
     }
 
@@ -483,6 +517,18 @@ public class LexicalRagQueryService {
             RagRetrieveResponse retrieved,
             AiGatewayFailureReason failureReason,
             long latencyMs
+    ) {
+        return buildFallbackWithRetrievedContext(requestId, conversationId, query, retrieved, failureReason, latencyMs, null);
+    }
+
+    private LexicalRagAnswerVO buildFallbackWithRetrievedContext(
+            String requestId,
+            String conversationId,
+            String query,
+            RagRetrieveResponse retrieved,
+            AiGatewayFailureReason failureReason,
+            long latencyMs,
+            String fallbackDetail
     ) {
         ensureFallbackAllowed(requestId);
         List<RagCitation> citations = retrieved.citations() == null ? List.of() : retrieved.citations();
@@ -522,8 +568,17 @@ public class LexicalRagQueryService {
                 citationIds,
                 citations,
                 contextChunks,
-                failureReason == null ? AiGatewayFailureReason.UNKNOWN.name() : failureReason.name()
+                failureReason == null ? AiGatewayFailureReason.UNKNOWN.name() : failureReason.name(),
+                truncateDetail(fallbackDetail)
         );
+    }
+
+    private String truncateDetail(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return null;
+        }
+        String normalized = detail.replace('\n', ' ').trim();
+        return normalized.length() <= 500 ? normalized : normalized.substring(0, 500);
     }
 
     private String buildRetrievedExplanation(String query, String title, String inlineMarkers) {

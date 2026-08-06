@@ -57,6 +57,7 @@ import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentDeliveryMode;
 import com.huashi.eftransfer.shared.enums.AssessmentPaperStatus;
+import com.huashi.eftransfer.shared.enums.AssessmentPaperPurpose;
 import com.huashi.eftransfer.shared.enums.AssessmentPublishStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentQuestionType;
 import com.huashi.eftransfer.shared.enums.AssessmentResultReleasePolicy;
@@ -146,7 +147,13 @@ public class AssessmentService {
     }
 
     public List<AssessmentPaperSummaryVO> listTeacherPapers() {
+        return listTeacherPapers(AssessmentPaperPurpose.CLASS_ASSESSMENT);
+    }
+
+    public List<AssessmentPaperSummaryVO> listTeacherPapers(AssessmentPaperPurpose purpose) {
+        AssessmentPaperPurpose resolvedPurpose = purpose == null ? AssessmentPaperPurpose.CLASS_ASSESSMENT : purpose;
         var query = Wrappers.<AssessmentPaperEntity>lambdaQuery()
+                .eq(AssessmentPaperEntity::getPaperPurpose, resolvedPurpose.name())
                 .orderByDesc(AssessmentPaperEntity::getUpdatedAt)
                 .orderByDesc(AssessmentPaperEntity::getId);
         if (!isAdmin()) {
@@ -165,6 +172,7 @@ public class AssessmentService {
         paper.setTitle(normalizeRequiredText(request.title(), "title"));
         paper.setDescription(normalizeOptionalText(request.description()));
         paper.setOwnerUserId(currentUserId());
+        paper.setPaperPurpose((request.paperPurpose() == null ? AssessmentPaperPurpose.CLASS_ASSESSMENT : request.paperPurpose()).name());
         paper.setStatus(AssessmentPaperStatus.DRAFT.name());
         paper.setDurationMinutes(request.durationMinutes());
         paper.setQuestionCount(normalizedQuestions.size());
@@ -177,6 +185,10 @@ public class AssessmentService {
     @Transactional
     public AssessmentPaperDetailVO updatePaper(Long paperId, AssessmentPaperSaveRequest request) {
         AssessmentPaperEntity paper = requireEditablePaper(paperId);
+        AssessmentPaperPurpose existingPurpose = AssessmentPaperPurpose.fromCode(paper.getPaperPurpose());
+        if (request.paperPurpose() != null && request.paperPurpose() != existingPurpose) {
+            throw new BusinessException(ResultCode.CONFLICT, "Assessment paper purpose cannot be changed", 409);
+        }
         List<NormalizedQuestion> normalizedQuestions = normalizeQuestions(request.questions());
         paper.setTitle(normalizeRequiredText(request.title(), "title"));
         paper.setDescription(normalizeOptionalText(request.description()));
@@ -205,6 +217,17 @@ public class AssessmentService {
         }
         assertQuestionnaireReviewComplete(paperId);
         AssessmentDeliveryMode deliveryMode = parseDeliveryMode(request.deliveryMode());
+        AssessmentPaperPurpose paperPurpose = AssessmentPaperPurpose.fromCode(paper.getPaperPurpose());
+        if (paperPurpose == AssessmentPaperPurpose.RESEARCH_SURVEY
+                && deliveryMode != AssessmentDeliveryMode.PUBLIC_CODE) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR,
+                    "Research surveys must use PUBLIC_CODE delivery", 400);
+        }
+        if (paperPurpose == AssessmentPaperPurpose.CLASS_ASSESSMENT
+                && deliveryMode != AssessmentDeliveryMode.CLASS) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR,
+                    "Class assessments must use CLASS delivery", 400);
+        }
         TeachingClassEntity teachingClass = null;
         if (deliveryMode == AssessmentDeliveryMode.CLASS) {
             if (request.teachingClassId() == null) {
@@ -273,11 +296,26 @@ public class AssessmentService {
             return List.of();
         }
 
-        List<AssessmentPublishEntity> publishes = assessmentPublishMapper.selectList(Wrappers.<AssessmentPublishEntity>lambdaQuery()
+        List<AssessmentPublishEntity> candidatePublishes = assessmentPublishMapper.selectList(Wrappers.<AssessmentPublishEntity>lambdaQuery()
                 .in(AssessmentPublishEntity::getId, recipients.stream().map(AssessmentPublishRecipientEntity::getPublishId).toList())
                 .eq(AssessmentPublishEntity::getStatus, AssessmentPublishStatus.PUBLISHED.name())
                 .orderByDesc(AssessmentPublishEntity::getPublishedAt)
                 .orderByDesc(AssessmentPublishEntity::getId));
+        if (candidatePublishes.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> classroomPaperIds = assessmentPaperMapper.selectBatchIds(
+                        candidatePublishes.stream().map(AssessmentPublishEntity::getPaperId).distinct().toList()
+                ).stream()
+                .filter(Objects::nonNull)
+                .filter(paper -> AssessmentPaperPurpose.fromCode(paper.getPaperPurpose())
+                        == AssessmentPaperPurpose.CLASS_ASSESSMENT)
+                .map(AssessmentPaperEntity::getId)
+                .collect(Collectors.toSet());
+        List<AssessmentPublishEntity> publishes = candidatePublishes.stream()
+                .filter(publish -> AssessmentDeliveryMode.CLASS.name().equalsIgnoreCase(publish.getDeliveryMode()))
+                .filter(publish -> classroomPaperIds.contains(publish.getPaperId()))
+                .toList();
         if (publishes.isEmpty()) {
             return List.of();
         }
@@ -767,6 +805,7 @@ public class AssessmentService {
                 paper.getTitle(),
                 paper.getDescription(),
                 paper.getStatus(),
+                paper.getPaperPurpose(),
                 paper.getDurationMinutes(),
                 paper.getQuestionCount(),
                 paper.getTotalScore(),
@@ -812,6 +851,7 @@ public class AssessmentService {
                 paper.getTitle(),
                 paper.getDescription(),
                 paper.getStatus(),
+                paper.getPaperPurpose(),
                 paper.getDurationMinutes(),
                 paper.getQuestionCount(),
                 paper.getTotalScore(),
@@ -1605,6 +1645,12 @@ public class AssessmentService {
         }
         if (!AssessmentPublishStatus.PUBLISHED.name().equalsIgnoreCase(publish.getStatus())) {
             throw new BusinessException(ResultCode.CONFLICT, "Assessment publish is not available", 409);
+        }
+        AssessmentPaperEntity paper = assessmentPaperMapper.selectById(publish.getPaperId());
+        if (paper == null
+                || AssessmentPaperPurpose.fromCode(paper.getPaperPurpose()) != AssessmentPaperPurpose.CLASS_ASSESSMENT
+                || !AssessmentDeliveryMode.CLASS.name().equalsIgnoreCase(publish.getDeliveryMode())) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Assessment publish was not assigned to this student", 404);
         }
         AssessmentPublishRecipientEntity recipient = assessmentPublishRecipientMapper.selectOne(
                 Wrappers.<AssessmentPublishRecipientEntity>lambdaQuery()

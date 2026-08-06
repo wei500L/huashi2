@@ -71,6 +71,8 @@ public class SecurityConfig {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").hasRole("ADMIN");
                     }
                     auth.requestMatchers("/api/admin/**").hasRole("ADMIN");
+                    // Lexical RAG is available to teachers for lesson prep; other AI insight routes remain student-facing.
+                    auth.requestMatchers("/api/ai/lexical-rag/**").hasAnyRole("STUDENT", "TEACHER", "ADMIN");
                     auth.requestMatchers("/api/ai/**").hasAnyRole("STUDENT", "ADMIN");
                     auth.requestMatchers("/api/diagnosis/**").hasAnyRole("STUDENT", "ADMIN");
                     auth.requestMatchers("/api/training/**").hasAnyRole("STUDENT", "ADMIN");

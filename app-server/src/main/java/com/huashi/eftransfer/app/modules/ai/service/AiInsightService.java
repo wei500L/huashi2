@@ -353,6 +353,7 @@ public class AiInsightService {
             AiGuidanceResponseVO fallbackResponse,
             RagRetrieveResponse grounding
     ) {
+        String reasoningEffort = AiConstants.SCENE_TEACHER_INTERVENTION.equals(scene) ? "high" : "medium";
         StructuredChatRequest structuredChatRequest = new StructuredChatRequest(
                 List.of(
                         new ChatMessage("system", aiPromptTemplateService.loadSystemPrompt(promptFolder, promptVersion)),
@@ -367,35 +368,53 @@ public class AiInsightService {
                 schemaName,
                 Boolean.TRUE,
                 aiOutputSchemaFactory.guidanceSchema(),
-                "high",
+                reasoningEffort,
                 AiConstants.SCENE_TEACHER_INTERVENTION.equals(scene)
         );
 
         AiGatewayCallResult<StructuredChatResponse> structuredResult = aiGatewayClient.structuredChat(structuredChatRequest);
         rawResponses.put("structuredChat", structuredResult);
         if (!structuredResult.success()) {
-            return fallback(scene, structuredResult.failureReason(), fallbackResponse, requestId, elapsedMillis(startedAt));
+            return fallback(
+                    scene,
+                    structuredResult.failureReason(),
+                    fallbackResponse,
+                    requestId,
+                    elapsedMillis(startedAt),
+                    structuredResult.failureMessage()
+            );
         }
         usageSummary.addStructured(structuredResult.data());
         if (structuredResult.data().structuredData() == null || structuredResult.data().structuredData().isEmpty()) {
             rawResponses.put("validationError", "Structured response payload was empty");
-            return fallback(scene, AiGatewayFailureReason.INVALID_JSON, fallbackResponse, requestId, elapsedMillis(startedAt));
+            return fallback(
+                    scene,
+                    AiGatewayFailureReason.INVALID_JSON,
+                    fallbackResponse,
+                    requestId,
+                    elapsedMillis(startedAt),
+                    "Structured response payload was empty"
+            );
         }
 
         try {
             Map<String, RagCitation> availableCitationMap = citationMap(grounding);
-            AiStructuredGuidancePayload payload = aiResponseValidator.validateGuidance(
+            Map<String, Object> normalizedData = normalizeGuidanceStructuredData(
                     structuredResult.data().structuredData(),
+                    fallbackResponse
+            );
+            AiStructuredGuidancePayload payload = aiResponseValidator.validateGuidance(
+                    normalizedData,
                     availableCitationMap.keySet()
             );
-            payload = canonicalizeGuidance(payload, fallbackResponse);
-            List<RagCitation> selectedCitations = payload.citationIds().stream()
+            CanonicalGuidance canonical = canonicalizeGuidance(payload, fallbackResponse);
+            List<RagCitation> selectedCitations = canonical.citationIds().stream()
                     .map(availableCitationMap::get)
                     .filter(java.util.Objects::nonNull)
                     .toList();
             if (!verifyGuidanceGrounding(
                     scene,
-                    payload,
+                    canonical,
                     grounding,
                     promptPayload,
                     usageSummary,
@@ -406,7 +425,8 @@ public class AiInsightService {
                         AiGatewayFailureReason.GROUNDING_VALIDATION_FAILED,
                         fallbackResponse,
                         requestId,
-                        elapsedMillis(startedAt)
+                        elapsedMillis(startedAt),
+                        "Independent grounding verification rejected the candidate answer"
                 );
             }
             AiGuidanceResponseVO response = new AiGuidanceResponseVO(
@@ -415,18 +435,19 @@ public class AiInsightService {
                     promptVersion,
                     structuredResult.data().model(),
                     elapsedMillis(startedAt),
-                    payload.recommendationPath(),
-                    payload.focusLexicalPairs(),
-                    payload.recommendedTrainingModes(),
-                    payload.explanation(),
-                    payload.teacherNote(),
-                    payload.diagnosisInsight(),
-                    payload.confidence(),
+                    canonical.recommendationPath(),
+                    canonical.focusLexicalPairs(),
+                    canonical.recommendedTrainingModes(),
+                    canonical.explanation(),
+                    canonical.teacherNote(),
+                    canonical.diagnosisInsight(),
+                    canonical.confidence(),
                     null,
                     !selectedCitations.isEmpty(),
-                    payload.citationIds(),
+                    canonical.citationIds(),
                     selectedCitations,
-                    payload.uncertaintyNote()
+                    canonical.uncertaintyNote(),
+                    null
             );
             return new AiExecutionResult(
                     response,
@@ -436,11 +457,119 @@ public class AiInsightService {
             );
         } catch (IllegalStateException validationException) {
             rawResponses.put("validationError", validationException.getMessage());
-            return fallback(scene, AiGatewayFailureReason.SCHEMA_VALIDATION_FAILED, fallbackResponse, requestId, elapsedMillis(startedAt));
+            return fallback(
+                    scene,
+                    AiGatewayFailureReason.SCHEMA_VALIDATION_FAILED,
+                    fallbackResponse,
+                    requestId,
+                    elapsedMillis(startedAt),
+                    validationException.getMessage()
+            );
         }
     }
 
-    private AiStructuredGuidancePayload canonicalizeGuidance(
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> normalizeGuidanceStructuredData(
+            Map<String, Object> structuredData,
+            AiGuidanceResponseVO fallbackResponse
+    ) {
+        Map<String, Object> normalized = new LinkedHashMap<>(structuredData);
+        if (!normalized.containsKey("uncertaintyNote") || normalized.get("uncertaintyNote") == null) {
+            normalized.put("uncertaintyNote", "");
+        }
+        if (!normalized.containsKey("citationIds") || normalized.get("citationIds") == null) {
+            normalized.put("citationIds", List.of());
+        }
+        Object pairsObj = normalized.get("focusLexicalPairs");
+        if (pairsObj instanceof List<?> pairs) {
+            Map<Long, AiFocusLexicalPairVO> allowed = fallbackResponse.focusLexicalPairs().stream()
+                    .collect(Collectors.toMap(
+                            AiFocusLexicalPairVO::lexicalPairId,
+                            pair -> pair,
+                            (left, right) -> left,
+                            LinkedHashMap::new
+                    ));
+            List<Map<String, Object>> enriched = new ArrayList<>();
+            for (Object item : pairs) {
+                if (!(item instanceof Map<?, ?> rawPair)) {
+                    continue;
+                }
+                Map<String, Object> pair = new LinkedHashMap<>();
+                rawPair.forEach((key, value) -> pair.put(String.valueOf(key), value));
+                Long pairId = toLong(pair.get("lexicalPairId"));
+                if (pairId == null) {
+                    continue;
+                }
+                pair.put("lexicalPairId", pairId);
+                AiFocusLexicalPairVO serverPair = allowed.get(pairId);
+                if (serverPair != null) {
+                    pair.putIfAbsent("englishWord", serverPair.englishWord());
+                    pair.putIfAbsent("frenchWord", serverPair.frenchWord());
+                    pair.putIfAbsent("chineseGloss", serverPair.chineseGloss());
+                    pair.putIfAbsent("lexicalPairType", serverPair.lexicalPairType());
+                    pair.putIfAbsent("riskScore", serverPair.riskScore());
+                    pair.putIfAbsent("dominantErrorType", serverPair.dominantErrorType());
+                    if (pair.get("focusReason") == null || String.valueOf(pair.get("focusReason")).isBlank()) {
+                        pair.put("focusReason", serverPair.focusReason());
+                    }
+                }
+                Object riskScore = pair.get("riskScore");
+                if (riskScore instanceof String riskText) {
+                    try {
+                        pair.put("riskScore", Double.parseDouble(riskText.trim()));
+                    } catch (NumberFormatException ignored) {
+                        // keep original; bean validation will surface the issue
+                    }
+                }
+                enriched.add(pair);
+            }
+            normalized.put("focusLexicalPairs", enriched);
+        }
+        Object modesObj = normalized.get("recommendedTrainingModes");
+        if (modesObj instanceof List<?> modes) {
+            Map<String, AiRecommendedTrainingModeVO> allowedModes = fallbackResponse.recommendedTrainingModes().stream()
+                    .collect(Collectors.toMap(
+                            AiRecommendedTrainingModeVO::mode,
+                            mode -> mode,
+                            (left, right) -> left,
+                            LinkedHashMap::new
+                    ));
+            List<Map<String, Object>> enrichedModes = new ArrayList<>();
+            for (Object item : modes) {
+                if (!(item instanceof Map<?, ?> rawMode)) {
+                    continue;
+                }
+                Map<String, Object> mode = new LinkedHashMap<>();
+                rawMode.forEach((key, value) -> mode.put(String.valueOf(key), value));
+                String modeCode = mode.get("mode") == null ? null : String.valueOf(mode.get("mode"));
+                AiRecommendedTrainingModeVO allowed = modeCode == null ? null : allowedModes.get(modeCode);
+                if (allowed != null) {
+                    mode.put("label", allowed.label());
+                } else if (!mode.containsKey("label") || mode.get("label") == null) {
+                    mode.put("label", modeCode == null ? "UNKNOWN" : modeCode);
+                }
+                enrichedModes.add(mode);
+            }
+            normalized.put("recommendedTrainingModes", enrichedModes);
+        }
+        return normalized;
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value).trim());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private CanonicalGuidance canonicalizeGuidance(
             AiStructuredGuidancePayload payload,
             AiGuidanceResponseVO fallbackResponse
     ) {
@@ -451,13 +580,28 @@ public class AiInsightService {
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
-        List<AiFocusLexicalPairVO> canonicalPairs = payload.focusLexicalPairs().stream()
-                .map(pair -> allowedPairs.get(pair.lexicalPairId()))
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
-        if (canonicalPairs.size() != payload.focusLexicalPairs().size() || canonicalPairs.isEmpty()) {
-            throw new IllegalStateException("focusLexicalPairs must reference server-approved lexical pairs only");
+        List<AiFocusLexicalPairVO> canonicalPairs = new ArrayList<>();
+        for (AiStructuredGuidancePayload.ModelFocusLexicalPair pair : payload.focusLexicalPairs()) {
+            AiFocusLexicalPairVO allowed = allowedPairs.get(pair.lexicalPairId());
+            if (allowed == null) {
+                continue;
+            }
+            String focusReason = pair.focusReason() == null || pair.focusReason().isBlank()
+                    ? allowed.focusReason()
+                    : pair.focusReason();
+            canonicalPairs.add(new AiFocusLexicalPairVO(
+                    allowed.lexicalPairId(),
+                    allowed.englishWord(),
+                    allowed.frenchWord(),
+                    allowed.chineseGloss(),
+                    allowed.lexicalPairType(),
+                    allowed.riskScore(),
+                    allowed.dominantErrorType(),
+                    focusReason
+            ));
+        }
+        if (canonicalPairs.isEmpty()) {
+            throw new IllegalStateException("focusLexicalPairs must reference at least one server-approved lexical pair");
         }
 
         Map<String, AiRecommendedTrainingModeVO> allowedModes = fallbackResponse.recommendedTrainingModes().stream()
@@ -467,35 +611,57 @@ public class AiInsightService {
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
-        List<AiRecommendedTrainingModeVO> canonicalModes = payload.recommendedTrainingModes().stream()
-                .map(mode -> {
-                    AiRecommendedTrainingModeVO allowed = allowedModes.get(mode.mode());
-                    return allowed == null
-                            ? null
-                            : new AiRecommendedTrainingModeVO(allowed.mode(), allowed.label(), mode.reason());
-                })
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
-        if (canonicalModes.size() != payload.recommendedTrainingModes().size() || canonicalModes.isEmpty()) {
-            throw new IllegalStateException("recommendedTrainingModes must reference server-approved modes only");
+        List<AiRecommendedTrainingModeVO> canonicalModes = new ArrayList<>();
+        for (AiStructuredGuidancePayload.ModelRecommendedTrainingMode mode : payload.recommendedTrainingModes()) {
+            if (mode == null || mode.mode() == null) {
+                continue;
+            }
+            // Accept exact code, and also fuzzy case-insensitive match for DeepSeek variants.
+            AiRecommendedTrainingModeVO allowed = allowedModes.get(mode.mode());
+            if (allowed == null) {
+                allowed = allowedModes.entrySet().stream()
+                        .filter(entry -> entry.getKey().equalsIgnoreCase(mode.mode().trim()))
+                        .map(Map.Entry::getValue)
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (allowed == null) {
+                continue;
+            }
+            canonicalModes.add(new AiRecommendedTrainingModeVO(
+                    allowed.mode(),
+                    allowed.label(),
+                    mode.reason() == null || mode.reason().isBlank() ? allowed.reason() : mode.reason()
+            ));
         }
-        return new AiStructuredGuidancePayload(
-                payload.recommendationPath(),
-                canonicalPairs,
-                canonicalModes,
+        if (canonicalModes.isEmpty()) {
+            // Keep AI narrative when model invents mode codes; fall back to server-approved catalog.
+            canonicalModes = List.copyOf(fallbackResponse.recommendedTrainingModes());
+        }
+        if (canonicalModes.isEmpty()) {
+            throw new IllegalStateException("recommendedTrainingModes must reference at least one server-approved mode");
+        }
+
+        List<AiRecommendationPathItemVO> path = payload.recommendationPath().stream()
+                .map(item -> new AiRecommendationPathItemVO(item.title(), item.reason(), item.priority()))
+                .toList();
+
+        return new CanonicalGuidance(
+                path,
+                List.copyOf(canonicalPairs),
+                List.copyOf(canonicalModes),
                 payload.explanation(),
                 payload.teacherNote(),
                 payload.diagnosisInsight(),
                 payload.confidence(),
-                payload.citationIds(),
+                payload.citationIds() == null ? List.of() : List.copyOf(payload.citationIds()),
                 payload.uncertaintyNote()
         );
     }
 
     private boolean verifyGuidanceGrounding(
             String scene,
-            AiStructuredGuidancePayload payload,
+            CanonicalGuidance payload,
             RagRetrieveResponse grounding,
             Map<String, Object> promptPayload,
             AiUsageSummary usageSummary,
@@ -516,6 +682,7 @@ public class AiInsightService {
                 ))
                 .toList();
         if (evidence.isEmpty()) {
+            rawResponses.put("groundingVerification", "No evidence chunks matched selected citationIds");
             return false;
         }
         StructuredChatRequest verificationRequest = new StructuredChatRequest(
@@ -539,7 +706,7 @@ public class AiInsightService {
                 "GuidanceGroundingVerification",
                 Boolean.TRUE,
                 aiOutputSchemaFactory.groundingVerificationSchema(),
-                "high",
+                "low",
                 Boolean.FALSE
         );
         AiGatewayCallResult<StructuredChatResponse> verificationResult = aiGatewayClient.structuredChat(verificationRequest);
@@ -547,6 +714,12 @@ public class AiInsightService {
         if (!verificationResult.success()
                 || verificationResult.data() == null
                 || verificationResult.data().structuredData() == null) {
+            rawResponses.put(
+                    "groundingVerificationError",
+                    verificationResult.failureMessage() == null
+                            ? "Grounding verification call failed"
+                            : verificationResult.failureMessage()
+            );
             return false;
         }
         usageSummary.addStructured(verificationResult.data());
@@ -574,11 +747,31 @@ public class AiInsightService {
             String requestId,
             long latencyMs
     ) {
+        return fallback(scene, failureReason, fallbackResponse, requestId, latencyMs, null);
+    }
+
+    private AiExecutionResult fallback(
+            String scene,
+            AiGatewayFailureReason failureReason,
+            AiGuidanceResponseVO fallbackResponse,
+            String requestId,
+            long latencyMs,
+            String fallbackDetail
+    ) {
         if (!aiGatewayClientProperties.isDegradeEnabled()) {
             throw new BusinessException(ResultCode.AI_PROVIDER_UNAVAILABLE,
                     "AI generation failed for " + scene + " request " + requestId,
                     503);
         }
+        String detail = truncateDetail(fallbackDetail);
+        org.slf4j.LoggerFactory.getLogger(AiInsightService.class).warn(
+                "event=ai_scene_fallback scene={} requestId={} reason={} detail={} latencyMs={}",
+                scene,
+                requestId,
+                failureReason == null ? "UNKNOWN" : failureReason.name(),
+                detail,
+                latencyMs
+        );
         AiGuidanceResponseVO response = new AiGuidanceResponseVO(
                 fallbackResponse.requestId(),
                 AiConstants.GENERATION_SOURCE_RULE_FALLBACK,
@@ -592,9 +785,35 @@ public class AiInsightService {
                 fallbackResponse.teacherNote(),
                 fallbackResponse.diagnosisInsight(),
                 fallbackResponse.confidence(),
-                failureReason.name()
+                failureReason == null ? AiGatewayFailureReason.UNKNOWN.name() : failureReason.name(),
+                false,
+                List.of(),
+                List.of(),
+                fallbackResponse.uncertaintyNote(),
+                detail
         );
-        return new AiExecutionResult(response, null, null, failureReason.name());
+        return new AiExecutionResult(response, null, null, failureReason == null ? null : failureReason.name());
+    }
+
+    private String truncateDetail(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return null;
+        }
+        String normalized = detail.replace('\n', ' ').trim();
+        return normalized.length() <= 500 ? normalized : normalized.substring(0, 500);
+    }
+
+    private record CanonicalGuidance(
+            List<AiRecommendationPathItemVO> recommendationPath,
+            List<AiFocusLexicalPairVO> focusLexicalPairs,
+            List<AiRecommendedTrainingModeVO> recommendedTrainingModes,
+            String explanation,
+            String teacherNote,
+            DiagnosisInsightVO diagnosisInsight,
+            double confidence,
+            List<String> citationIds,
+            String uncertaintyNote
+    ) {
     }
 
     private List<AiFocusLexicalPairVO> rerankFocusPairs(

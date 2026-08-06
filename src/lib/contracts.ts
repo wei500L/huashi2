@@ -1,6 +1,7 @@
 import type {
   AiOpsProtocol,
   AssessmentAttemptStatus,
+  AssessmentPaperPurpose,
   AssessmentPaperStatus,
   AssessmentPublishStatus,
   AssessmentQuestionType,
@@ -1072,6 +1073,7 @@ export interface AiGuidanceResponseVO {
   diagnosisInsight?: DiagnosisInsightVO | null;
   confidence: number;
   fallbackReason?: string | null;
+  fallbackDetail?: string | null;
   grounded: boolean;
   citationIds: string[];
   citations: RagCitation[];
@@ -1121,6 +1123,25 @@ export interface LexicalRagAnswerVO {
   citations?: RagCitation[];
   contextChunks?: RagContextChunk[];
   fallbackReason?: string | null;
+  fallbackDetail?: string | null;
+}
+
+export interface AiAsyncJobSubmitVO {
+  jobId: string;
+  scene: string;
+  status: string;
+  createdAt?: string | null;
+}
+
+export interface AiAsyncJobVO {
+  jobId: string;
+  scene: string;
+  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | string;
+  result?: AiGuidanceResponseVO | LexicalRagAnswerVO | null;
+  errorMessage?: string | null;
+  createdAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
 }
 
 export interface LexicalRagQueryRequest {
@@ -2223,6 +2244,7 @@ export interface AssessmentPaperSaveRequest {
   title: string;
   description?: string | null;
   durationMinutes: number;
+  paperPurpose?: AssessmentPaperPurpose | null;
   questions: AssessmentQuestionRequest[];
 }
 
@@ -2454,6 +2476,7 @@ export interface AssessmentPaperSummaryVO {
   title: string;
   description?: string | null;
   status: AssessmentPaperStatus;
+  paperPurpose: AssessmentPaperPurpose;
   durationMinutes: number;
   questionCount: number;
   totalScore: number;
@@ -2467,6 +2490,7 @@ export interface AssessmentPaperDetailVO {
   title: string;
   description?: string | null;
   status: AssessmentPaperStatus;
+  paperPurpose: AssessmentPaperPurpose;
   durationMinutes: number;
   questionCount: number;
   totalScore: number;
@@ -2754,6 +2778,7 @@ export interface TeacherAssessmentAttemptResultVO {
 export type {
   AiOpsProtocol,
   AssessmentAttemptStatus,
+  AssessmentPaperPurpose,
   AssessmentPaperStatus,
   AssessmentPublishStatus,
   AssessmentQuestionType,

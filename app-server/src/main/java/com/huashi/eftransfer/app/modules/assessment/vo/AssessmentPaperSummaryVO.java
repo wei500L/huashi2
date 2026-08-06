@@ -8,6 +8,7 @@ public record AssessmentPaperSummaryVO(
         String title,
         String description,
         String status,
+        String paperPurpose,
         Integer durationMinutes,
         Integer questionCount,
         Integer totalScore,
