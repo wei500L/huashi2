@@ -12,11 +12,17 @@ const FOCUSABLE_SELECTOR = [
 let scrollLockCount = 0;
 let previousBodyOverflow = '';
 let previousBodyOverscrollBehavior = '';
+let previousBodyPaddingRight = '';
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     (element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true'
   );
+}
+
+function getScrollbarCompensation(): string {
+  const scrollbarWidth = Math.max(0, window.innerWidth - window.document.documentElement.clientWidth);
+  return scrollbarWidth > 0 ? `${scrollbarWidth}px` : '';
 }
 
 export function useBodyScrollLock(locked: boolean): void {
@@ -28,8 +34,14 @@ export function useBodyScrollLock(locked: boolean): void {
     if (scrollLockCount === 0) {
       previousBodyOverflow = window.document.body.style.overflow;
       previousBodyOverscrollBehavior = window.document.body.style.overscrollBehavior;
+      previousBodyPaddingRight = window.document.body.style.paddingRight;
+      const compensation = getScrollbarCompensation();
       window.document.body.style.overflow = 'hidden';
       window.document.body.style.overscrollBehavior = 'none';
+      // Keep layout width stable when the vertical scrollbar disappears.
+      if (compensation) {
+        window.document.body.style.paddingRight = compensation;
+      }
     }
     scrollLockCount += 1;
 
@@ -38,6 +50,7 @@ export function useBodyScrollLock(locked: boolean): void {
       if (scrollLockCount === 0) {
         window.document.body.style.overflow = previousBodyOverflow;
         window.document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+        window.document.body.style.paddingRight = previousBodyPaddingRight;
       }
     };
   }, [locked]);

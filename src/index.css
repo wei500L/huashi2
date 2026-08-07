@@ -606,14 +606,21 @@
     -webkit-backdrop-filter: none !important;
   }
 
-  /* Surface grammar: page background, stable containers, controls and dividers. */
+  /* Surface grammar: page background, stable containers, controls and dividers.
+     Do not force position:relative on overlays that also use .fixed/.absolute —
+     unlayered/later utilities would otherwise demote drawers from viewport
+     overlays into in-flow flex siblings and squeeze the page behind them. */
   .surface-card,
   .liquid-glass {
-    @apply border relative overflow-hidden;
+    @apply border overflow-hidden;
     background: hsl(var(--surface));
     border-color: hsl(var(--border-subtle));
     box-shadow: var(--shadow-sm);
     border-radius: 0.75rem !important;
+  }
+  .surface-card:not(.fixed):not(.absolute):not(.sticky),
+  .liquid-glass:not(.fixed):not(.absolute):not(.sticky) {
+    position: relative;
   }
   .dark .liquid-glass {
     background: hsl(var(--surface));
@@ -623,11 +630,15 @@
   
   .surface-panel,
   .liquid-glass-panel {
-    @apply border relative overflow-hidden;
+    @apply border overflow-hidden;
     background: hsl(var(--surface-raised));
     border-color: hsl(var(--border-subtle));
     box-shadow: var(--shadow-md);
     border-radius: 1rem !important;
+  }
+  .surface-panel:not(.fixed):not(.absolute):not(.sticky),
+  .liquid-glass-panel:not(.fixed):not(.absolute):not(.sticky) {
+    position: relative;
   }
   .dark .liquid-glass-panel {
     background: hsl(var(--surface-raised));

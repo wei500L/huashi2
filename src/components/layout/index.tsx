@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -449,7 +450,7 @@ const MobileSidebarDrawer: React.FC = () => {
     onClose: closeMobileSidebar,
   });
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isMobileSidebarOpen && (
         <>
@@ -459,7 +460,7 @@ const MobileSidebarDrawer: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeMobileSidebar}
-            className="fixed inset-0 bg-slate-950/40 z-[70] lg:hidden"
+            className="fixed inset-0 z-[70] bg-slate-950/40 lg:hidden"
           />
           <motion.aside
             ref={drawerRef}
@@ -472,7 +473,7 @@ const MobileSidebarDrawer: React.FC = () => {
             exit={reducedMotion ? undefined : { x: '-100%' }}
             /* A short, deterministic reveal keeps navigation responsive. */
             transition={reducedMotion ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="sidebar-shell safe-area-drawer fixed left-3 top-3 z-[80] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col surface-panel rounded-xl lg:hidden"
+            className="sidebar-shell safe-area-drawer surface-panel fixed left-3 top-3 z-[80] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-xl lg:hidden"
           >
             <h2 id="mobile-sidebar-title" className="sr-only">{t('shell.mobileNavigationTitle')}</h2>
             <SidebarContent
@@ -494,7 +495,8 @@ const MobileSidebarDrawer: React.FC = () => {
           </motion.aside>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
@@ -797,7 +799,7 @@ const AssistantDrawer: React.FC = () => {
     });
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {assistantOpen && (
         <>
@@ -807,7 +809,7 @@ const AssistantDrawer: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeAssistant}
-            className="fixed inset-0 bg-slate-950/40 z-[70]"
+            className="fixed inset-0 z-[70] bg-slate-950/40"
           />
           <motion.aside
             ref={drawerRef}
@@ -819,7 +821,7 @@ const AssistantDrawer: React.FC = () => {
             animate={{ x: 0 }}
             exit={reducedMotion ? undefined : { x: '100%' }}
             transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 28 }}
-            className="safe-area-drawer-panel fixed right-0 top-0 z-[80] h-[100dvh] max-h-[100dvh] w-full max-w-6xl overflow-y-auto border-l border-[hsl(var(--ai)/0.28)] surface-panel p-4 md:p-6"
+            className="safe-area-drawer-panel surface-panel fixed right-0 top-0 z-[80] h-[100dvh] max-h-[100dvh] w-full max-w-6xl overflow-y-auto border-l border-[hsl(var(--ai)/0.28)] p-4 md:p-6"
           >
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -988,7 +990,8 @@ const AssistantDrawer: React.FC = () => {
           </motion.aside>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

@@ -315,6 +315,18 @@ describe('Assistant drawer conversation flow', () => {
     vi.clearAllMocks();
   });
 
+  it('overlays the assistant drawer without inserting it into the app flex shell', async () => {
+    renderWithShell();
+
+    const dialog = await screen.findByRole('dialog', { name: '追问词汇误判原因' });
+    expect(dialog).toHaveClass('fixed');
+    expect(dialog).toHaveClass('surface-panel');
+    // Portal to body so max-w drawer never becomes an in-flow flex sibling.
+    expect(dialog.parentElement).toBe(document.body);
+    expect(document.body.contains(dialog)).toBe(true);
+    expect(dialog.closest('.min-h-screen')).toBeNull();
+  });
+
   it('renders conversation history, starts a new chat, and switches conversations', async () => {
     renderWithShell();
 
