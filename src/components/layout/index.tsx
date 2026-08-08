@@ -19,6 +19,7 @@ import {
   Menu,
   Microscope,
   Moon,
+  MoreVertical,
   Search,
   ShieldCheck,
   Settings,
@@ -1013,10 +1014,39 @@ export const Topbar: React.FC = () => {
     openMobileSidebar,
   } = useUIStore();
   const [search, setSearch] = useState(assistantDraft);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = React.useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setSearch(assistantDraft);
   }, [assistantDraft]);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!moreMenuRef.current?.contains(target)) {
+        setMoreOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [moreOpen]);
 
   const currentTitle = useMemo(() => resolveRouteTitle(location.pathname, t, location.search), [location.pathname, location.search, t]);
   const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
@@ -1038,7 +1068,7 @@ export const Topbar: React.FC = () => {
   return (
     <header className="safe-area-top sticky top-0 z-40 overflow-x-clip border-b border-border-subtle bg-surface/95 px-3 pb-2.5 sm:px-4 sm:pb-3 lg:px-8">
       <div className="mx-auto flex min-h-14 w-full max-w-[1480px] items-center justify-between gap-2 sm:gap-4">
-        <div className="relative z-10 flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+        <div className="relative z-10 flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <button
           type="button"
           aria-label={t('common.actions.openNavigation')}
@@ -1058,7 +1088,7 @@ export const Topbar: React.FC = () => {
             <ChevronLeft size={18} aria-hidden="true" />
           </button>
         )}
-        <div className="min-w-0 flex-1 sm:flex-none">
+        <div className="min-w-0 flex-1">
           <div className="type-metadata mb-1 truncate text-[0.625rem] sm:text-[0.6875rem]">
             {currentWorkspaceLabel}
           </div>
@@ -1091,7 +1121,7 @@ export const Topbar: React.FC = () => {
           </div>
         )}
       </div>
-        <div className="relative z-10 flex shrink-0 items-center gap-1.5 sm:gap-3">
+        <div className="relative z-10 flex shrink-0 items-center gap-1.5 sm:gap-2.5">
         {canUseAssistant && (
           <button
             type="button"
@@ -1108,7 +1138,7 @@ export const Topbar: React.FC = () => {
           type="button"
           aria-label={t('common.localeLabel')}
           onClick={() => setLocale(locale === 'zh-CN' ? 'en-US' : 'zh-CN')}
-          className="hidden items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold sm:flex"
+          className="hidden min-h-11 items-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold sm:flex"
         >
           {locale === 'zh-CN' ? 'EN' : '中'}
         </button>
@@ -1121,6 +1151,57 @@ export const Topbar: React.FC = () => {
         >
           {isDarkMode ? <Sun size={18} className="text-amber-400" aria-hidden="true" /> : <Moon size={18} className="text-slate-500" aria-hidden="true" />}
         </button>
+        <div ref={moreMenuRef} className="relative sm:hidden">
+          <button
+            type="button"
+            aria-label={t('common.actions.moreOptions')}
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((open) => !open)}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border-subtle p-2.5 hover:border-border-strong hover:bg-surface-sunken"
+          >
+            <MoreVertical size={18} className="text-slate-500 dark:text-white/70" aria-hidden="true" />
+          </button>
+          {moreOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 z-[50] mt-2 w-44 overflow-hidden rounded-xl border border-border-subtle bg-surface p-1 shadow-md"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setLocale(locale === 'zh-CN' ? 'en-US' : 'zh-CN');
+                  setMoreOpen(false);
+                }}
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-slate-700 hover:bg-surface-sunken dark:text-white/80"
+              >
+                {locale === 'zh-CN' ? 'English' : '中文'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  toggleDarkMode();
+                  setMoreOpen(false);
+                }}
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-slate-700 hover:bg-surface-sunken dark:text-white/80"
+              >
+                {isDarkMode ? (
+                  <>
+                    <Sun size={16} className="text-amber-400" aria-hidden="true" />
+                    {t('common.actions.lightMode')}
+                  </>
+                ) : (
+                  <>
+                    <Moon size={16} className="text-slate-500" aria-hidden="true" />
+                    {t('common.actions.darkMode')}
+                  </>
+                )}
+              </button>
+            </div>
+          ) : null}
+        </div>
         {user && (
           <Link
             to="/settings"

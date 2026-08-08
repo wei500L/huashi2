@@ -71,7 +71,7 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
   ] : [];
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16">
       <PageHeader
         eyebrow={isResearchContext ? '研究问卷' : t('ui.sections.assessments')}
         title={publish?.paperTitle || t('ui.pages.publishDetail.fallbackTitle')}
@@ -81,7 +81,7 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
             : t('ui.pages.publishDetail.loadingSubtitle')
         }
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             <Link to={isResearchContext ? '/teacher/research?tab=releases' : '/teacher/assessments'} className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
               {isResearchContext ? '返回研究问卷' : t('ui.actions.backToAssessments')}
             </Link>
@@ -98,7 +98,7 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
       />
 
       {publishQuery.error && (
-        <div role="alert" className={`rounded-[2rem] border p-6 ${accessDenied ? 'border-amber-500/25 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200' : 'border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
+        <div role="alert" className={`min-w-0 rounded-2xl border p-4 sm:p-6 ${accessDenied ? 'border-amber-500/25 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200' : 'border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
           <div className="mb-1 font-black">{accessDenied ? t('ui.pages.publishDetail.workflow.permissionTitle') : t('ui.pages.publishDetail.workflow.loadErrorTitle')}</div>
           {getApiErrorMessage(publishQuery.error)}
           <div className="mt-2 text-xs opacity-75">{t('ui.pages.publishDetail.workflow.loadErrorSafety')}</div>
@@ -106,7 +106,7 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
       )}
 
       {publishQuery.isLoading && (
-        <div className="rounded-[2.2rem] liquid-glass-panel p-8 text-sm text-slate-500 dark:text-white/45">
+        <div className="min-w-0 rounded-2xl liquid-glass-panel p-4 text-sm text-slate-500 sm:p-6 md:p-8 dark:text-white/45">
           {t('ui.labels.loadingPublishDetail')}
         </div>
       )}
@@ -119,41 +119,41 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
             stages={workflowStages}
           />
 
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-[2rem] liquid-glass-panel p-6">
+          <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
+            <div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6">
               <SectionEyebrow>{t('ui.meta.assignedStudents')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.assignedCount}</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl dark:text-white">{publish.assignedCount}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.assignedStudents')}</div>
             </div>
-            <div className="rounded-[2rem] liquid-glass-panel p-6">
+            <div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6">
               <SectionEyebrow>{t('ui.meta.notStarted')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.notStartedCount}</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl dark:text-white">{publish.notStartedCount}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.notStarted')}</div>
             </div>
-            <div className="rounded-[2rem] liquid-glass-panel p-6">
+            <div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6">
               <SectionEyebrow>{t('ui.meta.inProgress')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.inProgressCount}</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl dark:text-white">{publish.inProgressCount}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.inProgress')}</div>
             </div>
-            <div className="rounded-[2rem] liquid-glass-panel p-6">
+            <div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6">
               <SectionEyebrow>{t('ui.meta.submitted')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">{publish.submittedCount}</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl dark:text-white">{publish.submittedCount}</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.submitted')}</div>
             </div>
-            <div className="rounded-[2rem] liquid-glass-panel p-6">
+            <div className="min-w-0 col-span-2 rounded-2xl liquid-glass-panel p-4 sm:p-6 md:col-span-1 xl:col-span-1">
               <SectionEyebrow>{t('ui.meta.averageScore')}</SectionEyebrow>
-              <div className="mt-3 text-4xl font-black text-slate-900 dark:text-white">
+              <div className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl dark:text-white">
                 {publish.averageScore === null || publish.averageScore === undefined ? '--' : publish.averageScore.toFixed(1)}
               </div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.meta.averageScore')}</div>
             </div>
           </div>
 
-          <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <SectionEyebrow>{t('ui.sections.publishWindow')}</SectionEyebrow>
-                <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{publish.className}</div>
+                <div className="mt-3 break-words text-2xl font-black text-slate-900 dark:text-white">{publish.className}</div>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
                   <StatusBadge label={t('ui.meta.questionCount', { count: publish.questionCount })} />
                   <StatusBadge label={t('ui.meta.totalScore', { count: publish.totalScore })} />
@@ -161,10 +161,10 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
                   <StatusBadge label={String(publish.status)} />
                 </div>
               </div>
-              <div className="grid gap-2 text-right text-sm text-slate-500 dark:text-white/45">
-                <div>{t('ui.meta.startsAt', { time: formatDateTime(publish.startsAt) })}</div>
-                <div>{t('ui.meta.dueAt', { time: formatDateTime(publish.dueAt) })}</div>
-                <div>{t('ui.meta.publishAt', { time: formatDateTime(publish.publishedAt) })}</div>
+              <div className="grid min-w-0 gap-2 text-left text-sm text-slate-500 sm:text-right dark:text-white/45">
+                <div className="break-words">{t('ui.meta.startsAt', { time: formatDateTime(publish.startsAt) })}</div>
+                <div className="break-words">{t('ui.meta.dueAt', { time: formatDateTime(publish.dueAt) })}</div>
+                <div className="break-words">{t('ui.meta.publishAt', { time: formatDateTime(publish.publishedAt) })}</div>
               </div>
             </div>
 
@@ -181,8 +181,8 @@ const TeacherAssessmentPublishDetailPage: React.FC = () => {
             )}
           </section>
 
-          <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
-            <div>
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+            <div className="min-w-0">
               <SectionEyebrow>{t('ui.sections.roster')}</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('ui.sections.roster')}</div>
             </div>

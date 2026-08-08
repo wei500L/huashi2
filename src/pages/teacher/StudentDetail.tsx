@@ -160,7 +160,7 @@ const TeacherStudentDetailPage: React.FC = () => {
   }, [selectedIntervention]);
 
   return (
-    <div className="space-y-10 pb-20">
+    <div className="page-stack pb-16">
       <PageHeader
         eyebrow={t('ui.sections.studentMetrics')}
         title={detail ? (showIdentity ? detail.studentName : maskStudentName(detail.studentName)) : t('ui.pages.studentDetail.fallbackTitle')}
@@ -173,7 +173,7 @@ const TeacherStudentDetailPage: React.FC = () => {
             : t('ui.labels.loadingStudentContext')
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {detail ? (
               <button
                 type="button"
@@ -198,12 +198,12 @@ const TeacherStudentDetailPage: React.FC = () => {
       />
 
       {detailQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-700 dark:text-rose-300">
-          <div className="flex items-start gap-3">
+        <div className="min-w-0 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-rose-700 sm:p-6 dark:text-rose-300">
+          <div className="flex min-w-0 items-start gap-3">
             <ShieldCheck size={18} className="mt-0.5 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <div className="font-black">{errorStatus(detailQuery.error) === 403 || errorStatus(detailQuery.error) === 404 ? '学生已不在当前班级' : '学生分析暂时不可用'}</div>
-              <div className="mt-2 text-sm leading-6">{getApiErrorMessage(detailQuery.error)}</div>
+              <div className="mt-2 break-words text-sm leading-6">{getApiErrorMessage(detailQuery.error)}</div>
               <button type="button" onClick={() => void detailQuery.refetch()} className="mt-4 inline-flex items-center gap-2 rounded-full border border-rose-500/30 px-4 py-2 text-xs font-bold">
                 <RefreshCw size={13} /> 重新加载
               </button>
@@ -215,7 +215,7 @@ const TeacherStudentDetailPage: React.FC = () => {
       {detailQuery.isLoading ? <PanelSkeleton /> : null}
 
       {!detailQuery.isLoading && !detailQuery.error && !analysis ? (
-        <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white/60 p-8 text-sm leading-6 text-slate-500 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/50">
+        <div className="min-w-0 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4 text-sm leading-6 text-slate-500 sm:p-6 md:p-8 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/50">
           当前没有可用的诊断或训练证据。学生完成一次诊断后，这里会出现可追溯的薄弱点和干预建议。
         </div>
       ) : null}
@@ -228,9 +228,9 @@ const TeacherStudentDetailPage: React.FC = () => {
             const activeIntervention = studentInterventions.find((item) => item.status !== 'COMPLETED') || studentInterventions[0];
             return (
               <DecisionCard eyebrow="教师判断" title="先处理一个最重要的薄弱点">
-                <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-                  <div>
-                    <div className="text-lg font-black text-slate-900 dark:text-white">
+                <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
+                  <div className="min-w-0">
+                    <div className="break-words text-lg font-black text-slate-900 dark:text-white">
                       {topPair ? `${topPair.englishWord} / ${topPair.frenchWord}` : '暂无明确薄弱点'}
                     </div>
                     <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/65">
@@ -239,9 +239,9 @@ const TeacherStudentDetailPage: React.FC = () => {
                         : '当前样本不足以形成可靠判断，先让学生完成一次诊断或训练。'}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-primary/20 bg-white/70 p-4 dark:bg-white/[0.04]">
+                  <div className="min-w-0 rounded-2xl border border-primary/20 bg-white/70 p-4 dark:bg-white/[0.04]">
                     <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">下一步</div>
-                    <div className="mt-2 text-sm font-bold text-slate-800 dark:text-white/85">
+                    <div className="mt-2 break-words text-sm font-bold text-slate-800 dark:text-white/85">
                       {activeIntervention?.suggestedAction || `建议模式：${snapshot.recommendedTrainingMode}`}
                     </div>
                     <div className="mt-3 text-xs text-slate-500 dark:text-white/45">
@@ -253,20 +253,20 @@ const TeacherStudentDetailPage: React.FC = () => {
             );
           })()}
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="rounded-[2rem] liquid-glass p-6">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+            <div className="min-w-0 rounded-2xl liquid-glass p-4 sm:p-6">
               <SectionEyebrow className="text-xs">{t('ui.meta.correctRate')}</SectionEyebrow>
               <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
                 {formatMaybePercent(analysis.overview.latestSnapshot.recentAccuracy)}
               </div>
             </div>
-            <div className="rounded-[2rem] liquid-glass p-6">
+            <div className="min-w-0 rounded-2xl liquid-glass p-4 sm:p-6">
               <SectionEyebrow className="text-xs">{t('ui.meta.risk')}</SectionEyebrow>
               <div className="mt-3 text-3xl font-black text-rose-500">
                 {formatMaybePercent(analysis.overview.latestSnapshot.recentNegativeTransferRisk)}
               </div>
             </div>
-            <div className="rounded-[2rem] liquid-glass p-6">
+            <div className="min-w-0 rounded-2xl liquid-glass p-4 sm:p-6">
               <SectionEyebrow className="text-xs">{t('ui.fields.averageReactionTime')}</SectionEyebrow>
               <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">
                 {formatMs(analysis.overview.latestSnapshot.recentAvgReactionTimeMs)}
@@ -274,23 +274,23 @@ const TeacherStudentDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid xl:grid-cols-[0.95fr_1.05fr] gap-8">
+          <div className="content-grid-2">
             <ChartCard title={t('ui.charts.studentRadar')} option={buildRadarOption(analysis.overview.radar)} loading={detailQuery.isLoading} isEmpty={!analysis.overview.radar.length} />
             <ChartCard title={t('ui.charts.trend7d')} option={buildTrendOption(analysis.trend7d)} loading={detailQuery.isLoading} isEmpty={!analysis.trend7d.series.length} />
           </div>
 
-          <div className="grid xl:grid-cols-2 gap-8">
+          <div className="content-grid-2">
             <ChartCard title={t('ui.charts.transferHeatmap')} option={buildHeatmapOption(analysis.transferHeatmap)} loading={detailQuery.isLoading} isEmpty={!analysis.transferHeatmap.cells.length} />
             <ChartCard title={t('ui.charts.latencyAccuracyScatter')} option={buildScatterOption(analysis.scatter)} loading={detailQuery.isLoading} isEmpty={!analysis.scatter.points.length} />
           </div>
 
-          <div className="grid xl:grid-cols-[1fr_1fr_0.9fr] gap-8">
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+          <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-3">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8">
               <SectionEyebrow className="mb-6">{t('ui.sections.highRiskPairs')}</SectionEyebrow>
               <div className="space-y-4">
                 {analysis.highRiskPairs.length ? analysis.highRiskPairs.slice(0, 6).map((item) => (
-                  <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-                    <div className="font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
+                  <div key={item.lexicalPairId} className="min-w-0 rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="break-words font-black text-slate-900 dark:text-white">{item.englishWord} / {item.frenchWord}</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                       {lexicalPairTypeLabel(item.lexicalPairType)} · {t('ui.meta.risk')} {formatMaybePercent(item.riskScore)}
                     </div>
@@ -299,14 +299,14 @@ const TeacherStudentDetailPage: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8">
               <SectionEyebrow className="mb-6">{t('ui.sections.errorDistribution')}</SectionEyebrow>
               <div className="space-y-4">
                 {analysis.errorDistribution.length ? analysis.errorDistribution.slice(0, 6).map((item) => (
-                  <div key={item.key} className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-bold text-slate-900 dark:text-white">{item.label}</span>
-                      <span className="text-sm text-slate-500 dark:text-white/45">
+                  <div key={item.key} className="min-w-0 rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                    <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <span className="min-w-0 break-words font-bold text-slate-900 dark:text-white">{item.label}</span>
+                      <span className="shrink-0 text-sm text-slate-500 dark:text-white/45">
                         {item.count} / {formatMaybePercent(item.ratio)}
                       </span>
                     </div>
@@ -315,8 +315,8 @@ const TeacherStudentDetailPage: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="flex items-center gap-3 mb-6">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8">
+              <div className="mb-6 flex items-center gap-3">
                 <Brain size={16} className="text-primary" />
                 <SectionEyebrow>AI</SectionEyebrow>
               </div>
@@ -341,9 +341,9 @@ const TeacherStudentDetailPage: React.FC = () => {
             </section>
           </div>
 
-          <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8 xl:max-h-[720px] xl:overflow-y-auto">
-              <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="content-grid-sidebar">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8 xl:max-h-[720px] xl:overflow-y-auto">
+              <div className="mb-6 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <SectionEyebrow>{t('ui.sections.interventionRecords')}</SectionEyebrow>
                 <div className="text-sm text-slate-500 dark:text-white/45">{studentInterventions.length} 条</div>
               </div>
@@ -372,16 +372,16 @@ const TeacherStudentDetailPage: React.FC = () => {
                           : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
+                      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        <div className="min-w-0">
                           <div className="flex flex-wrap gap-2">
                             <StatusBadge label={interventionPriorityLabel(item.priority)} tone="warning" />
                             <StatusBadge label={interventionStatusLabel(item.status)} tone={interventionStatusTone(item.status)} />
                           </div>
-                          <div className="mt-2 font-black text-slate-900 dark:text-white">{item.patternDetected}</div>
-                          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.suggestedAction}</div>
+                          <div className="mt-2 break-words font-black text-slate-900 dark:text-white">{item.patternDetected}</div>
+                          <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{item.suggestedAction}</div>
                         </div>
-                        <div className="text-right text-xs text-slate-500 dark:text-white/45">
+                        <div className="shrink-0 text-left text-xs text-slate-500 sm:text-right dark:text-white/45">
                           <div>{formatDateTime(item.plannedAt)}</div>
                           <div className="mt-2">{formatDateTime(item.completedAt)}</div>
                         </div>
@@ -392,11 +392,11 @@ const TeacherStudentDetailPage: React.FC = () => {
               )}
             </section>
 
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8 xl:sticky xl:top-6 xl:self-start">
-              <div className="flex items-center justify-between gap-4 mb-6">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8 xl:sticky xl:top-6 xl:self-start">
+              <div className="mb-6 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <SectionEyebrow>{t('ui.sections.interventionRecords')}</SectionEyebrow>
                 {selectedIntervention && (
-                  <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.meta.lastUpdated', { time: formatDateTime(selectedIntervention.updatedAt) })}</div>
+                  <div className="min-w-0 break-words text-sm text-slate-500 dark:text-white/45">{t('ui.meta.lastUpdated', { time: formatDateTime(selectedIntervention.updatedAt) })}</div>
                 )}
               </div>
 
@@ -415,13 +415,13 @@ const TeacherStudentDetailPage: React.FC = () => {
 
                   <InterventionEffectPanel effectTracking={selectedIntervention.effectTracking} />
 
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <label className="space-y-2 text-sm">
+                  <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3">
+                    <label className="min-w-0 space-y-2 text-sm">
                       <span className="text-slate-500 dark:text-white/45">优先级</span>
                       <select
                         value={form.priority}
                         onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
-                        className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                        className="native-select w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                       >
                         {PRIORITY_OPTIONS.map((item) => (
                           <option key={item} value={item}>
@@ -431,12 +431,12 @@ const TeacherStudentDetailPage: React.FC = () => {
                       </select>
                     </label>
 
-                    <label className="space-y-2 text-sm">
+                    <label className="min-w-0 space-y-2 text-sm">
                       <span className="text-slate-500 dark:text-white/45">状态</span>
                       <select
                         value={form.status}
                         onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-                        className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                        className="native-select w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                       >
                         {STATUS_OPTIONS.map((item) => (
                           <option key={item} value={item}>
@@ -446,13 +446,13 @@ const TeacherStudentDetailPage: React.FC = () => {
                       </select>
                     </label>
 
-                    <label className="space-y-2 text-sm">
+                    <label className="min-w-0 space-y-2 text-sm">
                       <span className="text-slate-500 dark:text-white/45">计划时间</span>
                       <input
                         type="datetime-local"
                         value={form.plannedAt}
                         onChange={(event) => setForm((current) => ({ ...current, plannedAt: event.target.value }))}
-                        className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                       />
                     </label>
                   </div>

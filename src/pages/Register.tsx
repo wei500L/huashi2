@@ -265,9 +265,9 @@ const RegisterPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="absolute inset-0 bg-background" aria-hidden="true" />
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-7xl grid lg:grid-cols-[1fr_0.96fr] gap-8 items-stretch">
-          <section className="liquid-glass-panel rounded-[3rem] edge-light p-10 md:p-14 flex flex-col justify-between min-h-[720px]">
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6">
+        <div className="grid w-full max-w-7xl min-w-0 items-stretch gap-6 lg:grid-cols-[1fr_0.96fr] lg:gap-8">
+          <section className="liquid-glass-panel flex min-h-0 min-w-0 flex-col justify-between rounded-2xl edge-light p-5 sm:rounded-3xl sm:p-8 md:min-h-[720px] md:p-14">
             <div>
               <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 text-xs font-black uppercase tracking-[0.24em] text-slate-500 dark:text-white/40">
                 {t('register.badge')}
@@ -339,7 +339,7 @@ const RegisterPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="liquid-glass rounded-[3rem] edge-light p-8 md:p-10 self-center">
+          <section className="liquid-glass min-w-0 self-center rounded-2xl edge-light p-5 sm:rounded-3xl sm:p-8 md:p-10">
             <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">{t('register.accountRegister')}</div>
             <h2 className="type-section-title mt-3 text-slate-900 dark:text-white">{t('register.accountRegisterTitle')}</h2>
 

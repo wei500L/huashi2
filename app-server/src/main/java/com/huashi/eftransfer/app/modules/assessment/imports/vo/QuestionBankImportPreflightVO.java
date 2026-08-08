@@ -10,6 +10,7 @@ public record QuestionBankImportPreflightVO(
         long errorCount,
         long warningCount,
         long reviewRequiredCount,
+        int scoredItemCount,
         List<QuestionBankImportIssueVO> issues
 ) {
 }

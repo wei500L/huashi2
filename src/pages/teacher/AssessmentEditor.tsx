@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Plus, Send, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, Download, Plus, Send, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageHeader, SectionEyebrow, StatusBadge, WorkflowStepper } from '@/components/common';
 import type { WorkflowStage } from '@/components/common';
@@ -31,6 +31,16 @@ type QuestionDraft = {
   correctAnswers: string[];
   explanationText: string;
   score: number;
+  questionVersionId?: number | null;
+  sectionCode?: string | null;
+  requiredAnswer: boolean;
+  weight: number;
+  transferCategory?: AssessmentQuestionRequest['transferCategory'];
+  contextLevel?: AssessmentQuestionRequest['contextLevel'];
+  constructCode?: AssessmentQuestionRequest['constructCode'];
+  targetWord?: string | null;
+  optionExplanations: Record<string, string>;
+  displayCondition: Record<string, unknown>;
 };
 
 type PaperDraft = {
@@ -49,11 +59,51 @@ type PublishDraft = {
   resultReleasePolicy: AssessmentResultReleasePolicy;
 };
 
+type PublishedAccess = {
+  releaseCode: string;
+  participationCodes: string[];
+};
+
 const QUESTION_TYPE_OPTIONS: Array<{ value: AssessmentQuestionType; label: string }> = [
   { value: 'SINGLE_CHOICE', label: '单选题' },
   { value: 'MULTIPLE_CHOICE', label: '多选题' },
   { value: 'FILL_BLANK', label: '填空题' },
 ];
+
+QUESTION_TYPE_OPTIONS.unshift(
+  { value: 'INSTRUCTION', label: '说明文字' },
+  { value: 'INFORMED_CONSENT', label: '知情同意' },
+  { value: 'SHORT_TEXT', label: '短文本' },
+  { value: 'NUMBER', label: '数字填写' },
+);
+QUESTION_TYPE_OPTIONS.push({ value: 'TRUE_FALSE_WITH_JUSTIFICATION', label: '判断并说明理由' });
+
+const CHOICE_QUESTION_TYPES = new Set<AssessmentQuestionType>([
+  'INFORMED_CONSENT',
+  'SINGLE_CHOICE',
+  'MULTIPLE_CHOICE',
+  'TRUE_FALSE_WITH_JUSTIFICATION',
+]);
+
+function isChoiceQuestionType(questionType: AssessmentQuestionType) {
+  return CHOICE_QUESTION_TYPES.has(questionType);
+}
+
+function parseJsonRecord(value?: string | null): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseStringRecord(value?: string | null): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(parseJsonRecord(value)).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+}
 
 function createId() {
   return Math.random().toString(36).slice(2, 10);
@@ -73,10 +123,14 @@ function createQuestion(questionType: AssessmentQuestionType = 'SINGLE_CHOICE'):
     questionType,
     stemText: '',
     promptText: '',
-    options: questionType === 'FILL_BLANK' ? [] : [createOption(0), createOption(1), createOption(2), createOption(3)],
+    options: isChoiceQuestionType(questionType) ? [createOption(0), createOption(1), createOption(2), createOption(3)] : [],
     correctAnswers: [],
     explanationText: '',
     score: 10,
+    requiredAnswer: true,
+    weight: 1,
+    optionExplanations: {},
+    displayCondition: {},
   };
 }
 
@@ -103,6 +157,16 @@ function toDraft(detail: AssessmentPaperDetailVO): PaperDraft {
       correctAnswers: question.correctAnswers.slice(),
       explanationText: question.explanationText || '',
       score: question.score,
+      questionVersionId: question.questionVersionId,
+      sectionCode: question.sectionCode,
+      requiredAnswer: question.requiredAnswer ?? true,
+      weight: Number(question.weight ?? 1),
+      transferCategory: question.transferCategory,
+      contextLevel: question.contextLevel,
+      constructCode: question.constructCode,
+      targetWord: question.targetWord,
+      optionExplanations: parseStringRecord(question.optionExplanationsJson),
+      displayCondition: parseJsonRecord(question.displayConditionJson),
     })),
   };
 }
@@ -116,19 +180,29 @@ function serializeDraft(draft: PaperDraft): AssessmentPaperSaveRequest {
       questionType: question.questionType,
       stemText: question.stemText.trim(),
       promptText: question.promptText.trim() || undefined,
-      options:
-        question.questionType === 'FILL_BLANK'
-          ? undefined
-          : question.options.map((option) => ({
+      options: isChoiceQuestionType(question.questionType)
+        ? question.options.map((option) => ({
               key: option.key,
               label: option.label.trim(),
-            })),
-      correctAnswers:
-        question.questionType === 'FILL_BLANK'
-          ? question.correctAnswers.map((answer) => answer.trim()).filter(Boolean)
-          : question.correctAnswers,
+            }))
+        : undefined,
+      correctAnswers: question.questionType === 'FILL_BLANK'
+        ? question.correctAnswers.map((answer) => answer.trim()).filter(Boolean)
+        : isChoiceQuestionType(question.questionType)
+          ? question.correctAnswers
+          : [],
       explanationText: question.explanationText.trim() || undefined,
       score: Number(question.score),
+      questionVersionId: question.questionVersionId,
+      sectionCode: question.sectionCode,
+      requiredAnswer: question.requiredAnswer,
+      weight: question.weight,
+      transferCategory: question.transferCategory,
+      contextLevel: question.contextLevel,
+      constructCode: question.constructCode,
+      targetWord: question.targetWord,
+      optionExplanations: question.optionExplanations,
+      displayCondition: question.displayCondition,
     })),
   };
 }
@@ -168,6 +242,47 @@ function validatePaperDraft(draft: PaperDraft): string[] {
   return errors;
 }
 
+export function validateEditorPaperDraft(draft: PaperDraft, isResearchContext: boolean): string[] {
+  const isLegacyClassPaper = !isResearchContext && draft.questions.every((question) =>
+    question.questionType === 'SINGLE_CHOICE'
+    || question.questionType === 'MULTIPLE_CHOICE'
+    || question.questionType === 'FILL_BLANK');
+  if (isLegacyClassPaper) return validatePaperDraft(draft);
+
+  const errors: string[] = [];
+  if (!draft.title.trim()) errors.push('请填写试卷标题。');
+  if (!Number.isFinite(draft.durationMinutes) || draft.durationMinutes < 1) errors.push('测评时长必须大于 0 分钟。');
+  if (!draft.questions.length) errors.push('至少需要保留一道题目。');
+
+  draft.questions.forEach((question, index) => {
+    const prefix = `第 ${index + 1} 题`;
+    const basicInfoItem = isResearchContext && question.sectionCode === 'BASIC_INFO';
+    const instruction = question.questionType === 'INSTRUCTION';
+    const scoredItem = Number(question.score) > 0;
+
+    if (!question.stemText.trim()) errors.push(`${prefix}缺少题干。`);
+    if (!Number.isFinite(question.score) || question.score < 0) errors.push(`${prefix}分值不能小于 0。`);
+    if (!basicInfoItem && !instruction && !scoredItem) errors.push(`${prefix}分值必须大于 0。`);
+
+    if (isChoiceQuestionType(question.questionType)) {
+      if (question.options.length < 2 || question.options.some((option) => !option.label.trim())) {
+        errors.push(`${prefix}至少需要两个已填写的选项。`);
+      }
+      if (scoredItem && !question.correctAnswers.length) errors.push(`${prefix}尚未设置正确答案。`);
+      else if (scoredItem && question.questionType !== 'MULTIPLE_CHOICE' && question.correctAnswers.length !== 1) {
+        errors.push(`${prefix}必须且只能设置一个正确答案。`);
+      }
+      return;
+    }
+
+    if (question.questionType === 'FILL_BLANK' && scoredItem
+        && !question.correctAnswers.some((answer) => answer.trim())) {
+      errors.push(`${prefix}至少需要一个可接受答案。`);
+    }
+  });
+  return errors;
+}
+
 const TeacherAssessmentEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -187,6 +302,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   });
   const [feedback, setFeedback] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [publishedAccess, setPublishedAccess] = React.useState<PublishedAccess | null>(null);
   const hydratedPaperIdRef = React.useRef<number | null>(null);
   const savedDraftSignatureRef = React.useRef(JSON.stringify(serializeDraft(createEmptyDraft())));
 
@@ -269,6 +385,12 @@ const TeacherAssessmentEditorPage: React.FC = () => {
         resultReleasePolicy: publishDraft.resultReleasePolicy,
       }),
     onSuccess: async (published) => {
+      if (isResearchContext && published.releaseCode && published.participationCodes?.length) {
+        setPublishedAccess({
+          releaseCode: published.releaseCode,
+          participationCodes: published.participationCodes,
+        });
+      }
       setFeedback(isResearchContext
         ? `研究问卷已发布。发布编号：${published.releaseCode || '已生成'}；参与码已生成 ${published.participationCodes?.length || 0} 个。`
         : '试卷已发布到班级。');
@@ -316,7 +438,10 @@ const TeacherAssessmentEditorPage: React.FC = () => {
     publishDraft.resultReleasePolicy !== 'AFTER_DUE'
   );
   const hasUnsavedChanges = (!isEditLocked && isDraftDirty) || isPublishDraftDirty;
-  const validationErrors = React.useMemo(() => validatePaperDraft(draft), [draftSignature]);
+  const validationErrors = React.useMemo(
+    () => validateEditorPaperDraft(draft, isResearchContext),
+    [draftSignature, isResearchContext],
+  );
   const hasPublished = Boolean(detailQuery.data?.publishes.length);
   const accessDenied = [detailQuery.error, saveMutation.error, publishMutation.error]
     .filter(Boolean)
@@ -345,6 +470,34 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   const scrollToStage = React.useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
+
+  const copyPublishedCodes = React.useCallback(async () => {
+    if (!publishedAccess) return;
+    try {
+      await navigator.clipboard.writeText(publishedAccess.participationCodes.join('\n'));
+      setFeedback(`已复制 ${publishedAccess.participationCodes.length} 个参与码。请立即妥善保存；服务器不会保存明文。`);
+      setErrorMessage(null);
+    } catch (error) {
+      setFeedback(null);
+      setErrorMessage(getApiErrorMessage(error, '复制参与码失败，请使用下载按钮保存'));
+    }
+  }, [publishedAccess]);
+
+  const downloadPublishedCodes = React.useCallback(() => {
+    if (!publishedAccess) return;
+    const rows = ['releaseCode,participationCode', ...publishedAccess.participationCodes.map((code) => `${publishedAccess.releaseCode},${code}`)];
+    const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${publishedAccess.releaseCode}-participation-codes.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setFeedback(`已下载 ${publishedAccess.participationCodes.length} 个参与码。`);
+    setErrorMessage(null);
+  }, [publishedAccess]);
 
   const workflowStages: WorkflowStage[] = [
     {
@@ -416,13 +569,16 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   ];
 
   const renderQuestionEditor = (question: QuestionDraft, index: number) => {
-    const isSingleChoice = question.questionType === 'SINGLE_CHOICE';
+    const isSingleChoice = question.questionType === 'SINGLE_CHOICE'
+      || question.questionType === 'INFORMED_CONSENT'
+      || question.questionType === 'TRUE_FALSE_WITH_JUSTIFICATION';
+    const isChoiceQuestion = isChoiceQuestionType(question.questionType);
     const isFillBlank = question.questionType === 'FILL_BLANK';
 
     return (
-      <div key={question.id} className="rounded-[2rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+      <div key={question.id} className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 sm:rounded-[2rem] sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <SectionEyebrow>第 {index + 1} 题</SectionEyebrow>
             <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">{assessmentQuestionTypeLabel(question.questionType)}</div>
           </div>
@@ -459,8 +615,8 @@ const TeacherAssessmentEditorPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-[1fr_180px_140px]">
-          <label className="space-y-2 text-sm">
+        <div className="mt-5 grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,11rem)_minmax(0,9rem)]">
+          <label className="min-w-0 space-y-2 text-sm md:col-span-2 lg:col-span-1">
             <span className="text-slate-500 dark:text-white/45">题干</span>
             <textarea
               value={question.stemText}
@@ -479,12 +635,12 @@ const TeacherAssessmentEditorPage: React.FC = () => {
               onChange={(event) =>
                 updateQuestion(question.id, (current) => {
                   const nextType = event.target.value as AssessmentQuestionType;
-                  if (nextType === 'FILL_BLANK') {
+                  if (!isChoiceQuestionType(nextType)) {
                     return {
                       ...current,
                       questionType: nextType,
                       options: [],
-                      correctAnswers: [],
+                      correctAnswers: nextType === 'FILL_BLANK' ? current.correctAnswers : [],
                     };
                   }
                   const nextOptions = current.options.length >= 2 ? current.options : [createOption(0), createOption(1), createOption(2), createOption(3)];
@@ -492,7 +648,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                     ...current,
                     questionType: nextType,
                     options: nextOptions,
-                    correctAnswers: nextType === 'SINGLE_CHOICE' ? current.correctAnswers.slice(0, 1) : current.correctAnswers,
+                    correctAnswers: nextType === 'MULTIPLE_CHOICE' ? current.correctAnswers : current.correctAnswers.slice(0, 1),
                   };
                 })
               }
@@ -510,14 +666,14 @@ const TeacherAssessmentEditorPage: React.FC = () => {
             <span className="text-slate-500 dark:text-white/45">分值</span>
             <input
               type="number"
-              min={1}
+              min={0}
               step={1}
               value={question.score}
               disabled={isEditLocked}
               onChange={(event) =>
                 updateQuestion(question.id, (current) => ({
                   ...current,
-                  score: Number(event.target.value || 1),
+                  score: Number(event.target.value || 0),
                 }))
               }
               className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
@@ -525,8 +681,8 @@ const TeacherAssessmentEditorPage: React.FC = () => {
           </label>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="space-y-2 text-sm">
+        <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="min-w-0 space-y-2 text-sm">
             <span className="text-slate-500 dark:text-white/45">补充说明</span>
             <input
               value={question.promptText}
@@ -549,9 +705,9 @@ const TeacherAssessmentEditorPage: React.FC = () => {
           </label>
         </div>
 
-        {!isFillBlank && (
+        {isChoiceQuestion && (
           <div className="mt-5 space-y-3">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div className="text-sm font-semibold text-slate-700 dark:text-white/70">选项与答案</div>
               <button
                 type="button"
@@ -571,7 +727,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
             {question.options.map((option) => {
               const selected = question.correctAnswers.includes(option.key);
               return (
-                <div key={option.id} className="grid gap-3 md:grid-cols-[80px_1fr_140px]">
+                <div key={option.id} className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,5rem)_minmax(0,1fr)] lg:grid-cols-[minmax(0,5rem)_minmax(0,1fr)_minmax(0,9rem)]">
                   <div className="rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-center font-black text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
                     {option.key}
                   </div>
@@ -586,10 +742,10 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                         ),
                       }))
                     }
-                    className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
+                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
                     placeholder={`选项 ${option.key}`}
                   />
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 sm:col-span-2 lg:col-span-1 dark:border-white/10 dark:bg-white/5">
                     <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-white/60">
                       <input
                         type={isSingleChoice ? 'radio' : 'checkbox'}
@@ -653,7 +809,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16">
       <PageHeader
         eyebrow={isResearchContext ? '研究问卷' : '通用测评'}
         title={isResearchContext ? (isCreateMode ? '新建研究问卷' : '编辑研究问卷') : (isCreateMode ? '新建通用测评' : '编辑通用测评')}
@@ -665,7 +821,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
             : `${isResearchContext ? '研究问卷' : '试卷'} #${paperId} · 最近发布 ${formatDateTime(detailQuery.data?.latestPublishAt)}`
         }
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             <Link to={isResearchContext ? '/teacher/research?tab=questionnaires' : '/teacher/assessments'} className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
               {isResearchContext ? '返回研究问卷' : '返回列表'}
             </Link>
@@ -702,38 +858,65 @@ const TeacherAssessmentEditorPage: React.FC = () => {
         )}
 
         {detailQuery.error && (
-          <div role="alert" className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+          <div role="alert" className="min-w-0 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-rose-500 sm:p-6">
             {accessDenied && <div className="mb-1 font-black">权限拒绝：无法读取这份试卷。</div>}
             {getApiErrorMessage(detailQuery.error)}
           </div>
         )}
       </div>
 
+      {publishedAccess && (
+        <section className="min-w-0 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.08] p-4 sm:p-6" role="status">
+          <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <SectionEyebrow>一次性参与凭证</SectionEyebrow>
+              <h2 className="mt-2 text-xl font-black text-slate-900 dark:text-white">发布成功，请现在保存参与码</h2>
+              <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
+                发布编号：{publishedAccess.releaseCode}。出于安全原因，服务器只保存摘要；离开或刷新页面后无法恢复这些明文码。
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button type="button" onClick={copyPublishedCodes} className="rounded-full border border-emerald-600/30 px-4 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                <Copy size={14} className="mr-2 inline-block" />复制全部
+              </button>
+              <button type="button" onClick={downloadPublishedCodes} className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-bold text-white">
+                <Download size={14} className="mr-2 inline-block" />下载 CSV
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 grid min-w-0 grid-cols-1 gap-2 font-mono text-sm sm:grid-cols-2 xl:grid-cols-3">
+            {publishedAccess.participationCodes.map((code) => (
+              <code key={code} className="break-all rounded-xl border border-emerald-600/20 bg-white/70 px-4 py-3 text-slate-900 dark:bg-black/20 dark:text-white">{code}</code>
+            ))}
+          </div>
+        </section>
+      )}
+
       {validationErrors.length > 0 && (
-        <section id="assessment-validation" role="alert" className="scroll-mt-24 rounded-[2rem] border border-rose-500/25 bg-rose-500/[0.07] p-6 text-rose-700 dark:text-rose-300">
+        <section id="assessment-validation" role="alert" className="scroll-mt-24 min-w-0 rounded-2xl border border-rose-500/25 bg-rose-500/[0.07] p-4 text-rose-700 sm:p-6 dark:text-rose-300">
           <div className="font-black">校验未通过 · {validationErrors.length} 项必须处理</div>
           <div className="mt-2 text-sm">错误保持展开显示；修复后保存当前版本，再进入预览和发布。</div>
-          <ul className="mt-4 grid gap-2 text-sm md:grid-cols-2">
-            {validationErrors.map((message) => <li key={message} className="rounded-xl border border-current/10 bg-white/35 px-4 py-3">{message}</li>)}
+          <ul className="mt-4 grid min-w-0 grid-cols-1 gap-2 text-sm md:grid-cols-2">
+            {validationErrors.map((message) => <li key={message} className="min-w-0 break-words rounded-xl border border-current/10 bg-white/35 px-4 py-3">{message}</li>)}
           </ul>
         </section>
       )}
 
-      <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-        <section id="assessment-input" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
-          <div className="grid gap-4 md:grid-cols-[1fr_180px]">
-            <label className="space-y-2 text-sm">
+      <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:gap-8">
+        <section id="assessment-input" className="scroll-mt-24 min-w-0 space-y-6 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,11rem)]">
+            <label className="min-w-0 space-y-2 text-sm">
               <span className="text-slate-500 dark:text-white/45">试卷标题</span>
               <input
                 value={draft.title}
                 disabled={isEditLocked}
                 onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
+                className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
                 placeholder="例如：Unit 3 阅读与词汇测评"
               />
             </label>
 
-            <label className="space-y-2 text-sm">
+            <label className="min-w-0 space-y-2 text-sm">
               <span className="text-slate-500 dark:text-white/45">时长（分钟）</span>
               <input
                 type="number"
@@ -747,24 +930,24 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                     durationMinutes: Number(event.target.value || 1),
                   }))
                 }
-                className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
+                className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
               />
             </label>
           </div>
 
-          <label className="block space-y-2 text-sm">
+          <label className="block min-w-0 space-y-2 text-sm">
             <span className="text-slate-500 dark:text-white/45">试卷描述</span>
             <textarea
               value={draft.description}
               disabled={isEditLocked}
               onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
               rows={3}
-              className="w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
+              className="w-full min-w-0 rounded-[1.8rem] border border-slate-200 bg-white/70 px-4 py-3 disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
             />
           </label>
 
-          <div className="flex items-center justify-between gap-4">
-            <div>
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <div className="text-lg font-black text-slate-900 dark:text-white">题目列表</div>
               <div className="mt-2 text-sm text-slate-500 dark:text-white/45">支持单选、多选、填空；学生端按整卷作答，并有统一交卷与结果回看。</div>
             </div>
@@ -772,20 +955,20 @@ const TeacherAssessmentEditorPage: React.FC = () => {
               type="button"
               disabled={isEditLocked}
               onClick={() => setDraft((current) => ({ ...current, questions: [...current.questions, createQuestion()] }))}
-              className="rounded-full border border-slate-200 px-4 py-3 text-sm font-bold disabled:opacity-40 dark:border-white/10"
+              className="shrink-0 rounded-full border border-slate-200 px-4 py-3 text-sm font-bold disabled:opacity-40 dark:border-white/10"
             >
               <Plus size={14} className="inline-block mr-2" />
               添加题目
             </button>
           </div>
 
-          <div className="space-y-5">
+          <div className="min-w-0 space-y-5">
             {draft.questions.map((question, index) => renderQuestionEditor(question, index))}
           </div>
         </section>
 
-        <section className="space-y-8">
-          <div id="assessment-preview" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+        <section className="min-w-0 space-y-5 sm:space-y-8">
+          <div id="assessment-preview" className="scroll-mt-24 min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
             <div>
               <SectionEyebrow>概览</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">试卷概览</div>
@@ -809,7 +992,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
             </div>
           </div>
 
-          <div id="assessment-publish" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+          <div id="assessment-publish" className="scroll-mt-24 min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
             <div>
               <SectionEyebrow>发布</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{isResearchContext ? '发布公开研究问卷' : '发布到班级'}</div>
@@ -856,23 +1039,23 @@ const TeacherAssessmentEditorPage: React.FC = () => {
                   </label>
                 )}
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2 text-sm">
+                <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="min-w-0 space-y-2 text-sm">
                     <span className="text-slate-500 dark:text-white/45">开始时间</span>
                     <input
                       type="datetime-local"
                       value={publishDraft.startsAt}
                       onChange={(event) => setPublishDraft((current) => ({ ...current, startsAt: event.target.value }))}
-                      className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                      className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                     />
                   </label>
-                  <label className="space-y-2 text-sm">
+                  <label className="min-w-0 space-y-2 text-sm">
                     <span className="text-slate-500 dark:text-white/45">截止时间</span>
                     <input
                       type="datetime-local"
                       value={publishDraft.dueAt}
                       onChange={(event) => setPublishDraft((current) => ({ ...current, dueAt: event.target.value }))}
-                      className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                      className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                     />
                   </label>
                 </div>
@@ -929,7 +1112,7 @@ const TeacherAssessmentEditorPage: React.FC = () => {
           </div>
 
           {!isCreateMode && (
-            <div id="assessment-complete" className="scroll-mt-24 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+            <div id="assessment-complete" className="scroll-mt-24 min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
               <div>
                 <SectionEyebrow>记录</SectionEyebrow>
                 <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">发布记录</div>

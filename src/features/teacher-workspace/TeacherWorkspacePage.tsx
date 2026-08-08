@@ -219,7 +219,7 @@ const TeacherWorkspacePage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="page-stack pb-16">
       <WorkspaceHero
         eyebrow={t('teacherWorkspace.heroEyebrow')}
         title={t('teacherWorkspace.heroTitle', {
@@ -228,7 +228,7 @@ const TeacherWorkspacePage: React.FC = () => {
         subtitle={t('teacherWorkspace.heroSubtitle')}
         meta={overviewQuery.data?.organizationLabel || t('teacherWorkspace.organizationFallback')}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="page-actions w-full sm:w-auto">
             <Link
               to={buildWorkspaceLink('/teacher/classes', { source: 'workspace' })}
               className="rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-white/75"
@@ -263,8 +263,8 @@ const TeacherWorkspacePage: React.FC = () => {
             </section>
           ) : null}
 
-          <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
-            <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="content-grid-sidebar">
+            <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="border-b border-slate-200/70 px-4 py-3 dark:border-white/10">
                 <WorkspaceSectionHeader
                   eyebrow={t('teacherWorkspace.todayTodoTitle')}
@@ -286,7 +286,7 @@ const TeacherWorkspacePage: React.FC = () => {
               ) : null}
             </section>
 
-            <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
               <WorkspaceSectionHeader
                 eyebrow={t('teacherWorkspace.riskStudentsEyebrow')}
                 title={t('teacherWorkspace.riskStudentsTitle')}
@@ -303,7 +303,7 @@ const TeacherWorkspacePage: React.FC = () => {
                     to={buildWorkspaceLink('/teacher/interventions', {
                       view: 'pending', focusId: item.id, classId: item.classId, studentUserId: item.studentUserId, source: 'workspace',
                     })}
-                    className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                    className="flex min-w-0 items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
                   >
                     <div className="min-w-0">
                       <div className="truncate text-sm font-bold text-slate-900 dark:text-white">{item.studentName || '--'}</div>
@@ -313,7 +313,7 @@ const TeacherWorkspacePage: React.FC = () => {
                   </Link>
                 ))}
                 {!overviewQuery.data?.pendingInterventions.length && riskClasses.slice(0, 3).map((item) => (
-                  <Link key={item.classId} to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <Link key={item.classId} to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })} className="flex min-w-0 items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                     <span className="min-w-0 truncate text-sm font-bold text-slate-900 dark:text-white" title={item.className}>{item.className}</span>
                     <span className="shrink-0 text-xs font-black text-rose-600 dark:text-rose-300">{t('teacherWorkspace.riskStudentCount', { count: item.highRiskStudentCount })}</span>
                   </Link>
@@ -325,14 +325,14 @@ const TeacherWorkspacePage: React.FC = () => {
             </section>
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
-            <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="content-grid-sidebar">
+            <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
               <WorkspaceSectionHeader eyebrow={t('teacherWorkspace.recentActivityEyebrow')} title={t('teacherWorkspace.recentActivityTitle')} />
               <div className="mt-3 divide-y divide-slate-200/70 dark:divide-white/10">
                 {recentActivity.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link key={item.id} to={item.to} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <Link key={item.id} to={item.to} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                       <span className="rounded-lg bg-slate-100 p-2 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"><Icon size={14} /></span>
                       <span className="min-w-0">
                         <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 dark:text-white/30">{item.label}</span>
@@ -347,7 +347,7 @@ const TeacherWorkspacePage: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
               <WorkspaceSectionHeader
                 eyebrow={t('teacherWorkspace.sections.classes')}
                 title={t('teacherWorkspace.sections.classesSubtitle')}
@@ -355,8 +355,8 @@ const TeacherWorkspacePage: React.FC = () => {
               />
               <div className="mt-3 space-y-2">
                 {overviewQuery.data?.recentClasses.length ? overviewQuery.data.recentClasses.slice(0, 4).map((item) => (
-                  <Link key={item.classId} to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })} className="block rounded-xl border border-slate-200/70 px-3 py-2.5 transition-colors hover:border-primary/35 dark:border-white/10">
-                    <div className="flex items-center justify-between gap-3">
+                  <Link key={item.classId} to={buildWorkspaceLink(`/teacher/classes/${item.classId}`, { source: 'workspace' })} className="block min-w-0 rounded-xl border border-slate-200/70 px-3 py-2.5 transition-colors hover:border-primary/35 dark:border-white/10">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-bold text-slate-900 dark:text-white" title={item.className}>{item.className}</div>
                         <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-white/45">{item.classCode} · {t('teacherWorkspace.classMeta', { studentCount: item.studentCount, highRiskStudentCount: item.highRiskStudentCount })}</div>

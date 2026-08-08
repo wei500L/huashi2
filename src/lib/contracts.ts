@@ -2238,6 +2238,16 @@ export interface AssessmentQuestionRequest {
   correctAnswers: string[];
   explanationText?: string | null;
   score: number;
+  questionVersionId?: number | null;
+  sectionCode?: string | null;
+  requiredAnswer?: boolean | null;
+  weight?: number | null;
+  transferCategory?: TransferCategory | null;
+  contextLevel?: AssessmentContextLevel | null;
+  constructCode?: ConstructCode | null;
+  targetWord?: string | null;
+  optionExplanations?: Record<string, string>;
+  displayCondition?: Record<string, unknown>;
 }
 
 export interface AssessmentPaperSaveRequest {
@@ -2397,11 +2407,13 @@ export interface QuestionBankListParams {
 }
 
 export interface QuestionBankImportIssueVO {
+  issueId?: number | string | null;
   sheet?: string | null;
   rowNumber?: number | null;
   field?: string | null;
   severity: 'ERROR' | 'WARNING' | 'REVIEW_REQUIRED' | string;
   code: string;
+  itemCode?: string | null;
   message: string;
 }
 
@@ -2413,7 +2425,22 @@ export interface QuestionBankImportPreflightVO {
   errorCount: number;
   warningCount: number;
   reviewRequiredCount: number;
+  scoredItemCount: number;
   issues: QuestionBankImportIssueVO[];
+}
+
+export interface QuestionBankImportReviewVO {
+  importId: number | string;
+  publishable: boolean;
+  openReviewCount: number;
+  rejectedCount: number;
+  status: 'READY' | 'REVIEW_REQUIRED' | string;
+}
+
+export interface ContentReviewResolutionRequest {
+  decision: 'APPROVED' | 'REJECTED';
+  resolutionNote: string;
+  issueIds?: Array<number | string>;
 }
 
 export interface QuestionBankImportCommitRequest {
@@ -2446,6 +2473,16 @@ export interface AssessmentPaperQuestionVO {
   correctAnswers: string[];
   explanationText?: string | null;
   score: number;
+  questionVersionId?: number | null;
+  sectionCode?: string | null;
+  requiredAnswer?: boolean | null;
+  weight?: number | null;
+  transferCategory?: TransferCategory | null;
+  contextLevel?: AssessmentContextLevel | null;
+  constructCode?: ConstructCode | null;
+  targetWord?: string | null;
+  optionExplanationsJson?: string | null;
+  displayConditionJson?: string | null;
 }
 
 export interface AssessmentPublishSummaryVO {

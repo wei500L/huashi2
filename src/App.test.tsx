@@ -51,6 +51,10 @@ vi.mock('./pages/Login', () => ({
   },
 }));
 
+vi.mock('./pages/research/index', () => ({
+  default: () => <div data-testid="research-page">research-page</div>,
+}));
+
 const mockUser: CurrentUserVO = {
   id: 1,
   username: 'student.demo',
@@ -108,6 +112,43 @@ const teacherSession: LoginResponse = {
 
 const originalAuthState = useAuthStore.getState();
 const originalUiState = useUIStore.getState();
+
+describe('App public research auth isolation', () => {
+  afterEach(() => {
+    useAuthStore.setState(originalAuthState);
+    useUIStore.setState(originalUiState);
+    window.localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('renders the public questionnaire without initializing the account session', async () => {
+    const initialize = vi.fn().mockResolvedValue(undefined);
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      status: 'idle',
+      session: mockSession,
+      user: mockUser,
+      error: null,
+      initialize,
+    });
+    useUIStore.setState({
+      ...useUIStore.getState(),
+      locale: 'zh-CN',
+      isDarkMode: false,
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/research/RES-AFC02D0823F2']}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByTestId('research-page')).toBeInTheDocument();
+    expect(initialize).not.toHaveBeenCalled();
+  });
+});
 
 describe('App auth-expired handling', () => {
   beforeEach(() => {
@@ -368,7 +409,7 @@ describe('App auth-expired handling', () => {
     expect(await screen.findByText('settings-page')).toBeInTheDocument();
   });
 
-  it('routes multi-workspace users with student capability and incomplete profiles to settings', async () => {
+  it('keeps multi-workspace users on their default workspace home when only the student profile is incomplete', async () => {
     const client = new QueryClient({
       defaultOptions: {
         queries: {
@@ -395,7 +436,8 @@ describe('App auth-expired handling', () => {
       );
     });
 
-    expect(await screen.findByText('settings-page')).toBeInTheDocument();
+    // Profile completion is scoped to the student shell; multi-role admins land on admin home.
+    expect(await screen.findByText('admin-dashboard')).toBeInTheDocument();
   });
 
   it('keeps multi-workspace users on their default workspace home after the student profile is complete', async () => {

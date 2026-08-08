@@ -651,11 +651,51 @@
   .surface-control:hover { border-color: hsl(var(--border-strong)); box-shadow: var(--shadow-sm); }
   .surface-divider { border-color: hsl(var(--border-subtle)); }
 
+  /* Mobile-first page grammar shared across workspaces. */
+  .page-stack {
+    @apply min-w-0 space-y-5 sm:space-y-6;
+  }
+
+  .page-panel {
+    @apply min-w-0 rounded-2xl border border-border-subtle p-4 sm:rounded-3xl sm:p-5 md:p-6;
+    background: hsl(var(--surface-raised));
+    box-shadow: var(--shadow-md);
+  }
+
+  .page-toolbar {
+    @apply flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between;
+  }
+
+  .page-actions {
+    @apply flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center;
+  }
+
+  .page-actions > :where(a, button) {
+    @apply w-full justify-center sm:w-auto;
+  }
+
+  .filter-field {
+    @apply w-full min-w-0 sm:w-auto sm:min-w-[12rem];
+  }
+
+  .stat-grid {
+    @apply grid min-w-0 grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4;
+  }
+
+  .content-grid-2 {
+    @apply grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6;
+  }
+
+  .content-grid-sidebar {
+    @apply grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-6;
+  }
+
   /* Reusable data-display grammar: calm tabs and predictable density. */
   .page-tabs,
   .local-tabs {
     overflow-x: auto;
     scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Allow explicitly scrollable panels (drawers and long forms) to override

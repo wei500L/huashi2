@@ -81,7 +81,7 @@ const TeacherClassesPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="page-stack pb-16">
       <PageHeader
         compact
         title={t('teacherWorkspace.classesPage.title')}
@@ -95,17 +95,17 @@ const TeacherClassesPage: React.FC = () => {
       />
 
       {source ? (
-        <div className="rounded-xl border border-slate-200/80 bg-white/70 px-4 py-3 text-xs leading-5 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/65">
+        <div className="min-w-0 rounded-xl border border-slate-200/80 bg-white/70 px-4 py-3 text-xs leading-5 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/65">
           {t('teacherWorkspace.classesPage.workspaceContext')}
         </div>
       ) : null}
 
       {classesQuery.error ? (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">{classesQuery.error.message}</div>
+        <div className="min-w-0 rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500">{classesQuery.error.message}</div>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200/80 bg-white/70 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex flex-col gap-3 border-b border-slate-200/70 p-4 xl:flex-row xl:items-center dark:border-white/10">
+      <section className="page-panel !p-0 overflow-hidden">
+        <div className="page-toolbar border-b border-slate-200/70 p-4 dark:border-white/10">
           <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.04]">
             <Search size={15} className="shrink-0 text-slate-400" />
             <input
@@ -115,25 +115,25 @@ const TeacherClassesPage: React.FC = () => {
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </label>
-          <div className="grid grid-cols-2 gap-2 sm:flex">
-            <select value={gradeFilter} onChange={(event) => setGradeFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold outline-none dark:border-white/10 dark:bg-slate-900">
+          <div className="grid min-w-0 w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:w-auto">
+            <select value={gradeFilter} onChange={(event) => setGradeFilter(event.target.value)} className="filter-field min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold outline-none dark:border-white/10 dark:bg-slate-900">
               <option value="all">{t('teacherWorkspace.classesPage.allGrades')}</option>
               {gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
             </select>
-            <select value={sort} onChange={(event) => setSort(event.target.value as ClassSort)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold outline-none dark:border-white/10 dark:bg-slate-900">
+            <select value={sort} onChange={(event) => setSort(event.target.value as ClassSort)} className="filter-field min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold outline-none dark:border-white/10 dark:bg-slate-900">
               <option value="name">{t('teacherWorkspace.classesPage.sortName')}</option>
               <option value="students-desc">{t('teacherWorkspace.classesPage.sortStudentsDesc')}</option>
               <option value="students-asc">{t('teacherWorkspace.classesPage.sortStudentsAsc')}</option>
             </select>
           </div>
-          <div className="inline-flex self-start rounded-xl bg-slate-100 p-1 dark:bg-white/[0.06]" role="group" aria-label={t('teacherWorkspace.classesPage.viewLabel')}>
+          <div className="inline-flex max-w-full self-start overflow-x-auto rounded-xl bg-slate-100 p-1 dark:bg-white/[0.06]" role="group" aria-label={t('teacherWorkspace.classesPage.viewLabel')}>
             {([
               { id: 'list' as const, label: t('teacherWorkspace.classesPage.listView'), icon: List },
               { id: 'cards' as const, label: t('teacherWorkspace.classesPage.cardView'), icon: LayoutGrid },
             ]).map((item) => {
               const Icon = item.icon;
               return (
-                <button key={item.id} type="button" onClick={() => setView(item.id)} aria-pressed={view === item.id} className={cn('inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors', view === item.id ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-white/45')}>
+                <button key={item.id} type="button" onClick={() => setView(item.id)} aria-pressed={view === item.id} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors', view === item.id ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-white/45')}>
                   <Icon size={14} />{item.label}
                 </button>
               );
@@ -141,9 +141,9 @@ const TeacherClassesPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 dark:text-white/45">
-          <span>{t('teacherWorkspace.classesPage.resultCount', { visible: visibleClasses.length, total: classesQuery.data?.length || 0 })}</span>
-          {hasFilters ? <button type="button" onClick={() => { setKeyword(''); setGradeFilter('all'); }} className="font-bold text-primary">{t('teacherWorkspace.classesPage.clearFilters')}</button> : null}
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 dark:text-white/45">
+          <span className="min-w-0">{t('teacherWorkspace.classesPage.resultCount', { visible: visibleClasses.length, total: classesQuery.data?.length || 0 })}</span>
+          {hasFilters ? <button type="button" onClick={() => { setKeyword(''); setGradeFilter('all'); }} className="shrink-0 font-bold text-primary">{t('teacherWorkspace.classesPage.clearFilters')}</button> : null}
         </div>
 
         {classesQuery.isLoading ? <div className="border-t border-slate-200/70 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">{t('teacherWorkspace.classesPage.loading')}</div> : null}
@@ -191,17 +191,17 @@ const TeacherClassesPage: React.FC = () => {
         ) : null}
 
         {!classesQuery.isLoading && visibleClasses.length && view === 'cards' ? (
-          <div className="grid gap-3 border-t border-slate-200/70 p-4 md:grid-cols-2 xl:grid-cols-3 dark:border-white/10">
+          <div className="grid min-w-0 grid-cols-1 gap-3 border-t border-slate-200/70 p-4 md:grid-cols-2 xl:grid-cols-3 dark:border-white/10">
             {visibleClasses.map((item) => (
               <article key={item.classId} className="min-w-0 rounded-xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.035]">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-base font-black text-slate-900 dark:text-white" title={item.className}>{item.className}</div>
                     <div className="mt-1 truncate text-xs text-slate-500 dark:text-white/45">{item.classCode || '--'} · {item.gradeName || '--'}</div>
                   </div>
                   <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-black tabular-nums text-slate-700 dark:bg-white/[0.06] dark:text-white/70">{item.studentCount}</span>
                 </div>
-                <div className="mt-4">{renderRowActions(item)}</div>
+                <div className="mt-4 min-w-0">{renderRowActions(item)}</div>
               </article>
             ))}
           </div>

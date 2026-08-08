@@ -36,10 +36,10 @@ const AccountActionPage: React.FC = () => {
   const actionLabel = previewQuery.data?.purpose === 'PASSWORD_RESET' ? '重设密码' : '激活账户';
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack min-h-screen px-4 py-8 sm:px-6 sm:py-12">
       <PageHeader title={actionLabel || '账户操作'} subtitle="通过一次性链接完成账户激活或密码重置。" />
 
-      <section className="mx-auto max-w-3xl rounded-[2.6rem] liquid-glass-panel p-8">
+      <section className="mx-auto w-full max-w-3xl min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
         {previewQuery.isLoading && (
           <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-6 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
             正在校验链接...
@@ -92,7 +92,7 @@ const AccountActionPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-3">
+            <div className="page-actions">
               <button
                 type="button"
                 onClick={() => {
@@ -104,11 +104,11 @@ const AccountActionPage: React.FC = () => {
                   void completeMutation.mutateAsync();
                 }}
                 disabled={completeMutation.isPending}
-                className="btn-liquid px-6 py-3 text-white disabled:opacity-60"
+                className="btn-liquid inline-flex items-center justify-center px-6 py-3 text-white disabled:opacity-60"
               >
                 {completeMutation.isPending ? '提交中...' : actionLabel}
               </button>
-              <Link to="/login" className="rounded-2xl border border-slate-200 px-6 py-3 text-sm dark:border-white/10">
+              <Link to="/login" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 px-6 py-3 text-sm dark:border-white/10">
                 返回登录
               </Link>
             </div>

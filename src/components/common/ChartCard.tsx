@@ -58,16 +58,16 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     <div
       className={cn(
         embedded
-          ? 'relative overflow-hidden rounded-lg'
-          : 'surface-panel rounded-xl overflow-hidden group transition-shadow duration-200 hover:shadow-[var(--shadow-lg)]',
+          ? 'relative min-w-0 overflow-hidden rounded-lg'
+          : 'surface-panel group min-w-0 overflow-hidden rounded-xl transition-shadow duration-200 hover:shadow-[var(--shadow-lg)]',
         className
       )}
     >
-      {!embedded && <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle bg-surface-sunken px-4 py-4 relative z-10 sm:px-6">
+      {!embedded && <div className="relative z-10 flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle bg-surface-sunken px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-          <div>
-            <h3 className="type-section-title text-slate-800 dark:text-white/85">{title}</h3>
+          <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+          <div className="min-w-0">
+            <h3 className="type-section-title break-words text-slate-800 dark:text-white/85">{title}</h3>
             {description ? <p className="type-body-muted mt-1 max-w-2xl">{description}</p> : null}
           </div>
         </div>
@@ -76,7 +76,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
         </div>
       </div>}
       
-      <div className={cn('relative z-10', embedded ? 'p-0' : 'p-4 sm:p-8')} style={containerStyle}>
+      <div className={cn('relative z-10 min-w-0', embedded ? 'p-0' : 'p-3 sm:p-5 md:p-6')} style={containerStyle}>
         {anomalyNote && !loading && !errorState && !isEmpty ? (
           <div className="anomaly-note mb-4" role="note">
             <span aria-hidden="true">!</span>

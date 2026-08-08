@@ -265,7 +265,7 @@ const TeacherClassDetailPage: React.FC = () => {
     Boolean(analyticsStudentsQuery.data);
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="page-stack pb-16">
       <PageHeader
         compact
         eyebrow={t('ui.sections.students')}
@@ -278,7 +278,7 @@ const TeacherClassDetailPage: React.FC = () => {
           .filter(Boolean)
           .join(' · ')}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setShowIdentity((current) => !current)}
@@ -350,8 +350,8 @@ const TeacherClassDetailPage: React.FC = () => {
         </div>
       )}
 
-      <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex flex-wrap items-center gap-2">
+      <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <StatusBadge label={`建档 ${formatDateTime(detailQuery.data?.createdAt) || '--'}`} />
           <StatusBadge label={`最近更新 ${formatDateTime(detailQuery.data?.updatedAt) || '--'}`} />
           <StatusBadge label={`年级 ${detailQuery.data?.gradeName || '--'}`} />
@@ -362,18 +362,18 @@ const TeacherClassDetailPage: React.FC = () => {
         </div>
       </section>
 
-      <div className="grid overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 sm:grid-cols-2 xl:grid-cols-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="stat-grid overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 !gap-0 dark:border-white/10 dark:bg-white/[0.03]">
         {(overviewQuery.data?.cards || []).slice(0, 4).map((card) => (
-          <div key={card.key} className="border-b border-slate-200/70 px-4 py-3.5 last:border-b-0 sm:border-r xl:border-b-0 dark:border-white/10">
+          <div key={card.key} className="min-w-0 border-b border-r border-slate-200/70 px-3 py-3.5 sm:px-4 dark:border-white/10">
             <div className="truncate text-[11px] font-semibold text-slate-500 dark:text-white/45">{card.label}</div>
-            <div className="mt-1 text-xl font-black tabular-nums text-slate-900 dark:text-white">{card.value}{card.unit || ''}</div>
+            <div className="mt-1 break-all text-xl font-black tabular-nums text-slate-900 dark:text-white">{card.value}{card.unit || ''}</div>
           </div>
         ))}
       </div>
 
-      <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex items-end justify-between gap-4">
-          <div>
+      <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <SectionEyebrow>风险学生</SectionEyebrow>
             <div className="mt-1 text-base font-black text-slate-900 dark:text-white">现在需要优先跟进</div>
           </div>
@@ -403,7 +403,7 @@ const TeacherClassDetailPage: React.FC = () => {
         )}
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+      <div className="content-grid-2">
         <ChartCard
           title={t('ui.charts.classRadar')}
           option={buildRadarOption(overviewQuery.data?.radar)}
@@ -418,7 +418,7 @@ const TeacherClassDetailPage: React.FC = () => {
         />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-3">
         <ChartCard
           title={t('ui.charts.riskBuckets')}
           option={riskDistributionOption}
@@ -439,19 +439,19 @@ const TeacherClassDetailPage: React.FC = () => {
         />
       </div>
 
-      <div className={cn('grid gap-5', isClassOwner && 'xl:grid-cols-[1.1fr_0.9fr]')}>
-        <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
+      <div className={cn('grid min-w-0 grid-cols-1 gap-5', isClassOwner && 'xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]')}>
+        <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <SectionEyebrow>在班学生</SectionEyebrow>
               <div className="mt-1 text-base font-black text-slate-900 dark:text-white">名册与学习指标</div>
             </div>
             <StatusBadge label={`共 ${detailQuery.data?.studentCount || 0} 人`} />
           </div>
 
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row">
             <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.04]">
-              <Search size={14} className="text-slate-400" />
+              <Search size={14} className="shrink-0 text-slate-400" />
               <input value={studentKeyword} onChange={(event) => setStudentKeyword(event.target.value)} placeholder="搜索姓名、学号、账号或年级" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-slate-400" />
             </label>
             <div className="inline-flex self-start rounded-xl bg-slate-100 p-1 dark:bg-white/[0.06]">
@@ -490,9 +490,9 @@ const TeacherClassDetailPage: React.FC = () => {
           )}
         </section>
 
-        {isClassOwner ? <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
+        {isClassOwner ? <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <SectionEyebrow>学生分配</SectionEyebrow>
               <div className="mt-1 text-base font-black text-slate-900 dark:text-white">候选学生</div>
             </div>
@@ -500,7 +500,7 @@ const TeacherClassDetailPage: React.FC = () => {
               type="button"
               onClick={() => addStudentsMutation.mutate(selectedStudentIds)}
               disabled={!detailQuery.data?.active || !selectedStudentIds.length || addStudentsMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <UserPlus size={14} />
               加入 {selectedStudentIds.length || 0} 人
@@ -514,18 +514,18 @@ const TeacherClassDetailPage: React.FC = () => {
             </div>
           ) : null}
 
-          <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
-            <Search size={16} className="text-slate-400" />
+          <label className="mt-3 flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+            <Search size={16} className="shrink-0 text-slate-400" />
             <input
               value={candidateKeyword}
               onChange={(event) => setCandidateKeyword(event.target.value)}
               placeholder="按学生姓名、学号、账号或年级搜索"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              className="min-w-0 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
           </label>
 
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-white/45">
-            <span>已选择 {selectedStudentIds.length} 人。确认后会一次提交，失败时保留选择以便重试。</span>
+          <div className="mt-3 flex min-w-0 flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:text-white/45">
+            <span className="min-w-0">已选择 {selectedStudentIds.length} 人。确认后会一次提交，失败时保留选择以便重试。</span>
             <button
               type="button"
               onClick={() => {
@@ -533,7 +533,7 @@ const TeacherClassDetailPage: React.FC = () => {
                 setSelectedStudentIds((current) => current.length === availableIds.length ? [] : availableIds);
               }}
               disabled={!candidateQuery.data?.some((candidate) => !candidate.assigned) || !detailQuery.data?.active}
-              className="rounded-full border border-slate-200 px-3 py-1.5 font-bold disabled:opacity-50 dark:border-white/10"
+              className="shrink-0 self-start rounded-full border border-slate-200 px-3 py-1.5 font-bold disabled:opacity-50 dark:border-white/10"
             >
               全选 / 清空
             </button>
@@ -562,14 +562,14 @@ const TeacherClassDetailPage: React.FC = () => {
                         : 'border-slate-200/70 bg-white/60 hover:border-primary/30 dark:border-white/10 dark:bg-white/5'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-slate-900 dark:text-white">{maskStudentName(candidate.studentName)}</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-white/45">
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-slate-900 dark:text-white">{maskStudentName(candidate.studentName)}</div>
+                      <div className="mt-1 break-words text-xs text-slate-500 dark:text-white/45">
                         {showIdentity ? [candidate.studentNo, candidate.gradeName, candidate.username].filter(Boolean).join(' · ') || '未补齐学生资料' : [candidate.gradeName].filter(Boolean).join(' · ') || '身份信息已遮蔽'}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex min-w-0 flex-wrap gap-2">
                       {candidate.assigned && <StatusBadge tone="success" label="已在当前班级" />}
                       {!candidate.assigned && selected && <StatusBadge tone="info" label="待加入" />}
                       <StatusBadge label={`在读班级 ${candidate.activeClassCount}`} />

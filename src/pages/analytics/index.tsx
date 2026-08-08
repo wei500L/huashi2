@@ -130,20 +130,20 @@ const AnalyticsPage: React.FC = () => {
     Boolean(errorDistributionQuery.data);
 
   return (
-    <div className="space-y-10 pb-20">
+    <div className="page-stack pb-20">
       <PageHeader
         eyebrow={t('shell.nav.analytics')}
         title={t('analytics.title')}
         subtitle={t('analytics.subtitle')}
         actions={
-          <div className="flex flex-wrap gap-3">
-            <div className="flex gap-2 rounded-full border border-slate-200 dark:border-white/10 p-1">
+          <div className="page-actions">
+            <div className="flex w-full gap-2 rounded-full border border-slate-200 p-1 dark:border-white/10 sm:w-auto">
               {(['7d', '30d'] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => setRange(value)}
-                  className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-[0.24em] ${
+                  className={`flex-1 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.24em] sm:flex-none ${
                     range === value ? 'bg-primary text-white' : 'text-slate-500 dark:text-white/45'
                   }`}
                 >
@@ -155,14 +155,14 @@ const AnalyticsPage: React.FC = () => {
               type="button"
               onClick={() => void handlePdfExport()}
               disabled={!canExportPdf || isPdfExporting}
-              className="btn-liquid flex items-center gap-2 px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-liquid inline-flex items-center justify-center gap-2 px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FileText size={14} /> {isPdfExporting ? t('common.actions.exportingPdf') : t('common.actions.exportPdf')}
             </button>
             <button
               type="button"
               onClick={() => void handleExport()}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/80"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:text-white/80"
             >
               <Download size={14} /> {t('common.actions.exportCsv')}
             </button>
@@ -171,20 +171,20 @@ const AnalyticsPage: React.FC = () => {
       />
 
       {reportErrorMessage && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{reportErrorMessage}</div>
+        <div className="min-w-0 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-rose-500 sm:rounded-3xl sm:p-6">{reportErrorMessage}</div>
       )}
 
       {overviewQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">{overviewQuery.error.message}</div>
+        <div className="min-w-0 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-rose-500 sm:rounded-3xl sm:p-6">{overviewQuery.error.message}</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="stat-grid">
         {(overviewQuery.data?.cards || []).slice(0, 4).map((card) => (
-          <div key={card.key} className="rounded-[2rem] liquid-glass p-6">
+          <div key={card.key} className="min-w-0 rounded-2xl liquid-glass p-4 sm:rounded-3xl sm:p-6">
             <SectionEyebrow>{card.label}</SectionEyebrow>
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <div className="text-3xl font-black text-slate-900 dark:text-white">{`${card.value}${card.unit || ''}`}</div>
-              <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+            <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
+              <div className="min-w-0 break-words text-2xl font-black text-slate-900 dark:text-white sm:text-3xl">{`${card.value}${card.unit || ''}`}</div>
+              <div className="shrink-0 rounded-2xl bg-primary/10 p-3 text-primary">
                 <Filter size={18} />
               </div>
             </div>
@@ -192,82 +192,94 @@ const AnalyticsPage: React.FC = () => {
         ))}
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]" aria-labelledby="analytics-conclusion">
-        <div className="rounded-[2.4rem] bg-slate-950 p-8 text-white shadow-xl dark:bg-white/10">
+      <section className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]" aria-labelledby="analytics-conclusion">
+        <div className="min-w-0 rounded-2xl bg-slate-950 p-4 text-white shadow-xl sm:rounded-3xl sm:p-6 md:p-8 dark:bg-white/10">
           <div className="text-xs font-black uppercase tracking-[0.25em] text-white/55">结论 / Conclusion</div>
-          <h2 id="analytics-conclusion" className="mt-3 text-3xl font-black leading-tight break-words">{overviewQuery.data?.latestSnapshot ? (overviewQuery.data.latestSnapshot.highRiskPairCount ? `当前优先处理 ${overviewQuery.data.latestSnapshot.highRiskPairCount} 个高风险词对` : '暂时没有足够记录生成高风险优先级') : '等待学习数据同步'}</h2>
+          <h2 id="analytics-conclusion" className="mt-3 break-words text-2xl font-black leading-tight sm:text-3xl">{overviewQuery.data?.latestSnapshot ? (overviewQuery.data.latestSnapshot.highRiskPairCount ? `当前优先处理 ${overviewQuery.data.latestSnapshot.highRiskPairCount} 个高风险词对` : '暂时没有足够记录生成高风险优先级') : '等待学习数据同步'}</h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/65">先从风险最高的词对开始一次短训练，再用趋势和错误分布确认是否改善。风险排序用于决定先后，不是对能力的最终判定。</p>
-          <Link to="/errors" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-slate-900">打开错题与复习 <ArrowRight size={15} /></Link>
+          <Link to="/errors" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-slate-900 sm:w-auto">打开错题与复习 <ArrowRight size={15} /></Link>
         </div>
-        <div className="rounded-[2.4rem] liquid-glass-panel p-8"><div className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">核心证据 / Snapshot</div><div className="mt-4 grid gap-4 sm:grid-cols-3 xl:grid-cols-1"><div><div className="text-sm text-slate-500 dark:text-white/45">近期开答正确率</div><div className="mt-1 text-3xl font-black">{overviewQuery.data?.latestSnapshot ? formatMaybePercent(overviewQuery.data.latestSnapshot.recentAccuracy) : '—'}</div></div><div><div className="text-sm text-slate-500 dark:text-white/45">负迁移风险</div><div className="mt-1 text-3xl font-black text-rose-500">{overviewQuery.data?.latestSnapshot ? formatMaybePercent(overviewQuery.data.latestSnapshot.recentNegativeTransferRisk) : '—'}</div></div><div><div className="text-sm text-slate-500 dark:text-white/45">平均反应时</div><div className="mt-1 text-3xl font-black">{overviewQuery.data?.latestSnapshot ? formatMs(overviewQuery.data.latestSnapshot.recentAvgReactionTimeMs) : '—'}</div></div></div></div>
+        <div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8"><div className="text-xs font-black uppercase tracking-[0.25em] text-slate-400">核心证据 / Snapshot</div><div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-3 xl:grid-cols-1"><div className="min-w-0"><div className="text-sm text-slate-500 dark:text-white/45">近期开答正确率</div><div className="mt-1 text-2xl font-black sm:text-3xl">{overviewQuery.data?.latestSnapshot ? formatMaybePercent(overviewQuery.data.latestSnapshot.recentAccuracy) : '—'}</div></div><div className="min-w-0"><div className="text-sm text-slate-500 dark:text-white/45">负迁移风险</div><div className="mt-1 text-2xl font-black text-rose-500 sm:text-3xl">{overviewQuery.data?.latestSnapshot ? formatMaybePercent(overviewQuery.data.latestSnapshot.recentNegativeTransferRisk) : '—'}</div></div><div className="min-w-0"><div className="text-sm text-slate-500 dark:text-white/45">平均反应时</div><div className="mt-1 text-2xl font-black sm:text-3xl">{overviewQuery.data?.latestSnapshot ? formatMs(overviewQuery.data.latestSnapshot.recentAvgReactionTimeMs) : '—'}</div></div></div></div>
       </section>
 
       <SectionEyebrow>证据 / Evidence</SectionEyebrow>
 
-      <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-8">
-        <ChartCard
-          title={t('ui.charts.comprehensiveRadar')}
-          description="各能力维度使用 0–100% 归一化分数；悬停可查看维度名称。"
-          option={buildRadarOption(overviewQuery.data?.radar)}
-          loading={overviewQuery.isLoading}
-          isEmpty={!overviewQuery.data?.radar.length}
-          error={overviewQuery.error}
-          onRetry={() => void overviewQuery.refetch()}
-        />
-        <ChartCard title={t('ui.charts.contextPerformance')} description="柱状图为正确率（%），折线为平均反应时（ms），双轴单位已标注。" option={contextOption} loading={overviewQuery.isLoading} isEmpty={!overviewQuery.data?.contextPerformance.length} error={overviewQuery.error} onRetry={() => void overviewQuery.refetch()} />
+      <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:gap-8">
+        <div className="min-w-0">
+          <ChartCard
+            title={t('ui.charts.comprehensiveRadar')}
+            description="各能力维度使用 0–100% 归一化分数；悬停可查看维度名称。"
+            option={buildRadarOption(overviewQuery.data?.radar)}
+            loading={overviewQuery.isLoading}
+            isEmpty={!overviewQuery.data?.radar.length}
+            error={overviewQuery.error}
+            onRetry={() => void overviewQuery.refetch()}
+          />
+        </div>
+        <div className="min-w-0">
+          <ChartCard title={t('ui.charts.contextPerformance')} description="柱状图为正确率（%），折线为平均反应时（ms），双轴单位已标注。" option={contextOption} loading={overviewQuery.isLoading} isEmpty={!overviewQuery.data?.contextPerformance.length} error={overviewQuery.error} onRetry={() => void overviewQuery.refetch()} />
+        </div>
       </div>
 
       <SectionEyebrow>薄弱点 / Weak points</SectionEyebrow>
 
-      <div className="grid xl:grid-cols-2 gap-8">
-        <ChartCard
-          title={t('ui.charts.transferHeatmap')}
-          description="颜色深浅代表样本量；悬停可查看正确率和平均反应时。"
-          option={buildHeatmapOption(heatmapQuery.data)}
-          loading={heatmapQuery.isLoading}
-          isEmpty={!heatmapQuery.data?.cells.length}
-          error={heatmapQuery.error}
-          onRetry={() => void heatmapQuery.refetch()}
-        />
-        <ChartCard title={t('ui.sections.errorDistribution')} description="错误数量按类型分布；比例与总样本量在悬停提示中显示。" option={errorDistributionOption} loading={errorDistributionQuery.isLoading} isEmpty={!errorDistributionQuery.data?.length} error={errorDistributionQuery.error} onRetry={() => void errorDistributionQuery.refetch()} />
+      <div className="content-grid-2">
+        <div className="min-w-0">
+          <ChartCard
+            title={t('ui.charts.transferHeatmap')}
+            description="颜色深浅代表样本量；悬停可查看正确率和平均反应时。"
+            option={buildHeatmapOption(heatmapQuery.data)}
+            loading={heatmapQuery.isLoading}
+            isEmpty={!heatmapQuery.data?.cells.length}
+            error={heatmapQuery.error}
+            onRetry={() => void heatmapQuery.refetch()}
+          />
+        </div>
+        <div className="min-w-0">
+          <ChartCard title={t('ui.sections.errorDistribution')} description="错误数量按类型分布；比例与总样本量在悬停提示中显示。" option={errorDistributionOption} loading={errorDistributionQuery.isLoading} isEmpty={!errorDistributionQuery.data?.length} error={errorDistributionQuery.error} onRetry={() => void errorDistributionQuery.refetch()} />
+        </div>
       </div>
 
-      <section className="rounded-[2.5rem] liquid-glass-panel p-8" aria-labelledby="analytics-weakness-list"><div className="flex items-center justify-between gap-4"><div><SectionEyebrow>优先薄弱点</SectionEyebrow><h2 id="analytics-weakness-list" className="mt-2 text-2xl font-black">先处理风险最高的词对</h2></div><Link to="/errors" className="text-sm font-bold text-primary">查看全部</Link></div>{highRiskPairsQuery.error ? <div className="mt-5 rounded-[1.5rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-600"><div>{highRiskPairsQuery.error.message}</div><button type="button" onClick={() => void highRiskPairsQuery.refetch()} className="mt-3 rounded-full border border-rose-500/30 px-4 py-2 font-bold">重新加载</button></div> : <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">{(highRiskPairsQuery.data || []).slice(0, 4).map((item) => <div key={item.lexicalPairId} className="rounded-[1.6rem] border border-rose-500/15 bg-rose-500/5 p-4"><div className="flex items-start gap-3"><Target size={17} className="mt-1 shrink-0 text-rose-500" /><div className="min-w-0"><div className="font-black break-words">{item.englishWord} / {item.frenchWord}</div><div className="mt-2 text-sm text-slate-500 dark:text-white/45 break-words">{lexicalPairTypeLabel(item.lexicalPairType)} · 风险 {formatMaybePercent(item.riskScore)}</div><div className="mt-2 text-xs text-slate-500 dark:text-white/45">{item.incorrectCount} / {item.attemptCount} 次错误</div></div></div></div>)}</div>}{!highRiskPairsQuery.isLoading && !highRiskPairsQuery.error && !highRiskPairsQuery.data?.length ? <div className="mt-5 text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noHighRiskPairs')}</div> : null}</section>
+      <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8" aria-labelledby="analytics-weakness-list"><div className="page-toolbar"><div className="min-w-0"><SectionEyebrow>优先薄弱点</SectionEyebrow><h2 id="analytics-weakness-list" className="mt-2 text-xl font-black sm:text-2xl">先处理风险最高的词对</h2></div><Link to="/errors" className="shrink-0 text-sm font-bold text-primary">查看全部</Link></div>{highRiskPairsQuery.error ? <div className="mt-5 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-600"><div>{highRiskPairsQuery.error.message}</div><button type="button" onClick={() => void highRiskPairsQuery.refetch()} className="mt-3 rounded-full border border-rose-500/30 px-4 py-2 font-bold">重新加载</button></div> : <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">{(highRiskPairsQuery.data || []).slice(0, 4).map((item) => <div key={item.lexicalPairId} className="min-w-0 rounded-2xl border border-rose-500/15 bg-rose-500/5 p-4"><div className="flex items-start gap-3"><Target size={17} className="mt-1 shrink-0 text-rose-500" /><div className="min-w-0"><div className="font-black break-words">{item.englishWord} / {item.frenchWord}</div><div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{lexicalPairTypeLabel(item.lexicalPairType)} · 风险 {formatMaybePercent(item.riskScore)}</div><div className="mt-2 text-xs text-slate-500 dark:text-white/45">{item.incorrectCount} / {item.attemptCount} 次错误</div></div></div></div>)}</div>}{!highRiskPairsQuery.isLoading && !highRiskPairsQuery.error && !highRiskPairsQuery.data?.length ? <div className="mt-5 text-sm text-slate-500 dark:text-white/45">{t('ui.labels.noHighRiskPairs')}</div> : null}</section>
 
       <SectionEyebrow>趋势 / Trend</SectionEyebrow>
 
-      <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-8">
-        <ChartCard title={t('ui.charts.trendAnalysis')} description="横轴为日期，纵轴显示接口返回的趋势指标；图例和单位保留在图表内。" option={buildTrendOption(trendsQuery.data)} loading={trendsQuery.isLoading} isEmpty={!trendsQuery.data?.series.length} error={trendsQuery.error} onRetry={() => void trendsQuery.refetch()} />
-        <ChartCard
-          title={t('ui.charts.latencyAccuracyScatter')}
-          description="横轴为平均反应时（ms），纵轴为正确率（%）；点大小代表尝试次数。"
-          option={buildScatterOption(scatterQuery.data)}
-          loading={scatterQuery.isLoading}
-          isEmpty={!scatterQuery.data?.points.length}
-          error={scatterQuery.error}
-          onRetry={() => void scatterQuery.refetch()}
-        />
+      <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-8">
+        <div className="min-w-0">
+          <ChartCard title={t('ui.charts.trendAnalysis')} description="横轴为日期，纵轴显示接口返回的趋势指标；图例和单位保留在图表内。" option={buildTrendOption(trendsQuery.data)} loading={trendsQuery.isLoading} isEmpty={!trendsQuery.data?.series.length} error={trendsQuery.error} onRetry={() => void trendsQuery.refetch()} />
+        </div>
+        <div className="min-w-0">
+          <ChartCard
+            title={t('ui.charts.latencyAccuracyScatter')}
+            description="横轴为平均反应时（ms），纵轴为正确率（%）；点大小代表尝试次数。"
+            option={buildScatterOption(scatterQuery.data)}
+            loading={scatterQuery.isLoading}
+            isEmpty={!scatterQuery.data?.points.length}
+            error={scatterQuery.error}
+            onRetry={() => void scatterQuery.refetch()}
+          />
+        </div>
       </div>
 
-      <section className="rounded-[2.5rem] border border-primary/20 bg-primary/5 p-8" aria-labelledby="analytics-recommendations"><SectionEyebrow>推荐行动 / Recommended actions</SectionEyebrow><h2 id="analytics-recommendations" className="mt-2 text-2xl font-black">下一次练习做什么</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 dark:text-white/65">系统根据最近风险与快照给出训练入口；你可以先完成一组短练习，再返回趋势确认变化。</p><div className="mt-5 flex flex-wrap items-center gap-4"><div className="rounded-full bg-white/80 px-4 py-3 text-sm font-bold dark:bg-white/10">{overviewQuery.data ? trainingModeLabel(overviewQuery.data.recommendedTrainingMode) : '推荐训练模式待同步'}</div><Link to="/training" className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">开始推荐训练 <ArrowRight size={15} /></Link></div></section>
+      <section className="min-w-0 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:rounded-3xl sm:p-6 md:p-8" aria-labelledby="analytics-recommendations"><SectionEyebrow>推荐行动 / Recommended actions</SectionEyebrow><h2 id="analytics-recommendations" className="mt-2 text-xl font-black sm:text-2xl">下一次练习做什么</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 dark:text-white/65">系统根据最近风险与快照给出训练入口；你可以先完成一组短练习，再返回趋势确认变化。</p><div className="page-actions mt-5"><div className="w-full rounded-full bg-white/80 px-4 py-3 text-center text-sm font-bold dark:bg-white/10 sm:w-auto sm:text-left">{overviewQuery.data ? trainingModeLabel(overviewQuery.data.recommendedTrainingMode) : '推荐训练模式待同步'}</div><Link to="/training" className="btn-liquid inline-flex items-center justify-center gap-2 px-5 py-3 text-white">开始推荐训练 <ArrowRight size={15} /></Link></div></section>
 
       {overviewQuery.data?.latestSnapshot && (
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
           <SectionEyebrow className="mb-6">{t('ui.sections.latestSnapshot')} · Snapshot detail</SectionEyebrow>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+          <div className="grid min-w-0 gap-4 md:grid-cols-3">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
               <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.meta.correctRate')}</div>
               <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
                 {formatMaybePercent(overviewQuery.data.latestSnapshot.recentAccuracy)}
               </div>
             </div>
-            <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
               <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.meta.risk')}</div>
               <div className="mt-2 text-2xl font-black text-rose-500">
                 {formatMaybePercent(overviewQuery.data.latestSnapshot.recentNegativeTransferRisk)}
               </div>
             </div>
-            <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 p-4 bg-white/60 dark:bg-white/5">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
               <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.fields.averageReactionTime')}</div>
               <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
                 {formatMs(overviewQuery.data.latestSnapshot.recentAvgReactionTimeMs)}

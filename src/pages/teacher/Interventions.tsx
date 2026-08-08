@@ -274,7 +274,7 @@ const TeacherInterventionsPage: React.FC = () => {
   }, [selectedIntervention]);
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16">
       <PageHeader
         eyebrow={t('taskPages.teacherInterventions.eyebrow')}
         title={t('taskPages.teacherInterventions.pageTitle')}
@@ -293,17 +293,17 @@ const TeacherInterventionsPage: React.FC = () => {
       />
 
       {source && (
-        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
+        <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 px-4 py-3 text-sm text-slate-600 sm:px-5 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
           {t('taskPages.teacherInterventions.sourceHint')}
         </div>
       )}
 
-      <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-        <div className="grid gap-4 lg:grid-cols-4">
+      <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
           <select
             value={classId}
             onChange={(event) => setClassId(event.target.value)}
-            className="native-select w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+            className="native-select filter-field w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
           >
             <option value="">全部班级</option>
             {(classesQuery.data || []).map((item) => (
@@ -316,7 +316,7 @@ const TeacherInterventionsPage: React.FC = () => {
           <select
             value={view}
             onChange={(event) => setView(normalizeInterventionView(event.target.value))}
-            className="native-select w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+            className="native-select filter-field w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
           >
             {VIEW_OPTIONS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -328,7 +328,7 @@ const TeacherInterventionsPage: React.FC = () => {
           <select
             value={priority}
             onChange={(event) => setPriority(event.target.value as (typeof PRIORITY_OPTIONS)[number])}
-            className="native-select w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+            className="native-select filter-field w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
           >
             {PRIORITY_OPTIONS.map((item) => (
               <option key={item} value={item}>
@@ -337,7 +337,7 @@ const TeacherInterventionsPage: React.FC = () => {
             ))}
           </select>
 
-          <div className="rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+          <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
             当前页 {records.length} 条，逾期 {overdueCount} 条
           </div>
         </div>
@@ -361,8 +361,8 @@ const TeacherInterventionsPage: React.FC = () => {
         )}
       </section>
 
-      <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+      <div className="content-grid-sidebar">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8">
           <div className="max-h-[760px] space-y-4 overflow-y-auto pr-1">
             {interventionsQuery.isLoading ? (
               <PanelSkeleton />
@@ -377,24 +377,24 @@ const TeacherInterventionsPage: React.FC = () => {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedInterventionId(item.id)}
-                  className={`w-full rounded-[1.8rem] border p-5 text-left transition-all ${
+                  className={`w-full min-w-0 rounded-[1.8rem] border p-4 text-left transition-all sm:p-5 ${
                     selectedIntervention?.id === item.id
                       ? 'border-primary/30 bg-primary/5'
                       : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
                   }`}
                 >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-white/45">
-                        <span>{item.className}</span>
+                  <div className="flex min-w-0 flex-col justify-between gap-4 lg:flex-row lg:items-start">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-white/45">
+                        <span className="min-w-0 break-words">{item.className}</span>
                         <StatusBadge label={interventionPriorityLabel(item.priority)} tone={priorityTone(item.priority)} />
                         <StatusBadge label={interventionStatusLabel(item.status)} tone={interventionStatusTone(item.status)} />
                       </div>
-                      <div className="text-xl font-black text-slate-900 dark:text-white">{maskStudentName(item.studentName)}</div>
-                      <div className="text-sm font-bold text-slate-800 dark:text-white/85">{item.patternDetected}</div>
-                      <div className="text-sm text-slate-500 dark:text-white/45 leading-6">{item.suggestedAction}</div>
+                      <div className="break-words text-xl font-black text-slate-900 dark:text-white">{maskStudentName(item.studentName)}</div>
+                      <div className="break-words text-sm font-bold text-slate-800 dark:text-white/85">{item.patternDetected}</div>
+                      <div className="break-words text-sm leading-6 text-slate-500 dark:text-white/45">{item.suggestedAction}</div>
                     </div>
-                    <div className="text-right text-sm text-slate-500 dark:text-white/45">
+                    <div className="shrink-0 text-left text-sm text-slate-500 lg:text-right dark:text-white/45">
                       <div>计划时间 {formatDateTime(item.plannedAt)}</div>
                       <div className="mt-2">完成时间 {formatDateTime(item.completedAt)}</div>
                     </div>
@@ -406,11 +406,11 @@ const TeacherInterventionsPage: React.FC = () => {
             )}
           </div>
 
-          <div className="mt-6 flex items-center justify-between text-sm text-slate-500 dark:text-white/45">
+          <div className="mt-6 flex min-w-0 flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:text-white/45">
             <span>
               第 {pageNo}/{totalPages(interventionsQuery.data?.total)} 页
             </span>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={() => setPageNo((current) => Math.max(1, current - 1))}
@@ -431,11 +431,11 @@ const TeacherInterventionsPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8 xl:sticky xl:top-6 xl:self-start">
-          <div className="flex items-center justify-between gap-4 mb-6">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8 xl:sticky xl:top-6 xl:self-start">
+          <div className="mb-6 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <SectionEyebrow>{t('taskPages.teacherInterventions.editorEyebrow')}</SectionEyebrow>
             {selectedIntervention && (
-              <div className="text-sm text-slate-500 dark:text-white/45">最近更新 {formatDateTime(selectedIntervention.updatedAt)}</div>
+              <div className="min-w-0 break-words text-sm text-slate-500 dark:text-white/45">最近更新 {formatDateTime(selectedIntervention.updatedAt)}</div>
             )}
           </div>
 
@@ -460,13 +460,13 @@ const TeacherInterventionsPage: React.FC = () => {
 
               <InterventionEffectPanel effectTracking={selectedIntervention.effectTracking} />
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className="space-y-2 text-sm">
+              <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3">
+                <label className="min-w-0 space-y-2 text-sm">
                   <span className="text-slate-500 dark:text-white/45">优先级</span>
                   <select
                     value={form.priority}
                     onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
-                    className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    className="native-select w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   >
                     {PRIORITY_OPTIONS.slice(1).map((item) => (
                       <option key={item} value={item}>
@@ -476,12 +476,12 @@ const TeacherInterventionsPage: React.FC = () => {
                   </select>
                 </label>
 
-                <label className="space-y-2 text-sm">
+                <label className="min-w-0 space-y-2 text-sm">
                   <span className="text-slate-500 dark:text-white/45">状态</span>
                   <select
                     value={form.status}
                     onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-                    className="native-select w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    className="native-select w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   >
                     {STATUS_OPTIONS.slice(1).map((item) => (
                       <option key={item} value={item}>
@@ -491,29 +491,29 @@ const TeacherInterventionsPage: React.FC = () => {
                   </select>
                 </label>
 
-                <label className="space-y-2 text-sm">
+                <label className="min-w-0 space-y-2 text-sm">
                   <span className="text-slate-500 dark:text-white/45">计划时间</span>
                   <input
                     type="datetime-local"
                     value={form.plannedAt}
                     onChange={(event) => setForm((current) => ({ ...current, plannedAt: event.target.value }))}
-                    className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   />
                 </label>
               </div>
 
-              <label className="block space-y-2 text-sm">
+              <label className="block min-w-0 space-y-2 text-sm">
                 <span className="text-slate-500 dark:text-white/45">教师备注</span>
                 <textarea
                   value={form.teacherNote}
                   onChange={(event) => setForm((current) => ({ ...current, teacherNote: event.target.value }))}
                   rows={8}
-                  className="w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                  className="w-full min-w-0 rounded-[1.8rem] border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   placeholder="记录执行方式、课堂安排、跟进时间或完成说明。"
                 />
               </label>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="page-actions">
                 <button
                   type="button"
                   onClick={() => saveMutation.mutate()}

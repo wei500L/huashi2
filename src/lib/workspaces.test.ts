@@ -138,6 +138,18 @@ describe('workspace helpers', () => {
     ).toBe('/admin/dashboard');
   });
 
+  it('honors a remembered preferred workspace for multi-workspace home resolution', () => {
+    const preferenceKey = workspacePreferenceKey(multiWorkspaceUser);
+    expect(
+      resolveHomePathForUser({
+        user: multiWorkspaceUser,
+        pathname: '/',
+        activeWorkspace: 'ADMIN_CONSOLE',
+        preferredWorkspaceByUser: preferenceKey ? { [preferenceKey]: 'TEACHING_WORKSPACE' } : {},
+      })
+    ).toBe('/teacher/workspace');
+  });
+
   it('defaults teachers to the teaching workspace home even when student capability is also present', () => {
     expect(
       resolveHomePathForUser({

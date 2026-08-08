@@ -130,12 +130,12 @@ const Login: React.FC = () => {
   };
 
   return (
-    <main className="auth-entry-shell">
+    <main className="auth-entry-shell min-w-0">
       <TopographyBackdrop />
-      <div className="auth-entry-frame">
-        <section className="auth-brand-panel" aria-labelledby="login-brand-title">
-          <div>
-            <div className="auth-brand-lockup">
+      <div className="auth-entry-frame min-w-0">
+        <section className="auth-brand-panel min-w-0" aria-labelledby="login-brand-title">
+          <div className="min-w-0">
+            <div className="auth-brand-lockup min-w-0">
               <span className="auth-brand-mark" aria-hidden="true">EF</span>
               <span className="auth-brand-name">{t('login.badge')}</span>
               <span className="auth-brand-rule" aria-hidden="true" />
@@ -143,7 +143,7 @@ const Login: React.FC = () => {
 
             <LanguageFocus />
 
-            <div className="auth-heading-mask">
+            <div className="auth-heading-mask min-w-0">
               <h1 id="login-brand-title" className="auth-brand-title">
                 {t('login.title')}
               </h1>
@@ -176,8 +176,8 @@ const Login: React.FC = () => {
           </div>
         </section>
 
-        <section className="auth-form-panel" aria-labelledby="login-form-title">
-          <div className="auth-form-header">
+        <section className="auth-form-panel min-w-0" aria-labelledby="login-form-title">
+          <div className="auth-form-header min-w-0">
             <div className="auth-form-eyebrow">{t('login.accountLogin')}</div>
             <h2 id="login-form-title" className="auth-form-title">{t('login.accountLoginTitle')}</h2>
             <div className="auth-form-route" aria-hidden="true">
@@ -185,8 +185,8 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          <form className="auth-login-form" onSubmit={handleSubmit(onSubmit)}>
-            <div className="auth-field-group">
+          <form className="auth-login-form min-w-0" onSubmit={handleSubmit(onSubmit)}>
+            <div className="auth-field-group min-w-0">
               <label htmlFor="login-username" className="auth-field-label">{t('login.usernameLabel')}</label>
               <input
                 {...register('usernameOrEmail')}
@@ -195,13 +195,13 @@ const Login: React.FC = () => {
                 autoComplete="username"
                 aria-invalid={Boolean(errors.usernameOrEmail)}
                 aria-describedby={errors.usernameOrEmail ? 'login-username-error' : undefined}
-                className="auth-field-input"
+                className="auth-field-input min-w-0"
                 placeholder={t('login.usernamePlaceholder')}
               />
               {errors.usernameOrEmail && <div id="login-username-error" className="form-message form-message-error" role="alert">{errors.usernameOrEmail.message}</div>}
             </div>
 
-            <div className="auth-field-group">
+            <div className="auth-field-group min-w-0">
               <label htmlFor="login-password" className="auth-field-label">{t('login.passwordLabel')}</label>
               <input
                 type="password"
@@ -210,7 +210,7 @@ const Login: React.FC = () => {
                 autoComplete="current-password"
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? 'login-password-error' : undefined}
-                className="auth-field-input"
+                className="auth-field-input min-w-0"
                 placeholder={t('login.passwordPlaceholder')}
               />
               {errors.password && <div id="login-password-error" className="form-message form-message-error" role="alert">{errors.password.message}</div>}

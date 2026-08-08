@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LoginResponse } from './contracts';
-import { apiPostKeepalive } from './api';
+import type { AxiosAdapter, AxiosResponse } from 'axios';
+import type { ApiResponse, LoginResponse } from './contracts';
+import { apiGet, apiPost, apiPostKeepalive } from './api';
 import {
   clearPendingAuthExpired,
   clearStoredSession,
@@ -26,6 +27,56 @@ const mockSession: LoginResponse = {
     teacherProfile: null,
   },
 };
+
+function successfulAdapter<T>(onRequest: AxiosAdapter): AxiosAdapter {
+  return async (config) => {
+    await onRequest(config);
+    return {
+      data: { success: true, data: {} as T },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    } as AxiosResponse<ApiResponse<T>>;
+  };
+}
+
+describe('account-session isolation', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    clearStoredSession();
+    writeStoredSession(mockSession);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    clearStoredSession();
+  });
+
+  it('does not attach the account bearer token to public questionnaire requests', async () => {
+    const inspectRequest = vi.fn();
+
+    await apiGet('/public/assessments/RES-TEST', {
+      adapter: successfulAdapter(inspectRequest),
+    });
+
+    expect(inspectRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: expect.not.objectContaining({ Authorization: expect.anything() }) })
+    );
+  });
+
+  it('does not attach a stale account bearer token to login requests', async () => {
+    const inspectRequest = vi.fn();
+
+    await apiPost('/auth/login', { usernameOrEmail: 'student', password: 'secret' }, {
+      adapter: successfulAdapter(inspectRequest),
+    });
+
+    expect(inspectRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: expect.not.objectContaining({ Authorization: expect.anything() }) })
+    );
+  });
+});
 
 describe('apiPostKeepalive', () => {
   beforeEach(() => {

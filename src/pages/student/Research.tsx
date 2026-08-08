@@ -37,29 +37,29 @@ const StudentResearchPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-20">
       <PageHeader
         eyebrow="RESEARCH PARTICIPATION"
         title="研究问卷"
         subtitle="从学生工作区进入自愿参与的社会研究问卷；课堂测评与研究参与保持独立。"
       />
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
-        <div className="rounded-[2.4rem] liquid-glass-panel p-7 sm:p-9">
+      <section className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
           <div className="inline-flex rounded-2xl bg-primary/10 p-3 text-primary"><Microscope size={22} /></div>
           <SectionEyebrow className="mt-6">VOLUNTARY STUDY</SectionEyebrow>
-          <h2 className="mt-3 text-2xl font-black text-slate-900 dark:text-white">研究参与不是课堂必测任务</h2>
+          <h2 className="mt-3 text-xl font-black text-slate-900 sm:text-2xl dark:text-white">研究参与不是课堂必测任务</h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-white/55">
             只有在研究人员向你提供发布编号与独立参与码后才需要进入。平台不会在这里公开列出研究项目，也不会把研究问卷混入“课堂测评”。
           </p>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="mt-8 grid min-w-0 gap-4 sm:grid-cols-3">
             {[
               ['01', '确认发布编号', '输入 RES- 开头的编号，由服务端确认问卷状态。'],
               ['02', '验证参与码', '参与码独立于学生账号，用于保护研究身份和进度。'],
               ['03', '保存并提交', '沿用公开问卷的自动保存、恢复与结果查询能力。'],
             ].map(([step, title, description]) => (
-              <div key={step} className="rounded-[1.5rem] border border-slate-200/80 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div key={step} className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/55 p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="text-xs font-black tracking-[0.18em] text-primary">{step}</div>
                 <div className="mt-3 text-sm font-black text-slate-900 dark:text-white">{title}</div>
                 <p className="mt-2 text-xs leading-6 text-slate-500 dark:text-white/45">{description}</p>
@@ -68,10 +68,10 @@ const StudentResearchPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-[2.4rem] border border-primary/15 bg-primary/[0.06] p-7 sm:p-9 dark:bg-primary/[0.08]">
-          <div className="flex items-center justify-between text-xs font-black tracking-[0.16em] text-primary">
+        <div className="min-w-0 rounded-2xl border border-primary/15 bg-primary/[0.06] p-4 sm:rounded-3xl sm:p-6 md:p-8 dark:bg-primary/[0.08]">
+          <div className="flex items-center justify-between gap-3 text-xs font-black tracking-[0.16em] text-primary">
             <span>RELEASE ACCESS</span>
-            <ShieldCheck size={18} />
+            <ShieldCheck size={18} className="shrink-0" />
           </div>
           <h2 className="mt-7 text-xl font-black text-slate-900 dark:text-white">输入研究问卷发布编号</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">
@@ -82,7 +82,7 @@ const StudentResearchPage: React.FC = () => {
             <label htmlFor="student-research-release-code" className="block text-xs font-black tracking-[0.12em] text-slate-600 dark:text-white/60">
               发布编号 / RELEASE CODE
             </label>
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-primary/50 dark:border-white/10 dark:bg-white/5">
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-primary/50 dark:border-white/10 dark:bg-white/5">
               <KeyRound size={18} className="shrink-0 text-primary" />
               <input
                 id="student-research-release-code"

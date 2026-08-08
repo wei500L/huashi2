@@ -124,6 +124,8 @@ import type {
   PublicAssessmentTimingRequest,
   PublicAssessmentVerifyRequest,
   QuestionBankImportPreflightVO,
+  QuestionBankImportReviewVO,
+  ContentReviewResolutionRequest,
   QuestionBankImportCommitRequest,
   QuestionBankImportCommitVO,
   QuestionBankItemSummaryVO,
@@ -296,6 +298,15 @@ export const assessmentService = {
     apiDownload('/teacher/assessments/question-bank/import-template.json', options),
   commitQuestionBankImport: (importId: number | string, payload: QuestionBankImportCommitRequest) =>
     apiPost<QuestionBankImportCommitVO>(`/teacher/assessments/question-bank/imports/${importId}/commit`, payload),
+  getQuestionBankImportReadiness: (importId: number | string, options?: RequestOptions) =>
+    apiGet<QuestionBankImportReviewVO>(`/teacher/assessments/question-bank/imports/${importId}/publish-readiness`, options),
+  confirmQuestionBankImportIssues: (importId: number | string, issueIds: Array<number | string>, resolutionNote: string) =>
+    apiPost<QuestionBankImportReviewVO>(`/teacher/assessments/question-bank/imports/${importId}/confirm`, {
+      issueIds,
+      resolutionNote,
+    }),
+  resolveQuestionBankImportIssue: (importId: number | string, issueId: number | string, payload: ContentReviewResolutionRequest) =>
+    apiPost<void>(`/teacher/assessments/question-bank/imports/${importId}/review-issues/${issueId}`, payload),
   approveQuestionBankImport: (importId: number | string) =>
     apiPost<QuestionBankImportCommitVO>(`/teacher/assessments/question-bank/imports/${importId}/approve`),
   listTeacherPapers: (params?: { purpose?: AssessmentPaperPurpose }, options?: RequestOptions) =>

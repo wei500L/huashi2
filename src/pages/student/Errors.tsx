@@ -49,13 +49,13 @@ const ErrorsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-20">
       <PageHeader
         eyebrow={t('shell.nav.errors')}
         title={t('ui.pages.errors.title')}
         subtitle={t('ui.pages.errors.subtitle')}
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             {!!dueReviewItems.length && (
               <button
                 type="button"
@@ -70,7 +70,7 @@ const ErrorsPage: React.FC = () => {
                     })
                   )
                 }
-                className="btn-liquid px-5 py-3 text-white"
+                className="btn-liquid inline-flex items-center justify-center px-5 py-3 text-white"
               >
                 {t('ui.actions.startReviewNow')}
               </button>
@@ -78,7 +78,7 @@ const ErrorsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/training')}
-              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
             >
               {t('common.actions.backToTrainingHome')}
             </button>
@@ -86,8 +86,8 @@ const ErrorsPage: React.FC = () => {
         }
       />
 
-      <div className="grid gap-8 xl:grid-cols-2">
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+      <div className="content-grid-2">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
           <SectionEyebrow className="mb-6">{t('ui.sections.wrongBook')}</SectionEyebrow>
           {wrongBookQuery.isLoading ? (
             <div className="text-sm text-slate-500 dark:text-white/45">{t('ui.labels.loadingWrongBook')}</div>
@@ -108,9 +108,9 @@ const ErrorsPage: React.FC = () => {
               {wrongBookQuery.data.map((item) => (
                 <div
                   key={item.wrongBookId}
-                  className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
+                  className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
                 >
-                  <div className="min-w-0 font-black break-words text-slate-900 dark:text-white">
+                  <div className="min-w-0 break-words font-black text-slate-900 dark:text-white">
                     {item.englishWord} / {item.frenchWord}
                   </div>
                   <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
@@ -134,7 +134,7 @@ const ErrorsPage: React.FC = () => {
                         })
                       )
                     }
-                    className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary sm:w-auto dark:border-white/10"
                   >
                     {t('ui.actions.remediateNow')}
                   </button>
@@ -144,8 +144,8 @@ const ErrorsPage: React.FC = () => {
           )}
         </section>
 
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="mb-6 flex items-center justify-between gap-3">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
+          <div className="page-toolbar mb-6">
             <SectionEyebrow>{t('ui.sections.reviewSchedule')}</SectionEyebrow>
             {!!reviewScheduleQuery.data?.length && (
               <button
@@ -161,7 +161,7 @@ const ErrorsPage: React.FC = () => {
                     })
                   )
                 }
-                className="text-sm font-bold text-primary"
+                className="shrink-0 text-sm font-bold text-primary"
               >
                 {t('ui.actions.startReviewNow')}
               </button>
@@ -186,11 +186,11 @@ const ErrorsPage: React.FC = () => {
               {dueReviewItems.map((item) => (
                 <div
                   key={item.reviewScheduleId}
-                  className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
+                  className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="min-w-0 font-black break-words text-slate-900 dark:text-white">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="min-w-0 break-words font-black text-slate-900 dark:text-white">
                         {item.englishWord} / {item.frenchWord}
                       </div>
                       <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
@@ -216,7 +216,7 @@ const ErrorsPage: React.FC = () => {
                           })
                         )
                       }
-                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary dark:border-white/10"
+                      className="inline-flex w-full shrink-0 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary sm:w-auto dark:border-white/10"
                     >
                       {t('ui.actions.start')}
                     </button>

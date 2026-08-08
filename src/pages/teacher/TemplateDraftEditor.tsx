@@ -581,13 +581,13 @@ const TemplateDraftEditorPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16">
       <PageHeader
         eyebrow="模板草稿"
         title={schema.basic.templateName || `模板草稿 #${resolvedDraftId}`}
         subtitle={`草稿 #${resolvedDraftId} · v${draftVersion || '--'} · 最近更新 ${formatDateTime(detailQuery.data?.updatedAt)} · 当前页负责把草稿推进到可发布状态`}
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             <Link
               to="/teacher/diagnosis-templates"
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
@@ -629,7 +629,7 @@ const TemplateDraftEditorPage: React.FC = () => {
         stages={workflowStages}
       />
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
         {steps.map((step, index) => {
           const active = index === currentStep;
           return (
@@ -638,11 +638,11 @@ const TemplateDraftEditorPage: React.FC = () => {
               type="button"
               onClick={() => void handleStepChange(index)}
               disabled={isBusy}
-              className={`rounded-[1.6rem] border px-4 py-4 text-left transition ${
+              className={`min-w-0 rounded-2xl border px-3 py-3 text-left transition sm:rounded-[1.6rem] sm:px-4 sm:py-4 ${
                 active ? 'border-primary/30 bg-primary/5' : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
               } disabled:opacity-60`}
             >
-              <div className="text-sm font-black text-slate-900 dark:text-white">{step.label}</div>
+              <div className="break-words text-sm font-black text-slate-900 dark:text-white">{step.label}</div>
             </button>
           );
         })}
@@ -680,42 +680,42 @@ const TemplateDraftEditorPage: React.FC = () => {
       )}
 
       {currentStep === 0 && (
-        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
+        <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="block min-w-0">
               <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">模板名称</div>
               <input
                 value={schema.basic.templateName}
                 onChange={(event) => updateBasicField('templateName', event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                 placeholder="例如：高风险同形异义诊断"
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">预计时长（分钟）</div>
               <input
                 type="number"
                 min={1}
                 value={schema.basic.estimatedDurationMinutes}
                 onChange={(event) => updateBasicField('estimatedDurationMinutes', Number(event.target.value) || 1)}
-                className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">计分版本</div>
               <input
                 value={schema.basic.scoringVersion}
                 onChange={(event) => updateBasicField('scoringVersion', event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                 placeholder="RULE_V1"
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">教师共享</div>
               <select
                 value={schema.basic.shareScope || 'PRIVATE'}
                 onChange={(event) => updateBasicField('shareScope', event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
               >
                 <option value="PRIVATE">私有，仅自己管理</option>
                 <option value="PUBLIC">公开到模板市场</option>
@@ -789,9 +789,9 @@ const TemplateDraftEditorPage: React.FC = () => {
       )}
 
       {currentStep === 1 && (
-        <div className="grid gap-8 xl:grid-cols-[0.82fr_1.18fr]">
-          <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-4">
-            <div>
+        <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] xl:gap-8">
+          <section className="min-w-0 space-y-4 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+            <div className="min-w-0">
               <SectionEyebrow>题项</SectionEyebrow>
               <div className="mt-3 text-xl font-black text-slate-900 dark:text-white">题项清单</div>
             </div>
@@ -824,11 +824,11 @@ const TemplateDraftEditorPage: React.FC = () => {
             )}
           </section>
 
-          <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
             {selectedItem ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <div className="text-xl font-black text-slate-900 dark:text-white">编辑题项</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">当前词对 #{selectedItem.lexicalPairId || '--'}，支持逐项配置题型、语境和选项。</div>
                   </div>
@@ -842,8 +842,8 @@ const TemplateDraftEditorPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="block">
+                <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="block min-w-0">
                     <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">题型</div>
                     <select
                       value={selectedItem.taskType || 'REACTION_TIME'}
@@ -941,25 +941,25 @@ const TemplateDraftEditorPage: React.FC = () => {
 
                   {selectedItem.options.map((option, optionIndex) => (
                     <div key={`${selectedItem.draftItemId}-${optionIndex}`} className="grid gap-4 rounded-[1.5rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                         <input
                           value={option.key}
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { key: event.target.value })}
-                          className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                          className="min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                           placeholder="选项键"
                         />
                         <input
                           value={option.label}
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { label: event.target.value })}
-                          className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                          className="min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                           placeholder="选项文案"
                         />
                       </div>
-                      <div className="grid gap-4 md:grid-cols-3">
+                      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3">
                         <select
                           value={String(option.semanticMatch ?? false)}
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { semanticMatch: event.target.value === 'true' })}
-                          className="native-select rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                          className="native-select min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                         >
                           <option value="true">语义匹配</option>
                           <option value="false">语义不匹配</option>
@@ -967,7 +967,7 @@ const TemplateDraftEditorPage: React.FC = () => {
                         <select
                           value={String(option.ignoreContextTrap ?? false)}
                           onChange={(event) => updateOption(selectedItem.draftItemId, optionIndex, { ignoreContextTrap: event.target.value === 'true' })}
-                          className="native-select rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                          className="native-select min-w-0 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                         >
                           <option value="false">正常选项</option>
                           <option value="true">忽略语境陷阱</option>
@@ -984,8 +984,8 @@ const TemplateDraftEditorPage: React.FC = () => {
                   ))}
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="block">
+                <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="block min-w-0">
                     <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">正确答案 key</div>
                     <input
                       value={selectedItem.correctAnswerKey || ''}
@@ -1017,10 +1017,10 @@ const TemplateDraftEditorPage: React.FC = () => {
       )}
 
       {currentStep === 2 && (
-        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
-          <div className="grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
-            <div className="space-y-4">
-              <div>
+        <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
+            <div className="min-w-0 space-y-4">
+              <div className="min-w-0">
                 <div className="text-xl font-black text-slate-900 dark:text-white">搜索词对</div>
                 <div className="mt-2 text-sm text-slate-500 dark:text-white/45">所有插入动作都基于搜索选择，不再手动记忆 Pair ID。</div>
               </div>
@@ -1053,23 +1053,23 @@ const TemplateDraftEditorPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+            <div className="min-w-0 space-y-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <div className="text-xl font-black text-slate-900 dark:text-white">当前已选词对</div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">选中后会自动生成基础题项草稿，可继续去第 2 步细化。</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setAdvancedMode((current) => !current)}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm dark:border-white/10"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm dark:border-white/10"
                 >
                   <Code2 size={14} />
                   高级 JSON
                 </button>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
                 {schema.items.map((item, index) => (
                   <button
                     key={item.draftItemId}
@@ -1114,16 +1114,16 @@ const TemplateDraftEditorPage: React.FC = () => {
       )}
 
       {currentStep === 3 && (
-        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-6">
-          <div>
+        <section className="min-w-0 space-y-6 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+          <div className="min-w-0">
             <div className="text-xl font-black text-slate-900 dark:text-white">预览与发布</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">发布前会执行项级校验；未通过时会自动把你带回第一个阻塞步骤。</div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-sm font-black text-slate-900 dark:text-white">基本信息</div>
-              <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/60">
+              <div className="mt-4 space-y-2 break-words text-sm text-slate-600 dark:text-white/60">
                 <div>模板名称：{schema.basic.templateName || '--'}</div>
                 <div>描述：{schema.basic.description || '--'}</div>
                 <div>预计时长：{schema.basic.estimatedDurationMinutes} 分钟</div>
@@ -1131,9 +1131,9 @@ const TemplateDraftEditorPage: React.FC = () => {
                 <div>计分版本：{schema.basic.scoringVersion}</div>
               </div>
             </div>
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-sm font-black text-slate-900 dark:text-white">覆盖摘要</div>
-              <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/60">
+              <div className="mt-4 space-y-2 break-words text-sm text-slate-600 dark:text-white/60">
                 <div>题项总数：{schema.items.length}</div>
                 <div>题型：{Array.from(new Set(schema.items.map((item) => diagnosisTaskTypeLabel(item.taskType)).filter(Boolean))).join(' / ') || '--'}</div>
                 <div>语境：{Array.from(new Set(schema.items.map((item) => contextLevelLabel(item.contextSupportLevel)).filter(Boolean))).join(' / ') || '--'}</div>

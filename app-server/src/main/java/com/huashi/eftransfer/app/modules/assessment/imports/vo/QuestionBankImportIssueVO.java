@@ -7,6 +7,7 @@ public record QuestionBankImportIssueVO(
         String severity,
         String code,
         String itemCode,
-        String message
+        String message,
+        Long issueId
 ) {
 }

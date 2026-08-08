@@ -71,9 +71,9 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
       role="region"
       aria-label={t('training.cardLayersLabel')}
       onKeyDown={handleLayerKeyDown}
-      className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+      className="min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
     >
-      <div className="mb-5 flex flex-wrap items-center gap-3" aria-label={t('training.cardLayersLabel')}>
+      <div className="mb-5 flex min-w-0 flex-wrap items-center gap-2 sm:gap-3" aria-label={t('training.cardLayersLabel')}>
         <button
           type="button"
           aria-pressed={activeLayer === 'pair'}
@@ -103,45 +103,45 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
           <Lightbulb size={16} className="mr-2 inline" aria-hidden="true" />
           {explanationAvailable ? t('training.viewExplanation') : t('training.explanationAfterAnswer')}
         </button>
-        <span className="text-xs text-slate-400 dark:text-white/35">
+        <span className="w-full text-xs text-slate-400 sm:w-auto dark:text-white/35">
           {t('training.stackKeyboardHint')}
         </span>
       </div>
 
-      <div className="min-h-[21rem] rounded-[1rem] border border-slate-200/80 bg-white/95 p-7 shadow-[var(--shadow-sm)] focus-within:ring-2 focus-within:ring-primary/20 dark:border-white/10 dark:bg-slate-950/95 sm:p-9">
-          <FadeContent contentKey={`${item.itemResultId}-${activeLayer}`} className="min-h-[16rem]">
+      <div className="min-h-[18rem] min-w-0 rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-[var(--shadow-sm)] focus-within:ring-2 focus-within:ring-primary/20 sm:min-h-[21rem] sm:rounded-3xl sm:p-6 md:p-8 dark:border-white/10 dark:bg-slate-950/95">
+          <FadeContent contentKey={`${item.itemResultId}-${activeLayer}`} className="min-h-[14rem] min-w-0 sm:min-h-[16rem]">
             {activeLayer === 'pair' ? (
-              <div className="grid min-h-[16rem] content-center gap-7 md:grid-cols-2">
-                <div>
+              <div className="grid min-h-[14rem] min-w-0 content-center gap-5 sm:min-h-[16rem] sm:gap-7 md:grid-cols-2">
+                <div className="min-w-0">
                   <div className="text-xs font-black uppercase tracking-[0.24em] text-sky-500">
                     {t('diagnosis.english')}
                   </div>
-                  <div className="mt-3 break-words text-4xl font-black text-slate-900 dark:text-white">
+                  <div className="mt-3 break-words text-3xl font-black text-slate-900 sm:text-4xl dark:text-white">
                     {item.englishWord}
                   </div>
                 </div>
-                <div className="border-t border-slate-200 pt-7 dark:border-white/10 md:border-l md:border-t-0 md:pl-8 md:pt-0">
+                <div className="min-w-0 border-t border-slate-200 pt-5 dark:border-white/10 sm:pt-7 md:border-l md:border-t-0 md:pl-8 md:pt-0">
                   <div className="text-xs font-black uppercase tracking-[0.24em] text-rose-500">
                     {t('diagnosis.french')}
                   </div>
-                  <div className="mt-3 break-words text-4xl font-black text-slate-900 dark:text-white">
+                  <div className="mt-3 break-words text-3xl font-black text-slate-900 sm:text-4xl dark:text-white">
                     {item.frenchWord}
                   </div>
                   {item.chineseGloss ? (
-                    <div className="mt-4 text-sm leading-6 text-slate-500 dark:text-white/45">{item.chineseGloss}</div>
+                    <div className="mt-4 break-words text-sm leading-6 text-slate-500 dark:text-white/45">{item.chineseGloss}</div>
                   ) : null}
                 </div>
               </div>
             ) : activeLayer === 'context' ? (
-              <div className="flex min-h-[16rem] flex-col justify-center">
+              <div className="flex min-h-[14rem] min-w-0 flex-col justify-center sm:min-h-[16rem]">
                 <div className="text-xs font-black uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-300">
                   {t('training.contextLayer')}
                 </div>
-                <div className="mt-5 text-xl font-black leading-8 text-slate-900 dark:text-white">
+                <div className="mt-5 break-words text-lg font-black leading-8 text-slate-900 sm:text-xl dark:text-white">
                   {item.content.question}
                 </div>
                 {item.content.sentence ? (
-                  <blockquote className="mt-5 border-l-4 border-emerald-500/35 pl-5 text-lg italic leading-8 text-slate-600 dark:text-white/60">
+                  <blockquote className="mt-5 break-words border-l-4 border-emerald-500/35 pl-4 text-base italic leading-8 text-slate-600 sm:pl-5 sm:text-lg dark:text-white/60">
                     {item.content.sentence}
                   </blockquote>
                 ) : (
@@ -149,11 +149,11 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
                 )}
               </div>
             ) : (
-              <div className="flex min-h-[16rem] flex-col justify-center">
+              <div className="flex min-h-[14rem] min-w-0 flex-col justify-center sm:min-h-[16rem]">
                 <div className="text-xs font-black uppercase tracking-[0.24em] text-amber-600 dark:text-amber-300">
                   {t('training.semanticExplanation')}
                 </div>
-                <div className="mt-5 text-lg leading-8 text-slate-700 dark:text-white/70">
+                <div className="mt-5 break-words text-base leading-8 text-slate-700 sm:text-lg dark:text-white/70">
                   {explanation || t('training.noExplanation')}
                 </div>
               </div>
@@ -161,23 +161,23 @@ export const LearningCardStack: React.FC<LearningCardStackProps> = ({
           </FadeContent>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-3">
+      <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3">
         <button
           type="button"
           disabled={activeIndex <= 0}
           onClick={() => moveLayer(-1)}
-          className="min-h-11 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40 dark:border-white/10"
+          className="min-h-11 min-w-0 flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40 sm:flex-none dark:border-white/10"
         >
           {t('training.previousLayer')}
         </button>
-        <span className="text-xs font-bold text-slate-400 dark:text-white/35" aria-live="polite">
+        <span className="order-first w-full text-center text-xs font-bold text-slate-400 sm:order-none sm:w-auto dark:text-white/35" aria-live="polite">
           {activeIndex + 1} / {availableLayers.length}
         </span>
         <button
           type="button"
           disabled={activeIndex >= availableLayers.length - 1}
           onClick={() => moveLayer(1)}
-          className="min-h-11 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40 dark:border-white/10"
+          className="min-h-11 min-w-0 flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40 sm:flex-none dark:border-white/10"
         >
           {t('training.nextLayer')}
         </button>

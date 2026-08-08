@@ -40,8 +40,35 @@ const refreshClient = axios.create({
 
 let refreshPromise: Promise<LoginResponse | null> | null = null;
 const KEEPALIVE_TOKEN_FRESHNESS_WINDOW_MS = 15_000;
+const ACCOUNT_SESSION_EXEMPT_PATHS = new Set([
+  '/auth/login',
+  '/auth/register',
+  '/auth/register/context',
+  '/auth/refresh',
+]);
+
+function requestPath(url?: string): string {
+  if (!url) {
+    return '';
+  }
+  try {
+    return new URL(url, 'http://localhost').pathname.replace(/^\/api(?=\/)/, '');
+  } catch {
+    return url.split('?')[0].replace(/^\/api(?=\/)/, '');
+  }
+}
+
+function isAccountSessionExempt(url?: string): boolean {
+  const path = requestPath(url);
+  return ACCOUNT_SESSION_EXEMPT_PATHS.has(path)
+    || path.startsWith('/auth/account-actions/')
+    || path.startsWith('/public/assessments/');
+}
 
 function withAuth(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
+  if (isAccountSessionExempt(config.url)) {
+    return config;
+  }
   const session = readStoredSession();
   if (session?.accessToken) {
     config.headers = config.headers ?? {};
@@ -60,8 +87,7 @@ http.interceptors.response.use(
       error.response?.status === 401 &&
       originalRequest &&
       !originalRequest._retry &&
-      !String(originalRequest.url || '').includes('/auth/login') &&
-      !String(originalRequest.url || '').includes('/auth/refresh')
+      !isAccountSessionExempt(originalRequest.url)
     ) {
       originalRequest._retry = true;
       const refreshedSession = await refreshSession();

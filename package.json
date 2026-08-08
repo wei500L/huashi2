@@ -12,7 +12,8 @@
     "build:analyze": "tsc --noEmit && vite build --mode analyze",
     "lint": "eslint .",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit:mobile": "node scripts/mobile-viewport-audit.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -50,6 +51,7 @@
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^15.15.0",
     "jsdom": "^27.0.1",
+    "playwright": "^1.55.0",
     "postcss": "^8.4.49",
     "rollup-plugin-visualizer": "^6.0.3",
     "tailwindcss": "^3.4.16",

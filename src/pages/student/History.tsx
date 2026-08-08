@@ -114,24 +114,24 @@ function DiagnosisHistoryItemReviewCard({ item }: { item: DiagnosisItemResultDet
   const correctLabel = findDiagnosisOptionLabel(item.options, item.correctAnswerKey);
 
   return (
-    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="font-black text-slate-900 dark:text-white">
+    <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="break-words font-black text-slate-900 dark:text-white">
             {item.englishWord} / {item.frenchWord}
           </div>
-          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+          <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
             {diagnosisTaskTypeLabel(item.taskType)} · {errorTypeLabel(item.detectedErrorType)} · {formatMs(item.reactionTimeMs)}
           </div>
           {(item.stimulus.promptText || item.stimulus.instruction || item.stimulus.contextSentence) && (
-            <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+            <div className="mt-3 rounded-2xl border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
               {item.stimulus.instruction && <div className="font-semibold">{item.stimulus.instruction}</div>}
-              {item.stimulus.promptText && <div className="mt-1">{item.stimulus.promptText}</div>}
-              {item.stimulus.contextSentence && <div className="mt-2 italic">{item.stimulus.contextSentence}</div>}
+              {item.stimulus.promptText && <div className="mt-1 break-words">{item.stimulus.promptText}</div>}
+              {item.stimulus.contextSentence && <div className="mt-2 break-words italic">{item.stimulus.contextSentence}</div>}
             </div>
           )}
         </div>
-        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+        <div className="shrink-0 text-left text-sm text-slate-500 sm:text-right dark:text-white/45">
           <StatusBadge label={item.correct ? '答对' : '答错'} tone={item.correct ? 'success' : 'danger'} />
           <div>{formatMaybePercent(item.itemScore)}</div>
         </div>
@@ -159,18 +159,18 @@ function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetai
   const correctLabel = findTrainingOptionLabel(item.options, item.correctAnswerKey);
 
   return (
-    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="font-black text-slate-900 dark:text-white">
+    <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="break-words font-black text-slate-900 dark:text-white">
             {item.englishWord} / {item.frenchWord}
           </div>
-          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+          <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
             {trainingModeLabel(item.mode)} · {item.cognitiveTag} · {item.detectedErrorType ? errorTypeLabel(item.detectedErrorType) : '已完成'}
           </div>
-          <div className="mt-3 rounded-[1.2rem] border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
-            <div className="font-semibold">{item.content.question}</div>
-            {item.content.sentence && <div className="mt-2 italic">{item.content.sentence}</div>}
+          <div className="mt-3 rounded-2xl border border-dashed border-slate-200/80 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+            <div className="break-words font-semibold">{item.content.question}</div>
+            {item.content.sentence && <div className="mt-2 break-words italic">{item.content.sentence}</div>}
             {item.stimulus.explanation && (
               <>
                 <button
@@ -178,12 +178,12 @@ function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetai
                   aria-expanded={showExplanation}
                   aria-keyshortcuts="Enter Space"
                   onClick={() => setShowExplanation((visible) => !visible)}
-                  className="mt-3 min-h-11 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:border-white/10"
+                  className="mt-3 min-h-11 w-full rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:w-auto dark:border-white/10"
                 >
                   {showExplanation ? t('training.hideExplanation') : t('training.viewExplanation')}
                 </button>
                 {showExplanation ? (
-                  <FadeContent contentKey="training-history-explanation" className="mt-3">
+                  <FadeContent contentKey="training-history-explanation" className="mt-3 break-words">
                     {item.stimulus.explanation}
                   </FadeContent>
                 ) : null}
@@ -191,7 +191,7 @@ function TrainingHistoryItemReviewCard({ item }: { item: TrainingItemResultDetai
             )}
           </div>
         </div>
-        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+        <div className="shrink-0 text-left text-sm text-slate-500 sm:text-right dark:text-white/45">
           <StatusBadge label={item.correct ? '答对' : '答错'} tone={item.correct ? 'success' : 'danger'} />
           <div>{formatMs(item.reactionTimeMs)}</div>
         </div>
@@ -221,16 +221,16 @@ function AssessmentHistoryItemReviewCard({ item }: { item: AssessmentAttemptResu
     : item.correctAnswers.join(' / ');
 
   return (
-    <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="font-black text-slate-900 dark:text-white">
+    <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="break-words font-black text-slate-900 dark:text-white">
             第 {item.questionOrder} 题 · {assessmentQuestionTypeLabel(item.questionType)}
           </div>
-          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.stemText}</div>
-          {item.promptText && <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{item.promptText}</div>}
+          <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{item.stemText}</div>
+          {item.promptText && <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{item.promptText}</div>}
         </div>
-        <div className="text-right text-sm text-slate-500 dark:text-white/45">
+        <div className="shrink-0 text-left text-sm text-slate-500 sm:text-right dark:text-white/45">
           <StatusBadge label={item.correct ? '答对' : '答错'} tone={item.correct ? 'success' : 'danger'} />
           <div>
             {item.scoreAwarded ?? 0} / {item.score}
@@ -366,14 +366,14 @@ const HistoryPage: React.FC = () => {
   const assessmentData = assessmentHistoryQuery.data;
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-20">
       <PageHeader
         eyebrow={t('taskPages.history.eyebrow')}
         title={t('taskPages.history.pageTitle')}
         subtitle={t('taskPages.history.pageSubtitle')}
       />
 
-      <section className="surface-panel rounded-xl p-3" aria-label="History sections">
+      <section className="surface-panel min-w-0 rounded-xl p-3" aria-label="History sections">
         <Tabs<HistoryTab>
           variant="page"
           ariaLabel={t('taskPages.history.pageTitle')}
@@ -388,14 +388,14 @@ const HistoryPage: React.FC = () => {
       </section>
 
       {activeTab === 'diagnosis' ? (
-        <div id="tabpanel-diagnosis" role="tabpanel" className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
-            <div className="flex flex-wrap items-center gap-3">
+        <div id="tabpanel-diagnosis" role="tabpanel" className="content-grid-sidebar">
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:space-y-6 sm:rounded-3xl sm:p-6 md:p-8">
+            <div className="page-toolbar">
               <SectionEyebrow>筛选</SectionEyebrow>
               <select
                 value={diagnosisStatus}
                 onChange={(event) => setDiagnosisStatus(event.target.value)}
-                className="native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                className="filter-field native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
               >
                 <option value="ALL">全部状态</option>
                 <option value="IN_PROGRESS">进行中</option>
@@ -432,17 +432,17 @@ const HistoryPage: React.FC = () => {
                 {diagnosisData.records.map((record) => (
                   <div
                     key={record.sessionId}
-                    className={`rounded-[1.8rem] border p-5 ${
+                    className={`min-w-0 rounded-2xl border p-4 sm:p-5 ${
                       selectedDiagnosisSessionId === record.sessionId
                         ? 'border-primary/30 bg-primary/5'
                         : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
                     }`}
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <StatusBadge label={diagnosisSessionStatusLabel(record.status)} tone={diagnosisSessionStatusTone(record.status)} />
-                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{record.templateName || `模板 #${record.templateId}`}</div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        <div className="mt-2 break-words text-lg font-black text-slate-900 sm:text-xl dark:text-white">{record.templateName || `模板 #${record.templateId}`}</div>
+                        <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                           开始于 {formatDateTime(record.startedAt)} · 完成于 {formatDateTime(record.completedAt)}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500 dark:text-white/45">
@@ -451,12 +451,12 @@ const HistoryPage: React.FC = () => {
                           <span>正确率 {formatMaybePercent(record.overallAccuracy, 1)}</span>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div className="page-actions">
                         {record.status === 'IN_PROGRESS' ? (
                           <button
                             type="button"
                             onClick={() => navigate(buildDiagnosisHref({ source: 'history-diagnosis' }))}
-                            className="btn-liquid px-5 py-3 text-white"
+                            className="btn-liquid inline-flex items-center justify-center px-5 py-3 text-white"
                           >
                             继续诊断
                           </button>
@@ -468,7 +468,7 @@ const HistoryPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedDiagnosisSessionId(record.sessionId)}
-                            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
                           >
                             查看详情
                           </button>
@@ -480,16 +480,16 @@ const HistoryPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-between text-sm text-slate-500 dark:text-white/45">
+            <div className="page-toolbar text-sm text-slate-500 dark:text-white/45">
               <span>
                 第 {diagnosisPageNo}/{totalPages(diagnosisData?.total)} 页
               </span>
-              <div className="flex gap-3">
+              <div className="page-actions">
                 <button
                   type="button"
                   onClick={() => setDiagnosisPageNo((page) => Math.max(1, page - 1))}
                   disabled={diagnosisPageNo === 1}
-                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
                 >
                   上一页
                 </button>
@@ -497,7 +497,7 @@ const HistoryPage: React.FC = () => {
                   type="button"
                   onClick={() => setDiagnosisPageNo((page) => Math.min(totalPages(diagnosisData?.total), page + 1))}
                   disabled={diagnosisPageNo >= totalPages(diagnosisData?.total)}
-                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
                 >
                   下一页
                 </button>
@@ -505,7 +505,7 @@ const HistoryPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:space-y-6 sm:rounded-3xl sm:p-6 md:p-8">
             <SectionEyebrow>诊断详情</SectionEyebrow>
             {selectedDiagnosisSessionId === null ? (
               <HistoryStatePanel
@@ -533,13 +533,13 @@ const HistoryPage: React.FC = () => {
             ) : diagnosisDetailQuery.data ? (
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white">{diagnosisDetailQuery.data.templateName}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  <div className="min-w-0">
+                    <div className="break-words text-xl font-black text-slate-900 sm:text-2xl dark:text-white">{diagnosisDetailQuery.data.templateName}</div>
+                    <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                       完成于 {formatDateTime(diagnosisDetailQuery.data.completedAt)}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="page-actions">
                     <button
                       type="button"
                       onClick={() =>
@@ -550,41 +550,41 @@ const HistoryPage: React.FC = () => {
                           })
                         )
                       }
-                      className="btn-liquid px-5 py-3 text-white"
+                      className="btn-liquid inline-flex items-center justify-center px-5 py-3 text-white"
                     >
                       基于结果开始训练
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/analytics')}
-                      className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                      className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
                     >
                       {t('taskPages.history.reviewHighRiskPairs')}
                     </button>
                   </div>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                <div className="grid min-w-0 gap-3 sm:gap-4 md:grid-cols-2">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">正迁移得分</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {formatMaybePercent(diagnosisDetailQuery.data.metrics.positiveTransferScore, 1)}
                     </div>
                   </div>
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">平均反应时</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {formatMs(diagnosisDetailQuery.data.metrics.averageReactionTime)}
                     </div>
                   </div>
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">负迁移风险</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {formatMaybePercent(diagnosisDetailQuery.data.metrics.negativeTransferRisk, 1)}
                     </div>
                   </div>
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">总体正确率</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {formatMaybePercent(diagnosisDetailQuery.data.metrics.overallAccuracy, 1)}
                     </div>
                   </div>
@@ -595,12 +595,12 @@ const HistoryPage: React.FC = () => {
                     diagnosisDetailQuery.data.highRiskLexicalPairs.slice(0, 5).map((pair) => (
                       <div
                         key={pair.lexicalPairId}
-                        className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
+                        className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
                       >
-                        <div className="font-black text-slate-900 dark:text-white">
+                        <div className="break-words font-black text-slate-900 dark:text-white">
                           {pair.englishWord} / {pair.frenchWord}
                         </div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                           {lexicalPairTypeLabel(pair.lexicalPairType)} · 风险 {formatMaybePercent(pair.riskScore, 1)} · 主导错误 {errorTypeLabel(pair.dominantErrorType)}
                         </div>
                       </div>
@@ -624,14 +624,14 @@ const HistoryPage: React.FC = () => {
           </section>
         </div>
       ) : activeTab === 'training' ? (
-        <div id="tabpanel-training" role="tabpanel" className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
-            <div className="flex flex-wrap items-center gap-3">
+        <div id="tabpanel-training" role="tabpanel" className="content-grid-sidebar">
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:space-y-6 sm:rounded-3xl sm:p-6 md:p-8">
+            <div className="page-toolbar">
               <SectionEyebrow>筛选</SectionEyebrow>
               <select
                 value={trainingStatus}
                 onChange={(event) => setTrainingStatus(event.target.value)}
-                className="native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                className="filter-field native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
               >
                 <option value="ALL">全部状态</option>
                 <option value="IN_PROGRESS">进行中</option>
@@ -668,17 +668,17 @@ const HistoryPage: React.FC = () => {
                 {trainingData.records.map((record) => (
                   <div
                     key={record.sessionId}
-                    className={`rounded-[1.8rem] border p-5 ${
+                    className={`min-w-0 rounded-2xl border p-4 sm:p-5 ${
                       selectedTrainingSessionId === record.sessionId
                         ? 'border-primary/30 bg-primary/5'
                         : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
                     }`}
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <StatusBadge label={trainingSessionStatusLabel(record.status)} tone={trainingSessionStatusTone(record.status)} />
-                        <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{trainingModeLabel(record.mode)}</div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        <div className="mt-2 break-words text-lg font-black text-slate-900 sm:text-xl dark:text-white">{trainingModeLabel(record.mode)}</div>
+                        <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                           开始于 {formatDateTime(record.startedAt)} · 完成于 {formatDateTime(record.completedAt)}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500 dark:text-white/45">
@@ -686,12 +686,12 @@ const HistoryPage: React.FC = () => {
                           <span>当前序号 {record.currentItemOrder ?? '--'}</span>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div className="page-actions">
                         {record.status === 'IN_PROGRESS' ? (
                           <button
                             type="button"
                             onClick={() => navigate('/training')}
-                            className="btn-liquid px-5 py-3 text-white"
+                            className="btn-liquid inline-flex items-center justify-center px-5 py-3 text-white"
                           >
                             继续训练
                           </button>
@@ -703,7 +703,7 @@ const HistoryPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedTrainingSessionId(record.sessionId)}
-                            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
                           >
                             查看总结
                           </button>
@@ -715,16 +715,16 @@ const HistoryPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-between text-sm text-slate-500 dark:text-white/45">
+            <div className="page-toolbar text-sm text-slate-500 dark:text-white/45">
               <span>
                 第 {trainingPageNo}/{totalPages(trainingData?.total)} 页
               </span>
-              <div className="flex gap-3">
+              <div className="page-actions">
                 <button
                   type="button"
                   onClick={() => setTrainingPageNo((page) => Math.max(1, page - 1))}
                   disabled={trainingPageNo === 1}
-                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
                 >
                   上一页
                 </button>
@@ -732,7 +732,7 @@ const HistoryPage: React.FC = () => {
                   type="button"
                   onClick={() => setTrainingPageNo((page) => Math.min(totalPages(trainingData?.total), page + 1))}
                   disabled={trainingPageNo >= totalPages(trainingData?.total)}
-                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
                 >
                   下一页
                 </button>
@@ -740,7 +740,7 @@ const HistoryPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:space-y-6 sm:rounded-3xl sm:p-6 md:p-8">
             <SectionEyebrow>训练详情</SectionEyebrow>
             {selectedTrainingSessionId === null ? (
               <HistoryStatePanel
@@ -770,11 +770,11 @@ const HistoryPage: React.FC = () => {
             ) : trainingDetailQuery.data ? (
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white">{trainingModeLabel(trainingDetailQuery.data.mode)}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{trainingDetailQuery.data.improvementHint}</div>
+                  <div className="min-w-0">
+                    <div className="break-words text-xl font-black text-slate-900 sm:text-2xl dark:text-white">{trainingModeLabel(trainingDetailQuery.data.mode)}</div>
+                    <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{trainingDetailQuery.data.improvementHint}</div>
                   </div>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="page-actions">
                     <button
                       type="button"
                       onClick={() =>
@@ -787,35 +787,35 @@ const HistoryPage: React.FC = () => {
                             : '/training'
                         )
                       }
-                      className="btn-liquid px-5 py-3 text-white"
+                      className="btn-liquid inline-flex items-center justify-center px-5 py-3 text-white"
                     >
                       继续下一推荐训练
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/errors')}
-                      className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                      className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
                     >
                       去做错题复习
                     </button>
                   </div>
                 </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                <div className="grid min-w-0 gap-3 sm:gap-4 md:grid-cols-3">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">正确率</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {formatMaybePercent(trainingDetailQuery.data.accuracy, 1)}
                     </div>
                   </div>
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">平均反应时</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {formatMs(trainingDetailQuery.data.averageReactionTime)}
                     </div>
                   </div>
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">下一推荐模式</div>
-                    <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 break-words text-xl font-black text-slate-900 sm:text-2xl dark:text-white">
                       {trainingModeLabel(trainingDetailQuery.data.nextRecommendedMode)}
                     </div>
                   </div>
@@ -826,12 +826,12 @@ const HistoryPage: React.FC = () => {
                     trainingDetailQuery.data.riskWordsToReview.map((item) => (
                       <div
                         key={item.lexicalPairId}
-                        className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
+                        className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5"
                       >
-                        <div className="font-black text-slate-900 dark:text-white">
+                        <div className="break-words font-black text-slate-900 dark:text-white">
                           {item.englishWord} / {item.frenchWord}
                         </div>
-                        <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                        <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                           {lexicalPairTypeLabel(item.lexicalPairType)} · {riskLevelLabel(item.riskLevel)} · {item.reason}
                         </div>
                       </div>
@@ -855,14 +855,14 @@ const HistoryPage: React.FC = () => {
           </section>
         </div>
       ) : (
-        <div id="tabpanel-assessment" role="tabpanel" className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
-            <div className="flex flex-wrap items-center gap-3">
+        <div id="tabpanel-assessment" role="tabpanel" className="content-grid-sidebar">
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:space-y-6 sm:rounded-3xl sm:p-6 md:p-8">
+            <div className="page-toolbar">
               <SectionEyebrow>筛选</SectionEyebrow>
               <select
                 value={assessmentStatus}
                 onChange={(event) => setAssessmentStatus(event.target.value)}
-                className="native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                className="filter-field native-select rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm dark:border-white/10 dark:bg-white/5"
               >
                 <option value="ALL">全部状态</option>
                 <option value="IN_PROGRESS">进行中</option>
@@ -898,16 +898,16 @@ const HistoryPage: React.FC = () => {
                 {assessmentData.records.map((record) => (
                   <div
                     key={record.attemptId}
-                    className={`rounded-[1.8rem] border p-5 ${
+                    className={`min-w-0 rounded-2xl border p-4 sm:p-5 ${
                       selectedAssessmentAttemptId === record.attemptId
                         ? 'border-primary/30 bg-primary/5'
                         : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
                     }`}
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <StatusBadge label={assessmentAttemptStatusLabel(record.status)} tone={assessmentAttemptStatusTone(record.status)} />
-                        <div className="mt-2 break-words text-xl font-black text-slate-900 dark:text-white">{record.title}</div>
+                        <div className="mt-2 break-words text-lg font-black text-slate-900 sm:text-xl dark:text-white">{record.title}</div>
                         <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                           {record.className} · 开始于 {formatDateTime(record.startedAt)} · 提交于 {formatDateTime(record.submittedAt)}
                         </div>
@@ -917,12 +917,12 @@ const HistoryPage: React.FC = () => {
                           <span>最后保存 {formatDateTime(record.lastSavedAt)}</span>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div className="page-actions">
                         {record.status === 'IN_PROGRESS' ? (
                           <button
                             type="button"
                             onClick={() => navigate(`/assessments/attempts/${record.attemptId}`)}
-                            className="btn-liquid px-5 py-3 text-white"
+                            className="btn-liquid inline-flex items-center justify-center px-5 py-3 text-white"
                           >
                             继续作答
                           </button>
@@ -930,7 +930,7 @@ const HistoryPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedAssessmentAttemptId(record.attemptId)}
-                            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
                           >
                             {record.releaseStatus === 'PENDING' ? '结果待公布' : '查看结果'}
                           </button>
@@ -942,16 +942,16 @@ const HistoryPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-between text-sm text-slate-500 dark:text-white/45">
+            <div className="page-toolbar text-sm text-slate-500 dark:text-white/45">
               <span>
                 第 {assessmentPageNo}/{totalPages(assessmentData?.total)} 页
               </span>
-              <div className="flex gap-3">
+              <div className="page-actions">
                 <button
                   type="button"
                   onClick={() => setAssessmentPageNo((page) => Math.max(1, page - 1))}
                   disabled={assessmentPageNo === 1}
-                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
                 >
                   上一页
                 </button>
@@ -959,7 +959,7 @@ const HistoryPage: React.FC = () => {
                   type="button"
                   onClick={() => setAssessmentPageNo((page) => Math.min(totalPages(assessmentData?.total), page + 1))}
                   disabled={assessmentPageNo >= totalPages(assessmentData?.total)}
-                  className="rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 disabled:opacity-50 dark:border-white/10"
                 >
                   下一页
                 </button>
@@ -967,7 +967,7 @@ const HistoryPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="space-y-6 rounded-[2.5rem] liquid-glass-panel p-8">
+          <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:space-y-6 sm:rounded-3xl sm:p-6 md:p-8">
             <SectionEyebrow>测评详情</SectionEyebrow>
             {selectedAssessmentAttemptId === null ? (
               <HistoryStatePanel
@@ -991,7 +991,7 @@ const HistoryPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/assessments/attempts/${selectedAssessmentRecord.attemptId}`)}
-                  className="btn-liquid px-5 py-3 text-white"
+                  className="btn-liquid inline-flex w-full items-center justify-center px-5 py-3 text-white sm:w-auto"
                 >
                   回到测评继续作答
                 </button>
@@ -1022,36 +1022,36 @@ const HistoryPage: React.FC = () => {
             ) : assessmentDetailQuery.data ? (
               <>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white">{assessmentDetailQuery.data.paperTitle}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  <div className="min-w-0">
+                    <div className="break-words text-xl font-black text-slate-900 sm:text-2xl dark:text-white">{assessmentDetailQuery.data.paperTitle}</div>
+                    <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                       {assessmentDetailQuery.data.className} · 提交于 {formatDateTime(assessmentDetailQuery.data.submittedAt)}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => navigate(`/assessments/attempts/${assessmentDetailQuery.data.attemptId}/result`)}
-                    className="rounded-full border border-slate-200 px-5 py-3 text-sm font-bold dark:border-white/10"
+                    className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold sm:w-auto dark:border-white/10"
                   >
                     打开独立结果页
                   </button>
                 </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                <div className="grid min-w-0 gap-3 sm:gap-4 md:grid-cols-3">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">总分</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{assessmentDetailQuery.data.totalScore}</div>
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">{assessmentDetailQuery.data.totalScore}</div>
                   </div>
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">答对率</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {assessmentDetailQuery.data.questionCount
                         ? `${Math.round(((assessmentDetailQuery.data.correctCount ?? 0) / assessmentDetailQuery.data.questionCount) * 100)}%`
                         : '0%'}
                     </div>
                   </div>
-                  <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">作答题数</div>
-                    <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                       {assessmentDetailQuery.data.answeredCount}/{assessmentDetailQuery.data.questionCount}
                     </div>
                   </div>

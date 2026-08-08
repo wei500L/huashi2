@@ -607,9 +607,9 @@ function createEmptyProviderSecretEditors(): ProviderSecretEditorMap {
 function createProviderSecretEditors(view: AdminAiConfigViewVO, providerName: string): ProviderSecretEditorMap {
   const providerSecrets = view.secrets.providers?.[providerName];
   return {
-    chatApiKey: createSecretEditor(Boolean(providerSecrets?.chatApiKey.configured)),
-    embeddingApiKey: createSecretEditor(Boolean(providerSecrets?.embeddingApiKey.configured)),
-    rerankApiKey: createSecretEditor(Boolean(providerSecrets?.rerankApiKey.configured)),
+    chatApiKey: createSecretEditor(Boolean(providerSecrets?.chatApiKey?.configured)),
+    embeddingApiKey: createSecretEditor(Boolean(providerSecrets?.embeddingApiKey?.configured)),
+    rerankApiKey: createSecretEditor(Boolean(providerSecrets?.rerankApiKey?.configured)),
   };
 }
 
@@ -622,7 +622,7 @@ function buildSecretEditors(view: AdminAiConfigViewVO): SecretEditorMap {
 
   return {
     providers: Object.fromEntries(providerNames.map((providerName) => [providerName, createProviderSecretEditors(view, providerName)])),
-    appServerInternalToken: createSecretEditor(view.secrets.appServerInternalToken.configured),
+    appServerInternalToken: createSecretEditor(Boolean(view.secrets.appServerInternalToken?.configured)),
   };
 }
 
@@ -843,17 +843,17 @@ export function buildSavePayload(
 }
 
 const SectionCard: React.FC<{ title: string; description?: string; children: React.ReactNode }> = ({ title, description, children }) => (
-  <section className="rounded-[1.5rem] border border-slate-200/80 bg-white p-6 shadow-sm md:p-8 space-y-6 dark:border-white/10 dark:bg-slate-950/35">
-    <div className="space-y-2">
-      <h2 className="text-lg font-black text-slate-900 dark:text-white">{title}</h2>
-      {description && <p className="text-sm text-slate-500 dark:text-white/45 max-w-3xl">{description}</p>}
+  <section className="min-w-0 space-y-5 rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm sm:space-y-6 sm:rounded-3xl sm:p-5 md:p-6">
+    <div className="min-w-0 space-y-2">
+      <h2 className="break-words text-lg font-black text-slate-900 dark:text-white">{title}</h2>
+      {description && <p className="max-w-3xl break-words text-sm text-slate-500 dark:text-white/45">{description}</p>}
     </div>
     {children}
   </section>
 );
 
 const FieldGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">{children}</div>
+  <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2">{children}</div>
 );
 
 const FieldCard: React.FC<{
@@ -862,13 +862,13 @@ const FieldCard: React.FC<{
   detail?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ label, hint, detail, children }) => (
-  <label className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] px-4 py-4 space-y-3 block">
-    <div>
+  <label className="block min-w-0 space-y-3 rounded-2xl border border-slate-200/70 bg-surface-sunken px-3 py-3 sm:rounded-[1.6rem] sm:px-4 sm:py-4 dark:border-white/10">
+    <div className="min-w-0">
       <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">{label}</div>
       {hint && (
-        <div className="mt-3 inline-flex items-start gap-2 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2 text-xs leading-5 text-slate-600 dark:text-sky-100/80">
+        <div className="mt-3 inline-flex min-w-0 items-start gap-2 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2 text-xs leading-5 text-slate-600 dark:text-sky-100/80">
           <Info size={14} className="mt-0.5 shrink-0 text-sky-500 dark:text-sky-300" />
-          <span>{hint}</span>
+          <span className="min-w-0 break-words">{hint}</span>
         </div>
       )}
     </div>
@@ -900,10 +900,10 @@ const TabButton: React.FC<{ active: boolean; label: string; onClick: () => void 
   <button
     type="button"
     onClick={onClick}
-    className={`px-4 py-3 rounded-2xl text-sm font-bold transition-all border ${
+    className={`shrink-0 whitespace-nowrap rounded-2xl border px-4 py-3 text-sm font-bold transition-all ${
       active
-        ? 'bg-primary/10 text-primary border-primary/20'
-        : 'bg-white/50 dark:bg-white/[0.03] text-slate-500 dark:text-white/45 border-slate-200/70 dark:border-white/10'
+        ? 'border-primary/20 bg-primary/10 text-primary'
+        : 'border-slate-200/70 bg-white/50 text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45'
     }`}
   >
     {label}
@@ -932,7 +932,7 @@ const SelectInput: React.FC<{
 
 const HealthBadge: React.FC<{ healthy: boolean; label: string }> = ({ healthy, label }) => (
   <div
-    className={`rounded-2xl px-4 py-3 border text-sm font-semibold ${
+    className={`min-w-0 break-words rounded-2xl border px-3 py-3 text-sm font-semibold sm:px-4 ${
       healthy
         ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
         : 'border-rose-500/20 bg-rose-500/5 text-rose-500'
@@ -948,23 +948,23 @@ const ProbeResultCard: React.FC<{
   emptyHint: string;
   rows: ProbeMetaRow[];
 }> = ({ title, result, emptyHint, rows }) => (
-  <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] p-4 space-y-3">
-    <div className="flex items-center justify-between gap-3">
-      <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
+  <div className="min-w-0 space-y-3 rounded-2xl border border-slate-200/70 bg-white/60 p-3 sm:rounded-[1.6rem] sm:p-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <div className="min-w-0 text-sm font-black text-slate-900 dark:text-white">{title}</div>
       {result && (
-        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${result.ok ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' : 'border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
+        <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${result.ok ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' : 'border-rose-500/20 bg-rose-500/5 text-rose-500'}`}>
           {result.ok ? 'SUCCESS' : 'FAILED'}
         </span>
       )}
     </div>
     {result ? (
       <>
-        <div className={`rounded-2xl border px-3 py-3 text-sm ${result.ok ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300' : 'border-rose-500/20 bg-rose-500/5 text-rose-600 dark:text-rose-300'}`}>
+        <div className={`break-words rounded-2xl border px-3 py-3 text-sm ${result.ok ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300' : 'border-rose-500/20 bg-rose-500/5 text-rose-600 dark:text-rose-300'}`}>
           {translateConfigMessage(result.message)}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-600 dark:text-white/60">
+        <div className="grid min-w-0 grid-cols-1 gap-3 text-sm text-slate-600 dark:text-white/60 sm:grid-cols-2">
           {rows.map((row) => (
-            <div key={`${title}-${row.label}`} className="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-slate-950/25 px-3 py-3">
+            <div key={`${title}-${row.label}`} className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/70 px-3 py-3 dark:border-white/10 dark:bg-slate-950/25">
               <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">{row.label}</div>
               <div className="mt-2 break-all">{row.value}</div>
             </div>
@@ -972,7 +972,7 @@ const ProbeResultCard: React.FC<{
         </div>
       </>
     ) : (
-      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 px-4 py-4 text-sm text-slate-500 dark:text-white/45">
+      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
         {emptyHint}
       </div>
     )}
@@ -1450,7 +1450,7 @@ function collectLocalConfigIssues(config: AiOpsDraftConfigPayload): AiOpsConfigV
 
   const deduped = new Map<string, AiOpsConfigIssue>();
   result.error.issues.forEach((issue) => {
-    const field = issue.path.join('.');
+    const field = Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path ?? 'config');
     const normalizedField = field === 'provider.providers' ? 'provider.providers' : field;
     const mapped = localIssue(normalizedField, mapLocalIssueCode(issue.message), issue.message);
     deduped.set(`${mapped.field}:${mapped.code}:${mapped.defaultMessage}`, mapped);
@@ -1916,7 +1916,23 @@ const AdminConfigCenterPage: React.FC = () => {
   const queryClient = useQueryClient();
   const configQuery = useQuery({
     queryKey: ['admin-ai-config'],
-    queryFn: async ({ signal }) => normalizeAdminAiConfigView(await adminService.getAiConfig({ signal })),
+    queryFn: async ({ signal }) => {
+      try {
+        return normalizeAdminAiConfigView(await adminService.getAiConfig({ signal }));
+      } catch (error) {
+        if (error instanceof AdminAiConfigContractError) {
+          throw error;
+        }
+        throw error instanceof Error ? error : new Error('加载运维配置失败');
+      }
+    },
+    retry: (failureCount, error) => {
+      // Contract mismatches will not heal by retrying the same payload.
+      if (error instanceof AdminAiConfigContractError) {
+        return false;
+      }
+      return failureCount < 1;
+    },
   });
 
   const [activeTab, setActiveTab] = React.useState<ConfigTab>('provider');
@@ -2485,20 +2501,21 @@ const AdminConfigCenterPage: React.FC = () => {
   const validationNotices = validation?.notices ?? [];
 
   if (configQuery.error) {
+    const isContractError = configQuery.error instanceof AdminAiConfigContractError;
     const errorState = getProductizedErrorState(configQuery.error, {
       resourceLabel: '运维配置',
       taskLabel: '查看 AI 运行态',
       retryActionLabel: '重新加载配置',
     });
     return (
-      <div className="space-y-8 pb-20">
+      <div className="page-stack pb-16 sm:pb-20">
         <PageHeader title="运维管理员配置中心" subtitle="加载失败时不隐藏原因，直接显示后端返回错误。" />
         <FeedbackState
-          kind={errorState.kind}
-          title={errorState.title}
-          description={errorState.description}
-          impact={errorState.impact}
-          nextStep={errorState.nextStep}
+          kind={isContractError ? 'error' : errorState.kind}
+          title={isContractError ? '配置响应格式异常' : errorState.title}
+          description={isContractError ? configQuery.error.message : errorState.description}
+          impact={isContractError ? '页面已拦截异常响应，不会改写任何配置或运行态。' : errorState.impact}
+          nextStep={isContractError ? '请刷新重试；若持续失败，检查 app-server / ai-gateway 契约版本是否一致。' : errorState.nextStep}
           primaryAction={{ label: '重新加载配置', onClick: () => void configQuery.refetch() }}
         />
       </div>
@@ -2507,7 +2524,7 @@ const AdminConfigCenterPage: React.FC = () => {
 
   if (configQuery.isLoading || !configQuery.data || !config || !secrets) {
     return (
-      <div className="space-y-8 pb-20">
+      <div className="page-stack pb-16 sm:pb-20">
         <PageHeader title="运维管理员配置中心" subtitle="正在读取 ai-gateway 运行态和数据库存储快照。" />
         <FeedbackState
           kind="loading"
@@ -2652,12 +2669,12 @@ const AdminConfigCenterPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16 sm:pb-20">
       <PageHeader
         title="运维管理员配置中心"
         subtitle="页面以 app-server 数据库快照作为权威配置源，同时展示 ai-gateway 当前已应用的运行态。"
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             {!editing && (
               <button
                 type="button"
@@ -2676,7 +2693,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   type="button"
                   onClick={submitValidation}
                   disabled={validateMutation.isPending || saveMutation.isPending}
-                  className="rounded-2xl border border-slate-200 dark:border-white/10 px-5 py-3 text-sm font-bold text-slate-700 dark:text-white/80 bg-white/70 dark:bg-white/[0.04]"
+                  className="rounded-2xl border border-slate-200 bg-white/70 px-5 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/80"
                 >
                   {validateMutation.isPending ? '校验中...' : '校验配置'}
                 </button>
@@ -2684,7 +2701,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   type="button"
                   onClick={submitSave}
                   disabled={saveMutation.isPending || validateMutation.isPending}
-                  className="btn-liquid px-5 py-3 text-white inline-flex items-center gap-2"
+                  className="btn-liquid inline-flex items-center justify-center gap-2 px-5 py-3 text-white"
                 >
                   <Save size={16} />
                   {saveMutation.isPending ? '保存中...' : '保存并生效'}
@@ -2695,7 +2712,7 @@ const AdminConfigCenterPage: React.FC = () => {
                     setEditing(false);
                     resetDraft();
                   }}
-                  className="rounded-2xl border border-slate-200 dark:border-white/10 px-5 py-3 text-sm font-bold text-slate-500 dark:text-white/45 bg-white/60 dark:bg-white/[0.03]"
+                  className="rounded-2xl border border-slate-200 bg-white/60 px-5 py-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45"
                 >
                   取消
                 </button>
@@ -2705,36 +2722,37 @@ const AdminConfigCenterPage: React.FC = () => {
         }
       />
 
-      <section className="rounded-[1.5rem] border border-slate-200/80 bg-white p-5 shadow-sm md:p-6 space-y-5 dark:border-white/10 dark:bg-slate-950/35">
+      <section className="min-w-0 space-y-5 rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm sm:rounded-3xl sm:p-5 md:p-6">
         <WorkflowStepper
           title="配置变更流程"
           description="先查看当前值，再编辑、校验并预览影响；只有确认评审后才会保存并发布。每一步都保留失败原因和可回退路径。"
           stages={configWorkflowStages}
+          className="border-border-subtle bg-surface-sunken"
         />
-        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <div className="grid min-w-0 gap-3 sm:gap-4 sm:grid-cols-2">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-surface-sunken p-4 sm:rounded-[1.8rem] sm:p-5 dark:border-white/10">
               <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Authority</div>
-              <div className="mt-3 text-lg font-black text-slate-900 dark:text-white">{displayedSnapshot}</div>
+              <div className="mt-3 break-words text-lg font-black text-slate-900 dark:text-white">{displayedSnapshot}</div>
               <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/55">
-                <div>来源: {view.source || '--'}</div>
+                <div className="break-words">来源: {view.source || '--'}</div>
                 <div>版本: {view.version ?? '--'}</div>
-                <div>更新时间: {formatDateTime(view.updatedAt)}</div>
+                <div className="break-words">更新时间: {formatDateTime(view.updatedAt)}</div>
                 <div>数据库快照: {view.stored.present ? 'PRESENT' : 'NOT_SAVED'}</div>
               </div>
             </div>
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-surface-sunken p-4 sm:rounded-[1.8rem] sm:p-5 dark:border-white/10">
               <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">Runtime</div>
-              <div className="mt-3 text-lg font-black text-slate-900 dark:text-white">{view.runtime.available ? 'ai-gateway 当前运行态' : 'ai-gateway 运行态不可达'}</div>
+              <div className="mt-3 break-words text-lg font-black text-slate-900 dark:text-white">{view.runtime.available ? 'ai-gateway 当前运行态' : 'ai-gateway 运行态不可达'}</div>
               <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-white/55">
-                <div>来源: {view.runtime.source || '--'}</div>
+                <div className="break-words">来源: {view.runtime.source || '--'}</div>
                 <div>版本: {view.runtime.version ?? '--'}</div>
-                <div>应用时间: {formatDateTime(view.runtime.appliedAt)}</div>
-                <div>同步状态: {view.runtime.available ? (view.runtime.inSync ? '与运行态一致' : '与运行态不一致') : '等待 runtime 恢复后比对'}</div>
+                <div className="break-words">应用时间: {formatDateTime(view.runtime.appliedAt)}</div>
+                <div className="break-words">同步状态: {view.runtime.available ? (view.runtime.inSync ? '与运行态一致' : '与运行态不一致') : '等待 runtime 恢复后比对'}</div>
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
             <HealthBadge healthy={view.runtime.available} label={`runtime: ${view.runtime.available ? 'AVAILABLE' : 'UNAVAILABLE'}`} />
             <HealthBadge healthy={!view.stored.present || (view.runtime.available && view.runtime.inSync)} label={`stored sync: ${storedSyncLabel}`} />
             <HealthBadge healthy={Boolean(config.provider.activeProvider)} label={`activeProvider: ${config.provider.activeProvider || '--'}`} />
@@ -2744,14 +2762,14 @@ const AdminConfigCenterPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/55 p-4 sm:rounded-[1.8rem] sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Recommended Flow</div>
-            <div className="mt-4 grid gap-3 md:grid-cols-4 text-sm">
+            <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {['1. 进入编辑', '2. 校验配置', '3. 保存并生效', '4. 刷新运行态健康 / Outbox / Reindex 验证'].map((item) => (
                 <div
                   key={item}
-                  className="rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-4 text-slate-600 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/55"
+                  className="min-w-0 break-words rounded-2xl border border-slate-200/70 bg-white/70 px-3 py-3 text-slate-600 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-slate-950/20 dark:text-white/55"
                 >
                   {item}
                 </div>
@@ -2759,9 +2777,9 @@ const AdminConfigCenterPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/55 p-4 sm:rounded-[1.8rem] sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">
-              <Info size={14} />
+              <Info size={14} className="shrink-0" />
               当前标签说明
             </div>
             <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">{activeTabDescription}</div>
@@ -2828,9 +2846,9 @@ const AdminConfigCenterPage: React.FC = () => {
         )}
 
         {editing && (
-          <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03] space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+          <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200/70 bg-white/55 p-3 sm:rounded-[1.8rem] sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
                 <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Presets</div>
                 <div className="mt-2 text-sm text-slate-600 dark:text-white/55">
                   预设只覆盖非密钥字段，当前密钥保留策略不会被改写。应用后仍建议先校验，再保存并生效。
@@ -2840,7 +2858,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 当前草稿 {configDiffs.length + secretChanges.length} 项待确认改动
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
               {configPresets.map((preset) => {
                 const disabled = (preset.key === 'dual-provider' || preset.key === 'single-provider') && providerNames.length < 2;
                 return (
@@ -2878,7 +2896,7 @@ const AdminConfigCenterPage: React.FC = () => {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-3">
+        <div className="page-tabs flex flex-nowrap gap-2 border-0 pb-1" role="tablist" aria-label="配置中心标签">
           {tabs.map((tab) => (
             <TabButton key={tab.key} active={activeTab === tab.key} label={tab.label} onClick={() => setActiveTab(tab.key)} />
           ))}
@@ -2919,7 +2937,7 @@ const AdminConfigCenterPage: React.FC = () => {
                   现有 {providerNames.length} 组 provider
                 </div>
               </div>
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <TextInput
                   value={newProviderName}
                   onChange={setNewProviderName}
@@ -2929,7 +2947,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={addProvider}
-                  className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/75 inline-flex items-center gap-2"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-slate-950/30 dark:text-white/75"
                 >
                   <Plus size={16} />
                   新增 Provider
@@ -2956,8 +2974,9 @@ const AdminConfigCenterPage: React.FC = () => {
             </div>
           )}
 
-          {providerEntries.map(([providerName, definition]) => {
-            const providerSecrets = secrets.providers[providerName];
+          {providerEntries.map(([providerName, rawDefinition]) => {
+            const definition = normalizeProviderDefinition(rawDefinition);
+            const providerSecrets = secrets.providers[providerName] || createEmptyProviderSecretEditors();
             const providerTone = providerName === config.provider.activeProvider
               ? 'border-primary/20 bg-primary/5 text-primary'
               : providerName === config.provider.fallbackProvider
@@ -2973,15 +2992,15 @@ const AdminConfigCenterPage: React.FC = () => {
               <details
                 key={providerName}
                 open
-                className="group rounded-[1.9rem] border border-slate-200/70 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                className="group min-w-0 rounded-2xl border border-slate-200/70 bg-surface p-3 sm:rounded-[1.9rem] sm:p-5 dark:border-white/10"
               >
                 <summary className="list-none cursor-pointer">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-2">
+                  <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0 space-y-2">
                       <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Provider Definition</div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-lg font-black text-slate-900 dark:text-white">{providerName}</div>
-                        <div className={`rounded-2xl border px-3 py-2 text-xs font-bold ${providerTone}`}>{providerName}</div>
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <div className="min-w-0 break-all text-lg font-black text-slate-900 dark:text-white">{providerName}</div>
+                        <div className={`max-w-full break-all rounded-2xl border px-3 py-2 text-xs font-bold ${providerTone}`}>{providerName}</div>
                         {providerName === config.provider.activeProvider && (
                           <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-bold text-primary">ACTIVE</div>
                         )}
@@ -2991,9 +3010,10 @@ const AdminConfigCenterPage: React.FC = () => {
                       </div>
                       <div className="text-sm text-slate-500 dark:text-white/45">{providerRole}</div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-white/45">
-                      <span>展开查看 Chat / Embedding / Rerank 详细配置</span>
-                      <ChevronDown size={18} className="transition-transform group-open:rotate-180" />
+                    <div className="flex shrink-0 items-center gap-3 text-sm text-slate-500 dark:text-white/45">
+                      <span className="hidden sm:inline">展开查看 Chat / Embedding / Rerank 详细配置</span>
+                      <span className="sm:hidden">展开详情</span>
+                      <ChevronDown size={18} className="shrink-0 transition-transform group-open:rotate-180" />
                     </div>
                   </div>
                 </summary>
@@ -3050,23 +3070,23 @@ const AdminConfigCenterPage: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-slate-950/25">
+                  <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="min-w-0 rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-slate-950/25">
                     <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">Chat 摘要</div>
-                    <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.chat.model)}</div>
-                    <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">{summarizeProviderValue(definition.chat.baseUrl)}</div>
+                    <div className="mt-2 break-all text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.chat.model)}</div>
+                    <div className="mt-2 break-all text-xs leading-5 text-slate-500 dark:text-white/45">{summarizeProviderValue(definition.chat.baseUrl)}</div>
                   </div>
-                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-slate-950/25">
+                  <div className="min-w-0 rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-slate-950/25">
                     <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">Embedding 摘要</div>
-                    <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.embedding.model)}</div>
-                    <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">
+                    <div className="mt-2 break-all text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.embedding.model)}</div>
+                    <div className="mt-2 break-all text-xs leading-5 text-slate-500 dark:text-white/45">
                       {summarizeProviderValue(definition.embedding.baseUrl)} · 维度 {summarizeProviderValue(definition.embedding.dimension)}
                     </div>
                   </div>
-                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-slate-950/25">
+                  <div className="min-w-0 rounded-[1.4rem] border border-slate-200/70 bg-white/70 px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-slate-950/25">
                     <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">Rerank 摘要</div>
-                    <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.rerank.model)}</div>
-                    <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">
+                    <div className="mt-2 break-all text-sm font-bold text-slate-900 dark:text-white">{summarizeProviderValue(definition.rerank.model)}</div>
+                    <div className="mt-2 break-all text-xs leading-5 text-slate-500 dark:text-white/45">
                       {summarizeProviderValue(definition.rerank.protocol)} · {summarizeProviderValue(definition.rerank.baseUrl)}
                     </div>
                   </div>
@@ -3100,20 +3120,20 @@ const AdminConfigCenterPage: React.FC = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
-                          checked={providerSecrets?.chatApiKey.retainExisting ?? false}
+                          checked={providerSecrets.chatApiKey.retainExisting}
                           disabled={!editing}
                           onChange={(event) => updateProviderSecret(providerName, 'chatApiKey', {
                             retainExisting: event.target.checked,
-                            value: event.target.checked ? '' : providerSecrets?.chatApiKey.value || '',
+                            value: event.target.checked ? '' : providerSecrets.chatApiKey.value || '',
                           })}
                         />
                         <span>保留原值</span>
                       </div>
                       <TextInput
                         type="password"
-                        value={providerSecrets?.chatApiKey.value || ''}
+                        value={providerSecrets.chatApiKey.value || ''}
                         onChange={(value) => updateProviderSecret(providerName, 'chatApiKey', { value, retainExisting: false })}
-                        disabled={!editing || Boolean(providerSecrets?.chatApiKey.retainExisting)}
+                        disabled={!editing || Boolean(providerSecrets.chatApiKey.retainExisting)}
                         placeholder="仅在需要覆盖时填写新值"
                       />
                     </div>
@@ -3195,20 +3215,20 @@ const AdminConfigCenterPage: React.FC = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
-                          checked={providerSecrets?.embeddingApiKey.retainExisting ?? false}
+                          checked={providerSecrets.embeddingApiKey.retainExisting}
                           disabled={!editing}
                           onChange={(event) => updateProviderSecret(providerName, 'embeddingApiKey', {
                             retainExisting: event.target.checked,
-                            value: event.target.checked ? '' : providerSecrets?.embeddingApiKey.value || '',
+                            value: event.target.checked ? '' : providerSecrets.embeddingApiKey.value || '',
                           })}
                         />
                         <span>保留原值</span>
                       </div>
                       <TextInput
                         type="password"
-                        value={providerSecrets?.embeddingApiKey.value || ''}
+                        value={providerSecrets.embeddingApiKey.value || ''}
                         onChange={(value) => updateProviderSecret(providerName, 'embeddingApiKey', { value, retainExisting: false })}
-                        disabled={!editing || Boolean(providerSecrets?.embeddingApiKey.retainExisting)}
+                        disabled={!editing || Boolean(providerSecrets.embeddingApiKey.retainExisting)}
                         placeholder="仅在需要覆盖时填写新值"
                       />
                     </div>
@@ -3278,20 +3298,20 @@ const AdminConfigCenterPage: React.FC = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
-                          checked={providerSecrets?.rerankApiKey.retainExisting ?? false}
+                          checked={providerSecrets.rerankApiKey.retainExisting}
                           disabled={!editing}
                           onChange={(event) => updateProviderSecret(providerName, 'rerankApiKey', {
                             retainExisting: event.target.checked,
-                            value: event.target.checked ? '' : providerSecrets?.rerankApiKey.value || '',
+                            value: event.target.checked ? '' : providerSecrets.rerankApiKey.value || '',
                           })}
                         />
                         <span>保留原值</span>
                       </div>
                       <TextInput
                         type="password"
-                        value={providerSecrets?.rerankApiKey.value || ''}
+                        value={providerSecrets.rerankApiKey.value || ''}
                         onChange={(value) => updateProviderSecret(providerName, 'rerankApiKey', { value, retainExisting: false })}
-                        disabled={!editing || Boolean(providerSecrets?.rerankApiKey.retainExisting)}
+                        disabled={!editing || Boolean(providerSecrets.rerankApiKey.retainExisting)}
                         placeholder="仅在需要覆盖时填写新值"
                       />
                     </div>
@@ -3330,12 +3350,12 @@ const AdminConfigCenterPage: React.FC = () => {
 
       {activeTab === 'resilience' && (
         <SectionCard title="稳定性配置" description="这些参数会在保存后直接刷新 ai-gateway 内部 retry / circuit breaker 注册表，并参与 active 到 fallback 的自动切换判断。">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 px-3 py-3 text-sm text-slate-600 sm:rounded-[1.6rem] sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Circuit Breaker 是什么</div>
               <div className="mt-2">当某个模型服务持续失败时，熔断器会暂时停止继续打流量，并把请求切到 fallback provider。</div>
             </div>
-            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 px-3 py-3 text-sm text-slate-600 sm:rounded-[1.6rem] sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Failure Rate Threshold 怎么看</div>
               <div className="mt-2">可以理解成“最近一段请求中，失败比例达到多少就触发熔断”。值越低越敏感。</div>
             </div>
@@ -3407,12 +3427,12 @@ const AdminConfigCenterPage: React.FC = () => {
 
       {activeTab === 'rag' && (
         <SectionCard title="RAG 运行参数" description="词条变更会走知识同步链路；这里仍保留 ai-gateway 回源、检索参数和手动 reindex 配置，草稿同样以数据库权威快照为准。">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 px-3 py-3 text-sm text-slate-600 sm:rounded-[1.6rem] sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Top K 是什么</div>
               <div className="mt-2">可以理解成“先保留前 K 个候选”。K 越大，召回越全，但后续成本也越高。</div>
             </div>
-            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 px-3 py-3 text-sm text-slate-600 sm:rounded-[1.6rem] sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/55">
               <div className="font-bold text-slate-900 dark:text-white">Threshold 是什么</div>
               <div className="mt-2">阈值可以理解成“分数低于这条线就不要”。值越高，返回结果越少但通常更保守。</div>
             </div>
@@ -3587,10 +3607,10 @@ const AdminConfigCenterPage: React.FC = () => {
       )}
 
       {activeTab === 'operations' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
+        <div className="page-stack">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-6">
             <SectionCard title="健康检查" description="刷新运行态健康只做 readiness/probe，不触发计费型模型调用。下面两个测试连接会对当前草稿发起真实请求，各消耗 1 次额度，且只测试 active provider。">
-              <div className="flex flex-wrap gap-3">
+              <div className="page-actions">
                 <button
                   type="button"
                   onClick={() => healthMutation.mutate()}
@@ -3662,7 +3682,7 @@ const AdminConfigCenterPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2">
                 <ProbeResultCard
                   title="Embedding 测试结果"
                   result={embeddingProbeResult}
@@ -3678,7 +3698,7 @@ const AdminConfigCenterPage: React.FC = () => {
               </div>
 
               {healthState && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   <HealthBadge healthy={healthState.status === 'UP'} label={`整体状态: ${healthState.status}`} />
                   <HealthBadge healthy={isStoredSyncHealthy(healthState.storedSyncStatus)} label={`Stored Sync: ${healthState.storedSyncStatus || '--'}`} />
                   <HealthBadge healthy={healthState.databaseReady} label={`Database: ${healthState.databaseReady ? 'READY' : 'DOWN'}`} />
@@ -3686,23 +3706,23 @@ const AdminConfigCenterPage: React.FC = () => {
                   <HealthBadge healthy={healthState.providerReady} label={`Provider: ${healthState.providerReady ? 'READY' : 'DEGRADED'}`} />
                   <HealthBadge healthy={healthState.rerankReady} label={`Rerank: ${healthState.rerankReady ? 'READY' : 'DEGRADED'}`} />
                   <HealthBadge healthy={healthState.appServerReady} label={`App Server: ${healthState.appServerReady ? 'READY' : 'DOWN'}`} />
-                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
-                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Runtime Models</div>
-                    <div>Chat: {healthState.chatModel}</div>
-                    <div>Embedding: {healthState.embeddingModel}</div>
-                    <div>Rerank: {healthState.rerankModel}</div>
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/55 px-3 py-3 text-sm text-slate-600 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                    <div className="mb-2 text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Runtime Models</div>
+                    <div className="break-all">Chat: {healthState.chatModel}</div>
+                    <div className="break-all">Embedding: {healthState.embeddingModel}</div>
+                    <div className="break-all">Rerank: {healthState.rerankModel}</div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
-                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Environment</div>
-                    <div>Provider: {healthState.provider}</div>
-                    <div>Fallback: {healthState.fallbackProvider}</div>
-                    <div>Stored Sync: {describeStoredSyncStatus(healthState.storedSyncStatus)}</div>
-                    <div>Vector Extension: {healthState.vectorExtensionVersion || '--'}</div>
-                    <div>Profiles: {healthState.activeProfiles.join(', ') || '--'}</div>
-                    <div>Checked At: {formatDateTime(healthState.timestamp)}</div>
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/55 px-3 py-3 text-sm text-slate-600 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                    <div className="mb-2 text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Environment</div>
+                    <div className="break-all">Provider: {healthState.provider}</div>
+                    <div className="break-all">Fallback: {healthState.fallbackProvider}</div>
+                    <div className="break-words">Stored Sync: {describeStoredSyncStatus(healthState.storedSyncStatus)}</div>
+                    <div className="break-all">Vector Extension: {healthState.vectorExtensionVersion || '--'}</div>
+                    <div className="break-words">Profiles: {(Array.isArray(healthState.activeProfiles) ? healthState.activeProfiles : []).join(', ') || '--'}</div>
+                    <div className="break-words">Checked At: {formatDateTime(healthState.timestamp)}</div>
                   </div>
                   {healthState.appServerError && (
-                    <div className="md:col-span-2 rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500 break-all">
+                    <div className="min-w-0 break-all rounded-[1.6rem] border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-500 sm:col-span-2">
                       app-server 探测失败: {translateConfigMessage(healthState.appServerError)}
                     </div>
                   )}
@@ -3710,20 +3730,20 @@ const AdminConfigCenterPage: React.FC = () => {
               )}
 
               {driftQuery.data && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   <HealthBadge healthy={!driftQuery.data.driftDetected} label={`Runtime Drift: ${driftQuery.data.driftDetected ? 'DETECTED' : 'CLEAR'}`} />
                   <HealthBadge healthy={driftQuery.data.syncJobStatus !== 'DLQ'} label={`Sync Job: ${describeSyncJobStatus(driftQuery.data.syncJobStatus)}`} />
-                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
-                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Drift State</div>
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/55 px-3 py-3 text-sm text-slate-600 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                    <div className="mb-2 text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Drift State</div>
                     <div>Stored Version: {driftQuery.data.stored.version ?? '--'}</div>
                     <div>Runtime Version: {driftQuery.data.runtime.version ?? '--'}</div>
                     <div>Attempts: {driftQuery.data.attemptCount ?? 0}</div>
-                    <div>Next Attempt: {formatDateTime(driftQuery.data.nextAttemptAt)}</div>
+                    <div className="break-words">Next Attempt: {formatDateTime(driftQuery.data.nextAttemptAt)}</div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/55 dark:bg-white/[0.03] text-sm text-slate-600 dark:text-white/60">
-                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30 mb-2">Drift Notices</div>
+                  <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/55 px-3 py-3 text-sm text-slate-600 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                    <div className="mb-2 text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Drift Notices</div>
                     {driftQuery.data.notices.length ? (
-                      driftQuery.data.notices.map((notice) => <div key={notice.code}>{translateConfigNotice(notice)}</div>)
+                      driftQuery.data.notices.map((notice) => <div key={notice.code} className="break-words">{translateConfigNotice(notice)}</div>)
                     ) : (
                       <div>暂无 drift notice。</div>
                     )}
@@ -3733,7 +3753,7 @@ const AdminConfigCenterPage: React.FC = () => {
             </SectionCard>
 
             <SectionCard title="RAG Reindex" description="正常情况下词条变更会发布知识同步事件；如果本地联调、RabbitMQ 或回源链路异常导致新词条没有进入检索，可在这里手动 reindex。默认建议覆盖词汇知识三类 source type。">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                 <button
                   type="button"
                   onClick={() =>
@@ -3881,16 +3901,16 @@ const AdminConfigCenterPage: React.FC = () => {
               </button>
 
               {reindexJobQuery.data && (
-                <div className="rounded-[1.6rem] border border-slate-200/70 dark:border-white/10 bg-white/55 dark:bg-white/[0.03] p-5 space-y-5 text-sm text-slate-600 dark:text-white/60">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="font-black text-slate-900 dark:text-white">任务 #{reindexJobQuery.data.jobId}</div>
-                    <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{reindexJobQuery.data.status}</div>
+                <div className="min-w-0 space-y-5 rounded-2xl border border-slate-200/70 bg-white/55 p-3 text-sm text-slate-600 sm:rounded-[1.6rem] sm:p-5 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <div className="min-w-0 break-all font-black text-slate-900 dark:text-white">任务 #{reindexJobQuery.data.jobId}</div>
+                    <div className="shrink-0 text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{reindexJobQuery.data.status}</div>
                   </div>
 
-                  <div className="rounded-[1.4rem] border border-slate-200/70 dark:border-white/10 bg-white/75 dark:bg-slate-950/25 p-4">
+                  <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/75 p-3 sm:p-4 dark:border-white/10 dark:bg-slate-950/25">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="font-bold text-slate-900 dark:text-white">{reindexStatusMeta.label}</div>
-                      <div className="text-xs text-slate-400 dark:text-white/30">{reindexStatusMeta.progress}%</div>
+                      <div className="min-w-0 font-bold text-slate-900 dark:text-white">{reindexStatusMeta.label}</div>
+                      <div className="shrink-0 text-xs text-slate-400 dark:text-white/30">{reindexStatusMeta.progress}%</div>
                     </div>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
                       <div
@@ -3907,7 +3927,7 @@ const AdminConfigCenterPage: React.FC = () => {
                     <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{reindexStatusMeta.description}</div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-3">
+                  <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
                     {['已提交', '执行中', reindexJobQuery.data.status === 'FAILED' ? '失败' : '完成'].map((step, index) => {
                       const stepDone =
                         index === 0
@@ -3930,19 +3950,19 @@ const AdminConfigCenterPage: React.FC = () => {
                     })}
                   </div>
 
-                  <div>Mode: {reindexJobQuery.data.mode}</div>
-                  <div>Source Types: {(reindexJobQuery.data.sourceTypes || []).join(', ') || '--'}</div>
-                  <div>Source IDs: {(reindexJobQuery.data.sourceIds || []).join(', ') || '--'}</div>
-                  <div>Cursor: {reindexJobQuery.data.lastCursor || '--'}</div>
-                  <div>Last Source Update: {formatDateTime(reindexJobQuery.data.lastSourceUpdatedAt)}</div>
-                  <div>Finished At: {formatDateTime(reindexJobQuery.data.finishedAt)}</div>
+                  <div className="break-words">Mode: {reindexJobQuery.data.mode}</div>
+                  <div className="break-words">Source Types: {(reindexJobQuery.data.sourceTypes || []).join(', ') || '--'}</div>
+                  <div className="break-all">Source IDs: {(reindexJobQuery.data.sourceIds || []).join(', ') || '--'}</div>
+                  <div className="break-all">Cursor: {reindexJobQuery.data.lastCursor || '--'}</div>
+                  <div className="break-words">Last Source Update: {formatDateTime(reindexJobQuery.data.lastSourceUpdatedAt)}</div>
+                  <div className="break-words">Finished At: {formatDateTime(reindexJobQuery.data.finishedAt)}</div>
 
                   {!!reindexStats.length && (
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                       {reindexStats.map((item) => (
-                        <div key={item.key} className="rounded-2xl border border-slate-200/70 dark:border-white/10 px-4 py-4 bg-white/75 dark:bg-slate-950/20">
+                        <div key={item.key} className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/75 px-3 py-3 sm:px-4 sm:py-4 dark:border-white/10 dark:bg-slate-950/20">
                           <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{item.label}</div>
-                          <div className="mt-2 font-bold text-slate-900 dark:text-white break-all">{item.value}</div>
+                          <div className="mt-2 break-all font-bold text-slate-900 dark:text-white">{item.value}</div>
                         </div>
                       ))}
                     </div>
@@ -3973,28 +3993,30 @@ const AdminConfigCenterPage: React.FC = () => {
           </div>
 
           <SectionCard title="Producer Outbox" description="这里展示 AI 知识同步 outbox 的待发送 / 失败事件，并提供人工立即重放入口，避免同步静默丢失。">
-            <div className="flex flex-wrap gap-3">
-              <div className="min-w-[220px]">
-                <SelectInput
-                  value={outboxStatus}
-                  onChange={setOutboxStatus}
-                  options={[
-                    { value: '', label: '全部状态' },
-                    { value: 'DLQ', label: 'DLQ' },
-                    { value: 'FAILED', label: 'FAILED' },
-                    { value: 'PENDING', label: 'PENDING' },
-                    { value: 'IN_PROGRESS', label: 'IN_PROGRESS' },
-                    { value: 'PUBLISHED', label: 'PUBLISHED' },
-                  ]}
-                />
-              </div>
-              <div className="w-28">
-                <TextInput value={outboxLimit} onChange={setOutboxLimit} type="number" />
+            <div className="page-toolbar">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <div className="filter-field">
+                  <SelectInput
+                    value={outboxStatus}
+                    onChange={setOutboxStatus}
+                    options={[
+                      { value: '', label: '全部状态' },
+                      { value: 'DLQ', label: 'DLQ' },
+                      { value: 'FAILED', label: 'FAILED' },
+                      { value: 'PENDING', label: 'PENDING' },
+                      { value: 'IN_PROGRESS', label: 'IN_PROGRESS' },
+                      { value: 'PUBLISHED', label: 'PUBLISHED' },
+                    ]}
+                  />
+                </div>
+                <div className="w-full min-w-0 sm:w-28">
+                  <TextInput value={outboxLimit} onChange={setOutboxLimit} type="number" />
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => void queryClient.invalidateQueries({ queryKey: ['admin-ai-outbox'] })}
-                className="rounded-2xl border border-slate-200 dark:border-white/10 px-5 py-3 text-sm font-bold text-slate-600 dark:text-white/70 bg-white/70 dark:bg-white/[0.04] inline-flex items-center gap-2"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-5 py-3 text-sm font-bold text-slate-600 sm:w-auto dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70"
               >
                 <RefreshCw size={16} />
                 刷新 Outbox
@@ -4018,12 +4040,12 @@ const AdminConfigCenterPage: React.FC = () => {
                 {outboxRecords.map((record: AdminOutboxRecordVO) => {
                   const tone = statusTone(record.status);
                   return (
-                    <div key={record.id} className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03] space-y-4">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-2">
-                          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{record.eventType}</div>
-                          <div className="text-lg font-black text-slate-900 dark:text-white break-all">{record.eventId}</div>
-                          <div className="text-sm text-slate-500 dark:text-white/45">routingKey: {record.routingKey}</div>
+                    <div key={record.id} className="min-w-0 space-y-4 rounded-2xl border border-slate-200/70 bg-white/60 p-3 sm:rounded-[1.8rem] sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 space-y-2">
+                          <div className="break-all text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{record.eventType}</div>
+                          <div className="break-all text-lg font-black text-slate-900 dark:text-white">{record.eventId}</div>
+                          <div className="break-all text-sm text-slate-500 dark:text-white/45">routingKey: {record.routingKey}</div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <div className={`rounded-2xl border px-3 py-2 text-xs font-bold ${statusClasses(tone)}`}>{record.status}</div>
@@ -4035,7 +4057,7 @@ const AdminConfigCenterPage: React.FC = () => {
                               type="button"
                               onClick={() => replayOutboxMutation.mutate(record.id)}
                               disabled={replayOutboxMutation.isPending && replayingOutboxId === record.id}
-                              className="btn-liquid px-4 py-2 text-white text-sm"
+                              className="btn-liquid px-4 py-2 text-sm text-white"
                             >
                               {replayOutboxMutation.isPending && replayingOutboxId === record.id ? '重放中...' : '立即重放'}
                             </button>
@@ -4043,22 +4065,22 @@ const AdminConfigCenterPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
-                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                      <div className="grid min-w-0 grid-cols-1 gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/75 px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-slate-950/20">
                           <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Created</div>
-                          <div className="mt-2 text-slate-700 dark:text-white/70">{formatDateTime(record.createdAt)}</div>
+                          <div className="mt-2 break-words text-slate-700 dark:text-white/70">{formatDateTime(record.createdAt)}</div>
                         </div>
-                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                        <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/75 px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-slate-950/20">
                           <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Next Attempt</div>
-                          <div className="mt-2 text-slate-700 dark:text-white/70">{formatDateTime(record.nextAttemptAt)}</div>
+                          <div className="mt-2 break-words text-slate-700 dark:text-white/70">{formatDateTime(record.nextAttemptAt)}</div>
                         </div>
-                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                        <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/75 px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-slate-950/20">
                           <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Published</div>
-                          <div className="mt-2 text-slate-700 dark:text-white/70">{formatDateTime(record.publishedAt)}</div>
+                          <div className="mt-2 break-words text-slate-700 dark:text-white/70">{formatDateTime(record.publishedAt)}</div>
                         </div>
-                        <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-3 dark:border-white/10 dark:bg-slate-950/20">
+                        <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/75 px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-slate-950/20">
                           <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">Trace Id</div>
-                          <div className="mt-2 text-slate-700 dark:text-white/70 break-all">{record.traceId || '--'}</div>
+                          <div className="mt-2 break-all text-slate-700 dark:text-white/70">{record.traceId || '--'}</div>
                         </div>
                       </div>
 
@@ -4077,12 +4099,17 @@ const AdminConfigCenterPage: React.FC = () => {
       )}
 
       {saveReviewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-8">
-          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] border border-slate-200/70 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-950">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/55 px-3 py-4 sm:items-center sm:px-4 sm:py-8" role="presentation">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="保存前确认本次改动"
+            className="safe-area-dialog max-h-[min(90vh,100dvh-2rem)] w-full max-w-4xl min-w-0 overflow-y-auto rounded-2xl border border-slate-200/70 bg-surface p-4 shadow-2xl sm:rounded-[2rem] sm:p-6 dark:border-white/10"
+          >
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
                 <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">Change Review</div>
-                <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">保存前确认本次改动</div>
+                <div className="mt-2 text-xl font-black text-slate-900 sm:text-2xl dark:text-white">保存前确认本次改动</div>
                 <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
                   先确认字段 diff、密钥处理和风险提示，再决定是否保存并立即生效。
                 </div>
@@ -4096,16 +4123,16 @@ const AdminConfigCenterPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="space-y-4">
-                <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-slate-950/20">
+            <div className="mt-6 grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <div className="min-w-0 space-y-4">
+                <div className="min-w-0 rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-3 sm:p-4 dark:border-white/10 dark:bg-slate-950/20">
                   <div className="font-bold text-slate-900 dark:text-white">配置字段差异</div>
                   <div className="mt-3 space-y-3 text-sm">
                     {visibleDiffs.map((entry) => (
-                      <div key={`${entry.field}-${entry.after}`} className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-                        <div className="font-semibold text-slate-900 dark:text-white">{humanizeFieldName(entry.field)}</div>
-                        <div className="mt-2 text-slate-500 dark:text-white/45">旧值: {entry.before}</div>
-                        <div className="mt-1 text-slate-700 dark:text-white/70">新值: {entry.after}</div>
+                      <div key={`${entry.field}-${entry.after}`} className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-white/[0.03]">
+                        <div className="break-words font-semibold text-slate-900 dark:text-white">{humanizeFieldName(entry.field)}</div>
+                        <div className="mt-2 break-all text-slate-500 dark:text-white/45">旧值: {entry.before}</div>
+                        <div className="mt-1 break-all text-slate-700 dark:text-white/70">新值: {entry.after}</div>
                       </div>
                     ))}
                     {configDiffs.length > visibleDiffs.length && (
@@ -4117,13 +4144,13 @@ const AdminConfigCenterPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-slate-950/20">
+                <div className="min-w-0 rounded-[1.6rem] border border-slate-200/70 bg-white/70 p-3 sm:p-4 dark:border-white/10 dark:bg-slate-950/20">
                   <div className="font-bold text-slate-900 dark:text-white">密钥处理</div>
                   <div className="mt-3 space-y-3 text-sm">
                     {visibleSecretChanges.map((change) => (
-                      <div key={change.field} className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-                        <div className="font-semibold text-slate-900 dark:text-white">{humanizeFieldName(change.field)}</div>
-                        <div className="mt-2 text-slate-600 dark:text-white/60">{change.action}</div>
+                      <div key={change.field} className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-white/[0.03]">
+                        <div className="break-words font-semibold text-slate-900 dark:text-white">{humanizeFieldName(change.field)}</div>
+                        <div className="mt-2 break-words text-slate-600 dark:text-white/60">{change.action}</div>
                       </div>
                     ))}
                     {secretChanges.length > visibleSecretChanges.length && (
@@ -4136,11 +4163,11 @@ const AdminConfigCenterPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400 space-y-2">
+              <div className="min-w-0 space-y-4">
+                <div className="space-y-2 rounded-[1.6rem] border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
                   <div className="font-bold">风险提示</div>
                   {draftRiskHints.length > 0 ? (
-                    draftRiskHints.map((hint) => <div key={hint}>{hint}</div>)
+                    draftRiskHints.map((hint) => <div key={hint} className="break-words">{hint}</div>)
                   ) : (
                     <div>当前草稿没有识别到高风险改动。</div>
                   )}
@@ -4157,7 +4184,7 @@ const AdminConfigCenterPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <div className="page-actions mt-6 sm:justify-end">
               <button
                 type="button"
                 onClick={() => setSaveReviewOpen(false)}

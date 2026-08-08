@@ -21,17 +21,17 @@ export const Pagination: React.FC<PaginationProps> = ({ page, pageCount, onPageC
   const rangeStart = total && total > 0 ? (page - 1) * pageSize + 1 : 0;
   const rangeEnd = total && total > 0 ? Math.min(total, page * pageSize) : 0;
   return (
-    <nav aria-label={label ?? 'Pagination'} className={cn('flex items-center justify-between gap-3 text-sm', className)}>
-      <span className="type-body-muted tabular-nums">
+    <nav aria-label={label ?? 'Pagination'} className={cn('flex flex-wrap items-center justify-between gap-3 text-sm', className)}>
+      <span className="type-body-muted min-w-0 flex-1 tabular-nums">
         {total != null ? `${rangeStart}-${rangeEnd} / ${total} ${itemLabel}` : `${page} / ${safePageCount}`}
       </span>
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
           aria-label={previousLabel}
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={disabled || page <= 1}
-          className="icon-button h-9 w-9 disabled:cursor-not-allowed disabled:opacity-40"
+          className="icon-button h-11 w-11 disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9"
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -40,7 +40,7 @@ export const Pagination: React.FC<PaginationProps> = ({ page, pageCount, onPageC
           aria-label={nextLabel}
           onClick={() => onPageChange(Math.min(safePageCount, page + 1))}
           disabled={disabled || page >= safePageCount}
-          className="icon-button h-9 w-9 disabled:cursor-not-allowed disabled:opacity-40"
+          className="icon-button h-11 w-11 disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9"
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>

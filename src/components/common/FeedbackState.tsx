@@ -111,7 +111,10 @@ function ActionButton({ action }: { action: FeedbackStateAction }) {
       type="button"
       onClick={action.onClick}
       disabled={action.disabled}
-      className={cn('inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-55', toneClassName)}
+      className={cn(
+        'inline-flex min-h-11 w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto',
+        toneClassName,
+      )}
     >
       {action.label}
     </button>
@@ -144,42 +147,46 @@ export const FeedbackState: React.FC<FeedbackStateProps> = ({
       aria-live={isAlert ? 'assertive' : 'polite'}
       aria-busy={kind === 'loading' || kind === 'saving' ? true : undefined}
       className={cn(
-        'rounded-xl border p-6 md:p-7',
+        'min-w-0 rounded-xl border p-4 sm:p-6 md:p-7',
         meta.shellClassName,
-        compact && 'h-full px-5 py-6 md:px-6 md:py-6',
+        compact && 'h-full px-4 py-5 sm:px-5 sm:py-6 md:px-6',
         className
       )}
     >
-      <div className={cn('flex h-full flex-col', compact ? 'justify-center gap-4 text-center' : 'gap-5')}>
+      <div className={cn('flex h-full min-w-0 flex-col', compact ? 'justify-center gap-4 text-center' : 'gap-4 sm:gap-5')}>
         <StatusBadge
           label={resolvedEyebrow}
           icon={<Icon size={14} />}
-          className={cn('gap-2 px-4 py-2 text-[10px] uppercase tracking-[0.24em]', meta.badgeClassName, compact && 'mx-auto')}
+          className={cn('max-w-full gap-2 px-3 py-2 text-[10px] uppercase tracking-[0.18em] sm:px-4 sm:tracking-[0.24em]', meta.badgeClassName, compact && 'mx-auto')}
         />
 
-        <div className={cn('space-y-3', compact && 'mx-auto max-w-md')}>
-          <h3 className={cn('font-black tracking-tight', compact ? 'text-xl' : 'text-2xl text-slate-900 dark:text-white')}>
+        <div className={cn('min-w-0 space-y-3', compact && 'mx-auto max-w-md')}>
+          <h3 className={cn('break-words font-black tracking-tight', compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl text-slate-900 dark:text-white')}>
             {title}
           </h3>
         </div>
 
-        <div className={cn('grid gap-3', compact ? 'mx-auto w-full max-w-md text-left' : 'md:grid-cols-3')}>
-          <div className="rounded-lg border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
-            <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">{t('ui.feedback.happenedHeading')}</div>
-            <p className="mt-2 text-sm leading-6 opacity-90">{description}</p>
+        <div className={cn('grid min-w-0 gap-3', compact ? 'mx-auto w-full max-w-md text-left' : 'md:grid-cols-3')}>
+          <div className="min-w-0 rounded-lg border border-current/10 bg-white/45 px-3 py-3 sm:px-4 sm:py-4 dark:bg-black/10">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60 sm:tracking-[0.24em]">{t('ui.feedback.happenedHeading')}</div>
+            <p className="mt-2 break-words text-sm leading-6 opacity-90">{description}</p>
           </div>
-          <div className="rounded-lg border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
-            <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">{t('ui.feedback.impactHeading')}</div>
-            <p className="mt-2 text-sm leading-6 opacity-90">{resolvedImpact}</p>
-          </div>
-          <div className="rounded-lg border border-current/10 bg-white/45 px-4 py-4 dark:bg-black/10">
-            <div className="text-[10px] font-black uppercase tracking-[0.24em] opacity-60">{t('ui.feedback.nextStepHeading')}</div>
-            <p className="mt-2 text-sm leading-6 opacity-90">{resolvedNextStep}</p>
-          </div>
+          {resolvedImpact ? (
+            <div className="min-w-0 rounded-lg border border-current/10 bg-white/45 px-3 py-3 sm:px-4 sm:py-4 dark:bg-black/10">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60 sm:tracking-[0.24em]">{t('ui.feedback.impactHeading')}</div>
+              <p className="mt-2 break-words text-sm leading-6 opacity-90">{resolvedImpact}</p>
+            </div>
+          ) : null}
+          {resolvedNextStep ? (
+            <div className="min-w-0 rounded-lg border border-current/10 bg-white/45 px-3 py-3 sm:px-4 sm:py-4 dark:bg-black/10">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60 sm:tracking-[0.24em]">{t('ui.feedback.nextStepHeading')}</div>
+              <p className="mt-2 break-words text-sm leading-6 opacity-90">{resolvedNextStep}</p>
+            </div>
+          ) : null}
         </div>
 
         {(primaryAction || secondaryAction) && (
-          <div className={cn('flex flex-col gap-3 sm:flex-row', compact && 'justify-center')}>
+          <div className={cn('flex w-full min-w-0 flex-col gap-3 sm:flex-row', compact && 'sm:justify-center')}>
             {primaryAction ? <ActionButton action={primaryAction} /> : null}
             {secondaryAction ? <ActionButton action={{ ...secondaryAction, tone: secondaryAction.tone ?? 'secondary' }} /> : null}
           </div>

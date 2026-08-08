@@ -88,7 +88,7 @@ class ErrorBoundaryRoot extends React.Component<BoundaryProps, BoundaryState> {
         <div className={contentClassName}>
           <FeedbackState
             kind="error"
-            className="w-full max-w-3xl surface-panel rounded-xl p-8 md:p-10"
+            className="w-full max-w-3xl min-w-0 surface-panel rounded-xl p-4 sm:p-6 md:p-8"
             title={title}
             description={description}
             impact={this.props.impact}

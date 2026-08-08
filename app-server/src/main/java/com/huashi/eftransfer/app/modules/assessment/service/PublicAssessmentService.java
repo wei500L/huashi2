@@ -57,6 +57,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
@@ -67,6 +68,7 @@ import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -506,7 +508,7 @@ public class PublicAssessmentService {
             return List.of();
         }
         LinkedHashSet<String> values = raw.stream()
-                .map(this::normalizeText)
+                .map(value -> type == AssessmentQuestionType.FILL_BLANK ? normalizeFillBlankValue(value) : normalizeText(value))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (type == AssessmentQuestionType.FILL_BLANK || type == AssessmentQuestionType.SHORT_TEXT || type == AssessmentQuestionType.NUMBER) {
@@ -539,11 +541,13 @@ public class PublicAssessmentService {
     }
 
     private boolean isCorrect(AssessmentQuestionType type, List<String> actual, List<String> expected) {
-        Set<String> actualSet = actual.stream().map(value -> value.toUpperCase()).collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<String> expectedSet = expected.stream().map(value -> value.trim().toUpperCase()).collect(Collectors.toCollection(LinkedHashSet::new));
         if (type == AssessmentQuestionType.FILL_BLANK) {
+            Set<String> actualSet = actual.stream().map(this::normalizeFillBlankValue).collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<String> expectedSet = expected.stream().map(this::normalizeFillBlankValue).collect(Collectors.toCollection(LinkedHashSet::new));
             return actualSet.size() == 1 && expectedSet.contains(actualSet.iterator().next());
         }
+        Set<String> actualSet = actual.stream().map(value -> value.toUpperCase()).collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> expectedSet = expected.stream().map(value -> value.trim().toUpperCase()).collect(Collectors.toCollection(LinkedHashSet::new));
         return !actualSet.isEmpty() && actualSet.equals(expectedSet);
     }
 
@@ -559,6 +563,17 @@ public class PublicAssessmentService {
         if (value == null) return null;
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeFillBlankValue(String value) {
+        String normalized = normalizeText(value);
+        if (normalized == null) return null;
+        normalized = normalized.replace('\u2018', '\'').replace('\u2019', '\'')
+                .replace('\u2010', '-').replace('\u2011', '-').replace('\u2013', '-').replace('\u2014', '-');
+        normalized = Normalizer.normalize(normalized, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT);
+        return normalized.replaceAll("\\s+", " ").trim();
     }
 
     private void recomputeProgress(AssessmentAttemptEntity attempt, List<AssessmentAttemptAnswerEntity> answers, LocalDateTime now) {

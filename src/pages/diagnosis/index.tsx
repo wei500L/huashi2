@@ -199,7 +199,7 @@ function DiagnosisPreparationOverview({ restarting = false }: { restarting?: boo
   ];
 
   return (
-    <section className="liquid-glass-panel relative overflow-hidden rounded-[3rem] p-6 edge-light md:p-10">
+    <section className="liquid-glass-panel relative min-w-0 overflow-hidden rounded-2xl p-4 edge-light sm:rounded-3xl sm:p-6 md:p-8">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-[0.16] dark:opacity-[0.1]"
@@ -897,7 +897,7 @@ const DiagnosisPage: React.FC = () => {
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
         ) : nextItemQuery.data?.readyToComplete ? (
-          <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+          <section className="rounded-2xl sm:rounded-3xl liquid-glass-panel p-4 sm:p-6 md:p-8 edge-light">
             <div className="max-w-2xl">
               <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Generating Result</div>
               <h2 className="type-section-title mt-4 text-slate-900 dark:text-white">正在生成诊断结果</h2>
@@ -928,7 +928,7 @@ const DiagnosisPage: React.FC = () => {
               gradientClassName="bg-gradient-to-r from-sky-500 to-blue-500"
             />
 
-            <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+            <section className="rounded-2xl sm:rounded-3xl liquid-glass-panel p-4 sm:p-6 md:p-8 edge-light">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 {currentItem.taskType} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
               </div>
@@ -1060,7 +1060,7 @@ const DiagnosisPage: React.FC = () => {
 
       {result && (
         <>
-          <section className="liquid-glass-panel rounded-[3rem] p-10 edge-light">
+          <section className="liquid-glass-panel rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 edge-light">
             <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
               <div>
                 <div className="inline-flex items-center gap-3 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-emerald-500">

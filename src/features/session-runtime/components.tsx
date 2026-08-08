@@ -21,12 +21,12 @@ export const SessionSaveActions: React.FC<SessionSaveActionsProps> = ({
   const { t } = useTranslation();
 
   return (
-  <div className="flex flex-wrap items-center gap-3">
+  <div className="page-actions">
     <button
       type="button"
       onClick={onSave}
       disabled={disabled || isSaving}
-      className="min-h-11 rounded-full border border-slate-200 px-5 py-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60 dark:border-white/10"
+      className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60 dark:border-white/10"
     >
       {isSaving ? t('ui.sessionState.savingAction') : t('ui.sessionState.saveAction')}
     </button>
@@ -34,12 +34,12 @@ export const SessionSaveActions: React.FC<SessionSaveActionsProps> = ({
       type="button"
       onClick={onSaveAndExit}
       disabled={disabled || isSaving}
-      className="btn-liquid min-h-11 px-5 py-3 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
+      className="btn-liquid inline-flex min-h-11 items-center justify-center px-5 py-3 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60"
     >
       {isSaving ? t('ui.sessionState.savingAction') : t('ui.sessionState.saveAndExitAction')}
     </button>
     {isSaving && (
-      <span role="status" aria-live="polite" className="text-sm font-bold text-sky-700 dark:text-sky-300">
+      <span role="status" aria-live="polite" className="text-center text-sm font-bold text-sky-700 sm:text-left dark:text-sky-300">
         {t('ui.sessionState.savingInline')}
       </span>
     )}
@@ -256,12 +256,12 @@ export const SessionProgressHeader: React.FC<SessionProgressHeaderProps> = ({
       : 'text-slate-600 dark:text-white/60';
 
   return (
-    <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-        <div className="min-w-[8rem]">
+    <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/70 p-3 sm:rounded-3xl sm:p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
+        <div className="min-w-0 sm:min-w-[8rem]">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
             {icon}
-            <span>{label}</span>
+            <span className="min-w-0 truncate">{label}</span>
           </div>
           <div className="mt-1 text-lg font-black text-slate-900 dark:text-white" aria-live="polite">
             {currentItem != null ? `${currentItem} / ${totalItems || 0}` : `${answeredItems || 0} / ${totalItems || 0}`}
@@ -282,33 +282,35 @@ export const SessionProgressHeader: React.FC<SessionProgressHeaderProps> = ({
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-white/45">
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-white/45">
             <span>{t('ui.sessionState.answeredLabel', '已完成')} {answeredItems || 0} / {totalItems || 0}</span>
-            <span role="status" aria-live="polite" className={`inline-flex items-center gap-1.5 ${stateTone}`}>
-              <span aria-hidden="true" className={`size-1.5 rounded-full ${savedState === 'saving' ? 'bg-sky-500' : savedState === 'saved' ? 'bg-emerald-500' : savedState === 'error' || savedState === 'conflict' ? 'bg-amber-500' : 'bg-slate-400'}`} />
+            <span role="status" aria-live="polite" className={`inline-flex min-w-0 flex-wrap items-center gap-1.5 ${stateTone}`}>
+              <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${savedState === 'saving' ? 'bg-sky-500' : savedState === 'saved' ? 'bg-emerald-500' : savedState === 'error' || savedState === 'conflict' ? 'bg-amber-500' : 'bg-slate-400'}`} />
               {stateLabels[savedState]}
-              {savedAtLabel ? <span className="text-slate-400 dark:text-white/35">· {savedAtLabel}</span> : null}
+              {savedAtLabel ? <span className="break-words text-slate-400 dark:text-white/35">· {savedAtLabel}</span> : null}
             </span>
           </div>
         </div>
 
-        {remainingLabel ? (
-          <div className={`shrink-0 rounded-2xl border px-3 py-2 text-sm font-black tabular-nums ${isUrgent ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'border-slate-200/70 text-slate-700 dark:border-white/10 dark:text-white/75'}`}>
-            <span className="mr-2 text-xs font-bold text-slate-400 dark:text-white/35">{t('ui.sessionState.remainingLabel', '剩余时间')}</span>
-            <span role="timer" aria-live={isUrgent ? 'polite' : undefined}>{remainingLabel}</span>
-          </div>
-        ) : null}
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          {remainingLabel ? (
+            <div className={`w-full rounded-2xl border px-3 py-2 text-center text-sm font-black tabular-nums sm:w-auto sm:text-left ${isUrgent ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'border-slate-200/70 text-slate-700 dark:border-white/10 dark:text-white/75'}`}>
+              <span className="mr-2 text-xs font-bold text-slate-400 dark:text-white/35">{t('ui.sessionState.remainingLabel', '剩余时间')}</span>
+              <span role="timer" aria-live={isUrgent ? 'polite' : undefined}>{remainingLabel}</span>
+            </div>
+          ) : null}
 
-        {onExit ? (
-          <button
-            type="button"
-            onClick={onExit}
-            disabled={exitDisabled}
-      className="min-h-11 shrink-0 rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition-colors motion-reduce:transition-none hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-55 dark:border-white/10 dark:text-white/70"
-          >
-            {exitLabel || t('ui.sessionState.exitAction', '退出')}
-          </button>
-        ) : null}
+          {onExit ? (
+            <button
+              type="button"
+              onClick={onExit}
+              disabled={exitDisabled}
+              className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition-colors motion-reduce:transition-none hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto dark:border-white/10 dark:text-white/70"
+            >
+              {exitLabel || t('ui.sessionState.exitAction', '退出')}
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -334,18 +336,18 @@ export const SessionOptionButton: React.FC<SessionOptionButtonProps> = ({
     disabled={disabled}
     onClick={onClick}
     aria-keyshortcuts={shortcutLabel}
-      className="min-h-11 w-full rounded-[1.8rem] border border-slate-200 bg-white/70 px-5 py-4 text-left transition-all motion-reduce:transition-none hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
+      className="min-h-11 w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-4 text-left transition-all motion-reduce:transition-none hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-60 sm:rounded-3xl sm:px-5 dark:border-white/10 dark:bg-white/5"
   >
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex min-w-0 items-center justify-between gap-3 sm:gap-4">
       <span className="flex min-w-0 items-center gap-3 font-bold text-slate-900 dark:text-white">
         {shortcutLabel ? (
           <kbd className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-xs font-black text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
             {shortcutLabel}
           </kbd>
         ) : null}
-        <span>{label}</span>
+        <span className="min-w-0 break-words">{label}</span>
       </span>
-      {icon || <ChevronRight className="text-primary" size={16} />}
+      {icon || <ChevronRight className="shrink-0 text-primary" size={16} />}
     </div>
   </button>
 );

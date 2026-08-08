@@ -110,13 +110,13 @@ const TeacherTemplatesPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16">
       <PageHeader
         eyebrow={t('ui.sections.publishedTemplates')}
         title={t('ui.pages.templates.title')}
         subtitle={t('ui.pages.templates.subtitle')}
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             <Link
               to="/teacher/lexical-pairs"
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
@@ -168,11 +168,11 @@ const TeacherTemplatesPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
-          <div>
+      <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:gap-8">
+        <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+          <div className="min-w-0">
             <SectionEyebrow>{t('ui.sections.drafts')}</SectionEyebrow>
-            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('taskPages.teacherTemplates.draftsTitle')}</div>
+            <div className="mt-3 break-words text-2xl font-black text-slate-900 dark:text-white">{t('taskPages.teacherTemplates.draftsTitle')}</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('taskPages.teacherTemplates.draftsSubtitle')}</div>
           </div>
 
@@ -186,12 +186,12 @@ const TeacherTemplatesPage: React.FC = () => {
             {(draftsQuery.data?.records || []).map((draft) => (
               <div
                 key={draft.draftId}
-                className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.03]"
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="text-lg font-black text-slate-900 dark:text-white">{draft.templateName}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{draft.description || t('ui.labels.noDescription')}</div>
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+                  <div className="min-w-0">
+                    <div className="break-words text-lg font-black text-slate-900 dark:text-white">{draft.templateName}</div>
+                    <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{draft.description || t('ui.labels.noDescription')}</div>
                   </div>
                   <StatusBadge label={diagnosisTemplateSyncStateLabel(draft.syncState)} tone={diagnosisTemplateSyncStateTone(draft.syncState)} />
                 </div>
@@ -206,7 +206,7 @@ const TeacherTemplatesPage: React.FC = () => {
 
                 <div className="mt-3 text-xs text-slate-400 dark:text-white/30">{t('ui.meta.lastUpdated', { time: formatDateTime(draft.updatedAt) })}</div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div className="page-actions mt-4">
                   <button
                     type="button"
                     onClick={() => navigate(`/teacher/diagnosis-template-drafts/${draft.draftId}${buildDraftEditorSearch(location.search)}`)}
@@ -235,10 +235,10 @@ const TeacherTemplatesPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
-          <div>
+        <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+          <div className="min-w-0">
             <SectionEyebrow>{t('ui.sections.publishedTemplates')}</SectionEyebrow>
-            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('taskPages.teacherTemplates.publishedTitle')}</div>
+            <div className="mt-3 break-words text-2xl font-black text-slate-900 dark:text-white">{t('taskPages.teacherTemplates.publishedTitle')}</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('taskPages.teacherTemplates.publishedSubtitle')}</div>
           </div>
 
@@ -252,12 +252,12 @@ const TeacherTemplatesPage: React.FC = () => {
             {(templatesQuery.data?.records || []).map((template) => (
               <div
                 key={template.id}
-                className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.03]"
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="text-lg font-black text-slate-900 dark:text-white">{template.templateName}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{template.description || t('ui.labels.noDescription')}</div>
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+                  <div className="min-w-0">
+                    <div className="break-words text-lg font-black text-slate-900 dark:text-white">{template.templateName}</div>
+                    <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{template.description || t('ui.labels.noDescription')}</div>
                   </div>
                   <StatusBadge label={String(template.status)} tone="success" />
                 </div>
@@ -275,7 +275,7 @@ const TeacherTemplatesPage: React.FC = () => {
 
                 <div className="mt-3 text-xs text-slate-400 dark:text-white/30">{t('ui.meta.lastUpdated', { time: formatDateTime(template.updatedAt) })}</div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div className="page-actions mt-4">
                   <button
                     type="button"
                     onClick={() => createFromTemplateMutation.mutate(template.id)}
@@ -311,11 +311,11 @@ const TeacherTemplatesPage: React.FC = () => {
         </section>
       </div>
 
-      <section className="rounded-[2.4rem] liquid-glass-panel p-6 md:p-8 space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+      <section className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.4rem] sm:p-6 md:p-8">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <SectionEyebrow>{t('ui.sections.templateMarket')}</SectionEyebrow>
-            <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">{t('ui.pages.templates.marketTitle')}</div>
+            <div className="mt-3 break-words text-2xl font-black text-slate-900 dark:text-white">{t('ui.pages.templates.marketTitle')}</div>
             <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{t('ui.pages.templates.marketSubtitle')}</div>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-300">

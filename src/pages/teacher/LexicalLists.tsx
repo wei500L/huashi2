@@ -366,7 +366,7 @@ const TeacherLexicalListsPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16">
       <PageHeader
         eyebrow="词表"
         title={t('taskPages.teacherLexicalLists.pageTitle')}
@@ -406,14 +406,14 @@ const TeacherLexicalListsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid gap-8 xl:grid-cols-[0.82fr_1.18fr]">
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8 space-y-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
+      <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] xl:gap-8">
+        <section className="min-w-0 space-y-6 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="min-w-0">
               <SectionEyebrow>列表</SectionEyebrow>
               <div className="mt-3 text-2xl font-black text-slate-900 dark:text-white">词表列表</div>
             </div>
-            <div className="rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
+            <div className="shrink-0 rounded-full border border-slate-200/70 px-3 py-1 text-xs text-slate-500 dark:border-white/10 dark:text-white/45">
               共 {listsQuery.data?.total ?? 0} 个
             </div>
           </div>
@@ -437,20 +437,20 @@ const TeacherLexicalListsPage: React.FC = () => {
                 key={item.id}
                 type="button"
                 onClick={() => setSelectedId(item.id)}
-                className={`w-full rounded-[1.7rem] border p-4 text-left transition-all ${
+                className={`w-full min-w-0 rounded-[1.7rem] border p-4 text-left transition-all ${
                   selectedId === item.id
                     ? 'border-primary/40 bg-primary/5'
                     : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5'
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-black text-slate-900 dark:text-white">{item.listName}</div>
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                  <div className="min-w-0">
+                    <div className="break-words font-black text-slate-900 dark:text-white">{item.listName}</div>
                     <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
                       {item.itemCount} 个词对 · {item.active ? '启用中' : '已停用'}
                     </div>
                   </div>
-                  <div className="text-xs text-slate-400 dark:text-white/30">{formatDateTime(item.updatedAt || item.createdAt)}</div>
+                  <div className="shrink-0 text-xs text-slate-400 dark:text-white/30">{formatDateTime(item.updatedAt || item.createdAt)}</div>
                 </div>
               </button>
             ))}
@@ -506,27 +506,27 @@ const TeacherLexicalListsPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-[2.5rem] sm:p-6 md:p-8">
           {detailQuery.data ? (
-            <div className="space-y-8">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
+            <div className="space-y-6 sm:space-y-8">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+                <div className="min-w-0">
                   <SectionEyebrow>详情</SectionEyebrow>
-                  <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{detailQuery.data.listName}</div>
-                  <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+                  <div className="mt-3 break-words text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">{detailQuery.data.listName}</div>
+                  <div className="mt-3 break-words text-sm text-slate-500 dark:text-white/45">
                     创建于 {formatDateTime(detailQuery.data.createdAt)} · 最近更新 {formatDateTime(detailQuery.data.updatedAt || detailQuery.data.createdAt)}
                   </div>
                 </div>
                 <StatusBadge label={`${detailQuery.data.itemCount} 个词对`} className="px-4 py-2 text-sm" />
               </div>
 
-              <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
+              <div className="min-w-0 space-y-4 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 sm:p-5 dark:border-white/10 dark:bg-white/5">
                 <div className="text-sm font-bold text-slate-900 dark:text-white">词表信息</div>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                   <input
                     value={editorForm.listName}
                     onChange={(event) => setEditorForm((current) => ({ ...current, listName: event.target.value }))}
-                    className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                    className="min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                     placeholder="词表名称"
                   />
                   <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
@@ -542,10 +542,10 @@ const TeacherLexicalListsPage: React.FC = () => {
                   value={editorForm.description || ''}
                   onChange={(event) => setEditorForm((current) => ({ ...current, description: event.target.value }))}
                   rows={3}
-                  className="w-full rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                  className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5"
                   placeholder="词表描述"
                 />
-                <div className="flex flex-wrap gap-3">
+                <div className="page-actions">
                   <button
                     type="button"
                     onClick={() => updateMutation.mutate()}
@@ -772,11 +772,11 @@ const TeacherLexicalListsPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45">
-                  <div>
+                <div className="flex min-w-0 flex-col gap-3 rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-4 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:border-white/10 dark:bg-white/5 dark:text-white/45">
+                  <div className="min-w-0">
                     第 {itemsQuery.data?.pageNo ?? 1} / {totalItemPages} 页 · 共 {itemsQuery.data?.total ?? 0} 条
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
                       onClick={() => setItemPageNo((current) => Math.max(1, current - 1))}

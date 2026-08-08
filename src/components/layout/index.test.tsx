@@ -133,6 +133,65 @@ function assistantPayload(overrides?: Partial<LexicalRagAnswerVO>): LexicalRagAn
   };
 }
 
+describe('Topbar mobile more menu', () => {
+  beforeEach(async () => {
+    window.localStorage.clear();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation(() => ({
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }))
+    );
+    useAuthStore.setState({
+      ...useAuthStore.getState(),
+      user: studentUser,
+    });
+    useUIStore.setState({
+      ...useUIStore.getState(),
+      locale: 'zh-CN',
+      isDarkMode: false,
+      isSidebarCollapsed: false,
+      activeWorkspace: 'STUDENT_WORKSPACE',
+      preferredWorkspaceByUser: {},
+    });
+    await i18n.changeLanguage('zh-CN');
+  });
+
+  afterEach(() => {
+    useAuthStore.setState(originalAuthState);
+    useUIStore.setState(originalUiState);
+    window.localStorage.clear();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('exposes locale and theme controls in the mobile more menu', async () => {
+    renderWithShell();
+
+    fireEvent.click(screen.getByRole('button', { name: '更多选项' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'English' }));
+
+    await waitFor(() => {
+      expect(useUIStore.getState().locale).toBe('en-US');
+    });
+
+    // AppLayout alone does not bind store locale → i18n; labels stay zh-CN in this unit test.
+    fireEvent.click(screen.getByRole('button', { name: '更多选项' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '切换到深色模式' }));
+
+    await waitFor(() => {
+      expect(useUIStore.getState().isDarkMode).toBe(true);
+    });
+  });
+});
+
 describe('Sidebar workspace navigation', () => {
   beforeEach(async () => {
     window.localStorage.clear();

@@ -536,7 +536,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             rows={5}
             maxLength={1000}
             disabled={!canEdit}
-            className="w-full rounded-[1.8rem] border border-slate-200 bg-white/75 px-4 py-3 text-base disabled:opacity-70 dark:border-white/10 dark:bg-white/5"
+            className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white/75 px-4 py-3 text-base disabled:opacity-70 sm:rounded-3xl dark:border-white/10 dark:bg-white/5"
             placeholder="请输入答案"
           />
         </label>
@@ -564,7 +564,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                   toggleMultipleResponse(question.questionOrder, option.key);
                 }
               }}
-              className={`flex min-h-11 items-start gap-3 rounded-[1.4rem] border px-4 py-4 text-sm transition-all motion-reduce:transition-none ${
+              className={`flex min-h-11 min-w-0 items-start gap-3 rounded-2xl border px-4 py-4 text-sm transition-all motion-reduce:transition-none ${
                 checked
                   ? 'border-primary/30 bg-primary/10 text-slate-900 dark:text-white'
                   : 'border-slate-200/70 bg-white/70 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60'
@@ -576,6 +576,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                 value={option.key}
                 checked={checked}
                 disabled={!canEdit}
+                className="mt-1 shrink-0"
                 onChange={() => {
                   if (question.questionType === 'SINGLE_CHOICE') {
                     updateSingleResponse(question.questionOrder, option.key);
@@ -586,7 +587,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               />
               <div className="min-w-0">
                 <div className="font-semibold">{option.key}</div>
-                <div className="mt-1">{option.label}</div>
+                <div className="mt-1 break-words">{option.label}</div>
               </div>
             </label>
           );
@@ -597,10 +598,10 @@ const StudentAssessmentAttemptPage: React.FC = () => {
 
   if (!isValidAttemptId) {
     return (
-      <div className="rounded-[2.4rem] border border-amber-500/20 bg-amber-500/10 p-8 text-amber-800 dark:text-amber-200">
-        <div className="text-2xl font-black">测评链接无效</div>
+      <div className="min-w-0 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-800 sm:rounded-3xl sm:p-6 md:p-8 dark:text-amber-200">
+        <div className="text-xl font-black sm:text-2xl">测评链接无效</div>
         <p className="mt-3 text-sm">答卷编号必须是正整数，请返回任务列表重新进入。</p>
-        <Link to="/assessments" className="mt-5 inline-flex rounded-full border border-amber-500/30 px-4 py-2 text-sm font-bold">
+        <Link to="/assessments" className="mt-5 inline-flex w-full items-center justify-center rounded-full border border-amber-500/30 px-4 py-2 text-sm font-bold sm:w-auto">
           返回任务列表
         </Link>
       </div>
@@ -608,23 +609,23 @@ const StudentAssessmentAttemptPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-20">
       <PageHeader
         eyebrow="通用测评"
         title={detail?.paperTitle || '测评作答'}
         subtitle={detail ? `${detail.className} · 整卷时长 ${detail.durationMinutes} 分钟 · 截止 ${formatDateTime(detail.expiresAt)}` : '正在加载测评内容'}
         actions={
-          <div className="flex flex-wrap gap-3">
-            <Link to="/assessments" className="rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
+          <div className="page-actions">
+            <Link to="/assessments" className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10">
               返回任务列表
             </Link>
             <button
               type="button"
               disabled={!canEdit || isSaving || isSubmitting}
               onClick={() => void persistResponses('manual', responsesByOrder)}
-              className="rounded-full border border-slate-200 px-4 py-3 text-sm font-bold text-primary disabled:opacity-60 dark:border-white/10"
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-3 text-sm font-bold text-primary disabled:opacity-60 dark:border-white/10"
             >
-              <Save size={14} className="inline-block mr-2" />
+              <Save size={14} className="mr-2 inline-block" />
               保存答案
             </button>
             <button
@@ -637,9 +638,9 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                 }
                 setSubmitConfirmOpen(true);
               }}
-              className="btn-liquid px-5 py-3 text-white disabled:opacity-60"
+              className="btn-liquid inline-flex items-center justify-center px-5 py-3 text-white disabled:opacity-60"
             >
-              <Send size={14} className="inline-block mr-2" />
+              <Send size={14} className="mr-2 inline-block" />
               {submitErrorMessage ? '重新提交' : '交卷'}
             </button>
           </div>
@@ -729,20 +730,20 @@ const StudentAssessmentAttemptPage: React.FC = () => {
             exitDisabled={isSaving || isSubmitting}
             gradientClassName="bg-[hsl(var(--progress))]"
           />
-          <div className="grid gap-8 xl:grid-cols-[280px_1fr]">
-          <aside className="space-y-5 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">
-            <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/75 px-4 py-4 dark:border-white/10 dark:bg-white/5">
+          <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] xl:gap-8">
+          <aside className="min-w-0 space-y-5 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
+            <div className="rounded-2xl border border-slate-200/70 bg-white/75 px-4 py-4 dark:border-white/10 dark:bg-white/5">
               <SectionEyebrow>剩余时间</SectionEyebrow>
-              <div className={`mt-3 text-3xl font-black ${remainingMs !== null && remainingMs <= 5 * 60 * 1000 ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+              <div className={`mt-3 text-2xl font-black sm:text-3xl ${remainingMs !== null && remainingMs <= 5 * 60 * 1000 ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
                 {remainingMs === null ? '--:--' : formatRemaining(remainingMs)}
               </div>
-              <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
+              <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
                 <Clock3 size={14} className="mr-2 inline-block" />
                 最后保存 {formatDateTime(lastSavedAt)}
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 xl:grid-cols-4">
               {orderedQuestions.map((question) => {
                 const answered = hasResponses(responsesByOrder[question.questionOrder]);
                 const selected = question.questionOrder === currentQuestion.questionOrder;
@@ -753,7 +754,7 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                     aria-current={selected ? 'step' : undefined}
                     aria-label={`第 ${question.questionOrder} 题，${selected ? '当前题' : answered ? '已作答' : '未作答'}`}
                     onClick={() => setSelectedQuestionOrder(question.questionOrder)}
-                    className={`min-h-11 rounded-2xl px-3 py-3 text-sm font-bold transition-all motion-reduce:transition-none ${
+                    className={`min-h-11 rounded-2xl px-2 py-3 text-sm font-bold transition-all motion-reduce:transition-none ${
                       selected
                         ? 'bg-primary text-white'
                         : answered
@@ -767,36 +768,36 @@ const StudentAssessmentAttemptPage: React.FC = () => {
               })}
             </div>
 
-            <div className="space-y-2 text-sm text-slate-500 dark:text-white/45">
+            <div className="space-y-2 break-words text-sm text-slate-500 dark:text-white/45">
               <div>已作答：{answeredCountFromLocal || answeredCount} / {detail.questionCount}</div>
               <div>总分：{detail.totalScore}</div>
               <div>开始时间：{formatDateTime(detail.startedAt)}</div>
             </div>
 
             {detail.instructionsText && (
-              <div className="rounded-[1.6rem] border border-dashed border-slate-200/80 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
+              <div className="rounded-2xl border border-dashed border-slate-200/80 px-4 py-4 text-sm text-slate-600 dark:border-white/10 dark:text-white/60">
                 {detail.instructionsText}
               </div>
             )}
           </aside>
 
-          <section className="space-y-6 rounded-[2.4rem] liquid-glass-panel p-6 md:p-8">
+          <section className="min-w-0 space-y-6 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <SectionEyebrow>
                   第 {currentQuestion.questionOrder} 题 / 共 {detail.questionCount} 题
                 </SectionEyebrow>
-                <div ref={questionTitleRef} tabIndex={-1} className="mt-3 text-3xl font-black text-slate-900 outline-none dark:text-white">
+                <div ref={questionTitleRef} tabIndex={-1} className="mt-3 break-words text-2xl font-black text-slate-900 outline-none sm:text-3xl dark:text-white">
                   {assessmentQuestionTypeLabel(currentQuestion.questionType)}
                 </div>
               </div>
               <StatusBadge label={`${currentQuestion.score} 分`} tone="neutral" className="px-4 py-2 text-sm" />
             </div>
 
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/75 p-5 dark:border-white/10 dark:bg-white/5">
-              <div className="text-lg font-semibold leading-8 text-slate-900 dark:text-white">{currentQuestion.stemText}</div>
+            <div className="rounded-2xl border border-slate-200/70 bg-white/75 p-4 sm:p-5 dark:border-white/10 dark:bg-white/5">
+              <div className="break-words text-base font-semibold leading-8 text-slate-900 sm:text-lg dark:text-white">{currentQuestion.stemText}</div>
               {currentQuestion.promptText && (
-                <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{currentQuestion.promptText}</div>
+                <div className="mt-3 break-words text-sm text-slate-500 dark:text-white/45">{currentQuestion.promptText}</div>
               )}
             </div>
 
@@ -807,39 +808,39 @@ const StudentAssessmentAttemptPage: React.FC = () => {
                 type="button"
                 disabled={selectedQuestionOrder <= 1}
                 onClick={() => setSelectedQuestionOrder((current) => Math.max(1, current - 1))}
-                className="rounded-full border border-slate-200 px-4 py-3 text-sm font-bold disabled:opacity-40 dark:border-white/10"
+                className="inline-flex min-w-0 flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-3 text-sm font-bold disabled:opacity-40 sm:flex-none dark:border-white/10"
               >
-                <ChevronLeft size={16} className="inline-block mr-1" />
+                <ChevronLeft size={16} className="mr-1 inline-block" />
                 上一题
               </button>
               <button
                 type="button"
                 disabled={selectedQuestionOrder >= detail.questionCount}
                 onClick={() => setSelectedQuestionOrder((current) => Math.min(detail.questionCount, current + 1))}
-                className="rounded-full border border-slate-200 px-4 py-3 text-sm font-bold disabled:opacity-40 dark:border-white/10"
+                className="inline-flex min-w-0 flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-3 text-sm font-bold disabled:opacity-40 sm:flex-none dark:border-white/10"
               >
                 下一题
-                <ChevronRight size={16} className="inline-block ml-1" />
+                <ChevronRight size={16} className="ml-1 inline-block" />
               </button>
             </div>
 
             {!canEdit && detail.status === 'IN_PROGRESS' && (
-              <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
                 答卷已锁定，正在等待最终交卷结果。此时不能再修改答案。
               </div>
             )}
             {remainingMs !== null && remainingMs <= 5 * 60 * 1000 && remainingMs > 0 && (
-              <div className="rounded-[1.6rem] border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-700 dark:text-amber-300">
                 倒计时已进入最后 5 分钟，请尽快检查并交卷。
               </div>
             )}
             {remainingMs !== null && remainingMs <= 0 && (
-              <div className="rounded-[1.6rem] border border-rose-500/20 bg-rose-500/10 px-4 py-4 text-sm text-rose-600 dark:text-rose-300">
+              <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-4 text-sm text-rose-600 dark:text-rose-300">
                 测评已到时限。{submitErrorMessage ? '自动交卷请求已失败，后台仍会继续补交；如未自动跳转，可点击“重新提交”。' : '系统正在自动交卷。'}
               </div>
             )}
             {answeredCountFromLocal === detail.questionCount && detail.questionCount > 0 && canEdit && (
-              <div className="rounded-[1.6rem] border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-600 dark:text-emerald-300">
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-600 dark:text-emerald-300">
                 <CheckCircle2 size={14} className="mr-2 inline-block" />
                 所有题目均已填写，可以直接交卷。
               </div>

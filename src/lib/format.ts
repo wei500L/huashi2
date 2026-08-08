@@ -126,9 +126,14 @@ const COPY: Record<
       PUBLISHED: '已发布',
     },
     assessmentQuestionTypeLabels: {
+      INSTRUCTION: '说明文字',
+      INFORMED_CONSENT: '知情同意',
+      SHORT_TEXT: '短文本',
+      NUMBER: '数字填写',
       SINGLE_CHOICE: '单选题',
       MULTIPLE_CHOICE: '多选题',
       FILL_BLANK: '填空题',
+      TRUE_FALSE_WITH_JUSTIFICATION: '判断并说明理由',
     },
     lexicalImportBatchStatusLabels: {
       PARSING: '解析中',
@@ -279,9 +284,14 @@ const COPY: Record<
       PUBLISHED: 'Published',
     },
     assessmentQuestionTypeLabels: {
+      INSTRUCTION: 'Instruction',
+      INFORMED_CONSENT: 'Informed consent',
+      SHORT_TEXT: 'Short text',
+      NUMBER: 'Number',
       SINGLE_CHOICE: 'Single choice',
       MULTIPLE_CHOICE: 'Multiple choice',
       FILL_BLANK: 'Fill in the blank',
+      TRUE_FALSE_WITH_JUSTIFICATION: 'True/false with justification',
     },
     lexicalImportBatchStatusLabels: {
       PARSING: 'Parsing',

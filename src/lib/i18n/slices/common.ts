@@ -26,6 +26,7 @@ export const commonSlice: TranslationSlice = {
         backToTrainingHome: '返回训练首页',
         backToWorkspace: '返回工作区首页',
         close: '关闭',
+        moreOptions: '更多选项',
       },
       loading: {
         initializingSession: '正在初始化会话',
@@ -68,6 +69,7 @@ export const commonSlice: TranslationSlice = {
         backToTrainingHome: 'Back to training home',
         backToWorkspace: 'Back to workspace home',
         close: 'Close',
+        moreOptions: 'More options',
       },
       loading: {
         initializingSession: 'Initializing session',

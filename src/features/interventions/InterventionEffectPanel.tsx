@@ -143,53 +143,53 @@ const InterventionEffectPanel: React.FC<InterventionEffectPanelProps> = ({ effec
   ];
 
   return (
-    <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+    <div className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 sm:p-5 dark:border-white/10 dark:bg-white/5">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
           <div className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400 dark:text-white/35">Effect Tracking</div>
           <div className="mt-2 text-lg font-black text-slate-900 dark:text-white">干预前后指标对比</div>
           <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
             {baseline && completion ? '已形成基线与完成快照闭环，可直接评估干预效果。' : '当前只记录了基线快照，完成干预后会补齐结果快照。'}
           </div>
         </div>
-        <div className="text-right text-xs text-slate-500 dark:text-white/45">
-          <div>基线快照 {formatDateTime(baseline?.snapshotAt)}</div>
-          <div className="mt-2">完成快照 {formatDateTime(completion?.snapshotAt)}</div>
+        <div className="min-w-0 text-left text-xs text-slate-500 sm:text-right dark:text-white/45">
+          <div className="break-words">基线快照 {formatDateTime(baseline?.snapshotAt)}</div>
+          <div className="mt-2 break-words">完成快照 {formatDateTime(completion?.snapshotAt)}</div>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="mt-5 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="min-w-0 rounded-[1.4rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400 dark:text-white/35">Before</div>
-          <div className="mt-3 text-sm text-slate-700 dark:text-white/80">{formatRiskLevel(baseline?.primaryRiskLevel)}</div>
-          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{formatTrainingMode(baseline?.recommendedTrainingMode)}</div>
+          <div className="mt-3 break-words text-sm text-slate-700 dark:text-white/80">{formatRiskLevel(baseline?.primaryRiskLevel)}</div>
+          <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{formatTrainingMode(baseline?.recommendedTrainingMode)}</div>
         </div>
-        <div className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="min-w-0 rounded-[1.4rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400 dark:text-white/35">After</div>
-          <div className="mt-3 text-sm text-slate-700 dark:text-white/80">{formatRiskLevel(completion?.primaryRiskLevel)}</div>
-          <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{formatTrainingMode(completion?.recommendedTrainingMode)}</div>
+          <div className="mt-3 break-words text-sm text-slate-700 dark:text-white/80">{formatRiskLevel(completion?.primaryRiskLevel)}</div>
+          <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">{formatTrainingMode(completion?.recommendedTrainingMode)}</div>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-5">
+      <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {metrics.map((metric) => (
           <div
             key={metric.key}
-            className="rounded-[1.4rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]"
+            className="min-w-0 rounded-[1.4rem] border border-slate-200/70 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]"
           >
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-white/35">{metric.label}</div>
-            <div className="mt-4 flex items-baseline justify-between gap-4">
-              <div>
+            <div className="truncate text-xs font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-white/35">{metric.label}</div>
+            <div className="mt-4 flex min-w-0 items-baseline justify-between gap-2 sm:gap-4">
+              <div className="min-w-0">
                 <div className="text-xs text-slate-400 dark:text-white/35">前</div>
-                <div className="mt-1 text-sm font-bold text-slate-700 dark:text-white/80">{metric.formatter(metric.baseline)}</div>
+                <div className="mt-1 break-all text-sm font-bold text-slate-700 dark:text-white/80">{metric.formatter(metric.baseline)}</div>
               </div>
-              <div className="text-slate-300 dark:text-white/15">→</div>
-              <div className="text-right">
+              <div className="shrink-0 text-slate-300 dark:text-white/15">→</div>
+              <div className="min-w-0 text-right">
                 <div className="text-xs text-slate-400 dark:text-white/35">后</div>
-                <div className="mt-1 text-sm font-bold text-slate-900 dark:text-white">{metric.formatter(metric.completion)}</div>
+                <div className="mt-1 break-all text-sm font-bold text-slate-900 dark:text-white">{metric.formatter(metric.completion)}</div>
               </div>
             </div>
-            <div className={`mt-4 text-sm font-bold ${deltaTone(metric.delta, metric.lowerIsBetter)}`}>
+            <div className={`mt-4 break-words text-sm font-bold ${deltaTone(metric.delta, metric.lowerIsBetter)}`}>
               {deltaLabel(metric.delta, metric.lowerIsBetter)} {metric.deltaFormatter(metric.delta)}
             </div>
           </div>

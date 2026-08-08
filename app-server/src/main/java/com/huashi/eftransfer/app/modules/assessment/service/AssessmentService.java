@@ -73,6 +73,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -872,7 +873,17 @@ public class AssessmentService {
                         .toList(),
                 assessmentJsonCodec.readStringList(question.getCorrectAnswerJson()),
                 question.getExplanationText(),
-                question.getScore()
+                question.getScore(),
+                question.getQuestionVersionId(),
+                question.getSectionCode(),
+                question.getRequiredAnswer(),
+                question.getWeight(),
+                question.getTransferCategory(),
+                question.getContextLevel(),
+                question.getConstructCode(),
+                question.getTargetWord(),
+                question.getOptionExplanationsJson(),
+                question.getDisplayConditionJson()
         );
     }
 
@@ -998,11 +1009,18 @@ public class AssessmentService {
                             LinkedHashMap::new
                     ));
             List<String> correctAnswers = normalizeChoiceCorrectAnswers(rawCorrectAnswers, canonicalOptionKeys);
-            if ((questionType == AssessmentQuestionType.SINGLE_CHOICE
+            boolean scoredQuestion = question.score() != null && question.score() > 0;
+            if (scoredQuestion && (questionType == AssessmentQuestionType.SINGLE_CHOICE
                     || questionType == AssessmentQuestionType.INFORMED_CONSENT
                     || questionType == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION)
                     && correctAnswers.size() != 1) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question must contain exactly one correct answer", 400);
+            }
+            if (!scoredQuestion && (questionType == AssessmentQuestionType.SINGLE_CHOICE
+                    || questionType == AssessmentQuestionType.INFORMED_CONSENT
+                    || questionType == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION)
+                    && correctAnswers.size() > 1) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question cannot contain multiple correct answers", 400);
             }
             normalizedQuestions.add(new NormalizedQuestion(
                     questionType,
@@ -1836,7 +1854,15 @@ public class AssessmentService {
 
     private String normalizeFillBlankValue(String value) {
         String normalized = normalizeOptionalText(value);
-        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+        if (normalized == null) {
+            return null;
+        }
+        normalized = normalized.replace('\u2018', '\'').replace('\u2019', '\'')
+                .replace('\u2010', '-').replace('\u2011', '-').replace('\u2013', '-').replace('\u2014', '-');
+        normalized = Normalizer.normalize(normalized, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT);
+        return normalized.replaceAll("\\s+", " ").trim();
     }
 
     private String generatePaperCode() {

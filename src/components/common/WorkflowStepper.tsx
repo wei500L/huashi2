@@ -33,32 +33,32 @@ const STATUS_META: Record<WorkflowStageStatus, {
 }> = {
   complete: {
     icon: Check,
-    shell: 'border-emerald-500/20 bg-emerald-500/[0.06]',
+    shell: 'border-emerald-500/25 bg-emerald-500/[0.08]',
     badge: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     marker: 'bg-emerald-500 text-white',
   },
   current: {
     icon: Clock3,
-    shell: 'border-primary/35 bg-primary/[0.07]',
+    shell: 'border-primary/40 bg-primary/[0.09]',
     badge: 'border-primary/25 bg-primary/10 text-primary',
     marker: 'bg-primary text-white',
   },
   warning: {
     icon: AlertTriangle,
-    shell: 'border-amber-500/25 bg-amber-500/[0.07]',
+    shell: 'border-amber-500/30 bg-amber-500/[0.09]',
     badge: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     marker: 'bg-amber-500 text-white',
   },
   blocked: {
     icon: LockKeyhole,
-    shell: 'border-rose-500/25 bg-rose-500/[0.07]',
+    shell: 'border-rose-500/30 bg-rose-500/[0.09]',
     badge: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     marker: 'bg-rose-500 text-white',
   },
   pending: {
     icon: Circle,
-    shell: 'border-slate-200/80 bg-white/55 dark:border-white/10 dark:bg-white/[0.03]',
-    badge: 'border-slate-200/80 bg-white/75 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white/45',
+    shell: 'border-slate-200/80 bg-surface-sunken dark:border-white/10',
+    badge: 'border-slate-200/80 bg-surface text-slate-500 dark:border-white/10 dark:text-white/45',
     marker: 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-white/45',
   },
 };
@@ -67,29 +67,29 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({ stages, title,
   const { t } = useTranslation();
 
   return (
-    <section className={cn('rounded-[2.2rem] border border-slate-200/75 bg-white/55 p-5 dark:border-white/10 dark:bg-white/[0.025] md:p-6', className)}>
+    <section className={cn('min-w-0 rounded-2xl border border-slate-200/75 bg-surface p-4 dark:border-white/10 sm:rounded-[2.2rem] sm:p-5 md:p-6', className)}>
     {(title || description) && (
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          {title && <h2 className="text-lg font-black text-slate-900 dark:text-white">{title}</h2>}
-          {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-white/45">{description}</p>}
+      <div className="mb-5 flex min-w-0 flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          {title && <h2 className="break-words text-lg font-black text-slate-900 dark:text-white">{title}</h2>}
+          {description && <p className="mt-2 max-w-3xl break-words text-sm leading-6 text-slate-500 dark:text-white/45">{description}</p>}
         </div>
         <div className="text-xs font-bold text-slate-400 dark:text-white/30">{t('ui.workflow.stagesCount', { count: stages.length })}</div>
       </div>
     )}
 
-    <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label={title || t('ui.workflow.defaultTitle')}>
+    <ol className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label={title || t('ui.workflow.defaultTitle')}>
       {stages.map((stage, index) => {
-        const meta = STATUS_META[stage.status];
+        const meta = STATUS_META[stage.status] ?? STATUS_META.pending;
         const Icon = meta.icon;
         const content = (
           <>
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black', meta.marker)}>
                   {stage.status === 'complete' ? <Check size={15} /> : index + 1}
                 </span>
-                <div className="min-w-0 text-sm font-black text-slate-900 dark:text-white">{stage.label}</div>
+                <div className="min-w-0 break-words text-sm font-black text-slate-900 dark:text-white">{stage.label}</div>
               </div>
               <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold', meta.badge)}>
                 <Icon size={12} />
@@ -97,11 +97,11 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({ stages, title,
               </span>
             </div>
 
-            <dl className="mt-4 grid gap-2 text-xs leading-5 text-slate-600 dark:text-white/55">
-              <div><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.reasonLabel')}: </dt><dd className="inline">{stage.reason}</dd></div>
-              <div><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.fallbackLabel')}: </dt><dd className="inline">{stage.fallback}</dd></div>
-              <div className="flex items-start gap-1.5"><Save size={12} className="mt-1 shrink-0" /><div><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.saveLabel')}: </dt><dd className="inline">{stage.saveState}</dd></div></div>
-              <div><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.nextLabel')}: </dt><dd className="inline">{stage.nextAction}</dd></div>
+            <dl className="mt-4 grid min-w-0 gap-2 text-xs leading-5 text-slate-600 dark:text-white/55">
+              <div className="min-w-0 break-words"><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.reasonLabel')}: </dt><dd className="inline">{stage.reason}</dd></div>
+              <div className="min-w-0 break-words"><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.fallbackLabel')}: </dt><dd className="inline">{stage.fallback}</dd></div>
+              <div className="flex min-w-0 items-start gap-1.5"><Save size={12} className="mt-1 shrink-0" /><div className="min-w-0 break-words"><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.saveLabel')}: </dt><dd className="inline">{stage.saveState}</dd></div></div>
+              <div className="min-w-0 break-words"><dt className="inline font-black text-slate-800 dark:text-white/80">{t('ui.workflow.nextLabel')}: </dt><dd className="inline">{stage.nextAction}</dd></div>
             </dl>
           </>
         );
@@ -114,12 +114,12 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({ stages, title,
                 onClick={stage.onSelect}
                 disabled={stage.disabled}
                 aria-current={stage.status === 'current' ? 'step' : undefined}
-                className={cn('h-full w-full rounded-[1.5rem] border p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/30 disabled:cursor-not-allowed disabled:opacity-60', meta.shell)}
+                className={cn('h-full w-full rounded-2xl border bg-surface p-4 text-left transition hover:border-primary/30 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-[1.5rem]', meta.shell)}
               >
                 {content}
               </button>
             ) : (
-              <div aria-current={stage.status === 'current' ? 'step' : undefined} className={cn('h-full rounded-[1.5rem] border p-4', meta.shell)}>
+              <div aria-current={stage.status === 'current' ? 'step' : undefined} className={cn('h-full rounded-2xl border bg-surface p-4 sm:rounded-[1.5rem]', meta.shell)}>
                 {content}
               </div>
             )}

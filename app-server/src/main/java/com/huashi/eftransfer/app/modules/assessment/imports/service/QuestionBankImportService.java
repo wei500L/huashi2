@@ -8,6 +8,7 @@ import com.huashi.eftransfer.app.modules.assessment.imports.dto.QuestionBankImpo
 import com.huashi.eftransfer.app.modules.assessment.imports.vo.QuestionBankImportCommitVO;
 import com.huashi.eftransfer.app.modules.assessment.imports.vo.QuestionBankImportIssueVO;
 import com.huashi.eftransfer.app.modules.assessment.imports.vo.QuestionBankImportPreflightVO;
+import com.huashi.eftransfer.app.modules.assessment.imports.vo.QuestionBankImportReviewVO;
 import com.huashi.eftransfer.app.modules.assessment.imports.vo.QuestionBankItemSummaryVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
@@ -140,6 +141,20 @@ public class QuestionBankImportService {
         try {
             byte[] bytes = file.getBytes();
             QuestionBankImportPackageRequest request = parse(file.getOriginalFilename(), bytes);
+            return preflight(request, file.getOriginalFilename(), bytes);
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Unable to parse import file: " + exception.getMessage());
+        }
+    }
+
+    @Transactional
+    public QuestionBankImportPreflightVO preflight(QuestionBankImportPackageRequest request, String fileName, byte[] bytes) {
+        if (request == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "Import package is required");
+        }
+        try {
             Long bankId = ensureSharedBank();
             Map<String, QuestionBankImportPreflightValidator.ExistingQuestion> existing = existingQuestions(bankId);
             QuestionBankImportPreflightValidator.Result result = validator.validate(request, existing);
@@ -152,7 +167,7 @@ public class QuestionBankImportService {
                         (question_bank_id,import_key,source_file_name,source_format,source_sha256,status,source_payload_json,
                          preflight_summary_json,differences_json,errors_json,created_by,updated_by)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-                    """, bankId, importKey, file.getOriginalFilename(), extension(file.getOriginalFilename()), sha256(bytes), result.status(), payload,
+                    """, bankId, importKey, fileName, extension(fileName), sha256(bytes), result.status(), payload,
                     summary, issuesJson, issuesJson, currentUserId(), currentUserId());
             Long importId = jdbcTemplate.queryForObject("SELECT id FROM assessment_question_bank_import WHERE import_key = ?", Long.class, importKey);
             for (QuestionBankImportPreflightValidator.Issue issue : result.issues()) {
@@ -162,13 +177,38 @@ public class QuestionBankImportService {
                         VALUES (?,?,?,'OPEN',?,?,?, ?, ?)
                         """, importId, issue.code(), issue.severity(), issue.itemCode(), issue.message(), objectMapper.writeValueAsString(issue), currentUserId(), currentUserId());
             }
-            auditLogService.record("ASSESSMENT_QUESTION_BANK_PREFLIGHT", "QUESTION_BANK_IMPORT", String.valueOf(importId), Map.of("fileName", file.getOriginalFilename(), "status", result.status()), "SUCCESS");
-            return preflightView(importId, file.getOriginalFilename(), request.items().size() + request.sections().size() + request.options().size() + 1, result.issues());
+            auditLogService.record("ASSESSMENT_QUESTION_BANK_PREFLIGHT", "QUESTION_BANK_IMPORT", String.valueOf(importId), Map.of("fileName", fileName, "status", result.status()), "SUCCESS");
+            return preflightView(importId, fileName, request.items().size() + request.sections().size() + request.options().size() + 1,
+                    result.scoredItemCount(), result.issues());
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "Unable to parse import file: " + exception.getMessage());
         }
+    }
+
+    public QuestionBankImportReviewVO publishReadiness(Long importId) {
+        ImportRow imported = importRow(importId);
+        long open = countOpenReviewIssues(importId);
+        Long rejectedValue = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM assessment_content_review_issue WHERE import_id=? AND status='REJECTED' AND deleted=FALSE", Long.class, importId);
+        long rejected = rejectedValue == null ? 0 : rejectedValue;
+        return new QuestionBankImportReviewVO(importId, open == 0 && rejected == 0 && !"PREFLIGHT_FAILED".equals(imported.status()), open, rejected,
+                open == 0 && rejected == 0 ? "READY" : "REVIEW_REQUIRED");
+    }
+
+    @Transactional
+    public QuestionBankImportReviewVO confirmIssues(Long importId, List<Long> issueIds, String note) {
+        Long userId = currentUserId();
+        if (issueIds == null || issueIds.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "At least one review issue is required");
+        }
+        for (Long issueId : issueIds) {
+            int updated = jdbcTemplate.update("UPDATE assessment_content_review_issue SET status='RESOLVED',resolved_by=?,resolved_at=CURRENT_TIMESTAMP,resolution_note=?,updated_by=? WHERE id=? AND import_id=? AND deleted=FALSE AND status='OPEN'", userId, note == null ? "" : note.trim(), userId, issueId, importId);
+            if (updated == 0) {
+                throw new BusinessException(ResultCode.NOT_FOUND, "Review issue not found or already resolved");
+            }
+        }
+        return publishReadiness(importId);
     }
 
     @Transactional
@@ -178,11 +218,29 @@ public class QuestionBankImportService {
         }
         ImportRow imported = importRow(importId);
         if ("PREFLIGHT_FAILED".equals(imported.status())) {
-            throw new BusinessException(ResultCode.CONFLICT, "Import has preflight errors");
+            throw new BusinessException(ResultCode.CONFLICT, "Import has preflight errors", 409);
+        }
+        Long rejected = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM assessment_content_review_issue WHERE import_id=? AND status='REJECTED' AND deleted=FALSE", Long.class, importId);
+        long open = countOpenReviewIssues(importId);
+        if (open > 0 || (rejected != null && rejected > 0)) {
+            throw new BusinessException(ResultCode.CONFLICT, "Resolve all review issues before commit", 409);
         }
         try {
             QuestionBankImportPackageRequest request = objectMapper.readValue(imported.sourcePayloadJson(), QuestionBankImportPackageRequest.class);
             Long bankId = imported.questionBankId() == null ? ensureSharedBank() : imported.questionBankId();
+            // A package code is the stable content version. Check it before
+            // creating question versions so a repeat cannot leave orphans.
+            ExistingPackage existingPackage = jdbcTemplate.query("""
+                    SELECT id,questionnaire_id,paper_id FROM assessment_questionnaire_version
+                    WHERE source_package_code = ? AND deleted = FALSE LIMIT 1
+                    """, (rs, row) -> new ExistingPackage(rs.getLong(1), rs.getLong(2), rs.getLong(3)), request.questionnaire().code())
+                    .stream().findFirst().orElse(null);
+            if (existingPackage != null) {
+                jdbcTemplate.update("UPDATE assessment_question_bank_import SET status='COMMITTED', committed_by=?, committed_at=CURRENT_TIMESTAMP, updated_by=? WHERE id=?",
+                        currentUserId(), currentUserId(), importId);
+                return new QuestionBankImportCommitVO(importId, "COMMITTED", bankId, existingPackage.questionnaireId(), existingPackage.questionnaireVersionId(),
+                        existingPackage.paperId(), request.items().size(), Math.toIntExact(countOpenReviewIssues(importId)));
+            }
             Map<String, List<QuestionBankImportPackageRequest.OptionRow>> optionsByItem = request.options().stream()
                     .collect(java.util.stream.Collectors.groupingBy(QuestionBankImportPackageRequest.OptionRow::itemCode, LinkedHashMap::new, java.util.stream.Collectors.toList()));
             Map<String, Long> questionVersions = new LinkedHashMap<>();
@@ -197,12 +255,18 @@ public class QuestionBankImportService {
                 questionnaireId = questionnaireId(request.questionnaire().code());
             }
             int versionNo = nextQuestionnaireVersion(questionnaireId);
-            String paperCode = (request.questionnaire().code() + "_V" + versionNo).substring(0, Math.min(64, request.questionnaire().code().length() + 3 + String.valueOf(versionNo).length()));
+            String paperCodeBase = request.questionnaire().code() + "_V" + versionNo;
+            String paperCode = paperCodeBase.substring(0, Math.min(64, paperCodeBase.length()));
             jdbcTemplate.update("INSERT INTO assessment_paper (paper_code,title,description,owner_user_id,paper_purpose,status,duration_minutes,question_count,total_score,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                     paperCode, request.questionnaire().title(), request.questionnaire().description(), ownerId, "RESEARCH_SURVEY", "DRAFT", request.questionnaire().durationMinutes(), (int) request.items().stream().filter(QuestionBankImportPackageRequest.ItemRow::scored).count(), (int) request.items().stream().filter(QuestionBankImportPackageRequest.ItemRow::scored).count(), ownerId, ownerId);
             Long paperId = jdbcTemplate.queryForObject("SELECT id FROM assessment_paper WHERE paper_code = ?", Long.class, paperCode);
             String versionStatus = "REVIEW_REQUIRED".equals(imported.status()) ? "REVIEW_REQUIRED" : "APPROVED";
-            jdbcTemplate.update("INSERT INTO assessment_questionnaire_version (questionnaire_id,paper_id,version_no,status,scoring_version,ai_prompt_version,source_package_code,created_by,updated_by) VALUES (?,?,?, ?,?,?,?, ?, ?)", questionnaireId, paperId, versionNo, versionStatus, request.questionnaire().scoringVersion(), request.questionnaire().aiPromptVersion(), imported.importKey(), ownerId, ownerId);
+            // The questionnaire code is the stable source/content-version key.
+            // The import row key is intentionally per-attempt and must not be
+            // persisted here, otherwise repeating the same package would create
+            // duplicate questionnaire versions instead of taking the idempotent
+            // existing-package path above.
+            jdbcTemplate.update("INSERT INTO assessment_questionnaire_version (questionnaire_id,paper_id,version_no,status,scoring_version,ai_prompt_version,source_package_code,created_by,updated_by) VALUES (?,?,?, ?,?,?,?, ?, ?)", questionnaireId, paperId, versionNo, versionStatus, request.questionnaire().scoringVersion(), request.questionnaire().aiPromptVersion(), request.questionnaire().code(), ownerId, ownerId);
             Long questionnaireVersionId = jdbcTemplate.queryForObject("SELECT id FROM assessment_questionnaire_version WHERE questionnaire_id = ? AND version_no = ?", Long.class, questionnaireId, versionNo);
             Map<String, Long> sections = new LinkedHashMap<>();
             for (QuestionBankImportPackageRequest.SectionRow section : request.sections()) {
@@ -231,14 +295,15 @@ public class QuestionBankImportService {
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new BusinessException(ResultCode.CONFLICT, "Import commit failed: " + exception.getMessage());
+            throw new BusinessException(ResultCode.CONFLICT, "Import commit failed: " + exception.getMessage(), 409);
         }
     }
 
     @Transactional
     public void resolveIssue(Long importId, Long issueId, ContentReviewResolutionRequest request) {
         Long userId = currentUserId();
-        String decision = request.decision().trim().toUpperCase(Locale.ROOT);
+        String decision = request.decision() == null || request.decision().isBlank()
+                ? "APPROVED" : request.decision().trim().toUpperCase(Locale.ROOT);
         if (!decision.equals("APPROVED") && !decision.equals("REJECTED")) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "Decision must be APPROVED or REJECTED");
         }
@@ -255,22 +320,43 @@ public class QuestionBankImportService {
         if (open > 0 || rejected > 0 || !("COMMITTED".equals(imported.status()) || "REVIEW_REQUIRED".equals(imported.status()))) {
             throw new BusinessException(ResultCode.CONFLICT, "Resolve all review issues before approval");
         }
-        Long versionId = jdbcTemplate.queryForObject("SELECT qv.id FROM assessment_questionnaire_version qv JOIN assessment_questionnaire q ON q.id=qv.questionnaire_id WHERE qv.source_package_code=? ORDER BY qv.version_no DESC LIMIT 1", Long.class, imported.importKey());
+        String packageCode = objectMapper.readValue(imported.sourcePayloadJson(), QuestionBankImportPackageRequest.class)
+                .questionnaire().code();
+        List<Long> versionIds = jdbcTemplate.query(
+                "SELECT qv.id FROM assessment_questionnaire_version qv JOIN assessment_questionnaire q ON q.id=qv.questionnaire_id WHERE qv.source_package_code=? ORDER BY qv.version_no DESC",
+                (rs, row) -> rs.getLong(1), packageCode);
+        // Older commits stored the per-attempt import key here. Preserve an
+        // approval path for those rows while using the stable package code for
+        // all new imports.
+        if (versionIds.isEmpty() && !packageCode.equals(imported.importKey())) {
+            versionIds = jdbcTemplate.query(
+                    "SELECT qv.id FROM assessment_questionnaire_version qv JOIN assessment_questionnaire q ON q.id=qv.questionnaire_id WHERE qv.source_package_code=? ORDER BY qv.version_no DESC",
+                    (rs, row) -> rs.getLong(1), imported.importKey());
+        }
+        Long versionId = versionIds.stream().findFirst().orElse(null);
         if (versionId == null) throw new BusinessException(ResultCode.NOT_FOUND, "Committed questionnaire version not found");
         jdbcTemplate.update("UPDATE assessment_questionnaire_version SET status='APPROVED',updated_by=? WHERE id=?", currentUserId(), versionId);
-        jdbcTemplate.update("UPDATE assessment_questionnaire q JOIN assessment_questionnaire_version qv ON qv.questionnaire_id=q.id SET q.status='APPROVED',q.updated_by=? WHERE qv.id=?", currentUserId(), versionId);
+        jdbcTemplate.update("UPDATE assessment_questionnaire SET status='APPROVED',updated_by=? WHERE id=(SELECT questionnaire_id FROM assessment_questionnaire_version WHERE id=?)", currentUserId(), versionId);
         Long questionnaireId = jdbcTemplate.queryForObject("SELECT questionnaire_id FROM assessment_questionnaire_version WHERE id=?", Long.class, versionId);
         Long paperId = jdbcTemplate.queryForObject("SELECT paper_id FROM assessment_questionnaire_version WHERE id=?", Long.class, versionId);
         return new QuestionBankImportCommitVO(importId, imported.status(), imported.questionBankId(), questionnaireId, versionId, paperId, 0, 0);
     }
 
-    private QuestionBankImportPreflightVO preflightView(Long importId, String fileName, int rowCount, List<QuestionBankImportPreflightValidator.Issue> issues) {
+    private QuestionBankImportPreflightVO preflightView(Long importId, String fileName, int rowCount, int scoredItemCount,
+                                                        List<QuestionBankImportPreflightValidator.Issue> issues) {
         long errors = issues.stream().filter(issue -> "ERROR".equals(issue.severity())).count();
         long warnings = issues.stream().filter(issue -> "WARNING".equals(issue.severity())).count();
         long reviews = issues.stream().filter(issue -> "REVIEW_REQUIRED".equals(issue.severity())).count();
         String status = errors > 0 ? "PREFLIGHT_FAILED" : reviews > 0 ? "REVIEW_REQUIRED" : "READY";
-        return new QuestionBankImportPreflightVO(importId, status, fileName, rowCount, errors, warnings, reviews,
-                issues.stream().map(issue -> new QuestionBankImportIssueVO("Items", null, null, issue.severity(), issue.code(), issue.itemCode(), issue.message())).toList());
+        List<Long> issueIds = jdbcTemplate.query("SELECT id FROM assessment_content_review_issue WHERE import_id=? AND deleted=FALSE ORDER BY id",
+                (rs, rowNum) -> rs.getLong(1), importId);
+        List<QuestionBankImportIssueVO> issueViews = new ArrayList<>();
+        for (int index = 0; index < issues.size(); index++) {
+            QuestionBankImportPreflightValidator.Issue issue = issues.get(index);
+            issueViews.add(new QuestionBankImportIssueVO("Items", null, null, issue.severity(), issue.code(), issue.itemCode(), issue.message(),
+                    index < issueIds.size() ? issueIds.get(index) : null));
+        }
+        return new QuestionBankImportPreflightVO(importId, status, fileName, rowCount, errors, warnings, reviews, scoredItemCount, List.copyOf(issueViews));
     }
 
     private QuestionBankImportPackageRequest parse(String fileName, byte[] bytes) throws IOException {
@@ -340,4 +426,6 @@ public class QuestionBankImportService {
     private static List<String> split(String value){if(value==null||value.isBlank())return List.of();return java.util.Arrays.stream(value.split("[,|;]")).map(String::trim).filter(v->!v.isBlank()).toList();}
     private static void writeSheet(Workbook workbook,String name,List<String> headers,List<String> values){Sheet sheet=workbook.createSheet(name);Row head=sheet.createRow(0);for(int i=0;i<headers.size();i++)head.createCell(i).setCellValue(headers.get(i));Row row=sheet.createRow(1);for(int i=0;i<values.size();i++)row.createCell(i).setCellValue(values.get(i));for(int i=0;i<headers.size();i++)sheet.autoSizeColumn(i);}
     private record ImportRow(Long id,Long questionBankId,String importKey,String status,String sourcePayloadJson){}
+    private record ExistingPackage(Long questionnaireVersionId, Long questionnaireId, Long paperId) {}
+
 }

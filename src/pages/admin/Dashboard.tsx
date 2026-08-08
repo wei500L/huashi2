@@ -268,13 +268,13 @@ const AdminDashboardPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-10 pb-20">
+    <div className="page-stack pb-16 sm:pb-20">
       <PageHeader
         eyebrow="ADMIN CONSOLE"
         title="管理员仪表盘"
         subtitle="统一查看用户增长、登录活跃、学习闭环完成量，以及 AI 调用与回退情况。"
         actions={
-          <div data-onboarding="admin-dashboard-actions" className="flex flex-wrap gap-3">
+          <div data-onboarding="admin-dashboard-actions" className="page-actions">
             <Link
               to="/admin/users"
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
@@ -301,23 +301,23 @@ const AdminDashboardPage: React.FC = () => {
       />
 
       {dashboardQuery.error && (
-        <div role="alert" className="rounded-lg border border-error/30 bg-error/5 px-5 py-4 text-sm text-rose-500">
+        <div role="alert" className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-sm text-rose-500 sm:px-5 sm:py-4">
           {getApiErrorMessage(dashboardQuery.error, '读取管理员仪表盘失败')}
         </div>
       )}
 
-      <section data-onboarding="admin-dashboard-overview" className="rounded-xl border border-border-subtle bg-surface p-6 shadow-sm">
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
+      <section data-onboarding="admin-dashboard-overview" className="page-panel">
+        <div className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-end xl:justify-between xl:gap-8">
+          <div className="min-w-0 max-w-3xl">
             <SectionEyebrow>全局概览</SectionEyebrow>
-            <h1 className="type-page-title mt-3 text-slate-900 dark:text-white">
+            <h1 className="type-page-title mt-3 break-words text-slate-900 dark:text-white">
               {integerFormatter.format(overview?.totalUsers ?? 0)} 名用户，{integerFormatter.format(overview?.enabledUsers ?? 0)} 名可用账号
             </h1>
             <p className="mt-4 leading-7 text-slate-500 dark:text-white/50">
               注册趋势按用户 `created_at` 统计，DAU/WAU 按最近登录时间计算；错误率基于 AI 调用中的规则回退或 fallback 记录。
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex min-w-0 flex-wrap gap-3">
             <StatusBadge label={`近 30 天新增 ${integerFormatter.format(overview?.registrationsLast30Days ?? 0)}`} tone="info" />
             <StatusBadge
               label={`最近刷新 ${overview?.generatedAt ? formatDateTime(overview.generatedAt) : '--'}`}
@@ -327,38 +327,38 @@ const AdminDashboardPage: React.FC = () => {
         </div>
       </section>
 
-      <section aria-labelledby="admin-health-title" className="rounded-xl border border-border-subtle bg-surface-raised p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+      <section aria-labelledby="admin-health-title" className="page-panel">
+        <div className="page-toolbar">
+          <div className="min-w-0">
             <SectionEyebrow>系统健康</SectionEyebrow>
             <h2 id="admin-health-title" className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">管理员工作区状态</h2>
             <p className="mt-2 text-sm text-slate-500 dark:text-white/55">只反映当前管理员 API 查询与数据新鲜度，不替代后端监控。</p>
           </div>
           <StatusBadge label={healthState.label} tone={healthState.tone} />
         </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-white/80"><CheckCircle2 size={16} className="text-success" /> 指标 API</div>
+        <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="min-w-0 rounded-lg border border-border-subtle bg-surface px-4 py-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-white/80"><CheckCircle2 size={16} className="shrink-0 text-success" /> 指标 API</div>
             <div className="mt-2 text-xs text-slate-500 dark:text-white/45">{dashboardQuery.isError ? '请求失败' : dashboardQuery.isLoading ? '首次加载中' : '可读取'}</div>
           </div>
-          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-white/80"><Clock3 size={16} className="text-info" /> 数据时间</div>
-            <div className="mt-2 text-xs text-slate-500 dark:text-white/45">{overview?.generatedAt ? formatDateTime(overview.generatedAt) : '暂无成功刷新记录'}</div>
+          <div className="min-w-0 rounded-lg border border-border-subtle bg-surface px-4 py-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-white/80"><Clock3 size={16} className="shrink-0 text-info" /> 数据时间</div>
+            <div className="mt-2 break-words text-xs text-slate-500 dark:text-white/45">{overview?.generatedAt ? formatDateTime(overview.generatedAt) : '暂无成功刷新记录'}</div>
           </div>
-          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-4">
+          <div className="min-w-0 rounded-lg border border-border-subtle bg-surface px-4 py-4 sm:col-span-3 md:col-span-1">
             <div className="text-sm font-medium text-slate-700 dark:text-white/80">状态说明</div>
             <div className="mt-2 text-xs leading-5 text-slate-500 dark:text-white/45">{healthState.description}</div>
           </div>
         </div>
       </section>
 
-      <div data-onboarding="admin-dashboard-stats" className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div data-onboarding="admin-dashboard-stats" className="stat-grid">
         {statCards.map((card) => (
           <StatCard key={card.title} title={card.title} value={card.value} icon={card.icon} color={card.color} />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+      <div className="content-grid-2 gap-4 sm:gap-6 xl:gap-8">
         <ChartCard
           title="注册用户趋势"
           option={buildRegistrationOption(registrationTrend)}
@@ -377,7 +377,7 @@ const AdminDashboardPage: React.FC = () => {
         />
       </div>
 
-      <div data-onboarding="admin-dashboard-ai" className="grid grid-cols-1 gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+      <div data-onboarding="admin-dashboard-ai" className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:gap-8">
         <ChartCard
           title="AI 调用量与错误率"
           option={buildAiOption(aiTrend)}
@@ -387,25 +387,25 @@ const AdminDashboardPage: React.FC = () => {
           extra={<StatusBadge label="最近 14 天" tone="warning" />}
         />
 
-        <section className="rounded-xl border border-border-subtle bg-surface p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
+        <section className="page-panel min-w-0">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <SectionEyebrow>AI 场景分布</SectionEyebrow>
-              <h2 className="mt-3 text-2xl font-black text-slate-900 dark:text-white">最近 30 天调用构成</h2>
+              <h2 className="mt-3 text-xl font-black text-slate-900 sm:text-2xl dark:text-white">最近 30 天调用构成</h2>
             </div>
             <StatusBadge label="最近 30 天" tone="neutral" />
           </div>
 
           {!dashboardQuery.isLoading && !dashboardQuery.error && !aiSceneDistribution.length ? (
-            <div className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-lg border border-border-subtle bg-surface px-6 py-10 text-center">
+            <div className="mt-6 flex min-h-56 flex-col items-center justify-center rounded-lg border border-border-subtle bg-surface px-4 py-8 text-center sm:min-h-72 sm:px-6 sm:py-10">
               <StatusBadge label="暂无内容" tone="neutral" />
-              <h3 className="mt-5 text-xl font-black tracking-tight text-slate-900 dark:text-white/85">当前暂无可展示的 AI 场景分布</h3>
+              <h3 className="mt-5 text-lg font-black tracking-tight text-slate-900 sm:text-xl dark:text-white/85">当前暂无可展示的 AI 场景分布</h3>
               <p className="mt-3 max-w-md text-sm leading-6 text-slate-500 dark:text-white/45">
                 系统已经完成本次查询，但还没有足够的数据生成图表。
               </p>
             </div>
           ) : (
-            <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+            <div className="mt-6 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,12rem)] lg:items-center lg:gap-6">
               <ChartCard
                 title="AI 场景分布"
                 option={buildSceneOption(aiSceneDistribution)}
@@ -415,13 +415,13 @@ const AdminDashboardPage: React.FC = () => {
                 height={320}
               />
 
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3">
                 {aiSceneDistribution.map((item) => (
                   <div
                     key={item.scene}
-                    className="rounded-lg border border-border-subtle bg-surface px-4 py-4"
+                    className="min-w-0 rounded-lg border border-border-subtle bg-surface px-4 py-4"
                   >
-                    <div className="font-bold text-slate-900 dark:text-white">{formatSceneLabel(item.scene)}</div>
+                    <div className="break-words font-bold text-slate-900 dark:text-white">{formatSceneLabel(item.scene)}</div>
                     <div className="mt-1 text-sm text-slate-500 dark:text-white/45">
                       {integerFormatter.format(item.count)} 次调用
                     </div>

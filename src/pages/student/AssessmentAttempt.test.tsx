@@ -65,6 +65,7 @@ function createAttemptDetail(overrides: Partial<AssessmentAttemptDetailVO> = {})
     questionCount: 1,
     answeredCount: 0,
     totalScore: 10,
+    version: 1,
     startedAt: '2099-04-06T10:00:00',
     expiresAt: '2099-04-06T11:00:00',
     submittedAt: null,
@@ -198,14 +199,13 @@ describe('AssessmentAttempt', () => {
     expect(await screen.findByPlaceholderText('请输入答案')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '交卷' }));
     expect(await screen.findByText('你还有 1 题未作答，确认提交？')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '确认交卷' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认交卷并锁定' }));
 
     expect(await screen.findByText('submit failed')).toBeInTheDocument();
     await waitFor(() => {
-      expect(assessmentService.saveStudentResponses).toHaveBeenCalled();
       expect(assessmentService.submitStudentAttempt).toHaveBeenCalled();
       expect(screen.getByPlaceholderText('请输入答案')).not.toBeDisabled();
-      expect(screen.getByRole('button', { name: '交卷' })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: '重新提交' })).not.toBeDisabled();
     });
   });
 
@@ -253,7 +253,7 @@ describe('AssessmentAttempt', () => {
   });
 
   it('restores the latest non-empty local draft when it is newer than the server save', async () => {
-    writeAssessmentDraft(42, { 1: ['本地草稿答案'] });
+    writeAssessmentDraft(42, 1, { 1: ['本地草稿答案'] });
 
     renderAttemptPage();
 
@@ -282,7 +282,7 @@ describe('AssessmentAttempt', () => {
         ],
       })
     );
-    writeAssessmentDraft(42, { 1: [] });
+    writeAssessmentDraft(42, 1, { 1: [] });
 
     renderAttemptPage();
 
@@ -291,13 +291,13 @@ describe('AssessmentAttempt', () => {
   });
 
   it('clears the local draft after a successful submit', async () => {
-    writeAssessmentDraft(42, { 1: ['待提交答案'] });
+    writeAssessmentDraft(42, 1, { 1: ['待提交答案'] });
 
     renderAttemptPage();
     expect(await screen.findByPlaceholderText('请输入答案')).toHaveValue('待提交答案');
 
     fireEvent.click(screen.getByRole('button', { name: '交卷' }));
-    fireEvent.click(await screen.findByRole('button', { name: '确认交卷' }));
+    fireEvent.click(await screen.findByRole('button', { name: '确认交卷并锁定' }));
 
     expect(await screen.findByText('assessment result')).toBeInTheDocument();
     expect(window.localStorage.getItem('ef-transfer-assessment-draft:42')).toBeNull();

@@ -26,6 +26,7 @@ vi.mock('@/components/common', () => ({
   ),
   PanelSkeleton: ({ className }: { className?: string }) => <div className={className}>loading</div>,
   SectionEyebrow: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  StatusBadge: ({ label }: { label: string }) => <div>{label}</div>,
 }));
 
 vi.mock('@/components/common/EChart', () => ({

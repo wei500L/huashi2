@@ -10,18 +10,18 @@ export const WorkspaceHero: React.FC<{
   meta?: string | null;
   actions?: React.ReactNode;
 }> = ({ eyebrow, title, subtitle, meta, actions }) => (
-  <section className="border-b border-slate-200/80 pb-6 dark:border-white/10">
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+  <section className="min-w-0 border-b border-slate-200/80 pb-6 dark:border-white/10">
+    <div className="page-toolbar lg:items-end">
       <div className="min-w-0">
         <div className="type-metadata">{eyebrow}</div>
-        <h1 className="mt-2 truncate text-2xl font-black text-slate-900 sm:text-3xl dark:text-white" title={title}>
+        <h1 className="mt-2 break-words text-2xl font-black text-slate-900 sm:truncate sm:text-3xl dark:text-white" title={title}>
           {title}
         </h1>
         <div className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-white/50">{subtitle}</div>
       </div>
-      <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
+      <div className="flex min-w-0 w-full shrink-0 flex-col items-stretch gap-3 sm:w-auto sm:items-start lg:items-end">
         {meta ? (
-          <div className="max-w-xs truncate text-xs font-semibold text-slate-500 dark:text-white/45" title={meta}>
+          <div className="max-w-full truncate text-xs font-semibold text-slate-500 sm:max-w-xs dark:text-white/45" title={meta}>
             {meta}
           </div>
         ) : null}
@@ -34,20 +34,21 @@ export const WorkspaceHero: React.FC<{
 export const MetricGrid: React.FC<{
   items: Array<{ id: string; label: string; value: number | string; hint: string }>;
 }> = ({ items }) => (
-  <div className="grid overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 sm:grid-cols-2 xl:grid-cols-5 dark:border-white/10 dark:bg-white/[0.03]">
+  <div className="grid min-w-0 grid-cols-2 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 xl:grid-cols-5 dark:border-white/10 dark:bg-white/[0.03]">
     {items.map((item, index) => (
       <div
         key={item.id}
         className={cn(
-          'min-w-0 px-4 py-3.5',
-          index > 0 && 'border-t border-slate-200/70 sm:border-l sm:border-t-0 dark:border-white/10',
-          index === 2 && 'sm:border-l-0 xl:border-l',
-          index === 4 && 'sm:border-l-0 xl:border-l'
+          'min-w-0 border-slate-200/70 px-3 py-3.5 sm:px-4 dark:border-white/10',
+          index % 2 === 1 && 'border-l',
+          index >= 2 && 'border-t',
+          'xl:border-l xl:border-t-0',
+          index === 0 && 'xl:border-l-0'
         )}
         title={item.hint}
       >
         <div className="truncate text-[11px] font-semibold text-slate-500 dark:text-white/45">{item.label}</div>
-        <div className="mt-1 text-xl font-black tabular-nums text-slate-900 dark:text-white">{item.value}</div>
+        <div className="mt-1 break-all text-xl font-black tabular-nums text-slate-900 dark:text-white">{item.value}</div>
       </div>
     ))}
   </div>
@@ -58,13 +59,13 @@ export const ActionGrid: React.FC<{
   description: string;
   actions: Array<{ id: string; label: string; description: string; to: string }>;
 }> = ({ title, description, actions }) => (
-  <section className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-      <div className="shrink-0 lg:w-44">
+  <section className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+      <div className="min-w-0 shrink-0 lg:w-44">
         <div className="text-xs font-black text-slate-900 dark:text-white">{title}</div>
         <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-white/45">{description}</div>
       </div>
-      <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {actions.map((action) => (
           <Link
             key={action.id}
@@ -72,7 +73,7 @@ export const ActionGrid: React.FC<{
             title={action.description}
             className="group flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/70 px-3.5 py-3 text-sm font-bold text-slate-700 transition-colors hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/[0.04] dark:text-white/75"
           >
-            <span className="truncate">{action.label}</span>
+            <span className="min-w-0 truncate">{action.label}</span>
             <ArrowRight size={14} className="shrink-0 opacity-45 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100" />
           </Link>
         ))}
@@ -138,10 +139,10 @@ export const WorkspaceSectionHeader: React.FC<{
   title: string;
   action?: React.ReactNode;
 }> = ({ eyebrow, title, action }) => (
-  <div className="flex items-end justify-between gap-4">
+  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
     <div className="min-w-0">
       <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">{eyebrow}</div>
-      <h2 className="mt-1 truncate text-base font-black text-slate-900 dark:text-white">{title}</h2>
+      <h2 className="mt-1 break-words text-base font-black text-slate-900 sm:truncate dark:text-white">{title}</h2>
     </div>
     {action ? <div className="shrink-0">{action}</div> : null}
   </div>

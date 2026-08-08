@@ -182,16 +182,11 @@ export function resolveHomePathForUser(params: {
   preferredWorkspaceByUser: Record<string, WorkspaceId>;
 }): string {
   const { user, pathname, preferredWorkspaceByUser } = params;
-  const available = listAvailableWorkspaces(user?.capabilities);
-  const primaryWorkspace = workspaceFromRole(user?.primaryRole);
-  if (primaryWorkspace && available.includes(primaryWorkspace)) {
-    if (primaryWorkspace === 'STUDENT_WORKSPACE' && requiresStudentProfileCompletion(user)) {
-      return '/settings';
-    }
-    return homePathForWorkspace(primaryWorkspace);
-  }
-
   const preferredWorkspace = getPreferredWorkspaceForUser(user, preferredWorkspaceByUser);
+
+  // Home resolution ignores a stale activeWorkspace so deep-link residue cannot
+  // pin users to the wrong shell after login or a hard reload of "/".
+  // Preferred workspace (user choice) is honored through defaultWorkspaceForUser.
   const currentWorkspace = resolveActiveWorkspace({
     user,
     pathname,
@@ -199,6 +194,8 @@ export function resolveHomePathForUser(params: {
     preferredWorkspace,
   });
 
+  // Profile completion only gates the student workspace; multi-role admins/teachers
+  // keep their non-student home until they explicitly enter the student shell.
   if (currentWorkspace === 'STUDENT_WORKSPACE' && requiresStudentProfileCompletion(user)) {
     return '/settings';
   }

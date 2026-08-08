@@ -373,13 +373,13 @@ const SectionCard: React.FC<{
   actions?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, description, actions, children }) => (
-  <section className="min-w-0 rounded-[1.5rem] border border-slate-200/80 bg-white p-6 shadow-sm md:p-8 space-y-6 dark:border-white/10 dark:bg-slate-950/35">
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div className="space-y-2">
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">{title}</h2>
+  <section className="page-panel space-y-5 sm:space-y-6">
+    <div className="page-toolbar">
+      <div className="min-w-0 space-y-2">
+        <h2 className="text-lg font-black text-slate-900 sm:text-xl dark:text-white">{title}</h2>
         {description && <p className="max-w-3xl text-sm leading-6 text-slate-500 dark:text-white/45">{description}</p>}
       </div>
-      {actions}
+      {actions ? <div className="min-w-0 shrink-0">{actions}</div> : null}
     </div>
     {children}
   </section>
@@ -831,12 +831,12 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
   }, [pageNo, totalPages]);
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16 sm:pb-20">
       <PageHeader
         title={meta.title}
         subtitle={meta.subtitle}
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             <button
               type="button"
               onClick={() => void downloadTemplate()}
@@ -870,7 +870,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
         }
       />
 
-      <nav aria-label="词库工作区" className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-slate-950/35">
+      <nav aria-label="词库工作区" className="page-tabs flex flex-nowrap gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-slate-950/35">
         {[
           { key: 'list', label: '词库总览', to: basePath },
           { key: 'editor', label: '编辑词对', to: `${basePath}/new` },
@@ -882,7 +882,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               key={item.key}
               to={item.to}
               aria-current={active ? 'page' : undefined}
-              className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
+              className={`shrink-0 whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
                 active
                   ? 'border-primary/25 bg-primary/10 text-primary'
                   : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 dark:text-white/50 dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
@@ -895,7 +895,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
       </nav>
 
       {mode === 'admin' && (
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           {overviewQuery.isLoading && (
             <div className="rounded-[1.6rem] border border-slate-200/70 bg-white/60 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/45">
               正在加载管理端概览...
@@ -906,18 +906,18 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               概览加载失败：{overviewQuery.error.message}
             </div>
           )}
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="stat-grid">
             <button
               type="button"
               onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'ALL' }))}
-              className={`rounded-[2rem] border px-5 py-5 text-left ${
+              className={`min-w-0 rounded-2xl border px-4 py-4 text-left sm:rounded-[2rem] sm:px-5 sm:py-5 ${
                 filters.embeddingStatus === 'ALL'
                   ? 'border-primary/25 bg-primary/5'
                   : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
               }`}
             >
               <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">总词对数</div>
-              <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+              <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">
                 {overviewQuery.isLoading ? '...' : (overviewQuery.data?.totalCount ?? '--')}
               </div>
               <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
@@ -928,14 +928,14 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             <button
               type="button"
               onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'PENDING' }))}
-              className={`rounded-[2rem] border px-5 py-5 text-left ${
+              className={`min-w-0 rounded-2xl border px-4 py-4 text-left sm:rounded-[2rem] sm:px-5 sm:py-5 ${
                 filters.embeddingStatus === 'PENDING'
                   ? 'border-amber-500/25 bg-amber-500/5'
                   : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
               }`}
             >
               <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">待嵌入</div>
-              <div className="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">
+              <div className="mt-2 text-2xl font-black text-amber-600 sm:text-3xl dark:text-amber-400">
                 {overviewQuery.isLoading ? '...' : (overviewQuery.data?.pendingEmbeddingCount ?? '--')}
               </div>
               <div className="mt-3 text-sm text-slate-500 dark:text-white/45">点击后自动筛选待重建词对</div>
@@ -944,14 +944,14 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             <button
               type="button"
               onClick={() => setFilters((current) => ({ ...current, embeddingStatus: 'FAILED' }))}
-              className={`rounded-[2rem] border px-5 py-5 text-left ${
+              className={`min-w-0 rounded-2xl border px-4 py-4 text-left sm:rounded-[2rem] sm:px-5 sm:py-5 ${
                 filters.embeddingStatus === 'FAILED'
                   ? 'border-rose-500/25 bg-rose-500/5'
                   : 'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/[0.03]'
               }`}
             >
               <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">嵌入失败</div>
-              <div className="mt-2 text-3xl font-black text-rose-500">
+              <div className="mt-2 text-2xl font-black text-rose-500 sm:text-3xl">
                 {overviewQuery.isLoading ? '...' : (overviewQuery.data?.failedEmbeddingCount ?? '--')}
               </div>
               <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
@@ -959,12 +959,12 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               </div>
             </button>
 
-            <div className="rounded-[2rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-4 sm:rounded-[2rem] sm:px-5 sm:py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">最近更新时间</div>
-              <div className="mt-3 text-base font-black text-slate-900 dark:text-white">
+              <div className="mt-3 break-words text-sm font-black text-slate-900 sm:text-base dark:text-white">
                 {overviewQuery.isLoading ? '正在加载...' : formatDateTime(overviewQuery.data?.latestUpdatedAt)}
               </div>
-              <div className="mt-3 text-sm text-slate-500 dark:text-white/45">
+              <div className="mt-3 break-words text-sm text-slate-500 dark:text-white/45">
                 {overviewQuery.isLoading
                   ? '最近新增 / 最近嵌入时间加载中...'
                   : `最近新增 ${formatDateTime(overviewQuery.data?.latestCreatedAt)} · 最近嵌入 ${formatDateTime(overviewQuery.data?.latestEmbeddedAt)}`}
@@ -984,8 +984,8 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
           </div>
         }
       >
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4">
             {[
               '1. 下载模板并核对必填列。',
               '2. 优先填写基础字段，义项和例句按需补充。',
@@ -994,7 +994,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             ].map((step) => (
               <div
                 key={step}
-                className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 text-sm leading-6 text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60"
+                className="min-w-0 rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-4 text-sm leading-6 text-slate-600 sm:rounded-[1.8rem] sm:px-5 sm:py-5 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60"
               >
                 {step}
               </div>
@@ -1099,14 +1099,14 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
       </SectionCard>
       )}
 
-      <div className={`grid items-start gap-8 ${showListSection && showEditorSection ? 'xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]' : ''}`}>
+      <div className={`grid min-w-0 items-start gap-4 sm:gap-6 xl:gap-8 ${showListSection && showEditorSection ? 'xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]' : ''}`}>
         {showListSection && (
-        <div className="min-w-0 space-y-8">
+        <div className="page-stack min-w-0">
           <SectionCard
             title="词对列表"
             description="支持关键词、词对类型、启用状态和向量状态过滤，并直接把词对送到模板、词表或重建索引。"
           >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               <FieldCard label="关键词检索" hint="按英语词、法语词、中文释义或可检索文本模糊查询。">
                 <LexicalPairSuggestionInput
                   value={filters.keyword}
@@ -1371,12 +1371,12 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
         )}
 
         {showEditorSection && (
-        <div ref={editorSectionRef} className="scroll-mt-24">
+        <div ref={editorSectionRef} className="min-w-0 scroll-mt-24">
           <SectionCard
             title={editor.id ? `编辑词对 #${editor.id}` : '新建词对'}
             description="基础信息优先填写，义项和例句按卡片结构维护。空白义项或空白例句会在保存时自动忽略。"
             actions={
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
                 {detailQuery.isFetching ? (
                   <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 px-4 py-2 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
                     <LoaderCircle size={14} className="animate-pulse" />
@@ -1398,7 +1398,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
               </div>
             }
           >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             <FieldCard label="英语词" hint="如 coin。用于训练展示和去重。">
               <TextInput
                 inputRef={englishWordInputRef}
@@ -1416,7 +1416,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             <TextInput value={editor.chineseGloss} onChange={(value) => updateEditor('chineseGloss', value)} placeholder="硬币；角落" />
           </FieldCard>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldCard label="词对类型" hint="建议使用下拉，不要手动拼写枚举值。">
               <SelectInput
                 value={editor.lexicalPairType}
@@ -1440,7 +1440,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             </FieldCard>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             <RangeField
               label="语义重合度"
               hint="越接近 1，表示英语词与法语词在义项上越接近。"
@@ -1455,11 +1455,11 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
             />
           </div>
 
-          <details className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+          <details className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-4 py-4 sm:px-5 sm:py-5 dark:border-white/10 dark:bg-white/[0.03]">
             <summary className="cursor-pointer list-none text-sm font-bold text-slate-900 dark:text-white">
               展开高级字段
             </summary>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="mt-5 grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
               <FieldCard label="来源" hint="用于标注教材、运营批次或人工维护来源。">
                 <TextInput value={editor.source} onChange={(value) => updateEditor('source', value)} placeholder="teacher_manual" />
               </FieldCard>
@@ -1559,7 +1559,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                   </button>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                   <FieldCard label="排序">
                     <TextInput
                       type="number"
@@ -1616,7 +1616,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                         </button>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                         <FieldCard label="排序">
                           <TextInput
                             type="number"
@@ -1637,7 +1637,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                         </FieldCard>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                         <FieldCard label="英语例句">
                           <textarea
                             value={example.englishExample}
@@ -1662,7 +1662,7 @@ export const LexicalPairsWorkspace: React.FC<{ mode: LexicalPairsWorkspaceMode; 
                         </FieldCard>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                         <FieldCard label="中文译文">
                           <textarea
                             value={example.chineseTranslation}

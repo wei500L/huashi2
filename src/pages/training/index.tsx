@@ -729,7 +729,7 @@ const TrainingPage: React.FC = () => {
 
   if (state.phase === 'running') {
     return (
-      <div className="mx-auto max-w-5xl space-y-8">
+      <div className="page-stack mx-auto max-w-5xl">
         <PageHeader
           title={t('training.runningTitle')}
           subtitle={t('training.runningSubtitle')}
@@ -775,7 +775,7 @@ const TrainingPage: React.FC = () => {
         {nextItemQuery.isLoading ? (
           <PanelSkeleton className="min-h-[360px]" />
         ) : nextItemQuery.data?.readyToComplete ? (
-          <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+          <section className="rounded-2xl sm:rounded-3xl liquid-glass-panel p-4 sm:p-6 md:p-8 edge-light">
             <div className="max-w-2xl">
               <div className="text-xs uppercase tracking-[0.24em] text-amber-500">Generating Summary</div>
               <h2 className="type-section-title mt-4 text-slate-900 dark:text-white">正在生成训练总结</h2>
@@ -805,7 +805,7 @@ const TrainingPage: React.FC = () => {
               gradientClassName="bg-gradient-to-r from-emerald-500 to-sky-500"
             />
 
-            <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+            <section className="rounded-2xl sm:rounded-3xl liquid-glass-panel p-4 sm:p-6 md:p-8 edge-light">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">
                 {trainingModeLabel(currentItem.mode)} · {currentItem.cognitiveTag} · {lexicalPairTypeLabel(currentItem.lexicalPairType)}
               </div>
@@ -907,7 +907,7 @@ const TrainingPage: React.FC = () => {
     const completionHooksReady = completionRefreshSessionId == null || completionHooksStatus === 'DONE';
 
     return (
-      <div className="space-y-8">
+      <div className="page-stack">
         <PageHeader
           title={t('training.summaryTitle')}
           subtitle={
@@ -947,7 +947,7 @@ const TrainingPage: React.FC = () => {
 
         {summary && (
           <>
-            <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
+            <section className="rounded-2xl sm:rounded-3xl liquid-glass-panel p-4 sm:p-6 md:p-8 edge-light">
               <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
                 <div>
                   <div className="inline-flex items-center gap-3 rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-amber-500">
@@ -1019,7 +1019,7 @@ const TrainingPage: React.FC = () => {
               </div>
             </div>
 
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
               <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
                 {t('training.riskWords')}
               </div>
@@ -1038,7 +1038,7 @@ const TrainingPage: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
               <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
                 题目回看
               </div>
@@ -1055,30 +1055,30 @@ const TrainingPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="page-stack">
       <PageHeader title={t('training.homeTitle')} subtitle={t('training.homeSubtitle')} />
       <SessionFeedbackBanners
         submitErrorMessage={startMutation.error ? getApiErrorMessage(startMutation.error) : null}
       />
 
       {historyQuery.error && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 px-6 py-4 text-sm text-rose-500">
+        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500 sm:rounded-[2rem] sm:px-6 sm:py-4">
           {getApiErrorMessage(historyQuery.error)}
         </div>
       )}
 
-      <div className="rounded-[2rem] border border-emerald-500/20 bg-emerald-500/5 px-6 py-4 text-sm text-emerald-600 dark:text-emerald-400">
+      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 sm:rounded-[2rem] sm:px-6 sm:py-4 dark:text-emerald-400">
         {t('training.recoverNotice')}
       </div>
 
       {recommendedPlanQuery.error && planError?.status !== 409 && (
-        <div className="rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-6 text-rose-500">
+        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-rose-500 sm:rounded-[2rem] sm:p-6">
           {getApiErrorMessage(recommendedPlanQuery.error)}
         </div>
       )}
 
       {planError?.status === 409 ? (
-        <section className="rounded-[2.5rem] liquid-glass-panel p-10">
+        <section className="rounded-2xl sm:rounded-3xl liquid-glass-panel p-4 sm:p-6 md:p-8">
           <div className="flex items-start gap-4">
             <AlertTriangle className="mt-1 shrink-0 text-amber-500" />
             <div>
@@ -1091,7 +1091,7 @@ const TrainingPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(buildDiagnosisHref({ source: 'training-no-plan' }))}
-                className="mt-6 btn-liquid px-6 py-3 text-white"
+                className="btn-liquid mt-6 inline-flex min-h-11 w-full items-center justify-center px-6 py-3 text-white sm:w-auto"
               >
                 先去完成诊断
               </button>
@@ -1105,10 +1105,10 @@ const TrainingPage: React.FC = () => {
         </div>
       ) : (
         <>
-          <section className="rounded-[3rem] liquid-glass-panel p-10 edge-light">
-            <div className="grid gap-8 xl:grid-cols-[1fr_0.9fr]">
-              <div>
-                <div className="inline-flex items-center gap-3 rounded-full border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-sky-500">
+          <section className="rounded-2xl sm:rounded-3xl liquid-glass-panel p-4 sm:p-6 md:p-8 edge-light">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] xl:gap-8">
+              <div className="min-w-0">
+                <div className="inline-flex max-w-full flex-wrap items-center gap-3 rounded-full border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-sky-500 sm:tracking-[0.24em]">
                   <Rocket size={14} />
                   {t('training.recommendedPlan')}
                 </div>
@@ -1164,12 +1164,12 @@ const TrainingPage: React.FC = () => {
             </div>
           </section>
 
-          <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+          <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] xl:gap-8">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
+              <div className="mb-4 text-[10px] uppercase tracking-[0.18em] text-slate-400 dark:text-white/30 sm:tracking-[0.3em]">
                 {t('training.suggestedSessionsTitle')}
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid min-w-0 gap-4 md:grid-cols-2">
                 {(recommendedPlanQuery.data?.suggestedSessions || []).map((session) => (
                   <TrainingModeSummaryCard
                     key={session.mode}
@@ -1182,8 +1182,8 @@ const TrainingPage: React.FC = () => {
               </div>
             </section>
 
-            <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-              <div className="mb-4 text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+            <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
+              <div className="mb-4 text-[10px] uppercase tracking-[0.18em] text-slate-400 dark:text-white/30 sm:tracking-[0.3em]">
                 {t('training.recommendedPairsTitle')}
               </div>
               <div className="max-h-[420px] space-y-4 overflow-y-auto no-scrollbar">
@@ -1206,12 +1206,12 @@ const TrainingPage: React.FC = () => {
         </>
       )}
 
-      <div className="grid gap-8 xl:grid-cols-2">
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Clock3 size={16} className="text-primary" />
-              <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-white/30">
+      <div className="grid min-w-0 gap-4 sm:gap-6 xl:grid-cols-2 xl:gap-8">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <Clock3 size={16} className="shrink-0 text-primary" />
+              <div className="min-w-0 text-[10px] uppercase tracking-[0.18em] text-slate-400 dark:text-white/30 sm:tracking-[0.3em]">
                 {t('training.reviewScheduleTitle')}
               </div>
             </div>
@@ -1229,7 +1229,7 @@ const TrainingPage: React.FC = () => {
                     })
                   )
                 }
-                className="text-sm font-bold text-primary"
+                className="min-h-11 w-full rounded-full border border-primary/20 px-4 py-2 text-sm font-bold text-primary sm:w-auto sm:border-0 sm:px-0 sm:py-0"
               >
                 立即复习
               </button>
@@ -1284,7 +1284,7 @@ const TrainingPage: React.FC = () => {
           )}
         </section>
 
-        <section className="rounded-[2.5rem] liquid-glass-panel p-8">
+        <section className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:rounded-3xl sm:p-6 md:p-8">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Brain size={16} className="text-primary" />

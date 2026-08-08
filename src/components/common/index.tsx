@@ -264,13 +264,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
   const reducedMotion = useReducedMotion();
 
   return (
-  <div className={cn('flex flex-col justify-between md:flex-row md:items-center', compact ? 'mb-6 gap-4' : 'mb-10 gap-6')}>
-    <motion.div className="min-w-0" initial={reducedMotion ? false : { x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={reducedMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }}>
+  <div className={cn('flex min-w-0 flex-col justify-between sm:flex-row sm:items-start md:items-center', compact ? 'mb-5 gap-3 sm:mb-6 sm:gap-4' : 'mb-6 gap-4 sm:mb-8 sm:gap-6 md:mb-10')}>
+    <motion.div className="min-w-0 flex-1" initial={reducedMotion ? false : { x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={reducedMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }}>
       {breadcrumbs && (
-        <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-[0.2em] mb-3">
+        <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={i}>
-              <span className="text-slate-400 dark:text-white/30">{b}</span>
+              <span className="max-w-full truncate text-slate-400 dark:text-white/30">{b}</span>
               {i < breadcrumbs.length - 1 && <span className="text-slate-200 dark:text-white/10">/</span>}
             </React.Fragment>
           ))}
@@ -278,10 +278,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, eyebrow, subtitle
       )}
       {eyebrow ? <SectionEyebrow className="mb-3">{eyebrow}</SectionEyebrow> : null}
       <h1 className="type-page-title break-words text-slate-900 dark:text-white" title={title}>{title}</h1>
-      {subtitle && <p className="type-body-muted mt-3 max-w-xl">{subtitle}</p>}
+      {subtitle && <p className="type-body-muted mt-2 max-w-xl sm:mt-3">{subtitle}</p>}
     </motion.div>
     {actions && (
-      <motion.div initial={reducedMotion ? false : { x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={reducedMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }} className="flex flex-wrap items-center gap-3">
+      <motion.div initial={reducedMotion ? false : { x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={reducedMotion ? { duration: 0 } : { duration: 0.42, ease: 'easeOut' }} className="page-actions w-full shrink-0 sm:w-auto sm:justify-end">
         {actions}
       </motion.div>
     )}

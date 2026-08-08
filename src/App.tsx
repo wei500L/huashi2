@@ -62,10 +62,10 @@ const RouteStatusPage: React.FC<{ code: 403 | 404; title: string; description: s
   const navigate = useNavigate();
   const isPermission = code === 403;
   return (
-    <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center px-6 py-16">
+    <div className="mx-auto flex min-h-[60vh] w-full max-w-3xl min-w-0 items-center px-3 py-10 sm:px-6 sm:py-16">
       <FeedbackState
         kind={isPermission ? 'permission' : 'empty'}
-        className="w-full surface-panel"
+        className="w-full min-w-0 surface-panel"
         eyebrow={`${code} · ${i18n.t(isPermission ? 'ui.routeStatus.permissionEyebrow' : 'ui.routeStatus.notFoundEyebrow')}`}
         title={title}
         description={description}
@@ -95,15 +95,32 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const RequireCapability: React.FC<{ capability: Capability; children: React.ReactNode }> = ({ capability, children }) => {
+  const location = useLocation();
   const user = useAuthStore((state) => state.user);
+  const preferredWorkspaceByUser = useUIStore((state) => state.preferredWorkspaceByUser);
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return userHasCapability(user, capability) ? <>{children}</> : (
-    <RouteStatusPage
-      code={403}
-      title="无权访问此页面"
-      description="当前账号没有该工作区权限。你可以返回已有权限的工作区继续使用。"
+
+  if (userHasCapability(user, capability)) {
+    return <>{children}</>;
+  }
+
+  // Workspace-capability misses should bounce to a home the user can open,
+  // instead of trapping them on a dead-end 403 inside the wrong shell.
+  const fallbackPath = resolveHomePathForUser({
+    user,
+    pathname: location.pathname,
+    preferredWorkspaceByUser,
+  });
+  const safeFallback = fallbackPath === location.pathname ? '/' : fallbackPath;
+
+  return (
+    <Navigate
+      to={safeFallback}
+      replace
+      state={{ from: location.pathname, denied: true }}
     />
   );
 };
@@ -131,6 +148,7 @@ const withSuspense = (node: React.ReactNode) => <Suspense fallback={<BootScreen 
 const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const isPublicResearchRoute = location.pathname === '/research' || location.pathname.startsWith('/research/');
   const initialize = useAuthStore((state) => state.initialize);
   const syncFromStorage = useAuthStore((state) => state.syncFromStorage);
   const status = useAuthStore((state) => state.status);
@@ -155,8 +173,11 @@ const App: React.FC = () => {
   );
 
   React.useEffect(() => {
+    if (isPublicResearchRoute) {
+      return;
+    }
     void initialize();
-  }, [initialize]);
+  }, [initialize, isPublicResearchRoute]);
 
   React.useEffect(() => {
     const handler = () => syncFromStorage();
@@ -219,7 +240,7 @@ const App: React.FC = () => {
     }
   }, [user, location.pathname, activeWorkspace, preferredWorkspaceByUser, setActiveWorkspace]);
 
-  if (status === 'idle' || status === 'loading') {
+  if (!isPublicResearchRoute && (status === 'idle' || status === 'loading')) {
     return <BootScreen />;
   }
 

@@ -90,12 +90,12 @@ const AdminAuditLogsPage: React.FC = () => {
     : '未限定时间';
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="page-stack pb-16 sm:pb-20">
       <PageHeader
         title="审计日志"
         subtitle="管理员可以按时间、操作类型和用户筛选审计记录，追踪后台行为、接口路径和请求负载。"
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="page-actions">
             <button
               type="button"
               onClick={() => void auditLogsQuery.refetch()}
@@ -123,52 +123,52 @@ const AdminAuditLogsPage: React.FC = () => {
       />
 
       {auditLogsQuery.isError && (
-        <div role="alert" className="rounded-lg border border-error/30 bg-error/5 px-5 py-4 text-sm text-rose-600 dark:text-rose-400">
+        <div role="alert" className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-sm text-rose-600 sm:px-5 sm:py-4 dark:text-rose-400">
           {getApiErrorMessage(auditLogsQuery.error, '审计日志加载失败')}
         </div>
       )}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 shadow-sm">
+      <section className="stat-grid">
+        <div className="min-w-0 rounded-xl border border-border-subtle bg-surface px-4 py-4 shadow-sm sm:px-5 sm:py-5">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">命中记录</div>
-          <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{total || '--'}</div>
+          <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">{total || '--'}</div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">当前筛选条件下的总数</div>
         </div>
-        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 shadow-sm">
+        <div className="min-w-0 rounded-xl border border-border-subtle bg-surface px-4 py-4 shadow-sm sm:px-5 sm:py-5">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">当前页记录</div>
-          <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{records.length}</div>
+          <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">{records.length}</div>
           <div className="mt-3 text-sm text-slate-500 dark:text-white/45">第 {filters.pageNo} / {totalPages} 页</div>
         </div>
-        <div className="rounded-xl border border-border-subtle bg-surface px-5 py-5 shadow-sm">
+        <div className="min-w-0 rounded-xl border border-border-subtle bg-surface px-4 py-4 shadow-sm sm:px-5 sm:py-5">
           <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">当前页操作类型</div>
-          <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{actionTypeOptions.length}</div>
-          <div className="mt-3 text-sm text-slate-500 dark:text-white/45">{actionTypeOptions.slice(0, 2).join(' / ') || '暂无数据'}</div>
+          <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl dark:text-white">{actionTypeOptions.length}</div>
+          <div className="mt-3 break-words text-sm text-slate-500 dark:text-white/45">{actionTypeOptions.slice(0, 2).join(' / ') || '暂无数据'}</div>
         </div>
-        <div className="rounded-xl border border-info/30 bg-info/5 px-5 py-5">
+        <div className="min-w-0 rounded-xl border border-info/30 bg-info/5 px-4 py-4 sm:px-5 sm:py-5">
           <div className="text-[11px] uppercase tracking-[0.28em] text-sky-700/70 dark:text-sky-300/70">时间窗口</div>
-          <div className="mt-2 inline-flex items-center gap-2 text-lg font-black text-sky-800 dark:text-sky-200">
-            <History size={18} />
+          <div className="mt-2 inline-flex items-center gap-2 text-base font-black text-sky-800 sm:text-lg dark:text-sky-200">
+            <History size={18} className="shrink-0" />
             审计回放
           </div>
-          <div className="mt-3 text-sm text-sky-700 dark:text-sky-300">{filteredWindowLabel}</div>
+          <div className="mt-3 break-words text-sm text-sky-700 dark:text-sky-300">{filteredWindowLabel}</div>
         </div>
       </section>
 
-      <section className="rounded-xl border border-border-subtle bg-surface-raised space-y-5 p-6 shadow-sm">
-        <div className="grid gap-4 xl:grid-cols-4">
+      <section className="page-panel space-y-5">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           <input
             value={filters.userKeyword}
             onChange={(event) => setFilters((state) => ({ ...state, userKeyword: event.target.value, pageNo: 1 }))}
             placeholder="用户 ID / 用户名 / 显示名 / 邮箱"
-            className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
+            className="filter-field min-w-0 rounded-lg border border-border-subtle bg-surface px-4 py-3"
           />
-          <div>
+          <div className="min-w-0">
             <input
               list="audit-action-type-options"
               value={filters.actionType}
               onChange={(event) => setFilters((state) => ({ ...state, actionType: event.target.value, pageNo: 1 }))}
               placeholder="操作类型，例如 template_create"
-              className="w-full rounded-lg border border-border-subtle bg-surface px-4 py-3"
+              className="filter-field w-full min-w-0 rounded-lg border border-border-subtle bg-surface px-4 py-3"
             />
             <datalist id="audit-action-type-options">
               {actionTypeOptions.map((actionType) => <option key={actionType} value={actionType} />)}
@@ -178,49 +178,51 @@ const AdminAuditLogsPage: React.FC = () => {
             type="datetime-local"
             value={filters.startAt}
             onChange={(event) => setFilters((state) => ({ ...state, startAt: event.target.value, pageNo: 1 }))}
-            className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
+            className="filter-field min-w-0 rounded-lg border border-border-subtle bg-surface px-3 py-3 sm:px-4"
           />
           <input
             type="datetime-local"
             value={filters.endAt}
             onChange={(event) => setFilters((state) => ({ ...state, endAt: event.target.value, pageNo: 1 }))}
-            className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
+            className="filter-field min-w-0 rounded-lg border border-border-subtle bg-surface px-3 py-3 sm:px-4"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle pt-4">
-          <label className="text-sm text-slate-500 dark:text-white/55" htmlFor="audit-sort">当前页排序</label>
-          <select
-            id="audit-sort"
-            value={`${sort.key}:${sort.direction}`}
-            onChange={(event) => {
-              const [key, direction] = event.target.value.split(':') as [AuditLogSort, 'asc' | 'desc'];
-              setSort({ key, direction });
-            }}
-            className="native-select rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
-          >
-            <option value="createdAt:desc">时间：新到旧</option>
-            <option value="createdAt:asc">时间：旧到新</option>
-            <option value="actionType:asc">操作类型：A-Z</option>
-            <option value="responseCode:asc">响应：成功优先</option>
-          </select>
-          <label className="text-sm text-slate-500 dark:text-white/55" htmlFor="audit-page-size">每页</label>
-          <select
-            id="audit-page-size"
-            value={filters.pageSize}
-            onChange={(event) => setFilters((state) => ({ ...state, pageSize: Number(event.target.value), pageNo: 1 }))}
-            className="native-select rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
-          >
-            {[20, 50, 100].map((size) => <option key={size} value={size}>{size} 条</option>)}
-          </select>
+        <div className="page-toolbar border-t border-border-subtle pt-4">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <label className="text-sm text-slate-500 dark:text-white/55" htmlFor="audit-sort">当前页排序</label>
+            <select
+              id="audit-sort"
+              value={`${sort.key}:${sort.direction}`}
+              onChange={(event) => {
+                const [key, direction] = event.target.value.split(':') as [AuditLogSort, 'asc' | 'desc'];
+                setSort({ key, direction });
+              }}
+              className="native-select filter-field rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
+            >
+              <option value="createdAt:desc">时间：新到旧</option>
+              <option value="createdAt:asc">时间：旧到新</option>
+              <option value="actionType:asc">操作类型：A-Z</option>
+              <option value="responseCode:asc">响应：成功优先</option>
+            </select>
+            <label className="text-sm text-slate-500 dark:text-white/55" htmlFor="audit-page-size">每页</label>
+            <select
+              id="audit-page-size"
+              value={filters.pageSize}
+              onChange={(event) => setFilters((state) => ({ ...state, pageSize: Number(event.target.value), pageNo: 1 }))}
+              className="native-select filter-field rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm"
+            >
+              {[20, 50, 100].map((size) => <option key={size} value={size}>{size} 条</option>)}
+            </select>
+          </div>
           <span className="text-xs text-slate-400 dark:text-white/40">排序仅作用于当前页，服务端筛选与分页仍保持不变。</span>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="page-toolbar">
           <button
             type="button"
             onClick={() => setFilters(defaultFilters)}
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm dark:border-white/10"
+            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm sm:w-auto dark:border-white/10"
           >
             重置筛选
           </button>
@@ -235,71 +237,69 @@ const AdminAuditLogsPage: React.FC = () => {
             previousLabel="上一页"
             nextLabel="下一页"
             disabled={auditLogsQuery.isFetching}
-            className="max-w-xs"
+            className="w-full min-w-0 sm:max-w-xs sm:w-auto"
           />
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {auditLogsQuery.isLoading && (
-            <div className="rounded-lg border border-border-subtle bg-surface px-5 py-8 text-sm text-slate-500 dark:text-white/45">
+            <div className="rounded-lg border border-border-subtle bg-surface px-4 py-8 text-sm text-slate-500 sm:px-5 dark:text-white/45">
               正在加载审计日志...
             </div>
           )}
 
           {!auditLogsQuery.isLoading && !records.length && (
-            <div className="rounded-lg border border-dashed border-border-subtle bg-surface px-5 py-8 text-sm text-slate-500 dark:text-white/45">
+            <div className="rounded-lg border border-dashed border-border-subtle bg-surface px-4 py-8 text-sm text-slate-500 sm:px-5 dark:text-white/45">
               当前筛选条件下没有审计记录。
             </div>
           )}
 
           {records.map((log) => (
-            <article key={log.id} className="rounded-lg border border-border-subtle bg-surface p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="text-lg font-black text-slate-900 dark:text-white">{log.actionType}</div>
-                    <span className={`rounded-full border px-3 py-1 text-xs font-bold ${responseTone(log.responseCode)}`}>
-                      {log.responseCode}
-                    </span>
-                    <span className="rounded-full border border-slate-200/70 px-3 py-1 text-xs dark:border-white/10">
-                      {log.requestMethod}
-                    </span>
-                  </div>
+            <article key={log.id} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4 shadow-sm sm:p-5">
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+                  <div className="min-w-0 break-all text-base font-black text-slate-900 sm:text-lg dark:text-white">{log.actionType}</div>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${responseTone(log.responseCode)}`}>
+                    {log.responseCode}
+                  </span>
+                  <span className="rounded-full border border-slate-200/70 px-3 py-1 text-xs dark:border-white/10">
+                    {log.requestMethod}
+                  </span>
+                </div>
 
-                  <div className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                    {resolveActorLabel(log)} · {formatDateTime(log.createdAt)}
-                  </div>
+                <div className="mt-2 break-words text-sm text-slate-500 dark:text-white/45">
+                  {resolveActorLabel(log)} · {formatDateTime(log.createdAt)}
+                </div>
 
-                  <div className="mt-2 text-xs tabular-nums text-slate-400 dark:text-white/35">日志 ID：{log.id}</div>
+                <div className="mt-2 text-xs tabular-nums text-slate-400 dark:text-white/35">日志 ID：{log.id}</div>
 
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
-                    <span className="rounded-full border border-border-subtle px-3 py-1">
-                      目标：{log.targetType || '--'}{log.targetId != null ? ` #${log.targetId}` : ''}
-                    </span>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-white/45">
+                  <span className="max-w-full break-all rounded-full border border-border-subtle px-3 py-1">
+                    目标：{log.targetType || '--'}{log.targetId != null ? ` #${log.targetId}` : ''}
+                  </span>
+                  <span className="max-w-full break-all rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
+                    Trace：{log.traceId || '--'}
+                  </span>
+                  {log.actorUserId != null && (
                     <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
-                      Trace：{log.traceId || '--'}
+                      Actor ID：{log.actorUserId}
                     </span>
-                    {log.actorUserId != null && (
-                      <span className="rounded-full border border-slate-200/70 px-3 py-1 dark:border-white/10">
-                        Actor ID：{log.actorUserId}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-4 text-sm text-slate-600 dark:text-white/60">
-                    <div className="font-bold text-slate-800 dark:text-white">请求路径</div>
-                    <div className="mt-2 break-all">{log.requestPath}</div>
-                  </div>
-
-                  {log.requestPayload && (
-                    <details className="mt-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-4">
-                      <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-white">查看请求负载</summary>
-                      <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all text-xs text-slate-600 dark:text-white/60">
-                        {log.requestPayload}
-                      </pre>
-                    </details>
                   )}
                 </div>
+
+                <div className="mt-4 min-w-0 rounded-lg border border-border-subtle bg-surface-raised px-3 py-3 text-sm text-slate-600 sm:px-4 sm:py-4 dark:text-white/60">
+                  <div className="font-bold text-slate-800 dark:text-white">请求路径</div>
+                  <div className="mt-2 break-all">{log.requestPath}</div>
+                </div>
+
+                {log.requestPayload && (
+                  <details className="mt-4 min-w-0 rounded-lg border border-border-subtle bg-surface-raised px-3 py-3 sm:px-4 sm:py-4">
+                    <summary className="cursor-pointer text-sm font-bold text-slate-800 dark:text-white">查看请求负载</summary>
+                    <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap break-all text-xs text-slate-600 dark:text-white/60">
+                      {log.requestPayload}
+                    </pre>
+                  </details>
+                )}
               </div>
             </article>
           ))}

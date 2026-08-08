@@ -221,22 +221,22 @@ const Panel: React.FC<{
   actions?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, description, actions, children }) => (
-  <section className="min-w-0 rounded-[1.5rem] border border-slate-200/80 bg-white p-6 shadow-sm md:p-8 space-y-6 dark:border-white/10 dark:bg-slate-950/35">
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div className="space-y-2">
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">{title}</h2>
+  <section className="page-panel space-y-5 sm:space-y-6">
+    <div className="page-toolbar">
+      <div className="min-w-0 space-y-2">
+        <h2 className="text-lg font-black text-slate-900 sm:text-xl dark:text-white">{title}</h2>
         {description && <p className="max-w-3xl text-sm leading-6 text-slate-500 dark:text-white/45">{description}</p>}
       </div>
-      {actions}
+      {actions ? <div className="min-w-0 shrink-0">{actions}</div> : null}
     </div>
     {children}
   </section>
 );
 
 const MetricCard: React.FC<{ label: string; value: number; className: string }> = ({ label, value, className }) => (
-  <div className={`rounded-[1.8rem] border px-5 py-5 ${className}`}>
+  <div className={`min-w-0 rounded-2xl border px-4 py-4 sm:rounded-[1.8rem] sm:px-5 sm:py-5 ${className}`}>
     <div className="text-[11px] uppercase tracking-[0.24em] opacity-70">{label}</div>
-    <div className="mt-2 text-3xl font-black">{value}</div>
+    <div className="mt-2 text-2xl font-black sm:text-3xl">{value}</div>
   </div>
 );
 
@@ -336,6 +336,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
   const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const lastBatchStatusRef = React.useRef<LexicalImportBatchStatus | null>(null);
+  const hydratedRowKeyRef = React.useRef<string | null>(null);
   const [uploadFile, setUploadFile] = React.useState<File | null>(null);
   const [selectedBatchId, setSelectedBatchId] = React.useState<number | null>(() => {
     const parsed = Number(searchParams.get('batchId') || '');
@@ -478,13 +479,22 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
   React.useEffect(() => {
     if (!rowsQuery.data?.records.length) {
       setSelectedRowId(null);
+      hydratedRowKeyRef.current = null;
       setRowForm(createEmptyRowForm());
       return;
     }
     const currentRow = rowsQuery.data.records.find((item) => item.id === selectedRowId);
     const nextRow = currentRow || rowsQuery.data.records[0];
-    setSelectedRowId(nextRow.id);
-    setRowForm(toRowForm(nextRow));
+    if (selectedRowId !== nextRow.id) {
+      setSelectedRowId(nextRow.id);
+      hydratedRowKeyRef.current = null;
+      return;
+    }
+    const nextRowKey = `${nextRow.id}:${JSON.stringify(nextRow.draft)}`;
+    if (hydratedRowKeyRef.current !== nextRowKey) {
+      hydratedRowKeyRef.current = nextRowKey;
+      setRowForm(toRowForm(nextRow));
+    }
   }, [rowsQuery.data, selectedRowId]);
 
   const selectedRow = React.useMemo(
@@ -705,9 +715,9 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
   }, [rowPageNo, rowTotalPages]);
 
   return (
-    <div className="space-y-8">
+    <div className="page-stack">
       {source && (
-        <div className="rounded-[1.8rem] border border-slate-200/80 bg-white/70 px-5 py-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
+        <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/70 px-4 py-3 text-sm text-slate-600 sm:rounded-[1.8rem] sm:px-5 sm:py-4 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70">
           当前从教师工作台进入。导入筛选和选中的批次会同步回 URL，方便你刷新后继续处理同一批次。
         </div>
       )}
@@ -718,13 +728,13 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
         stages={workflowStages}
       />
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-xs text-slate-600 shadow-sm dark:border-white/10 dark:bg-slate-950/35 dark:text-white/60" aria-label="导入状态图例">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-3 text-xs text-slate-600 shadow-sm sm:px-4 dark:border-white/10 dark:bg-slate-950/35 dark:text-white/60" aria-label="导入状态图例">
         <span className="font-black text-slate-900 dark:text-white">状态图例</span>
-        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />错误 / 阻断</span>
-        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />冲突 / 重复</span>
-        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />部分成功 / 待处理</span>
-        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-sky-500" />处理中 / 可重试</span>
-        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-slate-400" />未保存</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500" />错误 / 阻断</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />冲突 / 重复</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />部分成功 / 待处理</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 shrink-0 rounded-full bg-sky-500" />处理中 / 可重试</span>
+        <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400" />未保存</span>
       </div>
 
       {(requestError || selectedBatch?.status === 'FAILED' || hasPartialSuccess || duplicateRows.length > 0) && (
@@ -815,20 +825,20 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-4 py-4 sm:px-5 sm:py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">处理方式</div>
               <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">上传后后台解析，生成可恢复草稿；确认后异步正式导入。</div>
             </div>
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-4 py-4 sm:px-5 sm:py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">文件留档</div>
               <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">原始文件和导入记录都会保留，可从历史记录中下载回看。</div>
             </div>
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-4 py-4 sm:px-5 sm:py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">草稿编辑</div>
               <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">支持逐行修正、跳过和重新提交，不会影响已经成功导入的行。</div>
             </div>
-            <div className="rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-5 py-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="min-w-0 rounded-[1.8rem] border border-slate-200/70 bg-white/60 px-4 py-4 sm:px-5 sm:py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">后续接入</div>
               <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-white/55">导入完成后只会进入词对库。若要进入学生链路，还需继续配置模板或词表。</div>
             </div>
@@ -844,7 +854,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
 
       <div className="grid gap-8">
         <Panel title="导入历史" description="教师查看自己的上传记录；管理员可按操作者筛选全部批次。">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             <TextField
               label="批次状态"
               value={batchStatus}
@@ -1030,23 +1040,23 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
                 <MetricCard label="总行数" value={selectedBatch.totalRows} className="border-slate-200/70 bg-white/60 text-slate-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-white" />
                 <MetricCard label="可导入" value={selectedBatch.readyRows} className="border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400" />
                 <MetricCard label="需修正" value={selectedBatch.invalidRows} className="border-rose-500/20 bg-rose-500/5 text-rose-500" />
                 <MetricCard label="已跳过" value={selectedBatch.skippedRows} className="border-slate-200/70 bg-white/60 text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/75" />
-                <MetricCard label="已导入" value={selectedBatch.importedRows} className="border-primary/20 bg-primary/5 text-primary" />
+                <MetricCard label="已导入" value={selectedBatch.importedRows} className="col-span-2 border-primary/20 bg-primary/5 text-primary lg:col-span-1" />
               </div>
 
-              <div className="space-y-4 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-                <div>
+              <div className="min-w-0 space-y-4 rounded-[1.8rem] border border-slate-200/70 bg-white/60 p-4 sm:p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="min-w-0">
                   <div className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400 dark:text-white/30">知识同步概览</div>
                   <div className="mt-2 text-sm text-slate-500 dark:text-white/45">{buildEmbeddingSyncHint(selectedBatch)}</div>
                   <div className="mt-2 text-xs text-slate-400 dark:text-white/30">
                     最近成功嵌入 {formatDateTime(selectedBatch.latestEmbeddedAt)}
                   </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                   <MetricCard label="待嵌入" value={selectedBatch.pendingEmbeddingCount} className="border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400" />
                   <MetricCard label="已嵌入" value={selectedBatch.embeddedCount} className="border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400" />
                   <MetricCard label="嵌入失败" value={selectedBatch.failedEmbeddingCount} className="border-rose-500/20 bg-rose-500/5 text-rose-500" />
@@ -1203,7 +1213,7 @@ export const LexicalImportCenter: React.FC<{ mode: LexicalImportCenterMode }> = 
                       {rowFieldGroups.map((group) => (
                         <div key={group.title} className="space-y-4">
                           <div className="text-sm font-bold text-slate-900 dark:text-white">{group.title}</div>
-                          <div className="grid gap-4 md:grid-cols-2">
+                          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                             {group.fields.map((field) => (
                               <TextField
                                 key={String(field.key)}

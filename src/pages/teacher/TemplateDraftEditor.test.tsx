@@ -24,6 +24,8 @@ vi.mock('@/components/common', () => ({
       <div>{actions}</div>
     </div>
   ),
+  SectionEyebrow: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  WorkflowStepper: ({ title }: { title?: string }) => <div data-testid="workflow-stepper">{title}</div>,
 }));
 
 vi.mock('@/lib/services', () => ({
