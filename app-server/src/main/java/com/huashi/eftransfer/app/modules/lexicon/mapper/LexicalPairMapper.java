@@ -14,7 +14,8 @@ public interface LexicalPairMapper extends BaseMapper<LexicalPairEntity> {
 
     @Select("""
             SELECT id, english_word, french_word, chinese_gloss, lexical_pair_type, semantic_overlap_score,
-                   false_friend_risk, default_context_support, difficulty_level, notes, source, searchable_text,
+                   false_friend_risk, default_context_support, difficulty_level, notes, source, source_code,
+                   content_version, word_id, searchable_text,
                    knowledge_status, embedding_status, last_embedded_at, active,
                    created_at, created_by, updated_at, updated_by, deleted
             FROM lexical_pair
@@ -24,6 +25,25 @@ public interface LexicalPairMapper extends BaseMapper<LexicalPairEntity> {
             LIMIT 1
             """)
     LexicalPairEntity selectByWords(@Param("englishWord") String englishWord, @Param("frenchWord") String frenchWord);
+
+    @Select("""
+            SELECT id, english_word, french_word, chinese_gloss, lexical_pair_type, semantic_overlap_score,
+                   false_friend_risk, default_context_support, difficulty_level, notes, source, source_code,
+                   content_version, word_id, searchable_text, search_pinyin, search_initials,
+                   knowledge_status, embedding_status, last_embedded_at, active,
+                   created_at, created_by, updated_at, updated_by, deleted
+            FROM lexical_pair
+            WHERE deleted = FALSE
+              AND source_code = #{sourceCode}
+              AND content_version = #{contentVersion}
+              AND word_id = #{wordId}
+            LIMIT 1
+            """)
+    LexicalPairEntity selectBySourceKey(
+            @Param("sourceCode") String sourceCode,
+            @Param("contentVersion") String contentVersion,
+            @Param("wordId") String wordId
+    );
 
     @Update("""
             UPDATE lexical_pair

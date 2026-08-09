@@ -298,7 +298,7 @@ def build(questionnaire_path: Path, analysis_path: Path) -> dict:
             "durationMinutes": 40,
             "resultReleasePolicy": "IMMEDIATE",
             "scoringVersion": "SCORING_V1",
-            "aiPromptVersion": "assessment-analysis/v1",
+            "aiPromptVersion": "assessment-analysis/v2",
             "versionNo": 1,
             "status": "REVIEW_REQUIRED" if review_issues else "DRAFT",
         },

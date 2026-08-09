@@ -1,5 +1,7 @@
 package com.huashi.eftransfer.app.modules.assessment.controller;
 
+import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
+import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentQrEntryRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentVerifyRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentTimingRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
@@ -53,7 +55,26 @@ public class PublicAssessmentController {
             HttpServletRequest servletRequest
     ) {
         PublicAssessmentService.VerifiedSession verified = publicAssessmentService.verify(
-                releaseCode, request, resolveRemoteAddress(servletRequest));
+                releaseCode, request, ClientRequestContextResolver.resolveIpAddress(servletRequest));
+        return sessionResponse(releaseCode, servletRequest, verified);
+    }
+
+    @PostMapping("/{releaseCode}/qr-entry")
+    public ResponseEntity<ApiResponse<PublicAssessmentSessionVO>> qrEntry(
+            @PathVariable String releaseCode,
+            @Valid @RequestBody PublicAssessmentQrEntryRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        PublicAssessmentService.VerifiedSession verified = publicAssessmentService.enterByQr(
+                releaseCode, request, ClientRequestContextResolver.resolveIpAddress(servletRequest));
+        return sessionResponse(releaseCode, servletRequest, verified);
+    }
+
+    private ResponseEntity<ApiResponse<PublicAssessmentSessionVO>> sessionResponse(
+            String releaseCode,
+            HttpServletRequest servletRequest,
+            PublicAssessmentService.VerifiedSession verified
+    ) {
         long maxAge = Math.max(0, Duration.between(LocalDateTime.now(), verified.expiresAt()).getSeconds());
         ResponseCookie cookie = ResponseCookie.from(SESSION_COOKIE, verified.token())
                 .httpOnly(true)
@@ -111,11 +132,4 @@ public class PublicAssessmentController {
         return ApiResponse.success(publicAssessmentService.result(releaseCode, sessionToken), MDC.get("traceId"));
     }
 
-    private String resolveRemoteAddress(HttpServletRequest request) {
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            return forwardedFor.split(",", 2)[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 }

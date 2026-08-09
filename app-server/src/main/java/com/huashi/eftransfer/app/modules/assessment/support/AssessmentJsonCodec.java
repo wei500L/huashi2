@@ -41,7 +41,7 @@ public class AssessmentJsonCodec {
         return Arrays.asList(read(json, AssessmentOptionPayload[].class));
     }
 
-    private <T> T read(String json, Class<T> targetType) {
+    public <T> T read(String json, Class<T> targetType) {
         try {
             return objectMapper.readValue(json, targetType);
         } catch (JacksonException exception) {

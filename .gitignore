@@ -35,3 +35,7 @@ qa-output/
 *.sln
 *.sw?
 .ace-tool/
+
+# Copyrighted Lexi-Bridge FF4 source materials are retained locally only for
+# source verification and must not be committed.
+/docs/source-materials/lexi-bridge-ff4/

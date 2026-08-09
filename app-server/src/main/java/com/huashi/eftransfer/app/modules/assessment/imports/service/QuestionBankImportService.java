@@ -108,7 +108,7 @@ public class QuestionBankImportService {
         try {
             if (json) {
                 Map<String, Object> template = new LinkedHashMap<>();
-                template.put("Questionnaire", Map.of("code", "LEXIBRIDGE_RESEARCH_V1", "title", "", "description", "", "durationMinutes", 40, "scoringVersion", "SCORING_V1", "aiPromptVersion", "assessment-analysis/v1"));
+                template.put("Questionnaire", Map.of("code", "LEXIBRIDGE_RESEARCH_V1", "title", "", "description", "", "durationMinutes", 40, "scoringVersion", "SCORING_V1", "aiPromptVersion", "assessment-analysis/v2"));
                 template.put("Sections", List.of(Map.of("sectionCode", "P1", "title", "", "description", "", "sharedMaterial", "", "sortOrder", 1, "formalSection", true)));
                 Map<String, Object> itemTemplate = new LinkedHashMap<>();
                 itemTemplate.put("itemCode", "P1-01"); itemTemplate.put("sectionCode", "P1"); itemTemplate.put("questionType", "SINGLE_CHOICE");
@@ -121,7 +121,7 @@ public class QuestionBankImportService {
                 return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(template).getBytes(StandardCharsets.UTF_8);
             }
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                writeSheet(workbook, "Questionnaire", List.of("code", "title", "description", "durationMinutes", "scoringVersion", "aiPromptVersion"), List.of("LEXIBRIDGE_RESEARCH_V1", "", "", "40", "SCORING_V1", "assessment-analysis/v1"));
+                writeSheet(workbook, "Questionnaire", List.of("code", "title", "description", "durationMinutes", "scoringVersion", "aiPromptVersion"), List.of("LEXIBRIDGE_RESEARCH_V1", "", "", "40", "SCORING_V1", "assessment-analysis/v2"));
                 writeSheet(workbook, "Sections", List.of("sectionCode", "title", "description", "sharedMaterial", "sortOrder", "formalSection"), List.of("P1", "", "", "", "1", "true"));
                 writeSheet(workbook, "Items", List.of("itemCode", "sectionCode", "questionType", "stemText", "promptText", "correctAnswers", "explanationText", "requiredAnswer", "scored", "weight", "transferCategory", "contextLevel", "constructCode", "targetWord", "displayConditionJson"), List.of("P1-01", "P1", "SINGLE_CHOICE", "", "", "A", "", "true", "true", "1", "", "WORD", "LEXICAL_TRANSFER", "", ""));
                 writeSheet(workbook, "Options", List.of("itemCode", "optionCode", "optionText", "correct", "explanation"), List.of("P1-01", "A", "", "true", ""));

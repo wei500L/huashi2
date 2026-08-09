@@ -11,6 +11,7 @@ public record PublicAssessmentMetadataVO(
         Integer questionCount,
         String status,
         LocalDateTime startsAt,
-        LocalDateTime dueAt
+        LocalDateTime dueAt,
+        boolean qrEntryEnabled
 ) {
 }

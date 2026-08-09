@@ -214,6 +214,7 @@ const API_ERROR_MESSAGES: Record<string, string> = {
   VERSION_CONFLICT: '答卷已在其他页面或设备更新，请刷新后再继续。',
   SESSION_OUT_OF_SEQUENCE: '题目顺序已变化，正在同步服务器当前题。',
   ANSWER_ALREADY_ACCEPTED: '本题答案已经提交，正在同步下一题。',
+  PARTICIPATION_CODE_INVALID: '参与码无效或已失效，请检查后重试。',
   REGISTRATION_CONTEXT_INVALID: '邀请码验证已失效，请重新输入并验证邀请码。',
   REGISTRATION_CONTEXT_BUSY: '当前注册正在处理中，请稍后再试。',
   RATE_LIMITED: '请求过于频繁，请稍后再试。',
@@ -301,6 +302,10 @@ export async function apiPostKeepalive<T>(url: string, data?: unknown): Promise<
 
 export async function apiPut<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   return unwrap(await http.put<ApiResponse<T>>(url, data, config));
+}
+
+export async function apiPatch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  return unwrap(await http.patch<ApiResponse<T>>(url, data, config));
 }
 
 export async function apiDelete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {

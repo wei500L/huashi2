@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AxiosAdapter, AxiosResponse } from 'axios';
 import type { ApiResponse, LoginResponse } from './contracts';
-import { apiGet, apiPost, apiPostKeepalive } from './api';
+import { ApiError, apiGet, apiPost, apiPostKeepalive, getApiErrorMessage } from './api';
 import {
   clearPendingAuthExpired,
   clearStoredSession,
@@ -75,6 +75,16 @@ describe('account-session isolation', () => {
     expect(inspectRequest).toHaveBeenCalledWith(
       expect.objectContaining({ headers: expect.not.objectContaining({ Authorization: expect.anything() }) })
     );
+  });
+});
+
+describe('public questionnaire errors', () => {
+  it('maps an invalid participation code to a stable Chinese message', () => {
+    expect(getApiErrorMessage(new ApiError(
+      'Participation code is invalid or unavailable',
+      422,
+      'PARTICIPATION_CODE_INVALID'
+    ))).toBe('参与码无效或已失效，请检查后重试。');
   });
 });
 

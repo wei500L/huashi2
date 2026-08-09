@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class AssessmentParticipationCodeEntity extends BaseAuditEntity {
     @TableField("public_release_id") private Long publicReleaseId;
     @TableField("code_digest") private String codeDigest;
+    @TableField("code_hint") private String codeHint;
     private String status;
     @TableField("export_batch_id") private String exportBatchId;
     @TableField("exported_at") private LocalDateTime exportedAt;
@@ -21,6 +22,8 @@ public class AssessmentParticipationCodeEntity extends BaseAuditEntity {
     public void setPublicReleaseId(Long value) { publicReleaseId = value; }
     public String getCodeDigest() { return codeDigest; }
     public void setCodeDigest(String value) { codeDigest = value; }
+    public String getCodeHint() { return codeHint; }
+    public void setCodeHint(String value) { codeHint = value; }
     public String getStatus() { return status; }
     public void setStatus(String value) { status = value; }
     public String getExportBatchId() { return exportBatchId; }

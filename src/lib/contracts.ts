@@ -1554,6 +1554,9 @@ export interface LexicalPairSummaryVO {
   defaultContextSupport: ContextSupportLevel;
   difficultyLevel: number;
   source?: string | null;
+  sourceCode?: string | null;
+  contentVersion?: string | null;
+  wordId?: string | null;
   active: boolean;
   knowledgeStatus?: KnowledgeStatus | null;
   embeddingStatus?: EmbeddingStatus | null;
@@ -1630,6 +1633,9 @@ export interface LexicalPairDetailVO {
   difficultyLevel: number;
   notes?: string | null;
   source?: string | null;
+  sourceCode?: string | null;
+  contentVersion?: string | null;
+  wordId?: string | null;
   active: boolean;
   searchableText?: string | null;
   knowledgeStatus?: KnowledgeStatus | null;
@@ -1728,6 +1734,9 @@ export interface LexicalImportRowDraft {
   difficultyLevel?: string | null;
   notes?: string | null;
   source?: string | null;
+  sourceCode?: string | null;
+  contentVersion?: string | null;
+  wordId?: string | null;
   active?: string | null;
   tags?: string | null;
   knowledgeStatus?: KnowledgeStatus | null;
@@ -1839,6 +1848,9 @@ export interface LexicalPairUpsertRequest {
   difficultyLevel: number;
   notes?: string;
   source?: string;
+  sourceCode?: string;
+  contentVersion?: string;
+  wordId?: string;
   active?: boolean;
   knowledgeStatus?: KnowledgeStatus;
   embeddingStatus?: EmbeddingStatus;
@@ -2303,6 +2315,7 @@ export interface PublicAssessmentMetadataVO {
   status?: string;
   startsAt?: string | null;
   dueAt?: string | null;
+  qrEntryEnabled: boolean;
 }
 
 export interface PublicAssessmentVerifyRequest {
@@ -2396,6 +2409,62 @@ export interface QuestionBankItemSummaryVO {
   tags: string[];
   reviewStatus: 'APPROVED' | 'REVIEW_REQUIRED' | 'REJECTED' | string;
   updatedAt: string;
+}
+
+export interface PublicAssessmentQrEntryRequest {
+  browserFingerprint: string;
+}
+
+export type ParticipationCodeStatus = 'UNUSED' | 'IN_PROGRESS' | 'SUBMITTED' | 'REVOKED';
+
+export interface ParticipationCodeBatchSummaryVO {
+  batchId: string;
+  generatedAt?: string | null;
+  totalCount: number;
+  unusedCount: number;
+  inProgressCount: number;
+  submittedCount: number;
+  revokedCount: number;
+}
+
+export interface PublicAssessmentReleaseSummaryVO {
+  publishId: number;
+  paperId: number;
+  paperCode: string;
+  paperTitle: string;
+  releaseCode: string;
+  status: string;
+  publishedAt: string;
+  qrEntryEnabled: boolean;
+  codeCount: number;
+  unusedCount: number;
+  inProgressCount: number;
+  submittedCount: number;
+  revokedCount: number;
+  qrParticipantCount: number;
+  batches: ParticipationCodeBatchSummaryVO[];
+}
+
+export interface ParticipationCodeItemVO {
+  codeId: number;
+  codeHint?: string | null;
+  status: ParticipationCodeStatus | string;
+  exportBatchId?: string | null;
+  exportedAt?: string | null;
+  firstVerifiedAt?: string | null;
+  lastVerifiedAt?: string | null;
+  submittedAt?: string | null;
+  lastVerifiedIp?: string | null;
+}
+
+export interface ParticipationCodeBatchCreatedVO {
+  batchId: string;
+  generatedAt: string;
+  participationCodes: string[];
+}
+
+export interface ParticipationCodeRevokeResultVO {
+  revokedCount: number;
 }
 
 export interface QuestionBankListParams {

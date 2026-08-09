@@ -42,6 +42,12 @@ public record LexicalPairUpsertRequest(
         String notes,
         @Size(max = 255, message = "source must be less than or equal to 255 characters")
         String source,
+        @Size(max = 64, message = "sourceCode must be less than or equal to 64 characters")
+        String sourceCode,
+        @Size(max = 64, message = "contentVersion must be less than or equal to 64 characters")
+        String contentVersion,
+        @Size(max = 128, message = "wordId must be less than or equal to 128 characters")
+        String wordId,
         Boolean active,
         String knowledgeStatus,
         String embeddingStatus,

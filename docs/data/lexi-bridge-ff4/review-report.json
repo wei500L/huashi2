@@ -1,0 +1,39 @@
+﻿{
+    "wordbookCount":  445,
+    "questionCount":  445,
+    "optionCount":  670,
+    "questionTypeCounts":  [
+                               {
+                                   "count":  112,
+                                   "type":  "SINGLE_CHOICE"
+                               },
+                               {
+                                   "count":  111,
+                                   "type":  "FILL_BLANK"
+                               },
+                               {
+                                   "count":  111,
+                                   "type":  "TRUE_FALSE_WITH_JUSTIFICATION"
+                               },
+                               {
+                                   "count":  111,
+                                   "type":  "SHORT_TEXT"
+                               }
+                           ],
+    "uniqueTargetWords":  445,
+    "sourceEqualityReviewWordIds":  [
+                                        "LEXI_BRIDGE_FF4-0183",
+                                        "LEXI_BRIDGE_FF4-0319",
+                                        "LEXI_BRIDGE_FF4-0324",
+                                        "LEXI_BRIDGE_FF4-0398"
+                                    ],
+    "trueFalseTemplateFallbackCount":  60,
+    "issueCount":  0,
+    "issues":  [
+
+               ],
+    "auditStatus":  "STRUCTURAL_PASS",
+    "pedagogicReview":  "PENDING_HUMAN_REVIEW",
+    "publicationStatus":  "NOT_ELIGIBLE_PENDING_REVIEW_AND_DATABASE_SAFETY_CHECK",
+    "databaseWrite":  "NOT_ATTEMPTED_UNSAFE_BOUNDARY"
+}

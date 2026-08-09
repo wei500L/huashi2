@@ -10,6 +10,7 @@ public class AssessmentPublicReleaseEntity extends BaseAuditEntity {
     @TableField("release_code") private String releaseCode;
     @TableField("code_count") private Integer codeCount;
     @TableField("session_ttl_hours") private Integer sessionTtlHours;
+    @TableField("qr_entry_enabled") private Boolean qrEntryEnabled;
     private String status;
 
     public Long getPublishId() { return publishId; }
@@ -20,6 +21,8 @@ public class AssessmentPublicReleaseEntity extends BaseAuditEntity {
     public void setCodeCount(Integer codeCount) { this.codeCount = codeCount; }
     public Integer getSessionTtlHours() { return sessionTtlHours; }
     public void setSessionTtlHours(Integer sessionTtlHours) { this.sessionTtlHours = sessionTtlHours; }
+    public Boolean getQrEntryEnabled() { return qrEntryEnabled; }
+    public void setQrEntryEnabled(Boolean qrEntryEnabled) { this.qrEntryEnabled = qrEntryEnabled; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 }

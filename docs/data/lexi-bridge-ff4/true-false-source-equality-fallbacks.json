@@ -1,0 +1,602 @@
+﻿[
+    {
+        "itemCode":  "FF4Q-0003",
+        "wordId":  "LEXI_BRIDGE_FF4-0003",
+        "frenchWord":  "chance",
+        "originalClaim":  "机会",
+        "replacementClaim":  "断然的; 正式的; 郑重的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  34,
+        "tem4PdfPage":  9
+    },
+    {
+        "itemCode":  "FF4Q-0007",
+        "wordId":  "LEXI_BRIDGE_FF4-0007",
+        "frenchWord":  "portable",
+        "originalClaim":  "便携的",
+        "replacementClaim":  "小屋; 门房; 郊区住宅",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  148,
+        "tem4PdfPage":  11
+    },
+    {
+        "itemCode":  "FF4Q-0019",
+        "wordId":  "LEXI_BRIDGE_FF4-0019",
+        "frenchWord":  "imaginer",
+        "originalClaim":  "想象",
+        "replacementClaim":  "傻瓜",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  98,
+        "tem4PdfPage":  20
+    },
+    {
+        "itemCode":  "FF4Q-0023",
+        "wordId":  "LEXI_BRIDGE_FF4-0023",
+        "frenchWord":  "secrétaire",
+        "originalClaim":  "秘书",
+        "replacementClaim":  "解雇; 裁员",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  174,
+        "tem4PdfPage":  26
+    },
+    {
+        "itemCode":  "FF4Q-0035",
+        "wordId":  "LEXI_BRIDGE_FF4-0035",
+        "frenchWord":  "herbe",
+        "originalClaim":  "香草",
+        "replacementClaim":  "尊敬; 认为; 考虑",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  95,
+        "tem4PdfPage":  39
+    },
+    {
+        "itemCode":  "FF4Q-0055",
+        "wordId":  "LEXI_BRIDGE_FF4-0055",
+        "frenchWord":  "public",
+        "originalClaim":  "公共的; 公众",
+        "replacementClaim":  "喊叫",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  154,
+        "tem4PdfPage":  48
+    },
+    {
+        "itemCode":  "FF4Q-0059",
+        "wordId":  "LEXI_BRIDGE_FF4-0059",
+        "frenchWord":  "regretter",
+        "originalClaim":  "后悔",
+        "replacementClaim":  "共同的; 普通的; 劣质的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  162,
+        "tem4PdfPage":  52
+    },
+    {
+        "itemCode":  "FF4Q-0063",
+        "wordId":  "LEXI_BRIDGE_FF4-0063",
+        "frenchWord":  "cité",
+        "originalClaim":  "城市",
+        "replacementClaim":  "错过; 失败",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  37,
+        "tem4PdfPage":  53
+    },
+    {
+        "itemCode":  "FF4Q-0071",
+        "wordId":  "LEXI_BRIDGE_FF4-0071",
+        "frenchWord":  "monter",
+        "originalClaim":  "登上; 山",
+        "replacementClaim":  "翻到反面; 翻土; 返回; 推翻",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  125,
+        "tem4PdfPage":  57
+    },
+    {
+        "itemCode":  "FF4Q-0075",
+        "wordId":  "LEXI_BRIDGE_FF4-0075",
+        "frenchWord":  "humain",
+        "originalClaim":  "人道的",
+        "replacementClaim":  "收入; 票房收入; 食谱",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  96,
+        "tem4PdfPage":  59
+    },
+    {
+        "itemCode":  "FF4Q-0079",
+        "wordId":  "LEXI_BRIDGE_FF4-0079",
+        "frenchWord":  "sens",
+        "originalClaim":  "感觉; 意义",
+        "replacementClaim":  "货币; 纸币; 硬币; 零钱; 常规做法",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  175,
+        "tem4PdfPage":  60
+    },
+    {
+        "itemCode":  "FF4Q-0083",
+        "wordId":  "LEXI_BRIDGE_FF4-0083",
+        "frenchWord":  "couvert",
+        "originalClaim":  "封面; 遮盖",
+        "replacementClaim":  "看台; 教堂走廊; 讲台; 管风琴阁",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  50,
+        "tem4PdfPage":  62
+    },
+    {
+        "itemCode":  "FF4Q-0087",
+        "wordId":  "LEXI_BRIDGE_FF4-0087",
+        "frenchWord":  "réformer",
+        "originalClaim":  "改革; 改良",
+        "replacementClaim":  "音色; 小铃; 印章; 邮票",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  162,
+        "tem4PdfPage":  64
+    },
+    {
+        "itemCode":  "FF4Q-0091",
+        "wordId":  "LEXI_BRIDGE_FF4-0091",
+        "frenchWord":  "excéder",
+        "originalClaim":  "超过",
+        "replacementClaim":  "领带",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  75,
+        "tem4PdfPage":  67
+    },
+    {
+        "itemCode":  "FF4Q-0095",
+        "wordId":  "LEXI_BRIDGE_FF4-0095",
+        "frenchWord":  "industrie",
+        "originalClaim":  "工业; 勤奋",
+        "replacementClaim":  "天才; 精灵; 工程兵",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  102,
+        "tem4PdfPage":  71
+    },
+    {
+        "itemCode":  "FF4Q-0099",
+        "wordId":  "LEXI_BRIDGE_FF4-0099",
+        "frenchWord":  "familier",
+        "originalClaim":  "熟悉的",
+        "replacementClaim":  "栏目; 标题",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  79,
+        "tem4PdfPage":  77
+    },
+    {
+        "itemCode":  "FF4Q-0103",
+        "wordId":  "LEXI_BRIDGE_FF4-0103",
+        "frenchWord":  "merci",
+        "originalClaim":  "怜悯",
+        "replacementClaim":  "抱怨; 索要; 要求",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  122,
+        "tem4PdfPage":  78
+    },
+    {
+        "itemCode":  "FF4Q-0107",
+        "wordId":  "LEXI_BRIDGE_FF4-0107",
+        "frenchWord":  "monument",
+        "originalClaim":  "纪念碑",
+        "replacementClaim":  "实际的; 真实的; 生效的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  125,
+        "tem4PdfPage":  82
+    },
+    {
+        "itemCode":  "FF4Q-0111",
+        "wordId":  "LEXI_BRIDGE_FF4-0111",
+        "frenchWord":  "détail",
+        "originalClaim":  "细节",
+        "replacementClaim":  "严肃的; 可靠的; 认真负责的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  62,
+        "tem4PdfPage":  84
+    },
+    {
+        "itemCode":  "FF4Q-0115",
+        "wordId":  "LEXI_BRIDGE_FF4-0115",
+        "frenchWord":  "souvenir",
+        "originalClaim":  "纪念品",
+        "replacementClaim":  "行进; 步行; 运转; 进行",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  180,
+        "tem4PdfPage":  86
+    },
+    {
+        "itemCode":  "FF4Q-0127",
+        "wordId":  "LEXI_BRIDGE_FF4-0127",
+        "frenchWord":  "toucher",
+        "originalClaim":  "触摸; 接触",
+        "replacementClaim":  "非常好的; 可怕的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  190,
+        "tem4PdfPage":  96
+    },
+    {
+        "itemCode":  "FF4Q-0131",
+        "wordId":  "LEXI_BRIDGE_FF4-0131",
+        "frenchWord":  "port",
+        "originalClaim":  "港口; 端口",
+        "replacementClaim":  "磨损; 消耗",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  148,
+        "tem4PdfPage":  98
+    },
+    {
+        "itemCode":  "FF4Q-0135",
+        "wordId":  "LEXI_BRIDGE_FF4-0135",
+        "frenchWord":  "carte",
+        "originalClaim":  "卡片",
+        "replacementClaim":  "有礼貌的; 抛光的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  32,
+        "tem4PdfPage":  100
+    },
+    {
+        "itemCode":  "FF4Q-0139",
+        "wordId":  "LEXI_BRIDGE_FF4-0139",
+        "frenchWord":  "mandat",
+        "originalClaim":  "授权; 任期",
+        "replacementClaim":  "神圣的; 该死的（加强/贬义）",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  118,
+        "tem4PdfPage":  107
+    },
+    {
+        "itemCode":  "FF4Q-0143",
+        "wordId":  "LEXI_BRIDGE_FF4-0143",
+        "frenchWord":  "original",
+        "originalClaim":  "原件; 原创的",
+        "replacementClaim":  "镶板; 围栏; 路标; 陷阱",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  133,
+        "tem4PdfPage":  108
+    },
+    {
+        "itemCode":  "FF4Q-0147",
+        "wordId":  "LEXI_BRIDGE_FF4-0147",
+        "frenchWord":  "mouvement",
+        "originalClaim":  "运动; 动作",
+        "replacementClaim":  "体育教练; 辅导员; 夏令营工作人员",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  126,
+        "tem4PdfPage":  109
+    },
+    {
+        "itemCode":  "FF4Q-0151",
+        "wordId":  "LEXI_BRIDGE_FF4-0151",
+        "frenchWord":  "château",
+        "originalClaim":  "城堡",
+        "replacementClaim":  "装载; 使负担; 索价; （法律）控告",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  36,
+        "tem4PdfPage":  111
+    },
+    {
+        "itemCode":  "FF4Q-0155",
+        "wordId":  "LEXI_BRIDGE_FF4-0155",
+        "frenchWord":  "prétendre",
+        "originalClaim":  "假装; 声称",
+        "replacementClaim":  "印象; 印刷; 错印",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  151,
+        "tem4PdfPage":  113
+    },
+    {
+        "itemCode":  "FF4Q-0175",
+        "wordId":  "LEXI_BRIDGE_FF4-0175",
+        "frenchWord":  "superbe",
+        "originalClaim":  "极好的",
+        "replacementClaim":  "省; 外省; 乡下（相对巴黎）",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  184,
+        "tem4PdfPage":  136
+    },
+    {
+        "itemCode":  "FF4Q-0183",
+        "wordId":  "LEXI_BRIDGE_FF4-0183",
+        "frenchWord":  "salaire",
+        "originalClaim":  "工资",
+        "replacementClaim":  "大胆的; 勇敢的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  172,
+        "tem4PdfPage":  143
+    },
+    {
+        "itemCode":  "FF4Q-0187",
+        "wordId":  "LEXI_BRIDGE_FF4-0187",
+        "frenchWord":  "flatter",
+        "originalClaim":  "奉承",
+        "replacementClaim":  "领地; 地产; 领域; 国家财产",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  82,
+        "tem4PdfPage":  147
+    },
+    {
+        "itemCode":  "FF4Q-0203",
+        "wordId":  "LEXI_BRIDGE_FF4-0203",
+        "frenchWord":  "issue",
+        "originalClaim":  "问题; 结果; 发行物",
+        "replacementClaim":  "度; 台阶",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  107,
+        "tem4PdfPage":  157
+    },
+    {
+        "itemCode":  "FF4Q-0211",
+        "wordId":  "LEXI_BRIDGE_FF4-0211",
+        "frenchWord":  "objectif",
+        "originalClaim":  "目标; 客观的",
+        "replacementClaim":  "消费; 饮酒",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  130,
+        "tem4PdfPage":  159
+    },
+    {
+        "itemCode":  "FF4Q-0223",
+        "wordId":  "LEXI_BRIDGE_FF4-0223",
+        "frenchWord":  "combiner",
+        "originalClaim":  "结合",
+        "replacementClaim":  "会议; 新闻发布会; 讲座",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  40,
+        "tem4PdfPage":  168
+    },
+    {
+        "itemCode":  "FF4Q-0243",
+        "wordId":  "LEXI_BRIDGE_FF4-0243",
+        "frenchWord":  "rumeur",
+        "originalClaim":  "谣言",
+        "replacementClaim":  "品种; 血统",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  171,
+        "tem4PdfPage":  186
+    },
+    {
+        "itemCode":  "FF4Q-0251",
+        "wordId":  "LEXI_BRIDGE_FF4-0251",
+        "frenchWord":  "hexagone",
+        "originalClaim":  "六边形",
+        "replacementClaim":  "可能的; 潜在的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  96,
+        "tem4PdfPage":  193
+    },
+    {
+        "itemCode":  "FF4Q-0255",
+        "wordId":  "LEXI_BRIDGE_FF4-0255",
+        "frenchWord":  "dragon",
+        "originalClaim":  "龙",
+        "replacementClaim":  "违反; 强奸; 非法侵入",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  67,
+        "tem4PdfPage":  196
+    },
+    {
+        "itemCode":  "FF4Q-0259",
+        "wordId":  "LEXI_BRIDGE_FF4-0259",
+        "frenchWord":  "tourner",
+        "originalClaim":  "转动; 轮流",
+        "replacementClaim":  "碰撞; 敲击; 轻响; 特价",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  190,
+        "tem4PdfPage":  199
+    },
+    {
+        "itemCode":  "FF4Q-0263",
+        "wordId":  "LEXI_BRIDGE_FF4-0263",
+        "frenchWord":  "fort",
+        "originalClaim":  "堡垒",
+        "replacementClaim":  "昏暗的; 忧郁的; 愚蠢透顶的（口语）",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  85,
+        "tem4PdfPage":  201
+    },
+    {
+        "itemCode":  "FF4Q-0267",
+        "wordId":  "LEXI_BRIDGE_FF4-0267",
+        "frenchWord":  "pardonner",
+        "originalClaim":  "原谅",
+        "replacementClaim":  "新鲜的; 凉爽的; 清脆的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  136,
+        "tem4PdfPage":  206
+    },
+    {
+        "itemCode":  "FF4Q-0275",
+        "wordId":  "LEXI_BRIDGE_FF4-0275",
+        "frenchWord":  "grave",
+        "originalClaim":  "坟墓; 严重的",
+        "replacementClaim":  "依赖; 隶属; 悬挂取下",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  93,
+        "tem4PdfPage":  209
+    },
+    {
+        "itemCode":  "FF4Q-0299",
+        "wordId":  "LEXI_BRIDGE_FF4-0299",
+        "frenchWord":  "presser",
+        "originalClaim":  "压; 新闻界",
+        "replacementClaim":  "保护; 禁止",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  151,
+        "tem4PdfPage":  237
+    },
+    {
+        "itemCode":  "FF4Q-0307",
+        "wordId":  "LEXI_BRIDGE_FF4-0307",
+        "frenchWord":  "fortune",
+        "originalClaim":  "财富; 运气",
+        "replacementClaim":  "正式通知; 笔记; 乐音; 成绩单; 账单",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  85,
+        "tem4PdfPage":  243
+    },
+    {
+        "itemCode":  "FF4Q-0311",
+        "wordId":  "LEXI_BRIDGE_FF4-0311",
+        "frenchWord":  "rampe",
+        "originalClaim":  "坡道; 暴涨",
+        "replacementClaim":  "认出; 承认; 确认",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  158,
+        "tem4PdfPage":  245
+    },
+    {
+        "itemCode":  "FF4Q-0319",
+        "wordId":  "LEXI_BRIDGE_FF4-0319",
+        "frenchWord":  "général",
+        "originalClaim":  "将军; 一般的",
+        "replacementClaim":  "激发; 吸入",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  89,
+        "tem4PdfPage":  251
+    },
+    {
+        "itemCode":  "FF4Q-0323",
+        "wordId":  "LEXI_BRIDGE_FF4-0323",
+        "frenchWord":  "saisir",
+        "originalClaim":  "抓住",
+        "replacementClaim":  "物理学",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  172,
+        "tem4PdfPage":  253
+    },
+    {
+        "itemCode":  "FF4Q-0339",
+        "wordId":  "LEXI_BRIDGE_FF4-0339",
+        "frenchWord":  "quitter",
+        "originalClaim":  "离开; 停止",
+        "replacementClaim":  "烟囱; 漏斗; 壁炉; 壁炉架",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  156,
+        "tem4PdfPage":  262
+    },
+    {
+        "itemCode":  "FF4Q-0351",
+        "wordId":  "LEXI_BRIDGE_FF4-0351",
+        "frenchWord":  "inciter",
+        "originalClaim":  "煽动",
+        "replacementClaim":  "推; 生长; 发出（哭喊）",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  100,
+        "tem4PdfPage":  268
+    },
+    {
+        "itemCode":  "FF4Q-0355",
+        "wordId":  "LEXI_BRIDGE_FF4-0355",
+        "frenchWord":  "relation",
+        "originalClaim":  "关系; 亲属",
+        "replacementClaim":  "拥有; 精通",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  163,
+        "tem4PdfPage":  271
+    },
+    {
+        "itemCode":  "FF4Q-0371",
+        "wordId":  "LEXI_BRIDGE_FF4-0371",
+        "frenchWord":  "recommander",
+        "originalClaim":  "推荐",
+        "replacementClaim":  "请求; 恳求; 申请; 争取",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  161,
+        "tem4PdfPage":  292
+    },
+    {
+        "itemCode":  "FF4Q-0383",
+        "wordId":  "LEXI_BRIDGE_FF4-0383",
+        "frenchWord":  "passer",
+        "originalClaim":  "经过; 通过",
+        "replacementClaim":  "法典; 公路法规; 灯光信号",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  138,
+        "tem4PdfPage":  303
+    },
+    {
+        "itemCode":  "FF4Q-0387",
+        "wordId":  "LEXI_BRIDGE_FF4-0387",
+        "frenchWord":  "ravi",
+        "originalClaim":  "欣喜的; 被掳走的",
+        "replacementClaim":  "无用的; 徒劳的; 无意义的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  159,
+        "tem4PdfPage":  317
+    },
+    {
+        "itemCode":  "FF4Q-0403",
+        "wordId":  "LEXI_BRIDGE_FF4-0403",
+        "frenchWord":  "quai",
+        "originalClaim":  "码头",
+        "replacementClaim":  "给人深刻印象的; 令人不安的; 令人震撼的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  156,
+        "tem4PdfPage":  326
+    },
+    {
+        "itemCode":  "FF4Q-0407",
+        "wordId":  "LEXI_BRIDGE_FF4-0407",
+        "frenchWord":  "terme",
+        "originalClaim":  "术语; 学期",
+        "replacementClaim":  "谴责; 封死（门窗）",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  188,
+        "tem4PdfPage":  335
+    },
+    {
+        "itemCode":  "FF4Q-0411",
+        "wordId":  "LEXI_BRIDGE_FF4-0411",
+        "frenchWord":  "restaurer",
+        "originalClaim":  "修复; 恢复",
+        "replacementClaim":  "雇用; 典当; 约束; 入伍; 驶入",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  166,
+        "tem4PdfPage":  337
+    },
+    {
+        "itemCode":  "FF4Q-0415",
+        "wordId":  "LEXI_BRIDGE_FF4-0415",
+        "frenchWord":  "oignon",
+        "originalClaim":  "洋葱",
+        "replacementClaim":  "指出; 报告; 标示",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  132,
+        "tem4PdfPage":  339
+    },
+    {
+        "itemCode":  "FF4Q-0423",
+        "wordId":  "LEXI_BRIDGE_FF4-0423",
+        "frenchWord":  "patient",
+        "originalClaim":  "病人; 耐心的",
+        "replacementClaim":  "峡谷; 喉咙; 危险地带",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  139,
+        "tem4PdfPage":  349
+    },
+    {
+        "itemCode":  "FF4Q-0427",
+        "wordId":  "LEXI_BRIDGE_FF4-0427",
+        "frenchWord":  "flamme",
+        "originalClaim":  "火焰",
+        "replacementClaim":  "粗糙的; 严酷的; 强硬的; 粗鲁的",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  82,
+        "tem4PdfPage":  352
+    },
+    {
+        "itemCode":  "FF4Q-0435",
+        "wordId":  "LEXI_BRIDGE_FF4-0435",
+        "frenchWord":  "ignorer",
+        "originalClaim":  "忽视",
+        "replacementClaim":  "拉; 抽取; 射击; 印刷; 离开",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  97,
+        "tem4PdfPage":  360
+    },
+    {
+        "itemCode":  "FF4Q-0439",
+        "wordId":  "LEXI_BRIDGE_FF4-0439",
+        "frenchWord":  "massif",
+        "originalClaim":  "巨大的",
+        "replacementClaim":  "动机; 犯罪动机",
+        "reason":  "SOURCE_CLAIM_OVERLAPS_TARGET_MEANING",
+        "falseFriendsPdfPage":  120,
+        "tem4PdfPage":  360
+    }
+]

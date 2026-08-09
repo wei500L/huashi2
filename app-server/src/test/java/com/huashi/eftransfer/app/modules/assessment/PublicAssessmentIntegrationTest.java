@@ -5,10 +5,14 @@ import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptAnsw
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAiAnalysisEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentMetricSnapshotEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentTimingEventEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipantAccessEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipationCodeEntity;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAiAnalysisMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptAnswerMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentMetricSnapshotMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentTimingEventMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipantAccessMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipationCodeMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -22,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,6 +39,240 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
     @Autowired private AssessmentAttemptAnswerMapper answerMapper;
     @Autowired private AssessmentMetricSnapshotMapper metricSnapshotMapper;
     @Autowired private AssessmentAiAnalysisMapper aiAnalysisMapper;
+    @Autowired private AssessmentParticipantAccessMapper participantAccessMapper;
+    @Autowired private AssessmentParticipationCodeMapper participationCodeMapper;
+
+    @Test
+    void shouldReturnSpecificErrorForInvalidOrRevokedParticipationCode() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"AAAA-BBBB-CCCC\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PARTICIPATION_CODE_INVALID"));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"not-a-valid-code\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PARTICIPATION_CODE_INVALID"));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PARTICIPATION_CODE_INVALID"));
+
+        MvcResult batch = mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-code-batches", publishId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participationCodes.length()").value(1))
+                .andReturn();
+        String batchId = readJson(batch).path("data").path("batchId").asText();
+        String generatedCode = readJson(batch).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult listed = mockMvc.perform(get("/api/teacher/assessments/publishes/{publishId}/participation-codes", publishId)
+                        .with(bearer(teacherToken)).param("batchId", batchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andReturn();
+        long codeId = readJson(listed).path("data").path("records").get(0).path("codeId").asLong();
+
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-codes/{codeId}/revoke", publishId, codeId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.revokedCount").value(1));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(generatedCode)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PARTICIPATION_CODE_INVALID"));
+
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-code-batches", publishId)
+                        .with(bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON).content("{\"count\":0}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-code-batches", publishId)
+                        .with(bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON).content("{\"count\":5001}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldAuditManualCodeIpAndResumeQrParticipantAcrossIpChanges() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/qr-entry", releaseCode)
+                        .header("X-Forwarded-For", "198.51.100.10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"browserFingerprint\":\"0123456789abcdef0123456789abcdef\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(patch("/api/teacher/assessments/publishes/{publishId}/public-release", publishId)
+                        .with(bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .header("X-Forwarded-For", "203.0.113.18")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/teacher/assessments/publishes/{publishId}/participation-codes", publishId)
+                        .with(bearer(teacherToken)).param("status", "IN_PROGRESS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].lastVerifiedIp").value("203.0.113.18"));
+
+        mockMvc.perform(patch("/api/teacher/assessments/publishes/{publishId}/public-release", publishId)
+                        .with(bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"qrEntryEnabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.qrEntryEnabled").value(true));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/qr-entry", releaseCode)
+                        .header("X-Forwarded-For", "not-an-ip")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"browserFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"))
+                .andExpect(status().isBadRequest());
+
+        String fingerprint = "0123456789abcdef0123456789abcdef";
+        MvcResult firstQr = mockMvc.perform(post("/api/public/assessments/{releaseCode}/qr-entry", releaseCode)
+                        .header("X-Forwarded-For", "198.51.100.10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"browserFingerprint\":\"%s\"}".formatted(fingerprint)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resumed").value(false))
+                .andReturn();
+        long firstAttemptId = readJson(firstQr).path("data").path("attempt").path("attemptId").asLong();
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/qr-entry", releaseCode)
+                        .header("X-Forwarded-For", "198.51.100.25")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"browserFingerprint\":\"%s\"}".formatted(fingerprint)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resumed").value(true))
+                .andExpect(jsonPath("$.data.attempt.attemptId").value((int) firstAttemptId));
+
+        MvcResult secondDevice = mockMvc.perform(post("/api/public/assessments/{releaseCode}/qr-entry", releaseCode)
+                        .header("X-Forwarded-For", "198.51.100.25")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"browserFingerprint\":\"fedcba9876543210fedcba9876543210\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resumed").value(false))
+                .andReturn();
+        assertThat(readJson(secondDevice).path("data").path("attempt").path("attemptId").asLong())
+                .isNotEqualTo(firstAttemptId);
+        assertThat(participantAccessMapper.selectCount(Wrappers.<AssessmentParticipantAccessEntity>lambdaQuery()))
+                .isGreaterThanOrEqualTo(4);
+    }
+
+    @Test
+    void shouldPageLegacyCodesAndRevokeOnlyUnusedCodesInBatch() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+
+        MvcResult initialCodes = mockMvc.perform(get("/api/teacher/assessments/publishes/{publishId}/participation-codes", publishId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+        long legacyCodeId = readJson(initialCodes).path("data").path("records").get(0).path("codeId").asLong();
+        participationCodeMapper.update(null, Wrappers.<AssessmentParticipationCodeEntity>lambdaUpdate()
+                .set(AssessmentParticipationCodeEntity::getExportBatchId, null)
+                .eq(AssessmentParticipationCodeEntity::getId, legacyCodeId));
+
+        mockMvc.perform(get("/api/teacher/assessments/publishes/{publishId}/participation-codes", publishId)
+                        .with(bearer(teacherToken)).param("batchId", "legacy"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].exportBatchId").isEmpty());
+
+        MvcResult batch = mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-code-batches", publishId)
+                        .with(bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\":2}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String batchId = readJson(batch).path("data").path("batchId").asText();
+        String firstCode = readJson(batch).path("data").path("participationCodes").get(0).asText();
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .header("X-Forwarded-For", "2001:db8::42")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(firstCode)))
+                .andExpect(status().isOk());
+
+        MvcResult listed = mockMvc.perform(get("/api/teacher/assessments/publishes/{publishId}/participation-codes", publishId)
+                        .with(bearer(teacherToken)).param("batchId", batchId).param("status", "IN_PROGRESS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].lastVerifiedIp").value("2001:db8:0:0:0:0:0:42"))
+                .andReturn();
+        long inProgressCodeId = readJson(listed).path("data").path("records").get(0).path("codeId").asLong();
+
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-codes/{codeId}/revoke",
+                        publishId, inProgressCodeId).with(bearer(teacherToken)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-code-batches/{batchId}/revoke-unused",
+                        publishId, batchId).with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.revokedCount").value(1));
+
+        MvcResult finalBatchState = mockMvc.perform(get("/api/teacher/assessments/publishes/{publishId}/participation-codes", publishId)
+                        .with(bearer(teacherToken)).param("batchId", batchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andReturn();
+        var records = readJson(finalBatchState).path("data").path("records");
+        long inProgressCount = 0;
+        long revokedCount = 0;
+        for (var record : records) {
+            if ("IN_PROGRESS".equals(record.path("status").asText())) {
+                inProgressCount++;
+            } else if ("REVOKED".equals(record.path("status").asText())) {
+                revokedCount++;
+            }
+        }
+        assertThat(inProgressCount).isEqualTo(1);
+        assertThat(revokedCount).isEqualTo(1);
+    }
+
+    @Test
+    void shouldGenerateAndPageMaximumParticipationCodeBatch() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+
+        MvcResult batch = mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-code-batches", publishId)
+                        .with(bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\":5000}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participationCodes.length()").value(5000))
+                .andReturn();
+        String batchId = readJson(batch).path("data").path("batchId").asText();
+
+        mockMvc.perform(get("/api/teacher/assessments/publishes/{publishId}/participation-codes", publishId)
+                        .with(bearer(teacherToken)).param("batchId", batchId).param("pageNo", "2").param("pageSize", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(5000))
+                .andExpect(jsonPath("$.data.pageNo").value(2))
+                .andExpect(jsonPath("$.data.records.length()").value(100));
+    }
 
     @Test
     void shouldCompletePublicQuestionnaireWithIdempotentTimingAndSubmission() throws Exception {
@@ -142,6 +381,7 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                         .content("""
                                 {
                                   "title":"Public research integration",
+                                  "paperPurpose":"RESEARCH_SURVEY",
                                   "durationMinutes":40,
                                   "questions":[{
                                     "questionType":"TRUE_FALSE_WITH_JUSTIFICATION",

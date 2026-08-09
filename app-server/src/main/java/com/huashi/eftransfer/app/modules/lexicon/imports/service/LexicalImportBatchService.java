@@ -515,7 +515,7 @@ public class LexicalImportBatchService {
         try {
             LexicalPairUpsertRequest request = templateSupport.toUpsertRequest(draft);
             lexicalPairService.validateImportCandidate(request);
-            String pairKey = normalizePairKey(request.englishWord(), request.frenchWord());
+            String pairKey = normalizeImportKey(request);
             if (seenPairKeys != null && !seenPairKeys.add(pairKey)) {
                 errors.add("Duplicate lexical pair in import file");
             } else if (hasDuplicateWithinBatch(batchId, rowId, pairKey)) {
@@ -536,7 +536,7 @@ public class LexicalImportBatchService {
                 continue;
             }
             LexicalImportRowDraft candidateDraft = readDraft(candidate.getDraftJson());
-            String candidateKey = normalizePairKey(candidateDraft.englishWord(), candidateDraft.frenchWord());
+            String candidateKey = normalizeImportKey(candidateDraft);
             if (pairKey.equals(candidateKey)) {
                 return true;
             }
@@ -549,6 +549,24 @@ public class LexicalImportBatchService {
             return "";
         }
         return englishWord.trim().toLowerCase(Locale.ROOT) + "::" + frenchWord.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeImportKey(LexicalPairUpsertRequest request) {
+        if (hasText(request.sourceCode()) && hasText(request.contentVersion()) && hasText(request.wordId())) {
+            return request.sourceCode().trim().toLowerCase(Locale.ROOT) + "::"
+                    + request.contentVersion().trim().toLowerCase(Locale.ROOT) + "::"
+                    + request.wordId().trim().toLowerCase(Locale.ROOT);
+        }
+        return normalizePairKey(request.englishWord(), request.frenchWord());
+    }
+
+    private String normalizeImportKey(LexicalImportRowDraft draft) {
+        if (hasText(draft.sourceCode()) && hasText(draft.contentVersion()) && hasText(draft.wordId())) {
+            return draft.sourceCode().trim().toLowerCase(Locale.ROOT) + "::"
+                    + draft.contentVersion().trim().toLowerCase(Locale.ROOT) + "::"
+                    + draft.wordId().trim().toLowerCase(Locale.ROOT);
+        }
+        return normalizePairKey(draft.englishWord(), draft.frenchWord());
     }
 
     private LexicalImportBatchEntity requireAccessibleBatch(Long batchId) {
@@ -837,6 +855,10 @@ public class LexicalImportBatchService {
             return null;
         }
         return value.trim();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private void runWithPrincipal(JwtPrincipal principal, Runnable task) {

@@ -35,6 +35,9 @@ app:
   analytics:
     compensation:
       enabled: false
+  assessment:
+    ai-analysis:
+      enabled: false
   ops:
     config:
       encryption-secret: x7Pq2Lk9Vd4Nc8Rs1Tf6Yh3Jm5Bw0QeZ

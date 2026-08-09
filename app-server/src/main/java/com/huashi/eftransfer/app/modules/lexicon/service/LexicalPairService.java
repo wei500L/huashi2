@@ -106,6 +106,9 @@ public class LexicalPairService {
             new CsvImportTemplateFieldVO("difficulty_level", true, "1 - 5", "4"),
             new CsvImportTemplateFieldVO("notes", false, "Teacher notes", "High confusion for beginners"),
             new CsvImportTemplateFieldVO("source", false, "Source or textbook", "Teacher Curated"),
+            new CsvImportTemplateFieldVO("source_code", false, "Stable import source code", "LEXI_BRIDGE_FF4"),
+            new CsvImportTemplateFieldVO("content_version", false, "Stable content version", "FF4_V1"),
+            new CsvImportTemplateFieldVO("word_id", false, "Stable source word identifier", "FF4-0001"),
             new CsvImportTemplateFieldVO("active", false, "true / false", "true"),
             new CsvImportTemplateFieldVO("tags", false, "Pipe separated tags", "false-friend|high-frequency"),
             new CsvImportTemplateFieldVO("knowledge_status", false, "draft / ready / disabled", "ready"),
@@ -259,6 +262,9 @@ public class LexicalPairService {
                 pair.getDifficultyLevel(),
                 pair.getNotes(),
                 pair.getSource(),
+                pair.getSourceCode(),
+                pair.getContentVersion(),
+                pair.getWordId(),
                 pair.getActive(),
                 pair.getSearchableText(),
                 pair.getKnowledgeStatus(),
@@ -311,6 +317,14 @@ public class LexicalPairService {
 
     @Transactional
     public Long createFromImport(LexicalPairUpsertRequest request) {
+        validateStableImportIdentity(request);
+        if (hasStableImportIdentity(request)) {
+            LexicalPairEntity existing = lexicalPairMapper.selectBySourceKey(
+                    request.sourceCode().trim(), request.contentVersion().trim(), request.wordId().trim());
+            if (existing != null) {
+                return update(existing.getId(), request);
+            }
+        }
         Long lexicalPairId = createInternal(request);
         log.info("event=lexical_pair_imported pairId={} englishWord={} frenchWord={}",
                 lexicalPairId, request.englishWord(), request.frenchWord());
@@ -321,6 +335,8 @@ public class LexicalPairService {
     public Long update(Long lexicalPairId, LexicalPairUpsertRequest request) {
         LexicalPairEntity existing = requirePair(lexicalPairId);
         validatePairUniqueness(request.englishWord(), request.frenchWord(), lexicalPairId);
+        validateStableImportIdentity(request);
+        validateStableImportKeyUniqueness(request, lexicalPairId);
         validateSenses(request.senses());
 
         List<String> normalizedTags = normalizeTags(request.tags());
@@ -334,6 +350,9 @@ public class LexicalPairService {
         existing.setDifficultyLevel(request.difficultyLevel());
         existing.setNotes(trimToNull(request.notes()));
         existing.setSource(trimToNull(request.source()));
+        existing.setSourceCode(trimToNull(request.sourceCode()));
+        existing.setContentVersion(trimToNull(request.contentVersion()));
+        existing.setWordId(trimToNull(request.wordId()));
         existing.setActive(request.active() == null || request.active());
         existing.setKnowledgeStatus(parseKnowledgeStatus(request.knowledgeStatus()).name());
         EmbeddingStatus embeddingStatus = parseEmbeddingStatus(request.embeddingStatus());
@@ -415,6 +434,9 @@ public class LexicalPairService {
                         pair.getDifficultyLevel(),
                         trimToNull(pair.getNotes()),
                         trimToNull(pair.getSource()),
+                        trimToNull(pair.getSourceCode()),
+                        trimToNull(pair.getContentVersion()),
+                        trimToNull(pair.getWordId()),
                         pair.getActive(),
                         String.join("|", tagMap.getOrDefault(pair.getId(), List.of())),
                         pair.getKnowledgeStatus() == null ? null : KnowledgeStatus.fromCode(pair.getKnowledgeStatus()).code(),
@@ -439,7 +461,10 @@ public class LexicalPairService {
     }
 
     public void validateImportCandidate(LexicalPairUpsertRequest request) {
-        validatePairUniqueness(request.englishWord(), request.frenchWord(), null);
+        validateStableImportIdentity(request);
+        if (!hasStableImportIdentity(request)) {
+            validatePairUniqueness(request.englishWord(), request.frenchWord(), null);
+        }
         validateSenses(request.senses());
         parseLexicalPairType(request.lexicalPairType());
         parseContextSupportLevel(request.defaultContextSupport());
@@ -471,11 +496,11 @@ public class LexicalPairService {
                 long rowNumber = record.getRecordNumber() + 1;
                 try {
                     LexicalPairUpsertRequest request = parseImportRecord(record);
-                    String pairKey = normalizePairKey(request.englishWord(), request.frenchWord());
+                    String pairKey = normalizeImportKey(request);
                     if (!seenPairKeys.add(pairKey)) {
                         throw new BusinessException(ResultCode.CONFLICT, "Duplicate lexical pair in CSV file", 409);
                     }
-                    Long lexicalPairId = transactionTemplate.execute(status -> createInternal(request));
+                    Long lexicalPairId = transactionTemplate.execute(status -> createFromImport(request));
                     if (lexicalPairId != null) {
                         changedPairIds.add(lexicalPairId);
                     }
@@ -529,6 +554,8 @@ public class LexicalPairService {
 
     private Long createInternal(LexicalPairUpsertRequest request) {
         validatePairUniqueness(request.englishWord(), request.frenchWord(), null);
+        validateStableImportIdentity(request);
+        validateStableImportKeyUniqueness(request, null);
         validateSenses(request.senses());
 
         List<String> normalizedTags = normalizeTags(request.tags());
@@ -543,6 +570,9 @@ public class LexicalPairService {
         entity.setDifficultyLevel(request.difficultyLevel());
         entity.setNotes(trimToNull(request.notes()));
         entity.setSource(trimToNull(request.source()));
+        entity.setSourceCode(trimToNull(request.sourceCode()));
+        entity.setContentVersion(trimToNull(request.contentVersion()));
+        entity.setWordId(trimToNull(request.wordId()));
         entity.setActive(request.active() == null || request.active());
         entity.setKnowledgeStatus(parseKnowledgeStatus(request.knowledgeStatus()).name());
         EmbeddingStatus embeddingStatus = parseEmbeddingStatus(request.embeddingStatus());
@@ -620,6 +650,9 @@ public class LexicalPairService {
                 pair.getDefaultContextSupport(),
                 pair.getDifficultyLevel(),
                 pair.getSource(),
+                pair.getSourceCode(),
+                pair.getContentVersion(),
+                pair.getWordId(),
                 pair.getActive(),
                 pair.getKnowledgeStatus(),
                 pair.getEmbeddingStatus(),
@@ -644,6 +677,32 @@ public class LexicalPairService {
         LexicalPairEntity existing = lexicalPairMapper.selectByWords(englishWord.trim(), frenchWord.trim());
         if (existing != null && !Objects.equals(existing.getId(), lexicalPairId)) {
             throw new BusinessException(ResultCode.CONFLICT, "Lexical pair already exists", 409);
+        }
+    }
+
+    private void validateStableImportIdentity(LexicalPairUpsertRequest request) {
+        int populated = 0;
+        if (hasText(request.sourceCode())) populated++;
+        if (hasText(request.contentVersion())) populated++;
+        if (hasText(request.wordId())) populated++;
+        if (populated != 0 && populated != 3) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR,
+                    "source_code, content_version, and word_id must be supplied together", 400);
+        }
+    }
+
+    private boolean hasStableImportIdentity(LexicalPairUpsertRequest request) {
+        return hasText(request.sourceCode()) && hasText(request.contentVersion()) && hasText(request.wordId());
+    }
+
+    private void validateStableImportKeyUniqueness(LexicalPairUpsertRequest request, Long lexicalPairId) {
+        if (!hasStableImportIdentity(request)) {
+            return;
+        }
+        LexicalPairEntity existing = lexicalPairMapper.selectBySourceKey(
+                request.sourceCode().trim(), request.contentVersion().trim(), request.wordId().trim());
+        if (existing != null && !Objects.equals(existing.getId(), lexicalPairId)) {
+            throw new BusinessException(ResultCode.CONFLICT, "Lexical source key already exists", 409);
         }
     }
 
@@ -1011,6 +1070,9 @@ public class LexicalPairService {
                 parseInteger(difficultyLevel, "difficulty_level"),
                 trimToNull(getField(record, "notes")),
                 trimToNull(getField(record, "source")),
+                trimToNull(getField(record, "source_code")),
+                trimToNull(getField(record, "content_version")),
+                trimToNull(getField(record, "word_id")),
                 parseBoolean(getField(record, "active")),
                 trimToNull(getField(record, "knowledge_status")),
                 trimToNull(getField(record, "embedding_status")),
@@ -1129,6 +1191,15 @@ public class LexicalPairService {
 
     private String normalizePairKey(String englishWord, String frenchWord) {
         return englishWord.trim().toLowerCase(Locale.ROOT) + "::" + frenchWord.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeImportKey(LexicalPairUpsertRequest request) {
+        if (hasStableImportIdentity(request)) {
+            return request.sourceCode().trim().toLowerCase(Locale.ROOT) + "::"
+                    + request.contentVersion().trim().toLowerCase(Locale.ROOT) + "::"
+                    + request.wordId().trim().toLowerCase(Locale.ROOT);
+        }
+        return normalizePairKey(request.englishWord(), request.frenchWord());
     }
 
     private String trimToNull(String value) {

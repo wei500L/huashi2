@@ -13,7 +13,7 @@
     "durationMinutes": 40,
     "resultReleasePolicy": "IMMEDIATE",
     "scoringVersion": "SCORING_V1",
-    "aiPromptVersion": "assessment-analysis/v1",
+    "aiPromptVersion": "assessment-analysis/v2",
     "versionNo": 1,
     "status": "REVIEW_REQUIRED"
   },

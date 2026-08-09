@@ -23,6 +23,9 @@ public class LexicalPairEntity extends BaseAuditEntity {
     private Integer difficultyLevel;
     private String notes;
     private String source;
+    private String sourceCode;
+    private String contentVersion;
+    private String wordId;
     private String searchableText;
     private String searchPinyin;
     private String searchInitials;
@@ -112,6 +115,30 @@ public class LexicalPairEntity extends BaseAuditEntity {
 
     public void setSource(String source) {
         this.source = source;
+    }
+
+    public String getSourceCode() {
+        return sourceCode;
+    }
+
+    public void setSourceCode(String sourceCode) {
+        this.sourceCode = sourceCode;
+    }
+
+    public String getContentVersion() {
+        return contentVersion;
+    }
+
+    public void setContentVersion(String contentVersion) {
+        this.contentVersion = contentVersion;
+    }
+
+    public String getWordId() {
+        return wordId;
+    }
+
+    public void setWordId(String wordId) {
+        this.wordId = wordId;
     }
 
     public String getSearchableText() {

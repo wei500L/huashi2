@@ -102,6 +102,13 @@ app:
       session-ttl: ${APP_ASSESSMENT_PUBLIC_SESSION_TTL:PT12H}
     sensitive-profile-key: ${APP_ASSESSMENT_SENSITIVE_PROFILE_KEY:local-only-change-this-profile-key}
     sensitive-profile-key-version: ${APP_ASSESSMENT_SENSITIVE_PROFILE_KEY_VERSION:v1}
+    ai-analysis:
+      enabled: ${APP_ASSESSMENT_AI_ANALYSIS_ENABLED:true}
+      poll-interval: ${APP_ASSESSMENT_AI_ANALYSIS_POLL_INTERVAL:PT5S}
+      batch-size: ${APP_ASSESSMENT_AI_ANALYSIS_BATCH_SIZE:10}
+      max-retries: ${APP_ASSESSMENT_AI_ANALYSIS_MAX_RETRIES:2}
+      retry-delay: ${APP_ASSESSMENT_AI_ANALYSIS_RETRY_DELAY:PT5S}
+      processing-timeout: ${APP_ASSESSMENT_AI_ANALYSIS_PROCESSING_TIMEOUT:PT5M}
     seed:
       lexibridge-enabled: ${APP_ASSESSMENT_LEXIBRIDGE_SEED_ENABLED:true}
     timeout:

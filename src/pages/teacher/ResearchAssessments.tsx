@@ -18,6 +18,7 @@ import { saveBlob } from '@/lib/api';
 import type { QuestionBankImportPreflightVO } from '@/lib/contracts';
 import { assessmentPaperStatusLabel, assessmentPaperStatusTone, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
+import { ResearchReleaseManagement } from './ResearchReleaseManagement';
 
 type ResearchTab = 'bank' | 'questionnaires' | 'releases' | 'data';
 
@@ -340,9 +341,7 @@ const ResearchAssessmentsPage: React.FC = () => {
       ) : null}
 
       {activeTab === 'releases' ? (
-        publishedPapers.length ? (
-          <div className="content-grid-2">{publishedPapers.map((paper) => <article key={paper.paperId} className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6"><SectionEyebrow>{paper.paperCode}</SectionEyebrow><h2 className="mt-3 break-words text-xl font-black">{paper.title}</h2><p className="mt-3 text-sm text-slate-500">最近发布：{formatDateTime(paper.latestPublishAt)}</p><button onClick={() => navigate(`/teacher/assessments/${paper.paperId}?context=research`)} className="mt-5 text-sm font-bold text-primary">查看问卷与发布记录 →</button></article>)}</div>
-        ) : <EmptyPanel title="暂无研究问卷发布" description="问卷通过内容审核后，可在问卷详情中选择班级发布或公开参与码发布。" />
+        <ResearchReleaseManagement />
       ) : null}
 
       {activeTab === 'data' ? (

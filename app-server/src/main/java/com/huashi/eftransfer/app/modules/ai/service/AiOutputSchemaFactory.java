@@ -8,6 +8,38 @@ import java.util.Map;
 @Component
 public class AiOutputSchemaFactory {
 
+    public Map<String, Object> assessmentAnalysisSchema() {
+        Map<String, Object> stringArray = Map.of(
+                "type", "array",
+                "minItems", 2,
+                "maxItems", 4,
+                "items", Map.of("type", "string")
+        );
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "properties", Map.of(
+                        "performanceOverview", Map.of("type", "string"),
+                        "strengths", stringArray,
+                        "risks", stringArray,
+                        "contextInterpretation", Map.of("type", "string"),
+                        "reactionTimeInterpretation", Map.of("type", "string"),
+                        "recommendations", Map.of(
+                                "type", "array",
+                                "minItems", 3,
+                                "maxItems", 3,
+                                "items", Map.of("type", "string")
+                        ),
+                        "confidence", Map.of("type", "number", "minimum", 0, "maximum", 1),
+                        "qualityNotice", Map.of("type", "string")
+                ),
+                "required", List.of(
+                        "performanceOverview", "strengths", "risks", "contextInterpretation",
+                        "reactionTimeInterpretation", "recommendations", "confidence", "qualityNotice"
+                )
+        );
+    }
+
     /**
      * Guidance schema optimized for DeepSeek json_object compatibility:
      * models primarily supply IDs, reasons and free-text; the server back-fills

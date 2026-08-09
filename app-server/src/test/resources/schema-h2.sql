@@ -430,7 +430,7 @@ CREATE TABLE assessment_questionnaire_version (
   version_no int NOT NULL,
   status varchar(32) NOT NULL DEFAULT 'DRAFT',
   scoring_version varchar(64) NOT NULL DEFAULT 'SCORING_V1',
-  ai_prompt_version varchar(64) NOT NULL DEFAULT 'assessment-analysis/v1',
+  ai_prompt_version varchar(64) NOT NULL DEFAULT 'assessment-analysis/v2',
   source_package_code varchar(64) DEFAULT NULL,
   published_at timestamp NULL DEFAULT NULL,
   created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -495,6 +495,7 @@ CREATE TABLE assessment_public_release (
   release_code varchar(32) NOT NULL,
   code_count int NOT NULL,
   session_ttl_hours int NOT NULL DEFAULT '12',
+  qr_entry_enabled tinyint(1) NOT NULL DEFAULT '0',
   status varchar(32) NOT NULL DEFAULT 'PUBLISHED',
   created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by bigint DEFAULT NULL,
@@ -509,6 +510,7 @@ CREATE TABLE assessment_participation_code (
   id bigint NOT NULL AUTO_INCREMENT,
   public_release_id bigint NOT NULL,
   code_digest char(64) NOT NULL,
+  code_hint varchar(4) DEFAULT NULL,
   status varchar(32) NOT NULL DEFAULT 'UNUSED',
   export_batch_id varchar(64) DEFAULT NULL,
   exported_at timestamp NULL DEFAULT NULL,
@@ -522,7 +524,8 @@ CREATE TABLE assessment_participation_code (
   deleted tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (id),
   UNIQUE KEY uk_assessment_participation_code_digest (code_digest),
-  KEY idx_assessment_participation_code_release_status (public_release_id,status,id)
+  KEY idx_assessment_participation_code_release_status (public_release_id,status,id),
+  KEY idx_assessment_participation_code_release_batch_status (public_release_id,export_batch_id,status,id)
 );
 CREATE TABLE assessment_participant (
   id bigint NOT NULL AUTO_INCREMENT,
@@ -531,6 +534,7 @@ CREATE TABLE assessment_participant (
   user_id bigint DEFAULT NULL,
   participation_code_id bigint DEFAULT NULL,
   attempt_id bigint DEFAULT NULL,
+  browser_fingerprint_digest char(64) DEFAULT NULL,
   sensitive_profile_ciphertext longtext,
   sensitive_profile_iv varchar(128) DEFAULT NULL,
   sensitive_profile_key_version varchar(64) DEFAULT NULL,
@@ -544,8 +548,29 @@ CREATE TABLE assessment_participant (
   PRIMARY KEY (id),
   UNIQUE KEY uk_assessment_participant_publish_user (publish_id,user_id),
   UNIQUE KEY uk_assessment_participant_publish_code (publish_id,participation_code_id),
+  UNIQUE KEY uk_assessment_participant_publish_fingerprint (publish_id,participant_type,browser_fingerprint_digest),
   UNIQUE KEY uk_assessment_participant_attempt (attempt_id),
   KEY idx_assessment_participant_publish_type (publish_id,participant_type,id)
+);
+CREATE TABLE assessment_participant_access (
+  id bigint NOT NULL AUTO_INCREMENT,
+  public_release_id bigint NOT NULL,
+  participant_id bigint NOT NULL,
+  participation_code_id bigint DEFAULT NULL,
+  access_mode varchar(32) NOT NULL,
+  ip_ciphertext longtext NOT NULL,
+  ip_iv varchar(128) NOT NULL,
+  ip_key_version varchar(64) NOT NULL,
+  accessed_at timestamp NOT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by bigint DEFAULT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by bigint DEFAULT NULL,
+  deleted tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (id),
+  KEY idx_assessment_participant_access_release_time (public_release_id,accessed_at,id),
+  KEY idx_assessment_participant_access_code_time (participation_code_id,accessed_at,id),
+  KEY idx_assessment_participant_access_participant_time (participant_id,accessed_at,id)
 );
 CREATE TABLE assessment_participant_session (
   id bigint NOT NULL AUTO_INCREMENT,
@@ -1088,6 +1113,9 @@ CREATE TABLE lexical_pair (
   difficulty_level int NOT NULL,
   notes text,
   source varchar(255) DEFAULT NULL,
+  source_code varchar(64) DEFAULT NULL,
+  content_version varchar(64) DEFAULT NULL,
+  word_id varchar(128) DEFAULT NULL,
   searchable_text text NOT NULL,
   search_pinyin varchar(1024) DEFAULT NULL,
   search_initials varchar(1024) DEFAULT NULL,
@@ -1101,8 +1129,12 @@ CREATE TABLE lexical_pair (
   updated_by bigint DEFAULT NULL,
   deleted tinyint(1) NOT NULL DEFAULT '0',
   active_english_word varchar(128) GENERATED ALWAYS AS ((case when (deleted = false) then english_word else NULL end)),
+  active_source_code varchar(64) GENERATED ALWAYS AS ((case when (deleted = false) then source_code else NULL end)),
+  active_content_version varchar(64) GENERATED ALWAYS AS ((case when (deleted = false) then content_version else NULL end)),
+  active_word_id varchar(128) GENERATED ALWAYS AS ((case when (deleted = false) then word_id else NULL end)),
   PRIMARY KEY (id),
   UNIQUE KEY uk_lexical_pair_word_pair (active_english_word,french_word),
+  UNIQUE KEY uk_lexical_pair_source_version_word (active_source_code,active_content_version,active_word_id),
   KEY idx_lexical_pair_type_active (lexical_pair_type,active),
   KEY idx_lexical_pair_context_active (default_context_support,active),
   KEY idx_lexical_pair_risk (false_friend_risk),
@@ -1559,6 +1591,9 @@ ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_publ
 ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_user FOREIGN KEY (user_id) REFERENCES users (id);
 ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_code FOREIGN KEY (participation_code_id) REFERENCES assessment_participation_code (id);
 ALTER TABLE assessment_participant ADD CONSTRAINT fk_assessment_participant_attempt FOREIGN KEY (attempt_id) REFERENCES assessment_attempt (id);
+ALTER TABLE assessment_participant_access ADD CONSTRAINT fk_assessment_participant_access_release FOREIGN KEY (public_release_id) REFERENCES assessment_public_release (id);
+ALTER TABLE assessment_participant_access ADD CONSTRAINT fk_assessment_participant_access_participant FOREIGN KEY (participant_id) REFERENCES assessment_participant (id);
+ALTER TABLE assessment_participant_access ADD CONSTRAINT fk_assessment_participant_access_code FOREIGN KEY (participation_code_id) REFERENCES assessment_participation_code (id);
 ALTER TABLE assessment_participant_session ADD CONSTRAINT fk_assessment_participant_session_participant FOREIGN KEY (participant_id) REFERENCES assessment_participant (id);
 ALTER TABLE assessment_question_bank_import ADD CONSTRAINT fk_assessment_question_bank_import_bank FOREIGN KEY (question_bank_id) REFERENCES assessment_question_bank (id);
 ALTER TABLE assessment_question_bank_import ADD CONSTRAINT fk_assessment_question_bank_import_confirmed FOREIGN KEY (confirmed_by) REFERENCES users (id);

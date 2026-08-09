@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.modules.assessment.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentVerifyRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentQrEntryRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentTimingRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentAttemptResponseRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
@@ -11,6 +12,7 @@ import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptAnsw
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAttemptEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentMetricSnapshotEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipantEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipantAccessEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipantSessionEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipationCodeEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentPublicReleaseEntity;
@@ -22,6 +24,7 @@ import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptAnsw
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentAttemptMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentMetricSnapshotMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipantMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipantAccessMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipantSessionMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipationCodeMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublicReleaseMapper;
@@ -29,6 +32,8 @@ import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublishMapp
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentQuestionMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentTimingEventMapper;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentJsonCodec;
+import com.huashi.eftransfer.app.modules.assessment.support.AssessmentClientIpNormalizer;
+import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantAccessCipher;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantCodeCodec;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantProfileCipher;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentOptionVO;
@@ -36,6 +41,7 @@ import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgress
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultQuestionVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptSubmitVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentDimensionMetricVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAiAnalysisVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentMetricSnapshotVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentReactionTimeMetricVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentAttemptVO;
@@ -51,6 +57,8 @@ import com.huashi.eftransfer.shared.enums.AssessmentSubmitReason;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,6 +87,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class PublicAssessmentService {
 
+    private static final Logger log = LoggerFactory.getLogger(PublicAssessmentService.class);
     private static final int VERIFY_LIMIT = 10;
     private static final Duration VERIFY_WINDOW = Duration.ofMinutes(10);
     private static final Duration MAX_SESSION_TTL = Duration.ofHours(12);
@@ -86,6 +95,7 @@ public class PublicAssessmentService {
     private final AssessmentPublicReleaseMapper publicReleaseMapper;
     private final AssessmentParticipationCodeMapper participationCodeMapper;
     private final AssessmentParticipantMapper participantMapper;
+    private final AssessmentParticipantAccessMapper participantAccessMapper;
     private final AssessmentParticipantSessionMapper participantSessionMapper;
     private final AssessmentPublishMapper publishMapper;
     private final AssessmentQuestionMapper questionMapper;
@@ -97,6 +107,7 @@ public class PublicAssessmentService {
     private final AssessmentParticipantCodeCodec codeCodec;
     private final AssessmentJsonCodec jsonCodec;
     private final AssessmentParticipantProfileCipher profileCipher;
+    private final AssessmentParticipantAccessCipher accessCipher;
     private final Duration configuredSessionTtl;
     private final AssessmentTimeoutProperties timeoutProperties;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -106,6 +117,7 @@ public class PublicAssessmentService {
             AssessmentPublicReleaseMapper publicReleaseMapper,
             AssessmentParticipationCodeMapper participationCodeMapper,
             AssessmentParticipantMapper participantMapper,
+            AssessmentParticipantAccessMapper participantAccessMapper,
             AssessmentParticipantSessionMapper participantSessionMapper,
             AssessmentPublishMapper publishMapper,
             AssessmentQuestionMapper questionMapper,
@@ -117,12 +129,14 @@ public class PublicAssessmentService {
             AssessmentParticipantCodeCodec codeCodec,
             AssessmentJsonCodec jsonCodec,
             AssessmentParticipantProfileCipher profileCipher,
+            AssessmentParticipantAccessCipher accessCipher,
             AssessmentTimeoutProperties timeoutProperties,
             @Value("${app.assessment.public-delivery.session-ttl:PT12H}") Duration configuredSessionTtl
     ) {
         this.publicReleaseMapper = publicReleaseMapper;
         this.participationCodeMapper = participationCodeMapper;
         this.participantMapper = participantMapper;
+        this.participantAccessMapper = participantAccessMapper;
         this.participantSessionMapper = participantSessionMapper;
         this.publishMapper = publishMapper;
         this.questionMapper = questionMapper;
@@ -134,6 +148,7 @@ public class PublicAssessmentService {
         this.codeCodec = codeCodec;
         this.jsonCodec = jsonCodec;
         this.profileCipher = profileCipher;
+        this.accessCipher = accessCipher;
         this.timeoutProperties = timeoutProperties;
         this.configuredSessionTtl = configuredSessionTtl == null || configuredSessionTtl.isNegative()
                 ? MAX_SESSION_TTL : configuredSessionTtl.compareTo(MAX_SESSION_TTL) > 0 ? MAX_SESSION_TTL : configuredSessionTtl;
@@ -144,7 +159,8 @@ public class PublicAssessmentService {
         return new PublicAssessmentMetadataVO(bundle.release().getReleaseCode(), bundle.publish().getPaperTitleSnapshot(),
                 bundle.publish().getPaperDescriptionSnapshot(), bundle.publish().getInstructionsText(),
                 bundle.publish().getDurationMinutes(), bundle.publish().getQuestionCountSnapshot(), bundle.release().getStatus(),
-                bundle.publish().getStartsAt(), bundle.publish().getDueAt());
+                bundle.publish().getStartsAt(), bundle.publish().getDueAt(),
+                Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()));
     }
 
     @Transactional
@@ -161,6 +177,9 @@ public class PublicAssessmentService {
         AssessmentParticipationCodeEntity participationCode = participationCodeMapper.selectByReleaseAndDigestForUpdate(
                 bundle.release().getId(), digest);
         if (participationCode == null) {
+            throw invalidCode();
+        }
+        if ("REVOKED".equals(participationCode.getStatus())) {
             throw invalidCode();
         }
         AssessmentParticipantEntity participant = participantMapper.selectOne(
@@ -197,17 +216,50 @@ public class PublicAssessmentService {
             participationCode.setStatus("IN_PROGRESS");
         }
         participationCodeMapper.updateById(participationCode);
+        recordAccess(bundle.release(), participant, participationCode, "PUBLIC_CODE", remoteAddress, now);
+        return issueSession(bundle, participant, attempt, resumed, now);
+    }
 
-        String token = newSessionToken();
-        LocalDateTime expiresAt = now.plus(configuredSessionTtl);
-        AssessmentParticipantSessionEntity session = new AssessmentParticipantSessionEntity();
-        session.setParticipantId(participant.getId());
-        session.setSessionTokenDigest(codeCodec.digestOpaque(token));
-        session.setExpiresAt(expiresAt);
-        session.setLastSeenAt(now);
-        participantSessionMapper.insert(session);
-        return new VerifiedSession(token, expiresAt, new PublicAssessmentSessionVO(true, resumed,
-                bundle.release().getReleaseCode(), toAttempt(bundle, attempt)));
+    @Transactional
+    public VerifiedSession enterByQr(String releaseCode, PublicAssessmentQrEntryRequest request, String remoteAddress) {
+        String normalizedIp = AssessmentClientIpNormalizer.normalize(remoteAddress);
+        if (normalizedIp == null) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR,
+                    "A valid client IP address is required for QR entry", 400);
+        }
+        enforceRateLimit("qr:" + normalizedIp);
+        ReleaseBundle bundle = requireRelease(releaseCode);
+        requireOpen(bundle.publish(), LocalDateTime.now());
+        if (!Boolean.TRUE.equals(bundle.release().getQrEntryEnabled())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "QR entry is not enabled for this release", 403);
+        }
+        String fingerprint = normalizeFingerprint(request.browserFingerprint());
+        String fingerprintDigest = codeCodec.digestOpaque("qr-fingerprint:" + fingerprint);
+        AssessmentParticipantEntity participant = selectQrParticipantForUpdate(bundle.publish().getId(), fingerprintDigest);
+        boolean resumed = participant != null;
+        if (participant == null) {
+            participant = new AssessmentParticipantEntity();
+            participant.setPublishId(bundle.publish().getId());
+            participant.setParticipantType("PUBLIC_QR");
+            participant.setBrowserFingerprintDigest(fingerprintDigest);
+            try {
+                participantMapper.insert(participant);
+            } catch (DataIntegrityViolationException exception) {
+                participant = selectQrParticipantForUpdate(bundle.publish().getId(), fingerprintDigest);
+                if (participant == null) throw exception;
+                resumed = true;
+            }
+        }
+        AssessmentAttemptEntity attempt = participant.getAttemptId() == null
+                ? null : attemptMapper.selectById(participant.getAttemptId());
+        if (attempt == null) {
+            attempt = createAttempt(bundle.publish(), participant);
+            participant.setAttemptId(attempt.getId());
+            participantMapper.updateById(participant);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        recordAccess(bundle.release(), participant, null, "PUBLIC_QR", normalizedIp, now);
+        return issueSession(bundle, participant, attempt, resumed, now);
     }
 
     @Transactional
@@ -332,6 +384,7 @@ public class PublicAssessmentService {
                         .eq(AssessmentAiAnalysisEntity::getAttemptId, attempt.getId())
                         .orderByDesc(AssessmentAiAnalysisEntity::getId)
                         .last("LIMIT 1"));
+        AssessmentAiAnalysisVO analysisPayload = parseAnalysisPayload(analysis);
         List<AssessmentAttemptResultQuestionVO> resultQuestions = answers.stream()
                 .map(this::toResultQuestion)
                 .toList();
@@ -340,7 +393,22 @@ public class PublicAssessmentService {
                 session.release().publish().getPaperTitleSnapshot(), attempt.getStatus(), answers.size(),
                 attempt.getAnsweredCount(), scoring.correctCount(), attempt.getObjectiveScore(), attempt.getTotalScore(),
                 attempt.getSubmittedAt(), true, metric, scoring.qualityFlags(),
-                analysis == null ? null : analysis.getStatus(), null, resultQuestions);
+                analysis == null ? null : analysis.getStatus(), analysisPayload, resultQuestions);
+    }
+
+    private AssessmentAiAnalysisVO parseAnalysisPayload(AssessmentAiAnalysisEntity analysis) {
+        if (analysis == null) return null;
+        String payload = "FALLBACK".equals(analysis.getStatus())
+                ? analysis.getRuleFallbackJson()
+                : analysis.getAnalysisJson();
+        if (payload == null || payload.isBlank()) return null;
+        try {
+            return jsonCodec.read(payload, AssessmentAiAnalysisVO.class);
+        } catch (RuntimeException exception) {
+            log.error("event=assessment_ai_analysis_parse_failed analysisId={} attemptId={} status={}",
+                    analysis.getId(), analysis.getAttemptId(), analysis.getStatus(), exception);
+            return null;
+        }
     }
 
     @Transactional
@@ -653,8 +721,8 @@ public class PublicAssessmentService {
         AssessmentAiAnalysisEntity analysis = new AssessmentAiAnalysisEntity();
         analysis.setAttemptId(attempt.getId());
         analysis.setMetricSnapshotId(snapshot.getId());
-        analysis.setPromptVersion("assessment-analysis/v1");
-        analysis.setIdempotencyKey(attempt.getId() + ":" + AssessmentScoringV1.VERSION + ":assessment-analysis/v1");
+        analysis.setPromptVersion(AssessmentAiAnalysisProcessor.PROMPT_VERSION);
+        analysis.setIdempotencyKey(attempt.getId() + ":" + AssessmentScoringV1.VERSION + ":" + AssessmentAiAnalysisProcessor.PROMPT_VERSION);
         analysis.setStatus("PENDING");
         analysis.setRetryCount(0);
         aiAnalysisMapper.insert(analysis);
@@ -821,8 +889,68 @@ public class PublicAssessmentService {
         }
     }
 
+    private AssessmentParticipantEntity selectQrParticipantForUpdate(Long publishId, String fingerprintDigest) {
+        return participantMapper.selectOne(Wrappers.<AssessmentParticipantEntity>lambdaQuery()
+                .eq(AssessmentParticipantEntity::getPublishId, publishId)
+                .eq(AssessmentParticipantEntity::getParticipantType, "PUBLIC_QR")
+                .eq(AssessmentParticipantEntity::getBrowserFingerprintDigest, fingerprintDigest)
+                .last("LIMIT 1 FOR UPDATE"));
+    }
+
+    private String normalizeFingerprint(String rawFingerprint) {
+        String fingerprint = rawFingerprint == null ? "" : rawFingerprint.trim();
+        if (fingerprint.length() < 16 || fingerprint.length() > 128
+                || !fingerprint.matches("^[A-Za-z0-9_-]+$")) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Browser fingerprint is invalid", 400);
+        }
+        return fingerprint;
+    }
+
+    private void recordAccess(
+            AssessmentPublicReleaseEntity release,
+            AssessmentParticipantEntity participant,
+            AssessmentParticipationCodeEntity participationCode,
+            String accessMode,
+            String remoteAddress,
+            LocalDateTime now
+    ) {
+        String normalizedIp = AssessmentClientIpNormalizer.normalize(remoteAddress);
+        String auditableIp = normalizedIp == null ? "unknown" : normalizedIp;
+        AssessmentParticipantAccessCipher.EncryptedValue encrypted = accessCipher.encrypt(auditableIp);
+        AssessmentParticipantAccessEntity access = new AssessmentParticipantAccessEntity();
+        access.setPublicReleaseId(release.getId());
+        access.setParticipantId(participant.getId());
+        access.setParticipationCodeId(participationCode == null ? null : participationCode.getId());
+        access.setAccessMode(accessMode);
+        access.setIpCiphertext(encrypted.ciphertext());
+        access.setIpIv(encrypted.iv());
+        access.setIpKeyVersion(encrypted.keyVersion());
+        access.setAccessedAt(now);
+        participantAccessMapper.insert(access);
+    }
+
+    private VerifiedSession issueSession(
+            ReleaseBundle bundle,
+            AssessmentParticipantEntity participant,
+            AssessmentAttemptEntity attempt,
+            boolean resumed,
+            LocalDateTime now
+    ) {
+        String token = newSessionToken();
+        LocalDateTime expiresAt = now.plus(configuredSessionTtl);
+        AssessmentParticipantSessionEntity session = new AssessmentParticipantSessionEntity();
+        session.setParticipantId(participant.getId());
+        session.setSessionTokenDigest(codeCodec.digestOpaque(token));
+        session.setExpiresAt(expiresAt);
+        session.setLastSeenAt(now);
+        participantSessionMapper.insert(session);
+        return new VerifiedSession(token, expiresAt, new PublicAssessmentSessionVO(true, resumed,
+                bundle.release().getReleaseCode(), toAttempt(bundle, attempt)));
+    }
+
     private BusinessException invalidCode() {
-        return new BusinessException(ResultCode.UNAUTHORIZED, "Participation code is invalid", 401);
+        return new BusinessException(ResultCode.PARTICIPATION_CODE_INVALID,
+                "Participation code is invalid or unavailable", 422);
     }
 
     private String newSessionToken() {

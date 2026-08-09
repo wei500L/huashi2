@@ -24,6 +24,7 @@ public enum ResultCode {
     VERSION_CONFLICT("VERSION_CONFLICT", "Resource version conflict"),
     SESSION_OUT_OF_SEQUENCE("SESSION_OUT_OF_SEQUENCE", "Session answer is out of sequence"),
     ANSWER_ALREADY_ACCEPTED("ANSWER_ALREADY_ACCEPTED", "Answer has already been accepted"),
+    PARTICIPATION_CODE_INVALID("PARTICIPATION_CODE_INVALID", "Participation code is invalid or unavailable"),
     RATE_LIMITED("RATE_LIMITED", "Too many requests"),
     AI_PROVIDER_UNAVAILABLE("AI_PROVIDER_UNAVAILABLE", "AI provider unavailable"),
     INTERNAL_ERROR("INTERNAL_ERROR", "Internal server error");

@@ -1,5 +1,5 @@
 import type { AxiosRequestConfig } from 'axios';
-import { apiDelete, apiDownload, apiGet, apiPost, apiPostKeepalive, apiPut, apiUpload } from './api';
+import { apiDelete, apiDownload, apiGet, apiPatch, apiPost, apiPostKeepalive, apiPut, apiUpload } from './api';
 import type {
   AddLexicalListItemsRequest,
   AddLexicalListItemsResultVO,
@@ -114,6 +114,8 @@ import type {
   AssessmentPublishRequest,
   AssessmentPublishSummaryVO,
   PublicAssessmentAttemptVO,
+  PublicAssessmentQrEntryRequest,
+  PublicAssessmentReleaseSummaryVO,
   PublicAssessmentMetadataVO,
   PublicAssessmentProgressVO,
   PublicAssessmentResultVO,
@@ -123,6 +125,9 @@ import type {
   PublicAssessmentSubmitVO,
   PublicAssessmentTimingRequest,
   PublicAssessmentVerifyRequest,
+  ParticipationCodeBatchCreatedVO,
+  ParticipationCodeItemVO,
+  ParticipationCodeRevokeResultVO,
   QuestionBankImportPreflightVO,
   QuestionBankImportReviewVO,
   ContentReviewResolutionRequest,
@@ -321,6 +326,34 @@ export const assessmentService = {
     apiPost<AssessmentPublishSummaryVO>(`/teacher/assessments/papers/${paperId}/publish`, payload),
   getTeacherPublish: (publishId: number, options?: RequestOptions) =>
     apiGet<AssessmentPublishDetailVO>(`/teacher/assessments/publishes/${publishId}`, options),
+  listPublicReleases: (options?: RequestOptions) =>
+    apiGet<PublicAssessmentReleaseSummaryVO[]>('/teacher/assessments/public-releases', options),
+  listParticipationCodes: (
+    publishId: number,
+    params: { pageNo?: number; pageSize?: number; status?: string; batchId?: string },
+    options?: RequestOptions
+  ) => apiGet<PageResult<ParticipationCodeItemVO>>(
+    `/teacher/assessments/publishes/${publishId}/participation-codes`,
+    { ...options, params }
+  ),
+  createParticipationCodeBatch: (publishId: number, count: number) =>
+    apiPost<ParticipationCodeBatchCreatedVO>(
+      `/teacher/assessments/publishes/${publishId}/participation-code-batches`,
+      { count }
+    ),
+  revokeParticipationCode: (publishId: number, codeId: number) =>
+    apiPost<ParticipationCodeRevokeResultVO>(
+      `/teacher/assessments/publishes/${publishId}/participation-codes/${codeId}/revoke`
+    ),
+  revokeParticipationCodeBatch: (publishId: number, batchId: string) =>
+    apiPost<ParticipationCodeRevokeResultVO>(
+      `/teacher/assessments/publishes/${publishId}/participation-code-batches/${encodeURIComponent(batchId)}/revoke-unused`
+    ),
+  updatePublicRelease: (publishId: number, qrEntryEnabled: boolean) =>
+    apiPatch<PublicAssessmentReleaseSummaryVO>(
+      `/teacher/assessments/publishes/${publishId}/public-release`,
+      { qrEntryEnabled }
+    ),
   getTeacherAttemptResult: (attemptId: number, options?: RequestOptions) =>
     apiGet<TeacherAssessmentAttemptResultVO>(`/teacher/assessments/attempts/${attemptId}/result`, options),
   listStudentAssessments: (options?: RequestOptions) =>
@@ -357,6 +390,8 @@ export const publicAssessmentService = {
     apiGet<PublicAssessmentMetadataVO>(publicAssessmentPath(releaseCode), publicAssessmentOptions(options)),
   verifyCode: (releaseCode: string, payload: PublicAssessmentVerifyRequest) =>
     apiPost<PublicAssessmentSessionVO>(`${publicAssessmentPath(releaseCode)}/verify`, payload, publicAssessmentOptions()),
+  enterByQr: (releaseCode: string, payload: PublicAssessmentQrEntryRequest) =>
+    apiPost<PublicAssessmentSessionVO>(`${publicAssessmentPath(releaseCode)}/qr-entry`, payload, publicAssessmentOptions()),
   getAttempt: (releaseCode: string, options?: RequestOptions) =>
     apiGet<PublicAssessmentAttemptVO>(`${publicAssessmentPath(releaseCode)}/attempt`, publicAssessmentOptions(options)),
   saveResponses: (releaseCode: string, payload: PublicAssessmentSaveRequest) =>

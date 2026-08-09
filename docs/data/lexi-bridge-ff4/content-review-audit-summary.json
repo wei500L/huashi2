@@ -1,0 +1,12 @@
+{
+  "source_page_coverage": {
+    "KIRK_GREENE_FALSE_FRIENDS": 203,
+    "TEM4_CORE_VOCABULARY": 385
+  },
+  "intersection_candidate_decisions": 456,
+  "published_wordbook_candidates": 445,
+  "merged_normalized_forms": 11,
+  "question_count": 445,
+  "database_import_status": "NOT_ATTEMPTED_UNSAFE_BOUNDARY",
+  "publication_status": "NOT_PUBLISHED"
+}

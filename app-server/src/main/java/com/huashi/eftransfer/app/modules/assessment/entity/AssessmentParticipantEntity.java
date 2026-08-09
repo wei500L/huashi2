@@ -13,6 +13,7 @@ public class AssessmentParticipantEntity extends BaseAuditEntity {
     @TableField("user_id") private Long userId;
     @TableField("participation_code_id") private Long participationCodeId;
     @TableField("attempt_id") private Long attemptId;
+    @TableField("browser_fingerprint_digest") private String browserFingerprintDigest;
     @TableField("sensitive_profile_ciphertext") private String sensitiveProfileCiphertext;
     @TableField("sensitive_profile_iv") private String sensitiveProfileIv;
     @TableField("sensitive_profile_key_version") private String sensitiveProfileKeyVersion;
@@ -28,6 +29,8 @@ public class AssessmentParticipantEntity extends BaseAuditEntity {
     public void setParticipationCodeId(Long value) { participationCodeId = value; }
     public Long getAttemptId() { return attemptId; }
     public void setAttemptId(Long value) { attemptId = value; }
+    public String getBrowserFingerprintDigest() { return browserFingerprintDigest; }
+    public void setBrowserFingerprintDigest(String value) { browserFingerprintDigest = value; }
     public String getSensitiveProfileCiphertext() { return sensitiveProfileCiphertext; }
     public void setSensitiveProfileCiphertext(String value) { sensitiveProfileCiphertext = value; }
     public String getSensitiveProfileIv() { return sensitiveProfileIv; }

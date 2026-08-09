@@ -1811,6 +1811,7 @@ public class AssessmentService {
         release.setReleaseCode(releaseCode);
         release.setCodeCount(codeCount);
         release.setSessionTtlHours(12);
+        release.setQrEntryEnabled(false);
         release.setStatus(AssessmentPublishStatus.PUBLISHED.name());
         assessmentPublicReleaseMapper.insert(release);
 
@@ -1824,6 +1825,7 @@ public class AssessmentService {
             AssessmentParticipationCodeEntity entity = new AssessmentParticipationCodeEntity();
             entity.setPublicReleaseId(release.getId());
             entity.setCodeDigest(assessmentParticipantCodeCodec.digest(plainCode));
+            entity.setCodeHint(plainCode.substring(plainCode.length() - 4));
             entity.setStatus("UNUSED");
             entity.setExportBatchId(exportBatchId);
             entity.setExportedAt(exportedAt);
