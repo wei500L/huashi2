@@ -243,6 +243,8 @@ CREATE TABLE assessment_attempt_answer (
   question_score int NOT NULL DEFAULT '0',
   response_json longtext,
   justification_text varchar(2000) DEFAULT NULL,
+  spelling_wrong_attempt_count int NOT NULL DEFAULT 0,
+  spelling_hint_shown_at timestamp NULL DEFAULT NULL,
   first_presented_at timestamp NULL DEFAULT NULL,
   first_answered_at timestamp NULL DEFAULT NULL,
   effective_duration_ms bigint NOT NULL DEFAULT 0,

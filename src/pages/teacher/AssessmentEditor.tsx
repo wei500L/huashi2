@@ -77,12 +77,14 @@ QUESTION_TYPE_OPTIONS.unshift(
   { value: 'NUMBER', label: '数字填写' },
 );
 QUESTION_TYPE_OPTIONS.push({ value: 'TRUE_FALSE_WITH_JUSTIFICATION', label: '判断并说明理由' });
+QUESTION_TYPE_OPTIONS.push({ value: 'TRUE_FALSE', label: '判断题' });
 
 const CHOICE_QUESTION_TYPES = new Set<AssessmentQuestionType>([
   'INFORMED_CONSENT',
   'SINGLE_CHOICE',
   'MULTIPLE_CHOICE',
   'TRUE_FALSE_WITH_JUSTIFICATION',
+  'TRUE_FALSE',
 ]);
 
 function isChoiceQuestionType(questionType: AssessmentQuestionType) {
@@ -571,7 +573,8 @@ const TeacherAssessmentEditorPage: React.FC = () => {
   const renderQuestionEditor = (question: QuestionDraft, index: number) => {
     const isSingleChoice = question.questionType === 'SINGLE_CHOICE'
       || question.questionType === 'INFORMED_CONSENT'
-      || question.questionType === 'TRUE_FALSE_WITH_JUSTIFICATION';
+      || question.questionType === 'TRUE_FALSE_WITH_JUSTIFICATION'
+      || question.questionType === 'TRUE_FALSE';
     const isChoiceQuestion = isChoiceQuestionType(question.questionType);
     const isFillBlank = question.questionType === 'FILL_BLANK';
 

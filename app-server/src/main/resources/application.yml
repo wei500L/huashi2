@@ -111,6 +111,7 @@ app:
       processing-timeout: ${APP_ASSESSMENT_AI_ANALYSIS_PROCESSING_TIMEOUT:PT5M}
     seed:
       lexibridge-enabled: ${APP_ASSESSMENT_LEXIBRIDGE_SEED_ENABLED:true}
+      lexibridge-v3-enabled: ${APP_ASSESSMENT_LEXIBRIDGE_V3_SEED_ENABLED:false}
     timeout:
       enabled: ${APP_ASSESSMENT_TIMEOUT_ENABLED:true}
       poll-interval: ${APP_ASSESSMENT_TIMEOUT_POLL_INTERVAL:PT30S}

@@ -1,0 +1,17 @@
+{
+  "packageCode": "LEXIBRIDGE_RESEARCH_V3",
+  "status": "PASS",
+  "scoredItems": 229,
+  "counts": {
+    "FF4_WORD_MEANING": 27,
+    "FF4_SENTENCE_SELECTION": 1,
+    "FF4_TRUE_FALSE": 27,
+    "FF4_SPELLING": 174
+  },
+  "uniqueTargetWords": 229,
+  "productionBankItems": 229,
+  "completeProductionCoverage": true,
+  "issueCount": 0,
+  "issues": [],
+  "note": "结构、来源、选项、答案与生产审查状态均已通过自动预检。"
+}

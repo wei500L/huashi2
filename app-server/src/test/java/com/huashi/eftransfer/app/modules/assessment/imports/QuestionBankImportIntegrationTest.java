@@ -22,6 +22,12 @@ class QuestionBankImportIntegrationTest extends AbstractWebIntegrationTest {
     @Test
     void preflightsAndTransactionallyCommitsJsonPackage() throws Exception {
         String token = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long beforeVersions = count("assessment_question_version");
+        long beforeQuestionnaires = count("assessment_questionnaire");
+        long beforePapers = count("assessment_paper");
+        long beforeQuestions = count("assessment_question");
+        long beforeSections = count("assessment_questionnaire_section");
+        long beforeItems = count("assessment_questionnaire_item");
 
         MvcResult preflight = mockMvc.perform(post("/api/teacher/assessments/question-bank/imports/preflight")
                         .with(bearer(token))
@@ -39,14 +45,13 @@ class QuestionBankImportIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("COMMITTED"))
                 .andExpect(jsonPath("$.data.paperId").isNumber());
 
-        assertThat(count("assessment_question_bank")).isEqualTo(1);
-        assertThat(count("assessment_question_version")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire_version")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire_section")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire_item")).isEqualTo(1);
-        assertThat(count("assessment_paper")).isEqualTo(1);
-        assertThat(count("assessment_question")).isEqualTo(1);
+        assertThat(count("assessment_question_version")).isEqualTo(beforeVersions + 1);
+        assertThat(count("assessment_questionnaire")).isEqualTo(beforeQuestionnaires + 1);
+        assertThat(count("assessment_questionnaire_version")).isEqualTo(beforeQuestionnaires + 1);
+        assertThat(count("assessment_questionnaire_section")).isEqualTo(beforeSections + 1);
+        assertThat(count("assessment_questionnaire_item")).isEqualTo(beforeItems + 1);
+        assertThat(count("assessment_paper")).isEqualTo(beforePapers + 1);
+        assertThat(count("assessment_question")).isEqualTo(beforeQuestions + 1);
     }
 
     @Test
@@ -105,9 +110,9 @@ class QuestionBankImportIntegrationTest extends AbstractWebIntegrationTest {
         return """
                 {
                   "Questionnaire": {
-                    "code": "LEXIBRIDGE_RESEARCH_V1",
-                    "title": "Lexi-Bridge",
-                    "description": "Research questionnaire",
+                    "code": "LEXIBRIDGE_IMPORT_TEST",
+                    "title": "Lexi-Bridge Import Test",
+                    "description": "Research questionnaire import test",
                     "durationMinutes": 40,
                     "scoringVersion": "SCORING_V1",
                     "aiPromptVersion": "assessment-analysis/v1"

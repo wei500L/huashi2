@@ -987,7 +987,8 @@ public class AssessmentService {
                 continue;
             }
 
-            if (questionType == AssessmentQuestionType.FILL_BLANK) {
+            if (questionType == AssessmentQuestionType.FILL_BLANK
+                    || questionType == AssessmentQuestionType.SPELLING) {
                 List<String> correctAnswers = normalizeFillBlankAnswers(rawCorrectAnswers);
                 normalizedQuestions.add(new NormalizedQuestion(
                         questionType, stemText, promptText, List.of(), correctAnswers, explanationText, question.score(),
@@ -1012,12 +1013,14 @@ public class AssessmentService {
             boolean scoredQuestion = question.score() != null && question.score() > 0;
             if (scoredQuestion && (questionType == AssessmentQuestionType.SINGLE_CHOICE
                     || questionType == AssessmentQuestionType.INFORMED_CONSENT
+                    || questionType == AssessmentQuestionType.TRUE_FALSE
                     || questionType == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION)
                     && correctAnswers.size() != 1) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question must contain exactly one correct answer", 400);
             }
             if (!scoredQuestion && (questionType == AssessmentQuestionType.SINGLE_CHOICE
                     || questionType == AssessmentQuestionType.INFORMED_CONSENT
+                    || questionType == AssessmentQuestionType.TRUE_FALSE
                     || questionType == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION)
                     && correctAnswers.size() > 1) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question cannot contain multiple correct answers", 400);
@@ -1151,6 +1154,7 @@ public class AssessmentService {
         }
         if ((questionType == AssessmentQuestionType.SINGLE_CHOICE
                 || questionType == AssessmentQuestionType.INFORMED_CONSENT
+                || questionType == AssessmentQuestionType.TRUE_FALSE
                 || questionType == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION)
                 && values.size() > 1) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "Single choice question accepts only one response", 400);

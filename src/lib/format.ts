@@ -134,6 +134,7 @@ const COPY: Record<
       MULTIPLE_CHOICE: '多选题',
       FILL_BLANK: '填空题',
       TRUE_FALSE_WITH_JUSTIFICATION: '判断并说明理由',
+      TRUE_FALSE: '判断题',
     },
     lexicalImportBatchStatusLabels: {
       PARSING: '解析中',
@@ -292,6 +293,7 @@ const COPY: Record<
       MULTIPLE_CHOICE: 'Multiple choice',
       FILL_BLANK: 'Fill in the blank',
       TRUE_FALSE_WITH_JUSTIFICATION: 'True/false with justification',
+      TRUE_FALSE: 'True/false',
     },
     lexicalImportBatchStatusLabels: {
       PARSING: 'Parsing',

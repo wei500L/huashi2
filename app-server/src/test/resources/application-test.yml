@@ -28,15 +28,18 @@ spring:
 app:
   redis:
     redisson-enabled: false
+  assessment:
+    seed:
+      lexibridge-enabled: true
+      lexibridge-v3-enabled: false
+    ai-analysis:
+      enabled: false
   demo-data:
     enabled: true
   events:
     rabbit-publish-enabled: false
   analytics:
     compensation:
-      enabled: false
-  assessment:
-    ai-analysis:
       enabled: false
   ops:
     config:

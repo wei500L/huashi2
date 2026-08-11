@@ -45,6 +45,12 @@ public class AssessmentAttemptAnswerEntity extends BaseAuditEntity {
     @TableField("justification_text")
     private String justificationText;
 
+    @TableField("spelling_wrong_attempt_count")
+    private Integer spellingWrongAttemptCount;
+
+    @TableField("spelling_hint_shown_at")
+    private LocalDateTime spellingHintShownAt;
+
     @TableField("first_presented_at")
     private LocalDateTime firstPresentedAt;
 
@@ -167,6 +173,10 @@ public class AssessmentAttemptAnswerEntity extends BaseAuditEntity {
     public void setEffectiveDurationMs(Long effectiveDurationMs) { this.effectiveDurationMs = effectiveDurationMs; }
     public Integer getResponseChangeCount() { return responseChangeCount; }
     public void setResponseChangeCount(Integer responseChangeCount) { this.responseChangeCount = responseChangeCount; }
+    public Integer getSpellingWrongAttemptCount() { return spellingWrongAttemptCount; }
+    public void setSpellingWrongAttemptCount(Integer spellingWrongAttemptCount) { this.spellingWrongAttemptCount = spellingWrongAttemptCount; }
+    public LocalDateTime getSpellingHintShownAt() { return spellingHintShownAt; }
+    public void setSpellingHintShownAt(LocalDateTime spellingHintShownAt) { this.spellingHintShownAt = spellingHintShownAt; }
 
     public Boolean getAnswered() {
         return answered;

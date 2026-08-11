@@ -21,7 +21,7 @@ export type AssessmentPaperStatus = typeof AssessmentPaperStatusValues[number];
 export const AssessmentPublishStatusValues = ["PUBLISHED"] as const;
 export type AssessmentPublishStatus = typeof AssessmentPublishStatusValues[number];
 
-export const AssessmentQuestionTypeValues = ["INSTRUCTION","INFORMED_CONSENT","SHORT_TEXT","NUMBER","SINGLE_CHOICE","MULTIPLE_CHOICE","FILL_BLANK","TRUE_FALSE_WITH_JUSTIFICATION"] as const;
+export const AssessmentQuestionTypeValues = ["INSTRUCTION","INFORMED_CONSENT","SHORT_TEXT","NUMBER","SINGLE_CHOICE","MULTIPLE_CHOICE","FILL_BLANK","TRUE_FALSE","TRUE_FALSE_WITH_JUSTIFICATION","SPELLING"] as const;
 export type AssessmentQuestionType = typeof AssessmentQuestionTypeValues[number];
 
 export const AssessmentResultReleasePolicyValues = ["IMMEDIATE","AFTER_DUE"] as const;
@@ -30,7 +30,7 @@ export type AssessmentResultReleasePolicy = typeof AssessmentResultReleasePolicy
 export const AssessmentSubmitReasonValues = ["MANUAL","TIMEOUT","SCHEDULER"] as const;
 export type AssessmentSubmitReason = typeof AssessmentSubmitReasonValues[number];
 
-export const ConstructCodeValues = ["LEXICAL_TRANSFER","SEMANTIC_DISCRIMINATION","CONTEXT_REPAIR"] as const;
+export const ConstructCodeValues = ["LEXICAL_TRANSFER","SEMANTIC_DISCRIMINATION","CONTEXT_REPAIR","FF4_WORD_MEANING","FF4_SENTENCE_SYNONYM","FF4_TRUE_FALSE_TRANSFER","FF4_SPELLING"] as const;
 export type ConstructCode = typeof ConstructCodeValues[number];
 
 export const ContextLevelValues = ["WORD","PHRASE","SENTENCE","CLOZE","READING"] as const;
@@ -69,7 +69,7 @@ export type LexicalPairType = typeof LexicalPairTypeValues[number];
 export const QuestionBankImportStatusValues = ["UPLOADED","PREFLIGHT_FAILED","REVIEW_REQUIRED","READY","COMMITTED"] as const;
 export type QuestionBankImportStatus = typeof QuestionBankImportStatusValues[number];
 
-export const ResultCodeValues = ["SUCCESS","BAD_REQUEST","UNAUTHORIZED","FORBIDDEN","NOT_FOUND","VALIDATION_ERROR","CONFLICT","INVALID_CREDENTIALS","CURRENT_PASSWORD_INCORRECT","ACCOUNT_DISABLED","ACCOUNT_LOCKED","TOKEN_INVALID","TOKEN_EXPIRED","REGISTRATION_CONTEXT_INVALID","REGISTRATION_CONTEXT_BUSY","ACTIVE_SESSION_EXISTS","ASSESSMENT_NOT_STARTED","ASSESSMENT_CLOSED","ATTEMPT_SUBMITTED","RESULT_NOT_RELEASED","VERSION_CONFLICT","SESSION_OUT_OF_SEQUENCE","ANSWER_ALREADY_ACCEPTED","RATE_LIMITED","AI_PROVIDER_UNAVAILABLE","INTERNAL_ERROR"] as const;
+export const ResultCodeValues = ["SUCCESS","BAD_REQUEST","UNAUTHORIZED","FORBIDDEN","NOT_FOUND","VALIDATION_ERROR","CONFLICT","INVALID_CREDENTIALS","CURRENT_PASSWORD_INCORRECT","ACCOUNT_DISABLED","ACCOUNT_LOCKED","TOKEN_INVALID","TOKEN_EXPIRED","REGISTRATION_CONTEXT_INVALID","REGISTRATION_CONTEXT_BUSY","ACTIVE_SESSION_EXISTS","ASSESSMENT_NOT_STARTED","ASSESSMENT_CLOSED","ATTEMPT_SUBMITTED","RESULT_NOT_RELEASED","VERSION_CONFLICT","SESSION_OUT_OF_SEQUENCE","ANSWER_ALREADY_ACCEPTED","PARTICIPATION_CODE_INVALID","RATE_LIMITED","AI_PROVIDER_UNAVAILABLE","INTERNAL_ERROR"] as const;
 export type ResultCode = typeof ResultCodeValues[number];
 
 export const ReviewScheduleStatusValues = ["PENDING","COMPLETED","SKIPPED"] as const;

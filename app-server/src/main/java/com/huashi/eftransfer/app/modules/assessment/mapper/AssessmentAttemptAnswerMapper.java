@@ -26,6 +26,8 @@ public interface AssessmentAttemptAnswerMapper extends BaseMapper<AssessmentAtte
             UPDATE assessment_attempt_answer
             SET response_json = #{answer.responseJson},
                 justification_text = #{answer.justificationText},
+                spelling_wrong_attempt_count = #{answer.spellingWrongAttemptCount},
+                spelling_hint_shown_at = #{answer.spellingHintShownAt},
                 first_answered_at = #{answer.firstAnsweredAt},
                 response_change_count = COALESCE(#{answer.responseChangeCount}, response_change_count),
                 answered = #{answer.answered},
