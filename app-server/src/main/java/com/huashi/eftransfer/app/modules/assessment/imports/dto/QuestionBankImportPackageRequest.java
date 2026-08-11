@@ -58,8 +58,31 @@ public record QuestionBankImportPackageRequest(
             String contextLevel,
             String constructCode,
             String targetWord,
-            String displayConditionJson
+            String displayConditionJson,
+            String presentationJson
     ) {
+        public ItemRow(
+                String itemCode,
+                String sectionCode,
+                String questionType,
+                String stemText,
+                String promptText,
+                List<String> correctAnswers,
+                String explanationText,
+                boolean requiredAnswer,
+                boolean scored,
+                BigDecimal weight,
+                String transferCategory,
+                String contextLevel,
+                String constructCode,
+                String targetWord,
+                String displayConditionJson
+        ) {
+            this(itemCode, sectionCode, questionType, stemText, promptText, correctAnswers, explanationText,
+                    requiredAnswer, scored, weight, transferCategory, contextLevel, constructCode, targetWord,
+                    displayConditionJson, null);
+        }
+
         public ItemRow {
             correctAnswers = correctAnswers == null ? List.of() : List.copyOf(correctAnswers);
             weight = weight == null ? BigDecimal.ONE : weight;

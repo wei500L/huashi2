@@ -18,6 +18,7 @@ public record PublicAssessmentAttemptVO(
         LocalDateTime lastSavedAt,
         Long version,
         LocalDateTime serverTime,
+        Long activeElapsedMs,
         List<PublicAssessmentQuestionVO> questions
 ) {
 }

@@ -63,6 +63,61 @@ class QuestionBankImportPreflightValidatorTest {
                 .contains("STEM_DIFFERENCE", "EXPLANATION_DIFFERENCE", "SUSPECTED_MULTIPLE_ANSWERS");
     }
 
+    @Test
+    void acceptsEarlierFieldConditionsAndUnambiguousStructuredPresentation() {
+        QuestionBankImportPackageRequest request = packageWithItems(List.of(
+                new QuestionBankImportPackageRequest.ItemRow(
+                        "PROFILE-BRANCH", "S1", "SINGLE_CHOICE", "Branch", null, List.of(), null,
+                        true, false, BigDecimal.ONE, null, null, null, null, null, null),
+                new QuestionBankImportPackageRequest.ItemRow(
+                        "Q1", "S1", "SINGLE_CHOICE", "un problème important", null, List.of("A"), "Explanation",
+                        true, true, BigDecimal.ONE, "COGNATE", "WORD", "LEXICAL_TRANSFER", "important",
+                        "{\"fieldCode\":\"PROFILE-BRANCH\",\"operator\":\"EQ\",\"value\":\"A\"}",
+                        "{\"emphasis\":[{\"text\":\"important\",\"bold\":true,\"underline\":true}]}")),
+                List.of(
+                        new QuestionBankImportPackageRequest.OptionRow("PROFILE-BRANCH", "A", "A", false, null),
+                        new QuestionBankImportPackageRequest.OptionRow("Q1", "A", "Alpha", true, null)));
+
+        QuestionBankImportPreflightValidator.Result result = validator.validate(request, Map.of());
+
+        assertThat(result.status()).isEqualTo("READY");
+        assertThat(result.issues()).isEmpty();
+    }
+
+    @Test
+    void rejectsForwardConditionsAndAmbiguousPresentationTargets() {
+        QuestionBankImportPackageRequest request = packageWithItems(List.of(
+                new QuestionBankImportPackageRequest.ItemRow(
+                        "Q1", "S1", "SINGLE_CHOICE", "important puis important", null, List.of("A"), "Explanation",
+                        true, true, BigDecimal.ONE, "COGNATE", "WORD", "LEXICAL_TRANSFER", "important",
+                        "{\"fieldCode\":\"LATER-FIELD\",\"operator\":\"EQ\",\"value\":\"A\"}",
+                        "{\"emphasis\":[{\"text\":\"important\",\"bold\":true,\"underline\":true}]}"),
+                new QuestionBankImportPackageRequest.ItemRow(
+                        "LATER-FIELD", "S1", "SHORT_TEXT", "Later", null, List.of(), null,
+                        false, false, BigDecimal.ONE, null, null, null, null, null, null)),
+                List.of(new QuestionBankImportPackageRequest.OptionRow("Q1", "A", "Alpha", true, null)));
+
+        QuestionBankImportPreflightValidator.Result result = validator.validate(request, Map.of());
+
+        assertThat(result.status()).isEqualTo("PREFLIGHT_FAILED");
+        assertThat(result.issues()).extracting(QuestionBankImportPreflightValidator.Issue::code)
+                .contains("INVALID_DISPLAY_CONDITION_REFERENCE", "PRESENTATION_TARGET_AMBIGUOUS");
+    }
+
+    private static QuestionBankImportPackageRequest packageWithItems(
+            List<QuestionBankImportPackageRequest.ItemRow> items,
+            List<QuestionBankImportPackageRequest.OptionRow> options
+    ) {
+        return new QuestionBankImportPackageRequest(
+                new QuestionBankImportPackageRequest.QuestionnaireRow(
+                        "LEXIBRIDGE_RESEARCH_V2", "Lexi-Bridge V2", "Research questionnaire", 40,
+                        "SCORING_V1", "assessment-analysis/v2"),
+                List.of(new QuestionBankImportPackageRequest.SectionRow(
+                        "S1", "Vocabulary", null, null, 1, true)),
+                items,
+                options);
+    }
+
     static QuestionBankImportPackageRequest validPackage() {
         return new QuestionBankImportPackageRequest(
                 new QuestionBankImportPackageRequest.QuestionnaireRow(

@@ -2316,22 +2316,55 @@ export interface PublicAssessmentMetadataVO {
   startsAt?: string | null;
   dueAt?: string | null;
   qrEntryEnabled: boolean;
+  profileFields: PublicAssessmentProfileFieldVO[];
 }
 
 export interface PublicAssessmentVerifyRequest {
   participationCode: string;
-  basicInfo?: Record<string, string | number | boolean | null>;
+}
+
+export interface PublicAssessmentDisplayConditionVO {
+  fieldCode: string;
+  operator: 'EQ';
+  value: string;
+}
+
+export interface PublicAssessmentProfileFieldVO {
+  itemCode: string;
+  questionType: ResearchQuestionType;
+  label: string;
+  promptText?: string | null;
+  options: AssessmentOptionVO[];
+  required: boolean;
+  displayCondition?: PublicAssessmentDisplayConditionVO | null;
+}
+
+export interface PublicAssessmentProfileRequest {
+  consentAccepted: boolean;
+  values: Record<string, string | number | boolean | null>;
+}
+
+export interface PublicAssessmentQuestionPresentationVO {
+  emphasis: Array<{
+    text: string;
+    bold: boolean;
+    underline: boolean;
+    occurrence?: number | null;
+  }>;
 }
 
 export interface PublicAssessmentQuestionVO {
   questionId: number | string;
   questionOrder: number;
   questionType: ResearchQuestionType;
+  itemCode?: string | null;
   sectionCode?: string | null;
   sectionTitle?: string | null;
+  sectionInstruction?: string | null;
   sharedMaterial?: string | null;
   stemText: string;
   promptText?: string | null;
+  presentation?: PublicAssessmentQuestionPresentationVO | null;
   options: AssessmentOptionVO[];
   required?: boolean;
   justificationRequired?: boolean;
@@ -2354,6 +2387,7 @@ export interface PublicAssessmentAttemptVO {
   lastSavedAt?: string | null;
   version: number;
   serverTime: string;
+  activeElapsedMs: number;
   questions: PublicAssessmentQuestionVO[];
 }
 
@@ -2361,7 +2395,9 @@ export interface PublicAssessmentSessionVO {
   verified: boolean;
   resumed: boolean;
   releaseCode: string;
-  attempt: PublicAssessmentAttemptVO;
+  profileRequired: boolean;
+  profileFields: PublicAssessmentProfileFieldVO[];
+  attempt?: PublicAssessmentAttemptVO | null;
 }
 
 export type PublicAssessmentResponseRequest = AssessmentAttemptResponseRequest;

@@ -271,7 +271,7 @@ export async function apiPostKeepalive<T>(url: string, data?: unknown): Promise<
     response = await fetch(resolveRequestUrl(url), {
       method: 'POST',
       keepalive: true,
-      credentials: 'same-origin',
+      credentials: 'include',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',

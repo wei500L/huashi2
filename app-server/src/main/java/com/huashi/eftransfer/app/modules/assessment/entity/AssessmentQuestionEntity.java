@@ -64,6 +64,9 @@ public class AssessmentQuestionEntity extends BaseAuditEntity {
     @TableField("display_condition_json")
     private String displayConditionJson;
 
+    @TableField("presentation_json")
+    private String presentationJson;
+
     public Long getPaperId() {
         return paperId;
     }
@@ -156,4 +159,6 @@ public class AssessmentQuestionEntity extends BaseAuditEntity {
     public void setOptionExplanationsJson(String optionExplanationsJson) { this.optionExplanationsJson = optionExplanationsJson; }
     public String getDisplayConditionJson() { return displayConditionJson; }
     public void setDisplayConditionJson(String displayConditionJson) { this.displayConditionJson = displayConditionJson; }
+    public String getPresentationJson() { return presentationJson; }
+    public void setPresentationJson(String presentationJson) { this.presentationJson = presentationJson; }
 }

@@ -25,6 +25,7 @@ public class QuestionVersionEntity extends BaseAuditEntity {
     @TableField("construct_code") private String constructCode;
     @TableField("target_word") private String targetWord;
     @TableField("display_condition_json") private String displayConditionJson;
+    @TableField("presentation_json") private String presentationJson;
     @TableField("source_reference") private String sourceReference;
     @TableField("content_hash") private String contentHash;
 
@@ -62,6 +63,8 @@ public class QuestionVersionEntity extends BaseAuditEntity {
     public void setTargetWord(String value) { this.targetWord = value; }
     public String getDisplayConditionJson() { return displayConditionJson; }
     public void setDisplayConditionJson(String value) { this.displayConditionJson = value; }
+    public String getPresentationJson() { return presentationJson; }
+    public void setPresentationJson(String value) { this.presentationJson = value; }
     public String getSourceReference() { return sourceReference; }
     public void setSourceReference(String value) { this.sourceReference = value; }
     public String getContentHash() { return contentHash; }

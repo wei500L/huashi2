@@ -117,6 +117,7 @@ import type {
   PublicAssessmentQrEntryRequest,
   PublicAssessmentReleaseSummaryVO,
   PublicAssessmentMetadataVO,
+  PublicAssessmentProfileRequest,
   PublicAssessmentProgressVO,
   PublicAssessmentResultVO,
   PublicAssessmentSaveRequest,
@@ -392,12 +393,16 @@ export const publicAssessmentService = {
     apiPost<PublicAssessmentSessionVO>(`${publicAssessmentPath(releaseCode)}/verify`, payload, publicAssessmentOptions()),
   enterByQr: (releaseCode: string, payload: PublicAssessmentQrEntryRequest) =>
     apiPost<PublicAssessmentSessionVO>(`${publicAssessmentPath(releaseCode)}/qr-entry`, payload, publicAssessmentOptions()),
+  completeProfile: (releaseCode: string, payload: PublicAssessmentProfileRequest) =>
+    apiPost<PublicAssessmentAttemptVO>(`${publicAssessmentPath(releaseCode)}/profile`, payload, publicAssessmentOptions()),
   getAttempt: (releaseCode: string, options?: RequestOptions) =>
     apiGet<PublicAssessmentAttemptVO>(`${publicAssessmentPath(releaseCode)}/attempt`, publicAssessmentOptions(options)),
   saveResponses: (releaseCode: string, payload: PublicAssessmentSaveRequest) =>
     apiPost<PublicAssessmentProgressVO>(`${publicAssessmentPath(releaseCode)}/responses`, payload, publicAssessmentOptions()),
   recordTiming: (releaseCode: string, payload: PublicAssessmentTimingRequest) =>
     apiPost<void>(`${publicAssessmentPath(releaseCode)}/timing`, payload, publicAssessmentOptions()),
+  recordTimingKeepalive: (releaseCode: string, payload: PublicAssessmentTimingRequest) =>
+    apiPostKeepalive<void>(`${publicAssessmentPath(releaseCode)}/timing`, payload),
   submit: (releaseCode: string, payload: PublicAssessmentSubmitRequest) =>
     apiPost<PublicAssessmentSubmitVO>(`${publicAssessmentPath(releaseCode)}/submit`, payload, publicAssessmentOptions()),
   getResult: (releaseCode: string, options?: RequestOptions) =>

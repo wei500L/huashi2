@@ -39,14 +39,14 @@ class QuestionBankImportIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("COMMITTED"))
                 .andExpect(jsonPath("$.data.paperId").isNumber());
 
-        assertThat(count("assessment_question_bank")).isEqualTo(1);
-        assertThat(count("assessment_question_version")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire_version")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire_section")).isEqualTo(1);
-        assertThat(count("assessment_questionnaire_item")).isEqualTo(1);
-        assertThat(count("assessment_paper")).isEqualTo(1);
-        assertThat(count("assessment_question")).isEqualTo(1);
+        assertThat(countWhere("assessment_question_bank", "bank_code = 'LEXIBRIDGE_SHARED'")).isEqualTo(1);
+        assertThat(countWhere("assessment_question_version", "question_code = 'Q1'")).isEqualTo(1);
+        assertThat(countWhere("assessment_questionnaire", "questionnaire_code = 'QUESTION_BANK_IMPORT_TEST_V1'")).isEqualTo(1);
+        assertThat(countWhere("assessment_questionnaire_version", "source_package_code = 'QUESTION_BANK_IMPORT_TEST_V1'")).isEqualTo(1);
+        assertThat(countWhere("assessment_questionnaire_section", "section_code = 'S1' AND questionnaire_version_id IN (SELECT id FROM assessment_questionnaire_version WHERE source_package_code = 'QUESTION_BANK_IMPORT_TEST_V1')")).isEqualTo(1);
+        assertThat(countWhere("assessment_questionnaire_item", "item_code = 'Q1' AND questionnaire_version_id IN (SELECT id FROM assessment_questionnaire_version WHERE source_package_code = 'QUESTION_BANK_IMPORT_TEST_V1')")).isEqualTo(1);
+        assertThat(countWhere("assessment_paper", "paper_code = 'QUESTION_BANK_IMPORT_TEST_V1_V1'")).isEqualTo(1);
+        assertThat(countWhere("assessment_question", "paper_id IN (SELECT id FROM assessment_paper WHERE paper_code = 'QUESTION_BANK_IMPORT_TEST_V1_V1')")).isEqualTo(1);
     }
 
     @Test
@@ -96,8 +96,8 @@ class QuestionBankImportIntegrationTest extends AbstractWebIntegrationTest {
         return readJson(result).path("data");
     }
 
-    private long count(String table) {
-        Long result = jdbcTemplate.queryForObject("select count(*) from " + table, Long.class);
+    private long countWhere(String table, String predicate) {
+        Long result = jdbcTemplate.queryForObject("select count(*) from " + table + " where " + predicate, Long.class);
         return result == null ? 0 : result;
     }
 
@@ -105,7 +105,7 @@ class QuestionBankImportIntegrationTest extends AbstractWebIntegrationTest {
         return """
                 {
                   "Questionnaire": {
-                    "code": "LEXIBRIDGE_RESEARCH_V1",
+                    "code": "QUESTION_BANK_IMPORT_TEST_V1",
                     "title": "Lexi-Bridge",
                     "description": "Research questionnaire",
                     "durationMinutes": 40,
