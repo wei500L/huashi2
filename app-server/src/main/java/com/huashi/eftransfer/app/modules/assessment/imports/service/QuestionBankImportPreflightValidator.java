@@ -6,8 +6,6 @@ import com.huashi.eftransfer.shared.enums.ConstructCode;
 import com.huashi.eftransfer.shared.enums.ContextLevel;
 import com.huashi.eftransfer.shared.enums.TransferCategory;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,16 +18,6 @@ import java.util.Set;
 
 @Component
 public class QuestionBankImportPreflightValidator {
-
-    private final ObjectMapper objectMapper;
-
-    public QuestionBankImportPreflightValidator() {
-        this(new ObjectMapper());
-    }
-
-    public QuestionBankImportPreflightValidator(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     public Result validate(QuestionBankImportPackageRequest request, Map<String, ExistingQuestion> existingByCode) {
         List<Issue> issues = new ArrayList<>();
@@ -47,7 +35,6 @@ public class QuestionBankImportPreflightValidator {
         }
 
         Set<String> itemCodes = new HashSet<>();
-        Set<String> precedingItemCodes = new HashSet<>();
         int scoredItemCount = 0;
         for (QuestionBankImportPackageRequest.ItemRow item : request.items()) {
             String itemCode = normalize(item.itemCode());
@@ -67,8 +54,6 @@ public class QuestionBankImportPreflightValidator {
                     value -> ContextLevel.fromCode(value));
             validateOptionalLabel(item.constructCode(), itemCode, "UNKNOWN_CONSTRUCT_CODE", issues,
                     value -> ConstructCode.fromCode(value));
-            validateDisplayCondition(item, itemCode, precedingItemCodes, issues);
-            validatePresentation(item, itemCode, issues);
 
             if (item.scored()) {
                 scoredItemCount++;
@@ -99,83 +84,12 @@ public class QuestionBankImportPreflightValidator {
                 issues.add(review("EXPLANATION_DIFFERENCE", itemCode,
                         "Explanation differs from the latest bank version"));
             }
-            precedingItemCodes.add(itemCode);
         }
 
         String status = issues.stream().anyMatch(issue -> issue.severity().equals("ERROR"))
                 ? "PREFLIGHT_FAILED"
                 : issues.isEmpty() ? "READY" : "REVIEW_REQUIRED";
         return new Result(status, List.copyOf(issues), scoredItemCount);
-    }
-
-    private void validateDisplayCondition(
-            QuestionBankImportPackageRequest.ItemRow item,
-            String itemCode,
-            Set<String> precedingItemCodes,
-            List<Issue> issues
-    ) {
-        if (item.displayConditionJson() == null || item.displayConditionJson().isBlank()) return;
-        try {
-            JsonNode condition = objectMapper.readTree(item.displayConditionJson());
-            String fieldCode = normalize(condition.path("fieldCode").asString());
-            String operator = condition.path("operator").asString();
-            String value = condition.path("value").asString();
-            if (fieldCode.isBlank() || !"EQ".equalsIgnoreCase(operator) || value.isBlank()) {
-                issues.add(error("INVALID_DISPLAY_CONDITION", itemCode,
-                        "Display condition must contain fieldCode, operator EQ and value"));
-            } else if (!precedingItemCodes.contains(fieldCode)) {
-                issues.add(error("INVALID_DISPLAY_CONDITION_REFERENCE", itemCode,
-                        "Display condition must reference an earlier item: " + fieldCode));
-            }
-        } catch (Exception exception) {
-            issues.add(error("INVALID_DISPLAY_CONDITION", itemCode, "Display condition is not valid JSON"));
-        }
-    }
-
-    private void validatePresentation(
-            QuestionBankImportPackageRequest.ItemRow item,
-            String itemCode,
-            List<Issue> issues
-    ) {
-        if (item.presentationJson() == null || item.presentationJson().isBlank()) return;
-        try {
-            JsonNode presentation = objectMapper.readTree(item.presentationJson());
-            JsonNode emphasis = presentation.path("emphasis");
-            if (!emphasis.isArray()) {
-                issues.add(error("INVALID_PRESENTATION", itemCode, "presentation.emphasis must be an array"));
-                return;
-            }
-            String stem = item.stemText() == null ? "" : item.stemText();
-            for (JsonNode mark : emphasis) {
-                String text = mark.path("text").asString();
-                int occurrence = mark.path("occurrence").isMissingNode() || mark.path("occurrence").isNull()
-                        ? 0 : mark.path("occurrence").asInt();
-                int count = countOccurrences(stem, text);
-                if (text.isBlank() || count == 0) {
-                    issues.add(error("PRESENTATION_TARGET_NOT_FOUND", itemCode,
-                            "Presentation emphasis text was not found in the stem: " + text));
-                } else if (occurrence <= 0 && count > 1) {
-                    issues.add(error("PRESENTATION_TARGET_AMBIGUOUS", itemCode,
-                            "Presentation emphasis text occurs more than once; set occurrence"));
-                } else if (occurrence > count) {
-                    issues.add(error("PRESENTATION_OCCURRENCE_OUT_OF_RANGE", itemCode,
-                            "Presentation occurrence exceeds matching text count"));
-                }
-            }
-        } catch (Exception exception) {
-            issues.add(error("INVALID_PRESENTATION", itemCode, "Presentation is not valid JSON"));
-        }
-    }
-
-    private int countOccurrences(String source, String target) {
-        if (source == null || target == null || target.isBlank()) return 0;
-        int count = 0;
-        int from = 0;
-        while ((from = source.indexOf(target, from)) >= 0) {
-            count++;
-            from += target.length();
-        }
-        return count;
     }
 
     private void validateOptionalLabel(

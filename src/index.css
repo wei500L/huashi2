@@ -1129,25 +1129,6 @@
   .research-footer { max-width: 1240px; margin: 0 auto; padding-top: 1rem; }
 
   .research-loading { display: grid; min-height: 100svh; place-items: center; background: hsl(var(--background-solid)); color: hsl(var(--text-muted)); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; }
-  .research-profile-page { min-height: 100svh; padding: clamp(1.2rem, 5vw, 4rem); background: linear-gradient(145deg, hsl(var(--background-solid)), hsl(var(--surface-sunken) / 0.72)); }
-  .research-profile-card { width: min(780px, 100%); margin: 0 auto; padding: clamp(1.35rem, 5vw, 3.4rem); border: 1px solid hsl(var(--border-strong) / 0.62); border-radius: 0.9rem; background: hsl(var(--surface)); box-shadow: 0 24px 70px hsl(220 26% 10% / 0.09); }
-  .research-profile-card .research-kicker { margin-top: 2.4rem; }
-  .research-profile-card h1 { margin-top: 0.75rem; font-family: var(--font-display); font-size: clamp(2.2rem, 6vw, 4.2rem); letter-spacing: -0.065em; }
-  .research-profile-lede { max-width: 39rem; margin-top: 1rem; color: hsl(var(--text-muted)); line-height: 1.8; }
-  .research-profile-form { display: grid; gap: 1.2rem; margin-top: 2.2rem; }
-  .research-profile-notice { padding: 1rem; border-left: 2px solid hsl(var(--action)); background: hsl(var(--action) / 0.06); color: hsl(var(--text-muted)); line-height: 1.8; white-space: pre-wrap; }
-  .research-profile-field { min-width: 0; padding: 0; border: 0; }
-  .research-profile-field legend { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.55rem; color: hsl(var(--text)); font-weight: 720; }
-  .research-profile-field legend span { color: hsl(var(--error)); font-size: 0.64rem; }
-  .research-profile-field legend small { color: hsl(var(--text-subtle)); font-size: 0.64rem; font-weight: 500; }
-  .research-profile-field > p { margin-top: 0.35rem; color: hsl(var(--text-subtle)); font-size: 0.72rem; }
-  .research-profile-field .research-text-input { margin-top: 0.65rem; }
-  .research-profile-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; margin-top: 0.65rem; }
-  .research-profile-choices label { display: flex; min-height: 3.2rem; align-items: center; gap: 0.65rem; padding: 0.8rem; border: 1px solid hsl(var(--border-strong) / 0.65); border-radius: 0.6rem; cursor: pointer; }
-  .research-profile-choices label:has(input:checked) { border-color: hsl(var(--action)); background: hsl(var(--action) / 0.07); }
-  .research-consent { display: flex; align-items: flex-start; gap: 0.75rem; margin-top: 0.6rem; padding: 1rem; border: 1px solid hsl(var(--warning) / 0.34); border-radius: 0.65rem; background: hsl(var(--warning) / 0.06); color: hsl(var(--text-muted)); font-size: 0.8rem; line-height: 1.7; cursor: pointer; }
-  .research-consent input { margin-top: 0.28rem; }
-  .research-consent strong { display: block; color: hsl(var(--text)); }
   .research-assessment {
     padding: 0 clamp(1rem, 4vw, 4rem) 5rem;
     background:
@@ -1168,11 +1149,6 @@
     background: hsl(var(--background-solid) / 0.96);
   }
   .research-progress-copy, .research-save-status { margin-top: 0.45rem; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.61rem; letter-spacing: 0.045em; }
-  .research-header-status { display: flex; flex-direction: column; align-items: flex-end; gap: 0.45rem; }
-  .research-dual-timer { display: grid; grid-template-columns: repeat(2, auto); gap: 1rem; }
-  .research-dual-timer div { display: flex; flex-direction: column; align-items: flex-end; }
-  .research-dual-timer span { color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.55rem; letter-spacing: 0.07em; }
-  .research-dual-timer strong { margin-top: 0.15rem; color: hsl(var(--text)); font-family: var(--font-mono); font-size: 0.7rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .research-save-status { display: inline-flex; min-width: 14rem; align-items: center; justify-content: flex-end; gap: 0.45rem; margin-top: 0; text-align: right; }
   .research-save-status.is-pending, .research-save-status.is-saving { color: hsl(var(--warning)); }
   .research-save-status.is-saved { color: hsl(var(--success)); }
@@ -1208,13 +1184,7 @@
   .research-question-number { margin-top: 2.1rem; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.61rem; letter-spacing: 0.1em; }
   .research-question-card h1 { max-width: 44rem; margin-top: 0.75rem; font-family: var(--font-display); font-size: clamp(1.55rem, 3vw, 2.35rem); font-weight: 650; letter-spacing: -0.045em; line-height: 1.28; white-space: pre-wrap; }
   .research-question-prompt { max-width: 46rem; margin-top: 0.85rem; color: hsl(var(--text-muted)); font-size: 0.94rem; line-height: 1.75; white-space: pre-wrap; }
-  .research-section-instruction { display: flex; gap: 0.65rem; margin-top: 1.25rem; padding: 0.75rem 0.9rem; border: 1px solid hsl(var(--action) / 0.2); border-radius: 0.55rem; background: hsl(var(--action) / 0.045); color: hsl(var(--text-muted)); font-size: 0.82rem; line-height: 1.65; }
-  .research-section-instruction strong { flex: 0 0 auto; color: hsl(var(--action)); }
-  .research-shared-material { margin-top: 1.1rem; padding: 0; border-left: 2px solid hsl(var(--teacher)); background: hsl(var(--surface-sunken) / 0.72); color: hsl(var(--text-muted)); line-height: 1.75; }
-  .research-shared-material summary { display: flex; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; color: hsl(var(--text)); cursor: pointer; font-size: 0.78rem; font-weight: 700; list-style-position: inside; }
-  .research-shared-material summary span { color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.58rem; font-weight: 500; }
-  .research-shared-material > div { max-height: min(48svh, 34rem); padding: 0.2rem 1.1rem 1.1rem; overflow: auto; white-space: pre-wrap; }
-  .research-emphasis { padding: 0; background: transparent; color: inherit; }
+  .research-shared-material { margin-top: 1.5rem; padding: 1.1rem 1.2rem; border-left: 2px solid hsl(var(--teacher)); background: hsl(var(--surface-sunken) / 0.72); color: hsl(var(--text-muted)); line-height: 1.75; white-space: pre-wrap; }
   .research-options { display: grid; gap: 0.72rem; margin-top: 2rem; }
   .research-option { position: relative; display: grid; min-height: 3.9rem; grid-template-columns: 2rem minmax(0, 1fr) auto auto; gap: 0.75rem; align-items: center; padding: 0.9rem 1rem; border: 1px solid hsl(var(--border-strong) / 0.66); border-radius: 0.78rem; background: hsl(var(--surface)); cursor: pointer; isolation: isolate; line-height: 1.52; overflow: hidden; transition: border-color var(--motion-feedback-duration) var(--motion-ease-standard), background var(--motion-feedback-duration) var(--motion-ease-standard), box-shadow var(--motion-feedback-duration) var(--motion-ease-standard); will-change: transform; }
   .research-option::before { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: hsl(var(--action)); content: ''; transform: scaleY(0); transform-origin: center; transition: transform var(--motion-state-duration) var(--motion-ease-emphasized); }
@@ -1324,13 +1294,7 @@
     .research-hero-visual { min-height: 16rem; }
     .research-assessment { padding-inline: 0.85rem; }
     .research-assessment-header { position: static; min-height: auto; align-items: flex-start; flex-direction: column; padding: 1rem 0; }
-    .research-header-status { width: 100%; align-items: flex-start; }
-    .research-dual-timer { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
-    .research-dual-timer div { align-items: flex-start; padding-top: 0.55rem; border-top: 1px solid hsl(var(--border-subtle)); }
     .research-save-status { min-width: 0; justify-content: flex-start; text-align: left; }
-    .research-profile-page { padding: 0.75rem; }
-    .research-profile-card { padding: 1.2rem 1rem; }
-    .research-profile-choices { grid-template-columns: 1fr; }
     .research-progress-overview { padding-top: 1rem; }
     .research-progress-meta { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
     .research-question-card { min-height: 0; padding: 1.2rem 1rem; border-radius: 0.65rem; }

@@ -1,7 +1,6 @@
 package com.huashi.eftransfer.app.modules.assessment.vo;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 public record PublicAssessmentMetadataVO(
         String releaseCode,
@@ -13,10 +12,6 @@ public record PublicAssessmentMetadataVO(
         String status,
         LocalDateTime startsAt,
         LocalDateTime dueAt,
-        boolean qrEntryEnabled,
-        List<PublicAssessmentProfileFieldVO> profileFields
+        boolean qrEntryEnabled
 ) {
-    public PublicAssessmentMetadataVO {
-        profileFields = profileFields == null ? List.of() : List.copyOf(profileFields);
-    }
 }

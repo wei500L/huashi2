@@ -116,7 +116,6 @@ public class QuestionBankImportService {
                 itemTemplate.put("explanationText", ""); itemTemplate.put("requiredAnswer", true); itemTemplate.put("scored", true);
                 itemTemplate.put("weight", 1); itemTemplate.put("transferCategory", ""); itemTemplate.put("contextLevel", "WORD");
                 itemTemplate.put("constructCode", "LEXICAL_TRANSFER"); itemTemplate.put("targetWord", ""); itemTemplate.put("displayConditionJson", "");
-                itemTemplate.put("presentationJson", "");
                 template.put("Items", List.of(itemTemplate));
                 template.put("Options", List.of(Map.of("itemCode", "P1-01", "optionCode", "A", "optionText", "", "correct", true, "explanation", "")));
                 return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(template).getBytes(StandardCharsets.UTF_8);
@@ -124,7 +123,7 @@ public class QuestionBankImportService {
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 writeSheet(workbook, "Questionnaire", List.of("code", "title", "description", "durationMinutes", "scoringVersion", "aiPromptVersion"), List.of("LEXIBRIDGE_RESEARCH_V1", "", "", "40", "SCORING_V1", "assessment-analysis/v2"));
                 writeSheet(workbook, "Sections", List.of("sectionCode", "title", "description", "sharedMaterial", "sortOrder", "formalSection"), List.of("P1", "", "", "", "1", "true"));
-                writeSheet(workbook, "Items", List.of("itemCode", "sectionCode", "questionType", "stemText", "promptText", "correctAnswers", "explanationText", "requiredAnswer", "scored", "weight", "transferCategory", "contextLevel", "constructCode", "targetWord", "displayConditionJson", "presentationJson"), List.of("P1-01", "P1", "SINGLE_CHOICE", "", "", "A", "", "true", "true", "1", "", "WORD", "LEXICAL_TRANSFER", "", "", ""));
+                writeSheet(workbook, "Items", List.of("itemCode", "sectionCode", "questionType", "stemText", "promptText", "correctAnswers", "explanationText", "requiredAnswer", "scored", "weight", "transferCategory", "contextLevel", "constructCode", "targetWord", "displayConditionJson"), List.of("P1-01", "P1", "SINGLE_CHOICE", "", "", "A", "", "true", "true", "1", "", "WORD", "LEXICAL_TRANSFER", "", ""));
                 writeSheet(workbook, "Options", List.of("itemCode", "optionCode", "optionText", "correct", "explanation"), List.of("P1-01", "A", "", "true", ""));
                 workbook.write(output);
                 return output.toByteArray();
@@ -280,13 +279,13 @@ public class QuestionBankImportService {
             for (QuestionBankImportPackageRequest.ItemRow item : request.items()) {
                 Long questionVersionId = questionVersions.get(item.itemCode());
                 jdbcTemplate.update("""
-                        INSERT INTO assessment_question (paper_id,question_type,sort_order,stem_text,prompt_text,options_json,correct_answer_json,explanation_text,score,question_version_id,section_code,required_answer,weight,transfer_category,context_level,construct_code,target_word,display_condition_json,presentation_json,created_by,updated_by)
-                        SELECT ?,question_type,?,stem_text,prompt_text,options_json,correct_answer_json,LEFT(explanation_text,1000),CASE WHEN ? THEN 1 ELSE 0 END,id,?,?,?,?,?,?,?,display_condition_json,presentation_json,?,?
+                        INSERT INTO assessment_question (paper_id,question_type,sort_order,stem_text,prompt_text,options_json,correct_answer_json,explanation_text,score,question_version_id,section_code,required_answer,weight,transfer_category,context_level,construct_code,target_word,created_by,updated_by)
+                        SELECT ?,question_type,?,stem_text,prompt_text,options_json,correct_answer_json,LEFT(explanation_text,1000),CASE WHEN ? THEN 1 ELSE 0 END,id,?,?,?,?,?,?,?,?,?
                         FROM assessment_question_version WHERE id = ?
                         """, paperId, sortOrder++, item.scored(), item.sectionCode(), item.requiredAnswer(), item.weight(), item.transferCategory(), item.contextLevel(), item.constructCode(), item.targetWord(), ownerId, ownerId, questionVersionId);
                 Long assessmentQuestionId = jdbcTemplate.queryForObject("SELECT id FROM assessment_question WHERE paper_id = ? AND sort_order = ?", Long.class, paperId, sortOrder - 1);
-                jdbcTemplate.update("INSERT INTO assessment_questionnaire_item (questionnaire_version_id,section_id,assessment_question_id,question_version_id,item_code,required_answer,scored,weight,transfer_category,context_level,construct_code,target_word,display_condition_json,presentation_json,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        questionnaireVersionId, sections.get(item.sectionCode()), assessmentQuestionId, questionVersionId, item.itemCode(), item.requiredAnswer(), item.scored(), item.weight(), item.transferCategory(), item.contextLevel(), item.constructCode(), item.targetWord(), item.displayConditionJson(), item.presentationJson(), ownerId, ownerId);
+                jdbcTemplate.update("INSERT INTO assessment_questionnaire_item (questionnaire_version_id,section_id,assessment_question_id,question_version_id,item_code,required_answer,scored,weight,transfer_category,context_level,construct_code,target_word,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        questionnaireVersionId, sections.get(item.sectionCode()), assessmentQuestionId, questionVersionId, item.itemCode(), item.requiredAnswer(), item.scored(), item.weight(), item.transferCategory(), item.contextLevel(), item.constructCode(), item.targetWord(), ownerId, ownerId);
                 jdbcTemplate.update("UPDATE assessment_content_review_issue SET question_version_id = ? WHERE import_id = ? AND source_reference = ? AND deleted = FALSE", questionVersionId, importId, item.itemCode());
             }
             jdbcTemplate.update("UPDATE assessment_questionnaire SET latest_version_no = ?, status = ? WHERE id = ?", versionNo, versionStatus, questionnaireId);
@@ -374,7 +373,7 @@ public class QuestionBankImportService {
             List<QuestionBankImportPackageRequest.SectionRow> sections = new ArrayList<>();
             for (int i=1; i<=sectionsSheet.getLastRowNum(); i++) { Row row=sectionsSheet.getRow(i); if(row==null||cell(formatter,row,0).isBlank()) continue; sections.add(new QuestionBankImportPackageRequest.SectionRow(cell(formatter,row,0),cell(formatter,row,1),cell(formatter,row,2),cell(formatter,row,3),integer(formatter,row,4),bool(formatter,row,5))); }
             List<QuestionBankImportPackageRequest.ItemRow> items = new ArrayList<>();
-            for (int i=1; i<=itemsSheet.getLastRowNum(); i++) { Row row=itemsSheet.getRow(i); if(row==null||cell(formatter,row,0).isBlank()) continue; items.add(new QuestionBankImportPackageRequest.ItemRow(cell(formatter,row,0),cell(formatter,row,1),cell(formatter,row,2),cell(formatter,row,3),cell(formatter,row,4),split(cell(formatter,row,5)),cell(formatter,row,6),bool(formatter,row,7),bool(formatter,row,8),decimal(formatter,row,9),cell(formatter,row,10),cell(formatter,row,11),cell(formatter,row,12),cell(formatter,row,13),cell(formatter,row,14),cell(formatter,row,15))); }
+            for (int i=1; i<=itemsSheet.getLastRowNum(); i++) { Row row=itemsSheet.getRow(i); if(row==null||cell(formatter,row,0).isBlank()) continue; items.add(new QuestionBankImportPackageRequest.ItemRow(cell(formatter,row,0),cell(formatter,row,1),cell(formatter,row,2),cell(formatter,row,3),cell(formatter,row,4),split(cell(formatter,row,5)),cell(formatter,row,6),bool(formatter,row,7),bool(formatter,row,8),decimal(formatter,row,9),cell(formatter,row,10),cell(formatter,row,11),cell(formatter,row,12),cell(formatter,row,13),cell(formatter,row,14))); }
             List<QuestionBankImportPackageRequest.OptionRow> options = new ArrayList<>();
             for (int i=1; i<=optionsSheet.getLastRowNum(); i++) { Row row=optionsSheet.getRow(i); if(row==null||cell(formatter,row,0).isBlank()) continue; options.add(new QuestionBankImportPackageRequest.OptionRow(cell(formatter,row,0),cell(formatter,row,1),cell(formatter,row,2),bool(formatter,row,3),cell(formatter,row,4))); }
             return new QuestionBankImportPackageRequest(questionnaire, sections, items, options);
@@ -394,9 +393,9 @@ public class QuestionBankImportService {
         Integer version = jdbcTemplate.queryForObject("SELECT COALESCE(MAX(version_no),0)+1 FROM assessment_question_version WHERE question_bank_id=? AND question_code=? AND deleted=FALSE", Integer.class, bankId, item.itemCode());
         jdbcTemplate.update("""
                 INSERT INTO assessment_question_version
-                    (question_bank_id,question_code,version_no,question_type,stem_text,prompt_text,options_json,correct_answer_json,explanation_text,option_explanations_json,required_answer,weight,transfer_category,context_level,construct_code,target_word,display_condition_json,presentation_json,source_reference,content_hash,created_by,updated_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, bankId,item.itemCode(),version,item.questionType(),item.stemText(),item.promptText(),optionsJson,correctJson,item.explanationText(),objectMapper.writeValueAsString(optionExplanations),item.requiredAnswer(),item.weight(),item.transferCategory(),item.contextLevel(),item.constructCode(),item.targetWord(),item.displayConditionJson(),item.presentationJson(),"question-bank-import:"+item.itemCode(),hash,currentUserId(),currentUserId());
+                    (question_bank_id,question_code,version_no,question_type,stem_text,prompt_text,options_json,correct_answer_json,explanation_text,option_explanations_json,required_answer,weight,transfer_category,context_level,construct_code,target_word,display_condition_json,source_reference,content_hash,created_by,updated_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, bankId,item.itemCode(),version,item.questionType(),item.stemText(),item.promptText(),optionsJson,correctJson,item.explanationText(),objectMapper.writeValueAsString(optionExplanations),item.requiredAnswer(),item.weight(),item.transferCategory(),item.contextLevel(),item.constructCode(),item.targetWord(),item.displayConditionJson(),"question-bank-import:"+item.itemCode(),hash,currentUserId(),currentUserId());
         return jdbcTemplate.queryForObject("SELECT id FROM assessment_question_version WHERE question_bank_id=? AND question_code=? AND version_no=?", Long.class, bankId,item.itemCode(),version);
     }
 

@@ -8,7 +8,6 @@ import { getApiErrorMessage, normalizeApiError } from '@/lib/api';
 import type {
   PublicAssessmentAttemptVO,
   PublicAssessmentMetadataVO,
-  PublicAssessmentProfileFieldVO,
   PublicAssessmentQuestionVO,
   PublicAssessmentResultVO,
 } from '@/lib/contracts';
@@ -19,13 +18,6 @@ import {
   hasPublicSessionMarker,
   rememberPublicSession,
 } from './research-session';
-import {
-  findOccurrence,
-  formatElapsed,
-  profileFieldVisible,
-  pruneHiddenProfileValues,
-  type ProfileValues,
-} from './research-utils';
 
 gsap.registerPlugin(useGSAP);
 
@@ -38,7 +30,6 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   SINGLE_CHOICE: '单项选择',
   MULTIPLE_CHOICE: '多项选择',
   TRUE_FALSE_WITH_JUSTIFICATION: '判断与说明',
-  SHORT_TEXT: '文字填写',
   NUMBER: '数字填写',
   TEXT: '文字填写',
 };
@@ -59,34 +50,6 @@ function hydrateResponses(attempt: PublicAssessmentAttemptVO) {
   });
   return { responses, justifications };
 }
-
-const PresentedText: React.FC<{ question: PublicAssessmentQuestionVO }> = ({ question }) => {
-  const marks = (question.presentation?.emphasis || []).map((emphasis) => ({
-    ...emphasis,
-    start: findOccurrence(question.stemText, emphasis.text, emphasis.occurrence || 1),
-  })).filter((emphasis) => emphasis.start >= 0).sort((left, right) => left.start - right.start);
-  if (!marks.length) return <>{question.stemText}</>;
-  const parts: React.ReactNode[] = [];
-  let cursor = 0;
-  marks.forEach((emphasis, index) => {
-    if (emphasis.start < cursor) return;
-    parts.push(question.stemText.slice(cursor, emphasis.start));
-    let content: React.ReactNode = emphasis.text;
-    if (emphasis.bold) content = <strong>{content}</strong>;
-    if (emphasis.underline) content = <u>{content}</u>;
-    parts.push(<mark className="research-emphasis" key={`${emphasis.text}-${index}`}>{content}</mark>);
-    cursor = emphasis.start + emphasis.text.length;
-  });
-  parts.push(question.stemText.slice(cursor));
-  return <>{parts}</>;
-};
-
-const SharedMaterial: React.FC<{ text: string }> = ({ text }) => (
-  <details className="research-shared-material" open>
-    <summary>完整原文 <span>展开 / 收起</span></summary>
-    <div className="break-words">{text}</div>
-  </details>
-);
 
 const ThreadMap: React.FC = () => (
   <svg className="research-thread-map" viewBox="0 0 720 410" aria-hidden="true" focusable="false">
@@ -115,7 +78,7 @@ const ResearchEntry: React.FC<{
     <main className="research-entry min-w-0">
       <header className="research-nav min-w-0">
         <div className="research-wordmark min-w-0"><span className="research-wordmark-mark">EF</span><span className="min-w-0 truncate">TRANSFER / RESEARCH</span></div>
-        <div className="research-nav-meta"><span>PUBLIC STUDY</span><span className="research-nav-dot" /><span>2026 · V2</span></div>
+        <div className="research-nav-meta"><span>PUBLIC STUDY</span><span className="research-nav-dot" /><span>2026 · V1</span></div>
       </header>
 
       <section className="research-hero min-w-0" aria-labelledby="research-title">
@@ -152,7 +115,7 @@ const ResearchEntry: React.FC<{
         <div className="research-access-card min-w-0">
           <div className="research-card-topline"><span>PARTICIPANT ACCESS</span><LockKeyhole size={15} strokeWidth={1.8} className="shrink-0" /></div>
           <h2>{qrEntering ? '正在识别本设备并进入问卷。' : '带着研究员提供的参与码进入。'}</h2>
-          <p>{qrRequested ? '二维码会尝试自动进入；如识别失败，仍可输入参与码继续。' : '姓名和联系方式会加密隔离保存，仅用于参与确认与必要联络；正式答案不会携带这些资料。'}</p>
+          <p>{qrRequested ? '二维码会尝试自动进入；如识别失败，仍可输入参与码继续。' : '没有公开注册。你的回答会以匿名方式保存，仅用于本次研究。'}</p>
           <form onSubmit={onVerify} className="research-code-form min-w-0">
             <label htmlFor="participation-code">参与码 / ACCESS CODE</label>
             <input id="participation-code" value={participationCode} onChange={(event) => onCodeChange(event.target.value.toUpperCase())} placeholder="XXXX-XXXX-XXXX" autoComplete="one-time-code" className="min-w-0" />
@@ -175,65 +138,6 @@ const ResearchEntry: React.FC<{
       <footer className="research-footer min-w-0"><span>EF TRANSFER PLATFORM</span><span>an editorial study of language movement</span></footer>
     </main>
   );
-};
-
-const ResearchProfile: React.FC<{
-  title: string;
-  fields: PublicAssessmentProfileFieldVO[];
-  values: ProfileValues;
-  consentAccepted: boolean;
-  submitting: boolean;
-  errorMessage: string | null;
-  onValuesChange: (values: ProfileValues) => void;
-  onConsentChange: (accepted: boolean) => void;
-  onSubmit: (event: React.FormEvent) => void;
-}> = ({ title, fields, values, consentAccepted, submitting, errorMessage, onValuesChange, onConsentChange, onSubmit }) => {
-  const visibleFields = fields.filter((field) => profileFieldVisible(field, values));
-  const updateValue = (fieldCode: string, value: string) => {
-    onValuesChange(pruneHiddenProfileValues(fields, { ...values, [fieldCode]: value }));
-  };
-  return <main className="research-profile-page">
-    <section className="research-profile-card" aria-labelledby="research-profile-title">
-      <div className="research-card-topline"><span>PARTICIPANT PROFILE</span><ShieldCheck size={17} /></div>
-      <p className="research-kicker">LEXI-BRIDGE / 正式计时尚未开始</p>
-      <h1 id="research-profile-title">填写被试资料</h1>
-      <p className="research-profile-lede">完成资料并同意参与后，才会创建「{title}」的 60 题正式答卷并开始计时。</p>
-      <form className="research-profile-form" onSubmit={onSubmit}>
-        {visibleFields.map((field) => {
-          if (field.questionType === 'INSTRUCTION') return <div className="research-profile-notice" key={field.itemCode}>{field.label}</div>;
-          const value = values[field.itemCode] || '';
-          return <fieldset className="research-profile-field" key={field.itemCode}>
-            <legend>{field.label}{field.required ? <span>必填</span> : <small>未参加或不适用可留空</small>}</legend>
-            {field.promptText ? <p>{field.promptText}</p> : null}
-            {field.questionType === 'SINGLE_CHOICE' || field.questionType === 'INFORMED_CONSENT' ? (
-              <div className="research-profile-choices">
-                {field.options.map((option) => <label key={option.key}>
-                  <input type="radio" name={field.itemCode} value={option.key} checked={value === option.key} onChange={() => updateValue(field.itemCode, option.key)} />
-                  <span>{option.label}</span>
-                </label>)}
-              </div>
-            ) : <input
-              className="research-text-input"
-              type={field.questionType === 'NUMBER' ? 'number' : 'text'}
-              inputMode={field.questionType === 'NUMBER' ? 'decimal' : undefined}
-              step={field.questionType === 'NUMBER' ? 'any' : undefined}
-              value={value}
-              required={field.required}
-              onChange={(event) => updateValue(field.itemCode, event.target.value)}
-            />}
-          </fieldset>;
-        })}
-        <label className="research-consent">
-          <input type="checkbox" checked={consentAccepted} onChange={(event) => onConsentChange(event.target.checked)} />
-          <span>我已阅读上述说明，自愿参加本研究，并同意将姓名和联系方式按说明加密、隔离保存。<strong>此项必选。</strong></span>
-        </label>
-        {errorMessage ? <p className="research-form-error" role="alert">{errorMessage}</p> : null}
-        <button className="research-primary-button" type="submit" disabled={submitting || !consentAccepted}>
-          {submitting ? '正在安全保存资料…' : '保存资料并开始正式测试'}<ArrowUpRight size={18} />
-        </button>
-      </form>
-    </section>
-  </main>;
 };
 
 const instructionText = (question: PublicAssessmentQuestionVO) => {
@@ -444,10 +348,6 @@ const ResearchParticipantPage: React.FC = () => {
   const qrRequested = searchParams.get('entry') === 'qr';
   const [metadata, setMetadata] = React.useState<PublicAssessmentMetadataVO | null>(null);
   const [attempt, setAttempt] = React.useState<PublicAssessmentAttemptVO | null>(null);
-  const [profileRequired, setProfileRequired] = React.useState(false);
-  const [profileFields, setProfileFields] = React.useState<PublicAssessmentProfileFieldVO[]>([]);
-  const [profileValues, setProfileValues] = React.useState<ProfileValues>({});
-  const [consentAccepted, setConsentAccepted] = React.useState(false);
   const [result, setResult] = React.useState<PublicAssessmentResultVO | null>(null);
   const [participationCode, setParticipationCode] = React.useState('');
   const [responsesByOrder, setResponsesByOrder] = React.useState<ResponsesByOrder>({});
@@ -459,8 +359,6 @@ const ResearchParticipantPage: React.FC = () => {
   const [qrEntering, setQrEntering] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  const [profileSubmitting, setProfileSubmitting] = React.useState(false);
-  const [clockNow, setClockNow] = React.useState(() => Date.now());
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [dirtyRevision, setDirtyRevision] = React.useState(0);
@@ -472,12 +370,6 @@ const ResearchParticipantPage: React.FC = () => {
   const failedRevisionRef = React.useRef(0);
   const saveInFlightRef = React.useRef(false);
   const releaseGenerationRef = React.useRef(0);
-  const serverOffsetMsRef = React.useRef(0);
-  const activeLocalMsRef = React.useRef(0);
-  const activeSegmentRef = React.useRef<{ startedAt: number; questionOrder: number } | null>(null);
-  const timingQueueRef = React.useRef<Array<{ questionOrder: number; activeDurationMs: number; eventId: string }>>([]);
-  const timingFlushPromiseRef = React.useRef<Promise<void> | null>(null);
-  const timeoutSubmissionRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!result || !['PENDING', 'PROCESSING'].includes(result.aiAnalysisStatus || '')) return;
@@ -505,16 +397,9 @@ const ResearchParticipantPage: React.FC = () => {
     savedRevisionRef.current = 0;
     failedRevisionRef.current = 0;
     setAttempt(nextAttempt);
-    setProfileRequired(false);
-    serverOffsetMsRef.current = new Date(nextAttempt.serverTime).getTime() - Date.now();
-    activeLocalMsRef.current = 0;
-    timingQueueRef.current = [];
-    activeSegmentRef.current = null;
-    timeoutSubmissionRef.current = false;
     setResponsesByOrder(hydrated.responses);
     setJustificationsByOrder(hydrated.justifications);
     setDirtyRevision(0);
-    setClockNow(Date.now());
     hydratedRef.current = true;
   }, []);
 
@@ -529,10 +414,6 @@ const ResearchParticipantPage: React.FC = () => {
     currentVersionRef.current = 1;
     setMetadata(null);
     setAttempt(null);
-    setProfileRequired(false);
-    setProfileFields([]);
-    setProfileValues({});
-    setConsentAccepted(false);
     setResult(null);
     setParticipationCode('');
     setResponsesByOrder({});
@@ -542,7 +423,6 @@ const ResearchParticipantPage: React.FC = () => {
     setDirtyRevision(0);
     setSaving(false);
     setSubmitting(false);
-    setProfileSubmitting(false);
     setSaveMessage(null);
     const controller = new AbortController();
     const load = async () => {
@@ -551,7 +431,6 @@ const ResearchParticipantPage: React.FC = () => {
       try {
         const nextMetadata = await publicAssessmentService.getMetadata(normalizedReleaseCode, { signal: controller.signal });
         setMetadata(nextMetadata);
-        setProfileFields(nextMetadata.profileFields || []);
         if (hasPublicSessionMarker(normalizedReleaseCode)) {
           try {
             const restoredAttempt = await publicAssessmentService.getAttempt(normalizedReleaseCode, { signal: controller.signal });
@@ -561,9 +440,7 @@ const ResearchParticipantPage: React.FC = () => {
             }
           } catch (error) {
             const status = normalizeApiError(error).status;
-            if (status === 409 && (nextMetadata.profileFields || []).length > 0) {
-              setProfileRequired(true);
-            } else if (status === 401 || status === 403) {
+            if (status === 401 || status === 403) {
               forgetPublicSession(normalizedReleaseCode);
             } else {
               throw error;
@@ -599,14 +476,12 @@ const ResearchParticipantPage: React.FC = () => {
         const session = await publicAssessmentService.enterByQr(normalizedReleaseCode, {
           browserFingerprint: fingerprint.visitorId,
         });
-        const submittedResult = session.attempt?.status === 'SUBMITTED'
+        const submittedResult = session.attempt.status === 'SUBMITTED'
           ? await publicAssessmentService.getResult(normalizedReleaseCode)
           : null;
         if (!active || releaseGenerationRef.current !== generation) return;
         rememberPublicSession(normalizedReleaseCode);
-        setProfileFields(session.profileFields || []);
-        setProfileRequired(session.profileRequired);
-        if (session.attempt) applyAttempt(session.attempt);
+        applyAttempt(session.attempt);
         if (submittedResult) setResult(submittedResult);
       } catch (error) {
         if (!active || releaseGenerationRef.current !== generation) return;
@@ -622,103 +497,13 @@ const ResearchParticipantPage: React.FC = () => {
     return () => { active = false; };
   }, [applyAttempt, attempt, loading, metadata?.qrEntryEnabled, normalizedReleaseCode, qrRequested, result]);
 
-  const collectActiveSegment = React.useCallback(() => {
-    const segment = activeSegmentRef.current;
-    if (!segment) return;
-    activeSegmentRef.current = null;
-    let remaining = Math.max(0, Math.round(performance.now() - segment.startedAt));
-    activeLocalMsRef.current += remaining;
-    while (remaining > 0) {
-      const activeDurationMs = Math.min(30_000, remaining);
-      timingQueueRef.current.push({ questionOrder: segment.questionOrder, activeDurationMs, eventId: crypto.randomUUID() });
-      remaining -= activeDurationMs;
-    }
-    setClockNow(Date.now());
-  }, []);
-
-  const flushTimingQueue = React.useCallback(async (keepalive = false) => {
-    if (keepalive) {
-      const queued = timingQueueRef.current.splice(0);
-      queued.forEach((event) => { void publicAssessmentService.recordTimingKeepalive(normalizedReleaseCode, event).catch(() => undefined); });
-      return;
-    }
-    if (timingFlushPromiseRef.current) {
-      await timingFlushPromiseRef.current;
-      if (timingQueueRef.current.length) await flushTimingQueue();
-      return;
-    }
-    const flush = (async () => {
-      try {
-        while (timingQueueRef.current.length) {
-          const event = timingQueueRef.current[0];
-          await publicAssessmentService.recordTiming(normalizedReleaseCode, event);
-          timingQueueRef.current.shift();
-        }
-      } catch {
-        // Keep the same event id in the queue so the next retry remains idempotent.
-      }
-    })();
-    const trackedFlush = flush.finally(() => {
-      if (timingFlushPromiseRef.current === trackedFlush) timingFlushPromiseRef.current = null;
-    });
-    timingFlushPromiseRef.current = trackedFlush;
-    await trackedFlush;
-  }, [normalizedReleaseCode]);
-
-  React.useEffect(() => {
-    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  React.useEffect(() => {
-    if (!attempt || attempt.status !== 'IN_PROGRESS') return;
-    const questionOrder = attempt.questions[selectedIndex]?.questionOrder;
-    if (!questionOrder) return;
-    const canAccumulate = () => !document.hidden && document.hasFocus()
-      && Date.now() + serverOffsetMsRef.current < new Date(attempt.expiresAt).getTime();
-    const start = () => {
-      if (canAccumulate() && !activeSegmentRef.current) {
-        activeSegmentRef.current = { startedAt: performance.now(), questionOrder };
-      }
-    };
-    const pauseAndFlush = (keepalive = false) => {
-      collectActiveSegment();
-      void flushTimingQueue(keepalive);
-    };
-    const handleActivityChange = () => {
-      if (canAccumulate()) start();
-      else pauseAndFlush();
-    };
-    const periodic = window.setInterval(() => {
-      if (!canAccumulate()) return;
-      collectActiveSegment();
-      start();
-      void flushTimingQueue();
-    }, 10_000);
-    const handlePageHide = () => pauseAndFlush(true);
-    start();
-    document.addEventListener('visibilitychange', handleActivityChange);
-    window.addEventListener('focus', handleActivityChange);
-    window.addEventListener('blur', handleActivityChange);
-    window.addEventListener('pagehide', handlePageHide);
-    return () => {
-      window.clearInterval(periodic);
-      document.removeEventListener('visibilitychange', handleActivityChange);
-      window.removeEventListener('focus', handleActivityChange);
-      window.removeEventListener('blur', handleActivityChange);
-      window.removeEventListener('pagehide', handlePageHide);
-      pauseAndFlush();
-    };
-  }, [attempt, collectActiveSegment, flushTimingQueue, selectedIndex]);
-
   const buildResponses = React.useCallback(() => (attempt?.questions || []).map((question) => ({ questionOrder: question.questionOrder, responses: responsesByOrder[question.questionOrder] || [], justificationText: justificationsByOrder[question.questionOrder] || null })), [attempt?.questions, justificationsByOrder, responsesByOrder]);
   const attemptId = attempt?.attemptId; const attemptStatus = attempt?.status;
   React.useEffect(() => {
     if (!attemptId || attemptStatus !== 'IN_PROGRESS' || !hydratedRef.current || submitting
       || dirtyRevision === 0 || dirtyRevision <= savedRevisionRef.current
-      || saveInFlightRef.current) return;
+      || dirtyRevision <= failedRevisionRef.current || saveInFlightRef.current) return;
     const revisionToSave = dirtyRevision;
-    const retrying = failedRevisionRef.current >= revisionToSave;
     const generation = releaseGenerationRef.current;
     const timer = window.setTimeout(async () => {
       saveInFlightRef.current = true;
@@ -738,7 +523,7 @@ const ResearchParticipantPage: React.FC = () => {
       } catch (error) {
         if (releaseGenerationRef.current === generation) {
           failedRevisionRef.current = Math.max(failedRevisionRef.current, revisionToSave);
-          setSaveMessage(getApiErrorMessage(error, '自动保存失败，正在重试。'));
+          setSaveMessage(getApiErrorMessage(error, '自动保存失败，请修改后重试。'));
         }
       } finally {
         if (releaseGenerationRef.current === generation) {
@@ -747,61 +532,15 @@ const ResearchParticipantPage: React.FC = () => {
           setSaveCycle((value) => value + 1);
         }
       }
-    }, retrying ? 3000 : 900);
+    }, 900);
     return () => window.clearTimeout(timer);
   }, [attemptId, attemptStatus, buildResponses, dirtyRevision, normalizedReleaseCode, saveCycle, submitting]);
-  const verify = async (event: React.FormEvent) => {
-    event.preventDefault(); setVerifying(true); setErrorMessage(null);
-    try {
-      const session = await publicAssessmentService.verifyCode(normalizedReleaseCode, { participationCode: participationCode.trim().toUpperCase() });
-      rememberPublicSession(normalizedReleaseCode);
-      setProfileFields(session.profileFields || []);
-      setProfileRequired(session.profileRequired);
-      if (session.attempt) {
-        applyAttempt(session.attempt);
-        if (session.attempt.status === 'SUBMITTED') setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
-      }
-    } catch (error) { setErrorMessage(getApiErrorMessage(error, '参与码验证失败。')); }
-    finally { setVerifying(false); }
-  };
-  const completeProfile = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const visible = profileFields.filter((field) => field.questionType !== 'INSTRUCTION' && profileFieldVisible(field, profileValues));
-    const missing = visible.find((field) => field.required && !(profileValues[field.itemCode] || '').trim());
-    if (missing) { setErrorMessage(`请填写：${missing.label}`); return; }
-    if (!consentAccepted) { setErrorMessage('请先勾选研究参与同意项。'); return; }
-    setProfileSubmitting(true); setErrorMessage(null);
-    try {
-      const nextAttempt = await publicAssessmentService.completeProfile(normalizedReleaseCode, { consentAccepted, values: pruneHiddenProfileValues(profileFields, profileValues) });
-      applyAttempt(nextAttempt);
-    } catch (error) { setErrorMessage(getApiErrorMessage(error, '资料保存失败，请检查后重试。')); }
-    finally { setProfileSubmitting(false); }
-  };
-  const submit = React.useCallback(async (reason: 'MANUAL' | 'TIMEOUT' = 'MANUAL') => {
-    if (!attempt || submitting || saveInFlightRef.current) return;
-    collectActiveSegment();
-    await flushTimingQueue();
-    setSubmitting(true); setErrorMessage(null);
-    try {
-      await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason });
-      setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
-    } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, reason === 'TIMEOUT' ? '已到作答时限，系统将继续尝试提交。' : '提交失败，请检查必答题后重试。'));
-      if (reason === 'TIMEOUT') timeoutSubmissionRef.current = false;
-    } finally { setSubmitting(false); }
-  }, [attempt, buildResponses, collectActiveSegment, flushTimingQueue, normalizedReleaseCode, submitting]);
-
-  const correctedNow = clockNow + serverOffsetMsRef.current;
-  const timedOut = Boolean(attempt && correctedNow >= new Date(attempt.expiresAt).getTime());
-  React.useEffect(() => {
-    if (!attempt || attempt.status !== 'IN_PROGRESS' || !timedOut || timeoutSubmissionRef.current || saveInFlightRef.current) return;
-    timeoutSubmissionRef.current = true;
-    void submit('TIMEOUT');
-  }, [attempt, submit, timedOut]);
+  React.useEffect(() => { if (!attempt || attempt.status !== 'IN_PROGRESS') return; const report = () => { if (document.hidden || !document.hasFocus()) return; const question = attempt.questions[selectedIndex]; if (!question) return; void publicAssessmentService.recordTiming(normalizedReleaseCode, { questionOrder: question.questionOrder, activeDurationMs: 15_000, eventId: crypto.randomUUID() }).catch(() => undefined); }; const timer = window.setInterval(report, 15_000); return () => window.clearInterval(timer); }, [attempt, normalizedReleaseCode, selectedIndex]);
+  const verify = async (event: React.FormEvent) => { event.preventDefault(); setVerifying(true); setErrorMessage(null); try { const session = await publicAssessmentService.verifyCode(normalizedReleaseCode, { participationCode: participationCode.trim().toUpperCase() }); rememberPublicSession(normalizedReleaseCode); applyAttempt(session.attempt); if (session.attempt.status === 'SUBMITTED') setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '参与码验证失败。')); } finally { setVerifying(false); } };
+  const submit = async () => { if (!attempt || submitting || saving || saveInFlightRef.current) return; setSubmitting(true); setErrorMessage(null); try { await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' }); setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '提交失败，请检查必答题后重试。')); } finally { setSubmitting(false); } };
 
   if (loading) return <div className="research-loading">正在加载研究入口…</div>;
   if (result) return <PublicResult result={result} />;
-  if (profileRequired && !attempt) return <ResearchProfile title={metadata?.title || 'Lexi-Bridge 研究问卷'} fields={profileFields} values={profileValues} consentAccepted={consentAccepted} submitting={profileSubmitting} errorMessage={errorMessage} onValuesChange={setProfileValues} onConsentChange={setConsentAccepted} onSubmit={completeProfile} />;
   if (!attempt) return <ResearchEntry metadata={metadata} participationCode={participationCode} verifying={verifying} qrEntering={qrEntering} qrRequested={qrRequested} errorMessage={errorMessage} onCodeChange={setParticipationCode} onVerify={verify} />;
 
   const currentQuestion = attempt.questions[selectedIndex];
@@ -811,11 +550,6 @@ const ResearchParticipantPage: React.FC = () => {
   const currentJustification = justificationsByOrder[currentQuestion.questionOrder] || '';
   const currentAnswered = hasQuestionResponse(currentQuestion, currentResponses, currentJustification);
   const progressPercent = Math.round((answeredCount / Math.max(1, questionCount)) * 100);
-  const currentActiveSegmentMs = activeSegmentRef.current
-    ? Math.max(0, performance.now() - activeSegmentRef.current.startedAt)
-    : 0;
-  const activeElapsedMs = (attempt.activeElapsedMs || 0) + activeLocalMsRef.current + currentActiveSegmentMs;
-  const wallElapsedMs = Math.max(0, correctedNow - new Date(attempt.startedAt).getTime());
   const hasPendingSave = dirtyRevision > savedRevisionRef.current;
   const hasSaveError = hasPendingSave && failedRevisionRef.current >= dirtyRevision && Boolean(saveMessage);
   const saveState = hasSaveError ? 'error' : saving ? 'saving' : hasPendingSave ? 'pending' : saveMessage ? 'saved' : 'ready';
@@ -843,15 +577,9 @@ const ResearchParticipantPage: React.FC = () => {
             </div>
             <div className="research-progress-copy">LEXI-BRIDGE / 学生答卷</div>
           </div>
-          <div className="research-header-status">
-            <div className="research-dual-timer" aria-label="作答计时">
-              <div><span>活跃作答</span><strong>{formatElapsed(activeElapsedMs)}</strong></div>
-              <div><span>距开始</span><strong>{formatElapsed(wallElapsedMs)}</strong></div>
-            </div>
-            <div className={`research-save-status is-${saveState}`} role="status" aria-live="polite">
-              {hasSaveError ? <AlertCircle size={15} /> : saving || hasPendingSave ? <Clock3 size={15} /> : saveMessage ? <CheckCircle2 size={15} /> : <Save size={15} />}
-              <span>{timedOut ? '已到时限，正在提交…' : saveStatusText}</span>
-            </div>
+          <div className={`research-save-status is-${saveState}`} role="status" aria-live="polite">
+            {hasSaveError ? <AlertCircle size={15} /> : saving || hasPendingSave ? <Clock3 size={15} /> : saveMessage ? <CheckCircle2 size={15} /> : <Save size={15} />}
+            <span>{saveStatusText}</span>
           </div>
         </header>
         <div className="research-progress-overview">
@@ -902,10 +630,9 @@ const ResearchParticipantPage: React.FC = () => {
                     <span>{QUESTION_TYPE_LABELS[currentQuestion.questionType] || currentQuestion.questionType}</span>
                   </div>
                 </div>
-                {currentQuestion.sectionInstruction ? <p className="research-section-instruction"><strong>本题指令</strong>{currentQuestion.sectionInstruction}</p> : null}
-                {currentQuestion.sharedMaterial ? <SharedMaterial text={currentQuestion.sharedMaterial} /> : null}
+                {currentQuestion.sharedMaterial ? <div className="research-shared-material break-words">{currentQuestion.sharedMaterial}</div> : null}
                 <div className="research-question-number">ITEM {String(currentQuestion.questionOrder).padStart(2, '0')} · {String(selectedIndex + 1).padStart(2, '0')} / {String(attempt.questions.length).padStart(2, '0')}</div>
-                {currentQuestion.questionType !== 'INSTRUCTION' ? <h1 className="break-words"><PresentedText question={currentQuestion} /></h1> : null}
+                {currentQuestion.questionType !== 'INSTRUCTION' ? <h1 className="break-words">{currentQuestion.stemText}</h1> : null}
                 {currentQuestion.promptText && currentQuestion.questionType !== 'INSTRUCTION' ? (
                   <p className="research-question-prompt break-words">{currentQuestion.promptText}</p>
                 ) : null}
@@ -913,7 +640,7 @@ const ResearchParticipantPage: React.FC = () => {
                   question={currentQuestion}
                   responses={currentResponses}
                   justification={currentJustification}
-                  disabled={submitting || timedOut}
+                  disabled={submitting}
                   reducedMotion={reducedMotion}
                   onResponsesChange={(responses) => {
                     setResponsesByOrder((current) => ({ ...current, [currentQuestion.questionOrder]: responses }));
@@ -939,7 +666,7 @@ const ResearchParticipantPage: React.FC = () => {
                   {currentQuestion.questionType === 'INSTRUCTION' ? '开始作答' : currentAnswered ? '已记录，继续' : '暂不回答，下一题'}<ChevronRight size={17} className="shrink-0" />
                 </button>
               ) : (
-                <button type="button" disabled={submitting || saving || timedOut} onClick={() => void submit()} className="research-primary-button w-full sm:w-auto">
+                <button type="button" disabled={submitting || saving} onClick={() => void submit()} className="research-primary-button w-full sm:w-auto">
                   {submitting ? '正在提交…' : saving ? '正在保存…' : `提交问卷 · ${answeredCount}/${questionCount}`}
                   <Send size={16} className="shrink-0" />
                 </button>

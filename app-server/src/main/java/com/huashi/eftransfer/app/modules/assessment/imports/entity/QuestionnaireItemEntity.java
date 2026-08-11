@@ -22,7 +22,6 @@ public class QuestionnaireItemEntity extends BaseAuditEntity {
     @TableField("target_word") private String targetWord;
     @TableField("option_explanations_json") private String optionExplanationsJson;
     @TableField("display_condition_json") private String displayConditionJson;
-    @TableField("presentation_json") private String presentationJson;
     public Long getQuestionnaireVersionId() { return questionnaireVersionId; }
     public void setQuestionnaireVersionId(Long value) { this.questionnaireVersionId = value; }
     public Long getSectionId() { return sectionId; }
@@ -51,6 +50,4 @@ public class QuestionnaireItemEntity extends BaseAuditEntity {
     public void setOptionExplanationsJson(String value) { this.optionExplanationsJson = value; }
     public String getDisplayConditionJson() { return displayConditionJson; }
     public void setDisplayConditionJson(String value) { this.displayConditionJson = value; }
-    public String getPresentationJson() { return presentationJson; }
-    public void setPresentationJson(String value) { this.presentationJson = value; }
 }

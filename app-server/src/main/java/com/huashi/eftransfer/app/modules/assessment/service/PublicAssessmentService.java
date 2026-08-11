@@ -3,7 +3,6 @@ package com.huashi.eftransfer.app.modules.assessment.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentVerifyRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentQrEntryRequest;
-import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentProfileRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentTimingRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentAttemptResponseRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
@@ -49,9 +48,6 @@ import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentAttemptVO
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentMetadataVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentResultVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentQuestionVO;
-import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentDisplayConditionVO;
-import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentProfileFieldVO;
-import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentQuestionPresentationVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentSessionVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
@@ -65,7 +61,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.security.SecureRandom;
 import java.math.BigDecimal;
@@ -113,7 +108,6 @@ public class PublicAssessmentService {
     private final AssessmentJsonCodec jsonCodec;
     private final AssessmentParticipantProfileCipher profileCipher;
     private final AssessmentParticipantAccessCipher accessCipher;
-    private final JdbcTemplate jdbcTemplate;
     private final Duration configuredSessionTtl;
     private final AssessmentTimeoutProperties timeoutProperties;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -136,7 +130,6 @@ public class PublicAssessmentService {
             AssessmentJsonCodec jsonCodec,
             AssessmentParticipantProfileCipher profileCipher,
             AssessmentParticipantAccessCipher accessCipher,
-            JdbcTemplate jdbcTemplate,
             AssessmentTimeoutProperties timeoutProperties,
             @Value("${app.assessment.public-delivery.session-ttl:PT12H}") Duration configuredSessionTtl
     ) {
@@ -156,7 +149,6 @@ public class PublicAssessmentService {
         this.jsonCodec = jsonCodec;
         this.profileCipher = profileCipher;
         this.accessCipher = accessCipher;
-        this.jdbcTemplate = jdbcTemplate;
         this.timeoutProperties = timeoutProperties;
         this.configuredSessionTtl = configuredSessionTtl == null || configuredSessionTtl.isNegative()
                 ? MAX_SESSION_TTL : configuredSessionTtl.compareTo(MAX_SESSION_TTL) > 0 ? MAX_SESSION_TTL : configuredSessionTtl;
@@ -168,7 +160,7 @@ public class PublicAssessmentService {
                 bundle.publish().getPaperDescriptionSnapshot(), bundle.publish().getInstructionsText(),
                 bundle.publish().getDurationMinutes(), bundle.publish().getQuestionCountSnapshot(), bundle.release().getStatus(),
                 bundle.publish().getStartsAt(), bundle.publish().getDueAt(),
-                Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()), loadProfileFields(bundle.publish().getPaperId()));
+                Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()));
     }
 
     @Transactional
@@ -203,10 +195,16 @@ public class PublicAssessmentService {
             participant.setParticipationCodeId(participationCode.getId());
             participantMapper.insert(participant);
         }
+        if (request.basicInfo() != null && !request.basicInfo().isEmpty()) {
+            AssessmentParticipantProfileCipher.EncryptedProfile encrypted = profileCipher.encrypt(request.basicInfo());
+            participant.setSensitiveProfileCiphertext(encrypted.ciphertext());
+            participant.setSensitiveProfileIv(encrypted.iv());
+            participant.setSensitiveProfileKeyVersion(encrypted.keyVersion());
+            participant.setConsentedAt(LocalDateTime.now());
+            participantMapper.updateById(participant);
+        }
         AssessmentAttemptEntity attempt = participant.getAttemptId() == null ? null : attemptMapper.selectById(participant.getAttemptId());
-        List<PublicAssessmentProfileFieldVO> profileFields = loadProfileFields(bundle.publish().getPaperId());
-        boolean profileRequired = requiresProfile(profileFields) && participant.getConsentedAt() == null;
-        if (attempt == null && !profileRequired) {
+        if (attempt == null) {
             attempt = createAttempt(bundle.publish(), participant);
             participant.setAttemptId(attempt.getId());
             participantMapper.updateById(participant);
@@ -219,7 +217,7 @@ public class PublicAssessmentService {
         }
         participationCodeMapper.updateById(participationCode);
         recordAccess(bundle.release(), participant, participationCode, "PUBLIC_CODE", remoteAddress, now);
-        return issueSession(bundle, participant, attempt, resumed, profileRequired, profileFields, now);
+        return issueSession(bundle, participant, attempt, resumed, now);
     }
 
     @Transactional
@@ -254,51 +252,14 @@ public class PublicAssessmentService {
         }
         AssessmentAttemptEntity attempt = participant.getAttemptId() == null
                 ? null : attemptMapper.selectById(participant.getAttemptId());
-        List<PublicAssessmentProfileFieldVO> profileFields = loadProfileFields(bundle.publish().getPaperId());
-        boolean profileRequired = requiresProfile(profileFields) && participant.getConsentedAt() == null;
-        if (attempt == null && !profileRequired) {
+        if (attempt == null) {
             attempt = createAttempt(bundle.publish(), participant);
             participant.setAttemptId(attempt.getId());
             participantMapper.updateById(participant);
         }
         LocalDateTime now = LocalDateTime.now();
         recordAccess(bundle.release(), participant, null, "PUBLIC_QR", normalizedIp, now);
-        return issueSession(bundle, participant, attempt, resumed, profileRequired, profileFields, now);
-    }
-
-    @Transactional
-    public PublicAssessmentAttemptVO completeProfile(
-            String releaseCode,
-            String sessionToken,
-            PublicAssessmentProfileRequest request
-    ) {
-        ParticipantSessionBundle session = requireParticipantSession(releaseCode, sessionToken);
-        AssessmentParticipantEntity participant = participantMapper.selectByIdForUpdate(session.participant().getId());
-        if (participant == null) {
-            throw new BusinessException(ResultCode.UNAUTHORIZED, "Participant session is invalid", 401);
-        }
-        AssessmentAttemptEntity existingAttempt = participant.getAttemptId() == null
-                ? null : attemptMapper.selectById(participant.getAttemptId());
-        if (existingAttempt != null) {
-            touchSession(session.session());
-            return toAttempt(session.release(), existingAttempt);
-        }
-        if (!request.consentAccepted()) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR,
-                    "Research participation consent is required", 400);
-        }
-        List<PublicAssessmentProfileFieldVO> fields = loadProfileFields(session.release().publish().getPaperId());
-        Map<String, Object> profile = validateProfile(fields, request.values());
-        AssessmentParticipantProfileCipher.EncryptedProfile encrypted = profileCipher.encrypt(profile);
-        participant.setSensitiveProfileCiphertext(encrypted.ciphertext());
-        participant.setSensitiveProfileIv(encrypted.iv());
-        participant.setSensitiveProfileKeyVersion(encrypted.keyVersion());
-        participant.setConsentedAt(LocalDateTime.now());
-        AssessmentAttemptEntity attempt = createAttempt(session.release().publish(), participant);
-        participant.setAttemptId(attempt.getId());
-        participantMapper.updateById(participant);
-        touchSession(session.session());
-        return toAttempt(session.release(), attempt);
+        return issueSession(bundle, participant, attempt, resumed, now);
     }
 
     @Transactional
@@ -385,12 +346,9 @@ public class PublicAssessmentService {
         if (AssessmentAttemptStatus.SUBMITTED.name().equals(attempt.getStatus())) {
             return toSubmit(attempt);
         }
-        requireAttemptStatusInProgress(attempt);
-        AssessmentSubmitReason reason = parseSubmitReason(request.reason());
-        if (reason != AssessmentSubmitReason.TIMEOUT) {
-            requireNotExpired(attempt);
-        }
+        requireInProgress(attempt);
         requireVersion(attempt, request.baseVersion());
+        AssessmentSubmitReason reason = parseSubmitReason(request.reason());
         List<AssessmentAttemptAnswerEntity> answers = loadAnswers(attempt.getId());
         Map<Long, AssessmentQuestionEntity> questions = loadQuestionMap(attempt.getPaperId());
         applyResponses(request.responses(), answers, questions, true);
@@ -490,17 +448,9 @@ public class PublicAssessmentService {
     }
 
     private void requireInProgress(AssessmentAttemptEntity attempt) {
-        requireAttemptStatusInProgress(attempt);
-        requireNotExpired(attempt);
-    }
-
-    private void requireAttemptStatusInProgress(AssessmentAttemptEntity attempt) {
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equals(attempt.getStatus())) {
             throw new BusinessException(ResultCode.ATTEMPT_SUBMITTED, "Assessment attempt has already been submitted", 409);
         }
-    }
-
-    private void requireNotExpired(AssessmentAttemptEntity attempt) {
         if (attempt.getExpiresAt() != null && !LocalDateTime.now().isBefore(attempt.getExpiresAt())) {
             throw new BusinessException(ResultCode.ASSESSMENT_CLOSED, "Assessment attempt has expired", 409);
         }
@@ -824,10 +774,7 @@ public class PublicAssessmentService {
         attempt.setVersion(1L);
         attemptMapper.insert(attempt);
         int order = 1;
-        Map<Long, QuestionContext> contexts = loadQuestionContexts(publish.getPaperId());
         for (AssessmentQuestionEntity question : loadQuestions(publish.getPaperId())) {
-            QuestionContext context = contexts.get(question.getId());
-            if (context != null && !context.formalSection()) continue;
             AssessmentAttemptAnswerEntity answer = new AssessmentAttemptAnswerEntity();
             answer.setAttemptId(attempt.getId());
             answer.setQuestionId(question.getId());
@@ -850,22 +797,17 @@ public class PublicAssessmentService {
         for (AssessmentQuestionEntity question : loadQuestions(attempt.getPaperId())) {
             questions.put(question.getId(), question);
         }
-        Map<Long, QuestionContext> contexts = loadQuestionContexts(attempt.getPaperId());
         List<PublicAssessmentQuestionVO> items = answerMapper.selectList(
                         Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
                                 .eq(AssessmentAttemptAnswerEntity::getAttemptId, attempt.getId())
                                 .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder))
                 .stream().map(answer -> {
                     AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
-                    QuestionContext context = contexts.get(answer.getQuestionId());
                     List<AssessmentOptionVO> options = jsonCodec.readOptions(answer.getOptionsJsonSnapshot()).stream()
                             .map(option -> new AssessmentOptionVO(option.key(), option.label())).toList();
                     return new PublicAssessmentQuestionVO(answer.getQuestionId(), answer.getQuestionOrder(), answer.getQuestionType(),
-                            context == null ? null : context.itemCode(), question == null ? null : question.getSectionCode(),
-                            context == null ? null : context.sectionTitle(), context == null ? null : context.sectionInstruction(),
-                            context == null ? null : context.sharedMaterial(), answer.getStemTextSnapshot(),
-                            answer.getPromptTextSnapshot(), presentation(question, context), options,
-                            question == null || !Boolean.FALSE.equals(question.getRequiredAnswer()),
+                            question == null ? null : question.getSectionCode(), null, null, answer.getStemTextSnapshot(),
+                            answer.getPromptTextSnapshot(), options, question == null || !Boolean.FALSE.equals(question.getRequiredAnswer()),
                             "TRUE_FALSE_WITH_JUSTIFICATION".equals(answer.getQuestionType()),
                             jsonCodec.readStringList(answer.getResponseJson()), answer.getJustificationText());
                 }).toList();
@@ -873,10 +815,10 @@ public class PublicAssessmentService {
         return new PublicAssessmentAttemptVO(attempt.getId(), bundle.release().getReleaseCode(), publish.getPaperTitleSnapshot(),
                 publish.getPaperDescriptionSnapshot(), publish.getInstructionsText(), attempt.getStatus(), publish.getDurationMinutes(),
                 items.size(), attempt.getAnsweredCount(), attempt.getStartedAt(), attempt.getExpiresAt(), attempt.getLastSavedAt(),
-                attempt.getVersion(), LocalDateTime.now(), activeElapsedMs(attempt.getId()), items);
+                attempt.getVersion(), LocalDateTime.now(), items);
     }
 
-    private ParticipantSessionBundle requireParticipantSession(String releaseCode, String token) {
+    private SessionBundle requireSession(String releaseCode, String token) {
         if (token == null || token.isBlank()) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "Participant session is required", 401);
         }
@@ -890,26 +832,18 @@ public class PublicAssessmentService {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "Participant session has expired", 401);
         }
         AssessmentParticipantEntity participant = participantMapper.selectById(session.getParticipantId());
-        if (participant == null) {
+        if (participant == null || participant.getAttemptId() == null) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "Participant session is invalid", 401);
         }
         ReleaseBundle bundle = requireRelease(releaseCode);
         if (!Objects.equals(participant.getPublishId(), bundle.publish().getId())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "Participant session belongs to another release", 403);
         }
-        return new ParticipantSessionBundle(session, participant, bundle);
-    }
-
-    private SessionBundle requireSession(String releaseCode, String token) {
-        ParticipantSessionBundle participantSession = requireParticipantSession(releaseCode, token);
-        if (participantSession.participant().getAttemptId() == null) {
-            throw new BusinessException(ResultCode.CONFLICT, "Participant profile is required", 409);
-        }
-        AssessmentAttemptEntity attempt = attemptMapper.selectById(participantSession.participant().getAttemptId());
+        AssessmentAttemptEntity attempt = attemptMapper.selectById(participant.getAttemptId());
         if (attempt == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "Assessment attempt was not found", 404);
         }
-        return new SessionBundle(participantSession.session(), participantSession.participant(), participantSession.release(), attempt);
+        return new SessionBundle(session, participant, bundle, attempt);
     }
 
     private ReleaseBundle requireRelease(String rawReleaseCode) {
@@ -931,145 +865,6 @@ public class PublicAssessmentService {
         return questionMapper.selectList(Wrappers.<AssessmentQuestionEntity>lambdaQuery()
                 .eq(AssessmentQuestionEntity::getPaperId, paperId)
                 .orderByAsc(AssessmentQuestionEntity::getSortOrder).orderByAsc(AssessmentQuestionEntity::getId));
-    }
-
-    private Map<Long, QuestionContext> loadQuestionContexts(Long paperId) {
-        List<QuestionContext> contexts = jdbcTemplate.query("""
-                SELECT qi.assessment_question_id, qi.item_code, qs.title, qs.description, qs.shared_material,
-                       qs.formal_section, COALESCE(qi.display_condition_json, aq.display_condition_json),
-                       COALESCE(qi.presentation_json, aq.presentation_json, qv.presentation_json)
-                FROM assessment_questionnaire_version qnv
-                JOIN assessment_questionnaire_item qi ON qi.questionnaire_version_id = qnv.id AND qi.deleted = FALSE
-                JOIN assessment_questionnaire_section qs ON qs.id = qi.section_id AND qs.deleted = FALSE
-                JOIN assessment_question aq ON aq.id = qi.assessment_question_id AND aq.deleted = FALSE
-                LEFT JOIN assessment_question_version qv ON qv.id = qi.question_version_id AND qv.deleted = FALSE
-                WHERE qnv.paper_id = ? AND qnv.deleted = FALSE
-                ORDER BY qs.sort_order, aq.sort_order, aq.id
-                """, (resultSet, rowNumber) -> new QuestionContext(
-                resultSet.getLong(1), resultSet.getString(2), resultSet.getString(3), resultSet.getString(4),
-                resultSet.getString(5), resultSet.getBoolean(6), resultSet.getString(7), resultSet.getString(8)), paperId);
-        return contexts.stream().collect(Collectors.toMap(
-                QuestionContext::questionId, Function.identity(), (left, right) -> left, LinkedHashMap::new));
-    }
-
-    private List<PublicAssessmentProfileFieldVO> loadProfileFields(Long paperId) {
-        Map<Long, QuestionContext> contexts = loadQuestionContexts(paperId);
-        List<PublicAssessmentProfileFieldVO> fields = new ArrayList<>();
-        for (AssessmentQuestionEntity question : loadQuestions(paperId)) {
-            QuestionContext context = contexts.get(question.getId());
-            if (context == null || context.formalSection()) continue;
-            List<AssessmentOptionVO> options = jsonCodec.readOptions(question.getOptionsJson()).stream()
-                    .map(option -> new AssessmentOptionVO(option.key(), option.label())).toList();
-            fields.add(new PublicAssessmentProfileFieldVO(
-                    context.itemCode(), question.getQuestionType(), question.getStemText(), question.getPromptText(),
-                    options, !Boolean.FALSE.equals(question.getRequiredAnswer()), displayCondition(context.displayConditionJson())));
-        }
-        return List.copyOf(fields);
-    }
-
-    private boolean requiresProfile(List<PublicAssessmentProfileFieldVO> fields) {
-        return fields.stream().anyMatch(field -> !"INSTRUCTION".equals(field.questionType()));
-    }
-
-    private Map<String, Object> validateProfile(
-            List<PublicAssessmentProfileFieldVO> fields,
-            Map<String, Object> rawValues
-    ) {
-        Map<String, PublicAssessmentProfileFieldVO> byCode = fields.stream().collect(Collectors.toMap(
-                field -> field.itemCode().toUpperCase(Locale.ROOT), Function.identity(), (left, right) -> left,
-                LinkedHashMap::new));
-        for (String key : rawValues.keySet()) {
-            if (!byCode.containsKey(key.toUpperCase(Locale.ROOT))) {
-                throw new BusinessException(ResultCode.VALIDATION_ERROR,
-                        "Unknown participant profile field: " + key, 400);
-            }
-        }
-        Map<String, Object> normalized = new LinkedHashMap<>();
-        normalized.put("CONSENT_ACCEPTED", true);
-        for (PublicAssessmentProfileFieldVO field : fields) {
-            if ("INSTRUCTION".equals(field.questionType())) continue;
-            boolean visible = conditionMatches(field.displayCondition(), normalized);
-            Object raw = rawValues.get(field.itemCode());
-            if (raw == null) {
-                raw = rawValues.entrySet().stream()
-                        .filter(entry -> entry.getKey().equalsIgnoreCase(field.itemCode()))
-                        .map(Map.Entry::getValue).findFirst().orElse(null);
-            }
-            if (!visible && hasProfileValue(raw)) {
-                throw new BusinessException(ResultCode.VALIDATION_ERROR,
-                        "Participant profile field is not available for the selected branch: " + field.itemCode(), 400);
-            }
-            Object value = visible ? normalizeProfileValue(field, raw) : null;
-            if (visible && field.required() && value == null) {
-                throw new BusinessException(ResultCode.VALIDATION_ERROR,
-                        "Required participant profile field is missing: " + field.itemCode(), 400);
-            }
-            if (value != null) normalized.put(field.itemCode(), value);
-        }
-        return Map.copyOf(normalized);
-    }
-
-    private boolean hasProfileValue(Object raw) {
-        if (raw == null) return false;
-        return !(raw instanceof CharSequence text) || !text.toString().trim().isEmpty();
-    }
-
-    private Object normalizeProfileValue(PublicAssessmentProfileFieldVO field, Object raw) {
-        if (raw == null) return null;
-        String value = raw instanceof Number ? raw.toString() : String.valueOf(raw).trim();
-        if (value.isBlank()) return null;
-        if (value.length() > 1000) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR,
-                    "Participant profile value is too long: " + field.itemCode(), 400);
-        }
-        if ("NUMBER".equals(field.questionType())) {
-            try {
-                return new BigDecimal(value);
-            } catch (NumberFormatException exception) {
-                throw new BusinessException(ResultCode.VALIDATION_ERROR,
-                        "Participant profile field requires a number: " + field.itemCode(), 400);
-            }
-        }
-        if ("SINGLE_CHOICE".equals(field.questionType()) || "INFORMED_CONSENT".equals(field.questionType())) {
-            return field.options().stream()
-                    .map(AssessmentOptionVO::key)
-                    .filter(key -> key.equalsIgnoreCase(value))
-                    .findFirst()
-                    .orElseThrow(() -> new BusinessException(ResultCode.VALIDATION_ERROR,
-                            "Participant profile option is invalid: " + field.itemCode(), 400));
-        }
-        return value;
-    }
-
-    private boolean conditionMatches(PublicAssessmentDisplayConditionVO condition, Map<String, Object> values) {
-        if (condition == null) return true;
-        if (!"EQ".equalsIgnoreCase(condition.operator())) return false;
-        Object actual = values.entrySet().stream()
-                .filter(entry -> entry.getKey().equalsIgnoreCase(condition.fieldCode()))
-                .map(Map.Entry::getValue).findFirst().orElse(null);
-        return actual != null && String.valueOf(actual).equalsIgnoreCase(condition.value());
-    }
-
-    private PublicAssessmentDisplayConditionVO displayCondition(String json) {
-        if (json == null || json.isBlank()) return null;
-        return jsonCodec.read(json, PublicAssessmentDisplayConditionVO.class);
-    }
-
-    private PublicAssessmentQuestionPresentationVO presentation(
-            AssessmentQuestionEntity question,
-            QuestionContext context
-    ) {
-        String json = question != null && question.getPresentationJson() != null
-                ? question.getPresentationJson() : context == null ? null : context.presentationJson();
-        if (json == null || json.isBlank()) return new PublicAssessmentQuestionPresentationVO(List.of());
-        return jsonCodec.read(json, PublicAssessmentQuestionPresentationVO.class);
-    }
-
-    private long activeElapsedMs(Long attemptId) {
-        Long value = jdbcTemplate.queryForObject(
-                "SELECT COALESCE(SUM(effective_delta_ms),0) FROM assessment_timing_event WHERE attempt_id = ? AND deleted = FALSE",
-                Long.class, attemptId);
-        return value == null ? 0L : Math.max(0L, value);
     }
 
     private void requireOpen(AssessmentPublishEntity publish, LocalDateTime now) {
@@ -1139,8 +934,6 @@ public class PublicAssessmentService {
             AssessmentParticipantEntity participant,
             AssessmentAttemptEntity attempt,
             boolean resumed,
-            boolean profileRequired,
-            List<PublicAssessmentProfileFieldVO> profileFields,
             LocalDateTime now
     ) {
         String token = newSessionToken();
@@ -1152,8 +945,7 @@ public class PublicAssessmentService {
         session.setLastSeenAt(now);
         participantSessionMapper.insert(session);
         return new VerifiedSession(token, expiresAt, new PublicAssessmentSessionVO(true, resumed,
-                bundle.release().getReleaseCode(), profileRequired, profileFields,
-                attempt == null ? null : toAttempt(bundle, attempt)));
+                bundle.release().getReleaseCode(), toAttempt(bundle, attempt)));
     }
 
     private BusinessException invalidCode() {
@@ -1168,12 +960,7 @@ public class PublicAssessmentService {
     }
 
     public record VerifiedSession(String token, LocalDateTime expiresAt, PublicAssessmentSessionVO response) { }
-    private record QuestionContext(Long questionId, String itemCode, String sectionTitle,
-                                   String sectionInstruction, String sharedMaterial, boolean formalSection,
-                                   String displayConditionJson, String presentationJson) { }
     private record ReleaseBundle(AssessmentPublicReleaseEntity release, AssessmentPublishEntity publish) { }
-    private record ParticipantSessionBundle(AssessmentParticipantSessionEntity session, AssessmentParticipantEntity participant,
-                                            ReleaseBundle release) { }
     private record SessionBundle(AssessmentParticipantSessionEntity session, AssessmentParticipantEntity participant,
                                  ReleaseBundle release, AssessmentAttemptEntity attempt) { }
 }

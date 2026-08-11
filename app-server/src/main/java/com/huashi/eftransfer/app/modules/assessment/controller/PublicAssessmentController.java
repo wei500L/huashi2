@@ -2,7 +2,6 @@ package com.huashi.eftransfer.app.modules.assessment.controller;
 
 import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentQrEntryRequest;
-import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentProfileRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentVerifyRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentTimingRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
@@ -95,15 +94,6 @@ public class PublicAssessmentController {
             @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken
     ) {
         return ApiResponse.success(publicAssessmentService.restore(releaseCode, sessionToken), MDC.get("traceId"));
-    }
-
-    @PostMapping("/{releaseCode}/profile")
-    public ApiResponse<PublicAssessmentAttemptVO> completeProfile(
-            @PathVariable String releaseCode,
-            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken,
-            @Valid @RequestBody PublicAssessmentProfileRequest request
-    ) {
-        return ApiResponse.success(publicAssessmentService.completeProfile(releaseCode, sessionToken, request), MDC.get("traceId"));
     }
 
     @PostMapping("/{releaseCode}/responses")
