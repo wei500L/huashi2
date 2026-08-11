@@ -162,9 +162,11 @@ public class PublicAssessmentService {
 
     public PublicAssessmentMetadataVO metadata(String releaseCode) {
         ReleaseBundle bundle = requireRelease(releaseCode);
+        DeliveryCounts counts = loadDeliveryCounts(bundle.publish().getPaperId(), bundle.publish().getQuestionCountSnapshot());
         return new PublicAssessmentMetadataVO(bundle.release().getReleaseCode(), bundle.publish().getPaperTitleSnapshot(),
                 bundle.publish().getPaperDescriptionSnapshot(), bundle.publish().getInstructionsText(),
-                bundle.publish().getDurationMinutes(), bundle.publish().getQuestionCountSnapshot(), bundle.release().getStatus(),
+                bundle.publish().getDurationMinutes(), bundle.publish().getQuestionCountSnapshot(),
+                counts.formalQuestionCount(), counts.profileFieldCount(), bundle.release().getStatus(),
                 bundle.publish().getStartsAt(), bundle.publish().getDueAt(),
                 Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()));
     }
@@ -991,7 +993,8 @@ public class PublicAssessmentService {
                     return new PublicAssessmentQuestionVO(answer.getQuestionId(), answer.getQuestionOrder(), answer.getQuestionType(),
                             question == null ? null : question.getSectionCode(),
                             section == null ? null : section.title(),
-                            section == null ? null : section.sharedMaterial(), answer.getStemTextSnapshot(),
+                            section == null ? null : section.sharedMaterial(), question != null && (section == null || section.formalSection()),
+                            answer.getStemTextSnapshot(),
                             answer.getPromptTextSnapshot(), options, question == null || !Boolean.FALSE.equals(question.getRequiredAnswer()),
                             "TRUE_FALSE_WITH_JUSTIFICATION".equals(answer.getQuestionType()),
                             jsonCodec.readStringList(answer.getResponseJson()), answer.getJustificationText(),
@@ -1066,10 +1069,10 @@ public class PublicAssessmentService {
             return Map.of();
         }
         return jdbcTemplate.query("""
-                        SELECT section_code, title, shared_material FROM assessment_questionnaire_section
+                        SELECT section_code, title, shared_material, formal_section FROM assessment_questionnaire_section
                         WHERE questionnaire_version_id = ? AND deleted = FALSE
                         """, (resultSet, rowNumber) -> new SectionPresentation(
-                        resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)), versionId)
+                        resultSet.getString(1), resultSet.getString(2), resultSet.getString(3), resultSet.getBoolean(4)), versionId)
                 .stream().collect(Collectors.toMap(SectionPresentation::sectionCode, Function.identity()));
     }
 
@@ -1089,7 +1092,28 @@ public class PublicAssessmentService {
                 .stream().collect(Collectors.toMap(row -> (Long) row[0], row -> (String) row[1]));
     }
 
-    private record SectionPresentation(String sectionCode, String title, String sharedMaterial) {
+    private DeliveryCounts loadDeliveryCounts(Long paperId, Integer fallbackQuestionCount) {
+        List<DeliveryCounts> counts = jdbcTemplate.query("""
+                SELECT
+                    COALESCE(SUM(CASE WHEN s.formal_section = TRUE THEN 1 ELSE 0 END), 0) AS formal_count,
+                    COALESCE(SUM(CASE WHEN s.formal_section = FALSE AND q.question_type <> 'INSTRUCTION' THEN 1 ELSE 0 END), 0) AS profile_count
+                FROM assessment_questionnaire_version v
+                JOIN assessment_questionnaire_item i ON i.questionnaire_version_id = v.id AND i.deleted = FALSE
+                JOIN assessment_questionnaire_section s ON s.id = i.section_id AND s.deleted = FALSE
+                JOIN assessment_question q ON q.id = i.assessment_question_id AND q.deleted = FALSE
+                WHERE v.paper_id = ? AND v.deleted = FALSE
+                GROUP BY v.id
+                ORDER BY v.version_no DESC
+                LIMIT 1
+                """, (resultSet, rowNumber) -> new DeliveryCounts(resultSet.getInt(1), resultSet.getInt(2)), paperId);
+        if (!counts.isEmpty()) return counts.getFirst();
+        return new DeliveryCounts(fallbackQuestionCount == null ? 0 : fallbackQuestionCount, 0);
+    }
+
+    private record SectionPresentation(String sectionCode, String title, String sharedMaterial, boolean formalSection) {
+    }
+
+    private record DeliveryCounts(int formalQuestionCount, int profileFieldCount) {
     }
 
     private void requireOpen(AssessmentPublishEntity publish, LocalDateTime now) {

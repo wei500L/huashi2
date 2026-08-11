@@ -284,7 +284,9 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
 
         mockMvc.perform(get("/api/public/assessments/{releaseCode}", releaseCode))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.questionCount").value(1));
+                .andExpect(jsonPath("$.data.questionCount").value(1))
+                .andExpect(jsonPath("$.data.formalQuestionCount").value(1))
+                .andExpect(jsonPath("$.data.profileFieldCount").value(0));
 
         MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -293,6 +295,7 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                                 """.formatted(participationCode)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.resumed").value(false))
+                .andExpect(jsonPath("$.data.attempt.questions[0].formalSection").value(true))
                 .andReturn();
         Cookie cookie = sessionCookie(verified);
         long attemptId = readJson(verified).path("data").path("attempt").path("attemptId").asLong();

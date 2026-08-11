@@ -9,6 +9,7 @@ public record PublicAssessmentQuestionVO(
         String sectionCode,
         String sectionTitle,
         String sharedMaterial,
+        boolean formalSection,
         String stemText,
         String promptText,
         List<AssessmentOptionVO> options,
@@ -17,7 +18,7 @@ public record PublicAssessmentQuestionVO(
         List<String> responses,
         String justificationText,
         String itemCode,
-        String displayConditionJson,
+        String displayCondition,
         String spellingHintFirstLetter,
         boolean spellingHintShown,
         int spellingWrongAttemptCount
@@ -25,12 +26,13 @@ public record PublicAssessmentQuestionVO(
     public PublicAssessmentQuestionVO(
             Long questionId, Integer questionOrder, String questionType,
             String sectionCode, String sectionTitle, String sharedMaterial,
+            boolean formalSection,
             String stemText, String promptText, List<AssessmentOptionVO> options,
             boolean required, boolean justificationRequired, List<String> responses,
-            String justificationText, String itemCode, String displayConditionJson
+            String justificationText, String itemCode, String displayCondition
     ) {
-        this(questionId, questionOrder, questionType, sectionCode, sectionTitle, sharedMaterial,
+        this(questionId, questionOrder, questionType, sectionCode, sectionTitle, sharedMaterial, formalSection,
                 stemText, promptText, options, required, justificationRequired, responses,
-                justificationText, itemCode, displayConditionJson, null, false, 0);
+                justificationText, itemCode, displayCondition, null, false, 0);
     }
 }

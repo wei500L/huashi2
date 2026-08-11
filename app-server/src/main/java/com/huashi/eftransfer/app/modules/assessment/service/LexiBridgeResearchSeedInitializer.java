@@ -19,7 +19,11 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -68,6 +72,7 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         Long versionId = insertQuestionnaireVersion(questionnaireId, paperId, seed);
         Long importId = insertImport(bankId, seed);
         insertSectionsAndItems(bankId, paperId, versionId, importId, seed);
+        synchronizeCounts(paperId, seed.path("items").size());
         insertReviewIssues(bankId, importId, seed);
         log.info("event=lexibridge_seed_ready packageCode={} scoredItems=60 formalSections=7 status=REVIEW_REQUIRED",
                 PACKAGE_CODE);
@@ -93,21 +98,39 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                 """, Long.class, versionId);
         Long bankId = id("assessment_question_bank", "bank_code", BANK_CODE);
 
-        java.util.Map<String, Long> sectionIds = new java.util.LinkedHashMap<>();
+        Set<String> desiredSectionCodes = new LinkedHashSet<>();
+        for (JsonNode section : seed.path("sections")) {
+            desiredSectionCodes.add(section.path("sectionCode").asString());
+        }
+        softDeleteRemovedSections(versionId, desiredSectionCodes);
+        jdbcTemplate.update("""
+                UPDATE assessment_questionnaire_section
+                SET sort_order = sort_order + 1000
+                WHERE questionnaire_version_id = ? AND deleted = FALSE
+                """, versionId);
+
+        Map<String, Long> sectionIds = new LinkedHashMap<>();
         for (JsonNode section : seed.path("sections")) {
             String sectionCode = section.path("sectionCode").asString();
             jdbcTemplate.update("""
                     UPDATE assessment_questionnaire_section
-                    SET title = ?, description = ?, shared_material = ?, scored_item_count = ?
+                    SET title = ?, description = ?, shared_material = ?, sort_order = ?, formal_section = ?, scored_item_count = ?
                     WHERE questionnaire_version_id = ? AND section_code = ? AND deleted = FALSE
                     """, section.path("title").asString(), nullableText(section, "description"),
-                    nullableText(section, "sharedMaterial"), section.path("scoredItemCount").asInt(),
+                    nullableText(section, "sharedMaterial"), section.path("sortOrder").asInt(),
+                    section.path("formalSection").asBoolean(), section.path("scoredItemCount").asInt(),
                     versionId, sectionCode);
             sectionIds.put(sectionCode, jdbcTemplate.queryForObject("""
                     SELECT id FROM assessment_questionnaire_section
                     WHERE questionnaire_version_id = ? AND section_code = ? AND deleted = FALSE
                     """, Long.class, versionId, sectionCode));
         }
+
+        Set<String> desiredItemCodes = new LinkedHashSet<>();
+        for (JsonNode item : seed.path("items")) {
+            desiredItemCodes.add(item.path("itemCode").asString());
+        }
+        softDeleteRemovedItems(versionId, paperId, desiredItemCodes);
 
         int globalOrder = 1;
         for (JsonNode item : seed.path("items")) {
@@ -132,50 +155,87 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                         SELECT assessment_question_id FROM assessment_questionnaire_item
                         WHERE id = ? AND deleted = FALSE
                         """, Long.class, questionnaireItemId);
-                updateAssessmentQuestion(questionId, item);
-                updateQuestionnaireItem(questionnaireItemId, item);
+                updateAssessmentQuestion(questionId, questionVersionId, item, globalOrder);
+                updateQuestionnaireItem(questionnaireItemId,
+                        sectionIds.get(item.path("sectionCode").asString()), questionVersionId, item);
             }
             globalOrder++;
         }
+        synchronizeCounts(paperId, seed.path("items").size());
         log.info("event=lexibridge_seed_updated packageCode={} scoredItems=60 formalSections=7", PACKAGE_CODE);
     }
 
-    private Long upsertQuestionVersion(Long bankId, JsonNode item) throws IOException {
-        List<Long> existing = jdbcTemplate.query("""
-                SELECT id FROM assessment_question_version
-                WHERE question_bank_id = ? AND question_code = ? AND version_no = 1 AND deleted = FALSE
-                """, (resultSet, rowNumber) -> resultSet.getLong(1), bankId, item.path("itemCode").asString());
-        if (existing.isEmpty()) {
-            return insertQuestionVersion(bankId, item);
-        }
-        Long id = existing.getFirst();
-        jdbcTemplate.update("""
-                UPDATE assessment_question_version
-                SET question_type = ?, stem_text = ?, prompt_text = ?, options_json = ?, correct_answer_json = ?,
-                    explanation_text = ?, option_explanations_json = ?, required_answer = ?, weight = ?,
-                    transfer_category = ?, context_level = ?, construct_code = ?, target_word = ?,
-                    display_condition_json = ?, source_reference = ?, content_hash = ?
-                WHERE id = ? AND deleted = FALSE
-                """, item.path("questionType").asString(), item.path("stemText").asString(),
-                nullableText(item, "promptText"), objectMapper.writeValueAsString(item.path("options")),
-                objectMapper.writeValueAsString(item.path("correctAnswers")), nullableText(item, "explanationText"),
-                objectMapper.writeValueAsString(item.path("optionExplanations")), item.path("requiredAnswer").asBoolean(),
-                decimal(item, "weight", BigDecimal.ONE), nullableText(item, "transferCategory"),
-                nullableText(item, "contextLevel"), nullableText(item, "constructCode"), nullableText(item, "targetWord"),
-                item.path("displayCondition").isNull() ? null : objectMapper.writeValueAsString(item.path("displayCondition")),
-                nullableText(item, "sourceReference"), item.path("contentHash").asString(), id);
-        return id;
+    private void softDeleteRemovedSections(Long versionId, Set<String> desiredSectionCodes) {
+        jdbcTemplate.query("""
+                        SELECT id, section_code FROM assessment_questionnaire_section
+                        WHERE questionnaire_version_id = ? AND deleted = FALSE
+                        """, (resultSet, rowNumber) -> Map.entry(resultSet.getLong(1), resultSet.getString(2)), versionId)
+                .stream()
+                .filter(section -> !desiredSectionCodes.contains(section.getValue()))
+                .forEach(section -> jdbcTemplate.update("""
+                        UPDATE assessment_questionnaire_section
+                        SET sort_order = sort_order + 1000000, deleted = TRUE
+                        WHERE id = ?
+                        """, section.getKey()));
     }
 
-    private void updateAssessmentQuestion(Long questionId, JsonNode item) throws IOException {
+    private void softDeleteRemovedItems(Long versionId, Long paperId, Set<String> desiredItemCodes) {
+        jdbcTemplate.query("""
+                        SELECT id, assessment_question_id, item_code FROM assessment_questionnaire_item
+                        WHERE questionnaire_version_id = ? AND deleted = FALSE
+                        """, (resultSet, rowNumber) -> new RemovedItem(
+                        resultSet.getLong(1), resultSet.getLong(2), resultSet.getString(3)), versionId)
+                .stream()
+                .filter(item -> !desiredItemCodes.contains(item.itemCode()))
+                .forEach(item -> {
+                    jdbcTemplate.update("UPDATE assessment_questionnaire_item SET deleted = TRUE WHERE id = ?", item.itemId());
+                    jdbcTemplate.update("""
+                            UPDATE assessment_question SET deleted = TRUE
+                            WHERE id = ? AND paper_id = ? AND deleted = FALSE
+                            """, item.questionId(), paperId);
+                });
+    }
+
+    private void synchronizeCounts(Long paperId, int itemCount) {
+        Integer totalScore = jdbcTemplate.queryForObject("""
+                SELECT COALESCE(SUM(score), 0) FROM assessment_question
+                WHERE paper_id = ? AND deleted = FALSE
+                """, Integer.class, paperId);
+        jdbcTemplate.update("""
+                UPDATE assessment_paper SET question_count = ?, total_score = ? WHERE id = ? AND deleted = FALSE
+                """, itemCount, totalScore == null ? 0 : totalScore, paperId);
+        jdbcTemplate.update("""
+                UPDATE assessment_publish SET question_count_snapshot = ?, total_score_snapshot = ?
+                WHERE paper_id = ? AND deleted = FALSE
+                """, itemCount, totalScore == null ? 0 : totalScore, paperId);
+    }
+
+    private Long upsertQuestionVersion(Long bankId, JsonNode item) throws IOException {
+        String questionCode = item.path("itemCode").asString();
+        String contentHash = item.path("contentHash").asString();
+        List<QuestionVersionRef> existing = jdbcTemplate.query("""
+                SELECT id, version_no, content_hash FROM assessment_question_version
+                WHERE question_bank_id = ? AND question_code = ? AND deleted = FALSE
+                ORDER BY version_no DESC
+                """, (resultSet, rowNumber) -> new QuestionVersionRef(
+                resultSet.getLong(1), resultSet.getInt(2), resultSet.getString(3)), bankId, questionCode);
+        QuestionVersionRef matchingVersion = existing.stream()
+                .filter(version -> contentHash.equals(version.contentHash()))
+                .findFirst().orElse(null);
+        if (matchingVersion != null) return matchingVersion.id();
+        int nextVersion = existing.isEmpty() ? 1 : existing.getFirst().versionNo() + 1;
+        return insertQuestionVersion(bankId, item, nextVersion);
+    }
+
+    private void updateAssessmentQuestion(Long questionId, Long questionVersionId, JsonNode item, int sortOrder) throws IOException {
         jdbcTemplate.update("""
                 UPDATE assessment_question
-                SET question_type = ?, stem_text = ?, prompt_text = ?, options_json = ?, correct_answer_json = ?,
+                SET question_type = ?, sort_order = ?, stem_text = ?, prompt_text = ?, options_json = ?, correct_answer_json = ?,
                     explanation_text = ?, score = ?, section_code = ?, required_answer = ?, weight = ?,
                     transfer_category = ?, context_level = ?, construct_code = ?, target_word = ?,
-                    option_explanations_json = ?, display_condition_json = ?
+                    option_explanations_json = ?, display_condition_json = ?, question_version_id = ?
                 WHERE id = ? AND deleted = FALSE
-                """, item.path("questionType").asString(), item.path("stemText").asString(),
+                """, item.path("questionType").asString(), sortOrder, item.path("stemText").asString(),
                 nullableText(item, "promptText"), objectMapper.writeValueAsString(item.path("options")),
                 objectMapper.writeValueAsString(item.path("correctAnswers")), nullableText(item, "explanationText"),
                 item.path("score").asInt(), item.path("sectionCode").asString(), item.path("requiredAnswer").asBoolean(),
@@ -183,16 +243,21 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                 nullableText(item, "contextLevel"), nullableText(item, "constructCode"), nullableText(item, "targetWord"),
                 objectMapper.writeValueAsString(item.path("optionExplanations")),
                 item.path("displayCondition").isNull() ? null : objectMapper.writeValueAsString(item.path("displayCondition")),
-                questionId);
+                questionVersionId, questionId);
     }
 
-    private void updateQuestionnaireItem(Long questionnaireItemId, JsonNode item) throws IOException {
+    private void updateQuestionnaireItem(
+            Long questionnaireItemId,
+            Long sectionId,
+            Long questionVersionId,
+            JsonNode item
+    ) throws IOException {
         jdbcTemplate.update("""
                 UPDATE assessment_questionnaire_item
-                SET required_answer = ?, scored = ?, weight = ?, transfer_category = ?, context_level = ?,
+                SET section_id = ?, question_version_id = ?, required_answer = ?, scored = ?, weight = ?, transfer_category = ?, context_level = ?,
                     construct_code = ?, target_word = ?, option_explanations_json = ?, display_condition_json = ?
                 WHERE id = ? AND deleted = FALSE
-                """, item.path("requiredAnswer").asBoolean(), item.path("scored").asBoolean(),
+                """, sectionId, questionVersionId, item.path("requiredAnswer").asBoolean(), item.path("scored").asBoolean(),
                 decimal(item, "weight", BigDecimal.ONE), nullableText(item, "transferCategory"),
                 nullableText(item, "contextLevel"), nullableText(item, "constructCode"), nullableText(item, "targetWord"),
                 objectMapper.writeValueAsString(item.path("optionExplanations")),
@@ -342,14 +407,18 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
     }
 
     private Long insertQuestionVersion(Long bankId, JsonNode item) throws IOException {
+        return insertQuestionVersion(bankId, item, 1);
+    }
+
+    private Long insertQuestionVersion(Long bankId, JsonNode item, int versionNo) throws IOException {
         jdbcTemplate.update("""
                 INSERT INTO assessment_question_version
                     (question_bank_id,question_code,version_no,question_type,stem_text,prompt_text,options_json,
                      correct_answer_json,explanation_text,option_explanations_json,required_answer,weight,
                      transfer_category,context_level,construct_code,target_word,display_condition_json,source_reference,
                      content_hash,created_by,updated_by)
-                VALUES (?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)
-                """, bankId, item.path("itemCode").asString(), item.path("questionType").asString(),
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)
+                """, bankId, item.path("itemCode").asString(), versionNo, item.path("questionType").asString(),
                 item.path("stemText").asString(), nullableText(item, "promptText"),
                 objectMapper.writeValueAsString(item.path("options")), objectMapper.writeValueAsString(item.path("correctAnswers")),
                 nullableText(item, "explanationText"), objectMapper.writeValueAsString(item.path("optionExplanations")),
@@ -360,8 +429,8 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                 nullableText(item, "sourceReference"), item.path("contentHash").asString());
         return jdbcTemplate.queryForObject("""
                 SELECT id FROM assessment_question_version
-                WHERE question_bank_id = ? AND question_code = ? AND version_no = 1
-                """, Long.class, bankId, item.path("itemCode").asString());
+                WHERE question_bank_id = ? AND question_code = ? AND version_no = ?
+                """, Long.class, bankId, item.path("itemCode").asString(), versionNo);
     }
 
     private Long insertAssessmentQuestion(Long paperId, Long questionVersionId, JsonNode item, int sortOrder) throws IOException {
@@ -424,5 +493,11 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
     private BigDecimal decimal(JsonNode node, String field, BigDecimal defaultValue) {
         JsonNode value = node.path(field);
         return value.isMissingNode() || value.isNull() ? defaultValue : value.decimalValue();
+    }
+
+    private record RemovedItem(Long itemId, Long questionId, String itemCode) {
+    }
+
+    private record QuestionVersionRef(Long id, int versionNo, String contentHash) {
     }
 }

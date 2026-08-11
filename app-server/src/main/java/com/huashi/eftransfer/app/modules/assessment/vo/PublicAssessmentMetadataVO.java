@@ -9,6 +9,8 @@ public record PublicAssessmentMetadataVO(
         String instructionsText,
         Integer durationMinutes,
         Integer questionCount,
+        Integer formalQuestionCount,
+        Integer profileFieldCount,
         String status,
         LocalDateTime startsAt,
         LocalDateTime dueAt,

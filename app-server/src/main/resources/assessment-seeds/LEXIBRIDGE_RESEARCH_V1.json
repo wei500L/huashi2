@@ -116,91 +116,9 @@
       "contentHash": "9388daf4c61e5b0ccdfb9191ef7fedb0551f06d05bfd7d36db39efbd38598d25"
     },
     {
-      "itemCode": "BASIC-NAME",
-      "sectionCode": "BASIC_INFO",
-      "sortOrder": 2,
-      "questionType": "SHORT_TEXT",
-      "stemText": "您的姓名：",
-      "promptText": null,
-      "options": [],
-      "correctAnswers": [],
-      "explanationText": null,
-      "optionExplanations": {},
-      "requiredAnswer": true,
-      "scored": false,
-      "score": 0,
-      "weight": 1,
-      "transferCategory": null,
-      "contextLevel": null,
-      "constructCode": null,
-      "targetWord": null,
-      "displayCondition": null,
-      "sourceReference": "questionnaire:paragraph-60",
-      "contentHash": "bf1d7688aec09e57f4e90dfc8128b01b87e9b35bce415306641f788d7586f167"
-    },
-    {
-      "itemCode": "BASIC-CONTACT",
-      "sectionCode": "BASIC_INFO",
-      "sortOrder": 3,
-      "questionType": "SHORT_TEXT",
-      "stemText": "您的联系方式是（电话/QQ/……）：",
-      "promptText": null,
-      "options": [],
-      "correctAnswers": [],
-      "explanationText": null,
-      "optionExplanations": {},
-      "requiredAnswer": false,
-      "scored": false,
-      "score": 0,
-      "weight": 1,
-      "transferCategory": null,
-      "contextLevel": null,
-      "constructCode": null,
-      "targetWord": null,
-      "displayCondition": null,
-      "sourceReference": "questionnaire:paragraph-61",
-      "contentHash": "b301d5062bf98cc7a0ed3e193a6dcc57c58c1ccd066f6f294d6b2fbbd58e7970"
-    },
-    {
-      "itemCode": "BASIC-STATUS",
-      "sectionCode": "BASIC_INFO",
-      "sortOrder": 4,
-      "questionType": "SINGLE_CHOICE",
-      "stemText": "您目前是：",
-      "promptText": null,
-      "options": [
-        {
-          "key": "FRENCH_MAJOR",
-          "label": "法语专业学生"
-        },
-        {
-          "key": "FRENCH_SECOND_LANGUAGE",
-          "label": "法语作为二外的学生"
-        },
-        {
-          "key": "NON_MAJOR",
-          "label": "非专业法语学习者（自学/其他）"
-        }
-      ],
-      "correctAnswers": [],
-      "explanationText": null,
-      "optionExplanations": {},
-      "requiredAnswer": false,
-      "scored": false,
-      "score": 0,
-      "weight": 1,
-      "transferCategory": null,
-      "contextLevel": null,
-      "constructCode": null,
-      "targetWord": null,
-      "displayCondition": null,
-      "sourceReference": "questionnaire:paragraph-62",
-      "contentHash": "4dd12be5c380b5889b4b02fe50403d724943b839f97317c1f26e2df627e0452e"
-    },
-    {
       "itemCode": "BASIC-GAOKAO-ENGLISH",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 5,
+      "sortOrder": 2,
       "questionType": "NUMBER",
       "stemText": "您的英语学习水平为：高考英语分数______",
       "promptText": null,
@@ -223,7 +141,7 @@
     {
       "itemCode": "BASIC-ENGLISH-MAJOR",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 6,
+      "sortOrder": 3,
       "questionType": "SINGLE_CHOICE",
       "stemText": "您是否为英语专业学生：",
       "promptText": "请选择英语专业或非英语专业。",
@@ -255,7 +173,7 @@
     {
       "itemCode": "BASIC-CET4",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 7,
+      "sortOrder": 4,
       "questionType": "NUMBER",
       "stemText": "□ 四级分数_____",
       "promptText": null,
@@ -278,7 +196,7 @@
     {
       "itemCode": "BASIC-CET6",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 8,
+      "sortOrder": 5,
       "questionType": "NUMBER",
       "stemText": "□ 六级分数_____",
       "promptText": null,
@@ -301,7 +219,7 @@
     {
       "itemCode": "BASIC-TEM4",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 8,
+      "sortOrder": 6,
       "questionType": "NUMBER",
       "stemText": "□ 专四分数_____",
       "promptText": null,
@@ -328,7 +246,7 @@
     {
       "itemCode": "BASIC-TEM8",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 9,
+      "sortOrder": 7,
       "questionType": "NUMBER",
       "stemText": "□ 专八分数_____",
       "promptText": null,
@@ -351,73 +269,6 @@
       },
       "sourceReference": "questionnaire:paragraph-67",
       "contentHash": "81e95369f9c30082e00c2bc1767186ce270c0ba3a02a30cb5db85ced40e754e4"
-    },
-    {
-      "itemCode": "BASIC-FRENCH-DURATION",
-      "sectionCode": "BASIC_INFO",
-      "sortOrder": 11,
-      "questionType": "SINGLE_CHOICE",
-      "stemText": "您的法语学习时长约为：",
-      "promptText": null,
-      "options": [
-        {
-          "key": "DURATION_1",
-          "label": "间断地在学习，未系统学习过"
-        },
-        {
-          "key": "DURATION_2",
-          "label": "少于6个月"
-        },
-        {
-          "key": "DURATION_3",
-          "label": "6个月~1年"
-        },
-        {
-          "key": "DURATION_4",
-          "label": "1~2年"
-        },
-        {
-          "key": "DURATION_5",
-          "label": "2年以上"
-        }
-      ],
-      "correctAnswers": [],
-      "explanationText": null,
-      "optionExplanations": {},
-      "requiredAnswer": false,
-      "scored": false,
-      "score": 0,
-      "weight": 1,
-      "transferCategory": null,
-      "contextLevel": null,
-      "constructCode": null,
-      "targetWord": null,
-      "displayCondition": null,
-      "sourceReference": "questionnaire:paragraph-68",
-      "contentHash": "69e533429268da3c85baf64815133b32e45bb05d3a5b59b558cc63d51f3bda6d"
-    },
-    {
-      "itemCode": "BASIC-OTHER-LANGUAGE",
-      "sectionCode": "BASIC_INFO",
-      "sortOrder": 12,
-      "questionType": "SHORT_TEXT",
-      "stemText": "是否接触过其他语种（西语 / 意语 / 葡语/……）？",
-      "promptText": null,
-      "options": [],
-      "correctAnswers": [],
-      "explanationText": null,
-      "optionExplanations": {},
-      "requiredAnswer": false,
-      "scored": false,
-      "score": 0,
-      "weight": 1,
-      "transferCategory": null,
-      "contextLevel": null,
-      "constructCode": null,
-      "targetWord": null,
-      "displayCondition": null,
-      "sourceReference": "questionnaire:paragraph-69",
-      "contentHash": "23770f06521a7338cbf72da7c5d3b378d13ec9d373925928cd7ce48cc067117c"
     },
     {
       "itemCode": "P1A-01",

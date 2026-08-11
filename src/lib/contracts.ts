@@ -2326,6 +2326,8 @@ export interface PublicAssessmentMetadataVO {
   instructionsText?: string | null;
   durationMinutes: number;
   questionCount: number;
+  formalQuestionCount: number;
+  profileFieldCount: number;
   status?: string;
   startsAt?: string | null;
   dueAt?: string | null;
@@ -2344,6 +2346,7 @@ export interface PublicAssessmentQuestionVO {
   sectionCode?: string | null;
   sectionTitle?: string | null;
   sharedMaterial?: string | null;
+  formalSection: boolean;
   stemText: string;
   promptText?: string | null;
   options: AssessmentOptionVO[];

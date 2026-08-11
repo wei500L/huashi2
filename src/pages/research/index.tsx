@@ -14,8 +14,10 @@ import type {
 import { publicAssessmentService } from '@/lib/services';
 import {
   forgetPublicSession,
-  getAnswerProgress,
+  getHiddenQuestionOrders,
+  getStagedAnswerProgress,
   hasPublicSessionMarker,
+  isResearchQuestionVisible,
   rememberPublicSession,
 } from './research-session';
 import { spellingTimingEventType } from './research-spelling';
@@ -62,33 +64,6 @@ const EmphasizedText: React.FC<{ text: string }> = ({ text }) => {
     ? <strong key={index}><u>{part.slice(2, -2)}</u></strong>
     : <React.Fragment key={index}>{part}</React.Fragment>)}</>;
 };
-
-type DisplayCondition = { fieldCode: string; operator: string; value: string };
-
-function parseDisplayCondition(question: PublicAssessmentQuestionVO): DisplayCondition | null {
-  if (!question.displayCondition) return null;
-  try {
-    const parsed = JSON.parse(question.displayCondition) as Partial<DisplayCondition>;
-    if (parsed && typeof parsed === 'object' && typeof parsed.fieldCode === 'string') {
-      return parsed as DisplayCondition;
-    }
-  } catch {
-    // A malformed condition falls back to always-visible.
-  }
-  return null;
-}
-
-function isQuestionVisible(
-  question: PublicAssessmentQuestionVO,
-  responsesByOrder: ResponsesByOrder,
-  questionOrderByItemCode: Map<string | null | undefined, number>
-): boolean {
-  const condition = parseDisplayCondition(question);
-  if (!condition || condition.operator !== 'EQ') return true;
-  const fieldOrder = questionOrderByItemCode.get(condition.fieldCode);
-  if (fieldOrder == null) return true;
-  return (responsesByOrder[fieldOrder] || [])[0] === condition.value;
-}
 
 const ThreadMap: React.FC = () => (
   <svg className="research-thread-map" viewBox="0 0 720 410" aria-hidden="true" focusable="false">
@@ -145,7 +120,7 @@ const ResearchEntry: React.FC<{
           <h2>先看见材料，<br /><em>再决定它的方向。</em></h2>
           <p className="break-words">{description}</p>
           <div className="research-facts">
-            <div><strong>{metadata?.questionCount ?? '—'}</strong><span>items / 题</span></div>
+            <div><strong>{metadata?.formalQuestionCount ?? '—'}</strong><span>正式题 / questions</span></div>
             <div><strong>{metadata?.durationMinutes ?? '—'}</strong><span>min / 分钟</span></div>
             <div><strong>EN ↔ FR</strong><span>language pair</span></div>
           </div>
@@ -210,7 +185,7 @@ const ResearchOption: React.FC<{
       gsap.fromTo(option, { scale: 0.985, y: 2 }, {
         scale: 1,
         y: 0,
-        duration: 0.38,
+        duration: 0.22,
         ease: 'back.out(1.7)',
         overwrite: 'auto',
         clearProps: 'transform',
@@ -218,13 +193,13 @@ const ResearchOption: React.FC<{
       gsap.fromTo('.research-option-selection-wave', { autoAlpha: 0.26, scale: 0.62 }, {
         autoAlpha: 0,
         scale: 1.45,
-        duration: 0.58,
+        duration: 0.24,
         ease: 'power2.out',
         overwrite: 'auto',
       });
       gsap.fromTo('.research-option-key, .research-option-control', { scale: 0.76 }, {
         scale: 1,
-        duration: 0.34,
+        duration: 0.2,
         stagger: 0.035,
         ease: 'back.out(2)',
         overwrite: 'auto',
@@ -239,7 +214,7 @@ const ResearchOption: React.FC<{
   });
   const release = contextSafe(() => {
     if (!optionRef.current || reducedMotion || disabled) return;
-    gsap.to(optionRef.current, { scale: 1, y: 0, duration: 0.28, ease: 'back.out(1.8)', overwrite: 'auto', clearProps: 'transform' });
+    gsap.to(optionRef.current, { scale: 1, y: 0, duration: 0.22, ease: 'back.out(1.8)', overwrite: 'auto', clearProps: 'transform' });
   });
 
   return (
@@ -273,12 +248,16 @@ const SpellingQuestion: React.FC<{
   hintMessage: string | null;
   onResponseChange: (value: string) => void;
   onAttempt: () => void;
-}> = ({ question, response, disabled, busy, hintMessage, onResponseChange, onAttempt }) => {
+  labelledBy: string;
+}> = ({ question, response, disabled, busy, hintMessage, onResponseChange, onAttempt, labelledBy }) => {
   const hintShown = Boolean(question.spellingHintShown);
+  const inputId = `spelling-answer-${question.questionOrder}`;
   return (
     <div className="research-spelling-field">
+      <label htmlFor={inputId} className="sr-only">填写对应的法语单词</label>
       <div className="research-spelling-input-row">
         <input
+          id={inputId}
           type="text"
           value={response}
           disabled={disabled || busy}
@@ -289,7 +268,7 @@ const SpellingQuestion: React.FC<{
           autoCorrect="off"
           spellCheck={false}
           inputMode="text"
-          aria-label="填写对应的法语单词"
+          aria-labelledby={labelledBy}
         />
         <button type="button" disabled={disabled || busy || !response.trim()} onClick={onAttempt} className="research-quiet-button">
           {busy ? '检查中…' : '检查答案'}
@@ -320,12 +299,13 @@ const PublicQuestion: React.FC<{
   onSpellingAttempt?: () => void;
   onResponsesChange: (responses: string[]) => void;
   onJustificationChange: (value: string) => void;
-}> = ({ question, responses, justification, disabled, reducedMotion, spellingBusy, spellingHintMessage, onSpellingAttempt, onResponsesChange, onJustificationChange }) => {
+  labelledBy: string;
+}> = ({ question, responses, justification, disabled, reducedMotion, spellingBusy, spellingHintMessage, onSpellingAttempt, onResponsesChange, onJustificationChange, labelledBy }) => {
   const type = question.questionType;
   if (type === 'INSTRUCTION') {
     return <section className="research-instruction" aria-labelledby={`instruction-title-${question.questionOrder}`}>
       <div className="research-instruction-label"><ShieldCheck size={17} /><span>RESEARCH NOTE / 作答说明</span></div>
-      <h1 id={`instruction-title-${question.questionOrder}`}>作答前请阅读</h1>
+      <h1 id={`instruction-title-${question.questionOrder}`} data-question-title tabIndex={-1}>作答前请阅读</h1>
       <p>{instructionText(question)}</p>
     </section>;
   }
@@ -338,10 +318,11 @@ const PublicQuestion: React.FC<{
       hintMessage={spellingHintMessage ?? null}
       onResponseChange={(value) => onResponsesChange(value ? [value] : [])}
       onAttempt={() => onSpellingAttempt?.()}
+      labelledBy={labelledBy}
     />;
   }
   if (type === 'SINGLE_CHOICE' || type === 'INFORMED_CONSENT' || type === 'TRUE_FALSE' || type === 'TRUE_FALSE_WITH_JUSTIFICATION') {
-    return <div className="research-options">{question.options.map((option, index) => <ResearchOption
+    return <fieldset className="research-options" aria-labelledby={labelledBy}><legend className="sr-only">请选择一个答案</legend>{question.options.map((option, index) => <ResearchOption
       key={option.key}
       inputType="radio"
       inputName={`question-${question.questionOrder}`}
@@ -354,9 +335,9 @@ const PublicQuestion: React.FC<{
       onChange={() => onResponsesChange([option.key])}
     />)}
       {type === 'TRUE_FALSE_WITH_JUSTIFICATION' && responses[0] === 'F' ? <label className="research-justification">请说明判断为错误的原因<textarea value={justification} disabled={disabled} onChange={(event) => onJustificationChange(event.target.value)} rows={4} /></label> : null}
-    </div>;
+    </fieldset>;
   }
-  if (type === 'MULTIPLE_CHOICE') return <div className="research-options">{question.options.map((option, index) => {
+  if (type === 'MULTIPLE_CHOICE') return <fieldset className="research-options" aria-labelledby={labelledBy}><legend className="sr-only">请选择所有适用答案</legend>{question.options.map((option, index) => {
     const selected = responses.includes(option.key);
     return <ResearchOption
       key={option.key}
@@ -369,12 +350,13 @@ const PublicQuestion: React.FC<{
       reducedMotion={reducedMotion}
       onChange={() => onResponsesChange(selected ? responses.filter((value) => value !== option.key) : [...responses, option.key])}
     />;
-  })}</div>;
+  })}</fieldset>;
   if (type === 'NUMBER') return <div className="research-number-field">
-    <input type="number" inputMode="decimal" step="any" value={responses[0] || ''} disabled={disabled} onChange={(event) => onResponsesChange(event.target.value ? [event.target.value] : [])} className="research-text-input" placeholder="请输入数字" aria-describedby={`number-hint-${question.questionOrder}`} />
+    <label htmlFor={`number-answer-${question.questionOrder}`} className="sr-only">数字答案</label>
+    <input id={`number-answer-${question.questionOrder}`} type="number" inputMode="decimal" step="any" value={responses[0] || ''} disabled={disabled} onChange={(event) => onResponsesChange(event.target.value ? [event.target.value] : [])} className="research-text-input" placeholder="可选，仅填写数字" aria-labelledby={labelledBy} aria-describedby={`number-hint-${question.questionOrder}`} />
     <p id={`number-hint-${question.questionOrder}`}>仅接受数字；无效字符不会被记录。</p>
   </div>;
-  return <input type="text" value={responses[0] || ''} disabled={disabled} onChange={(event) => onResponsesChange(event.target.value ? [event.target.value] : [])} className="research-text-input" placeholder="请输入答案" />;
+  return <div><label htmlFor={`text-answer-${question.questionOrder}`} className="sr-only">文字答案</label><input id={`text-answer-${question.questionOrder}`} type="text" value={responses[0] || ''} disabled={disabled} onChange={(event) => onResponsesChange(event.target.value ? [event.target.value] : [])} className="research-text-input" placeholder="请输入答案" aria-labelledby={labelledBy} /></div>;
 };
 
 const PublicResult: React.FC<{ result: PublicAssessmentResultVO }> = ({ result }) => {
@@ -470,6 +452,9 @@ const ResearchParticipantPage: React.FC = () => {
   const releaseGenerationRef = React.useRef(0);
   const serverOffsetMsRef = React.useRef(0);
   const spellingBusyRef = React.useRef(false);
+  const questionTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const questionContentRef = React.useRef<HTMLDivElement>(null);
+  const materialRef = React.useRef<HTMLDivElement>(null);
   const [spellingBusy, setSpellingBusy] = React.useState(false);
   const [spellingHintMessage, setSpellingHintMessage] = React.useState<string | null>(null);
 
@@ -667,7 +652,7 @@ const ResearchParticipantPage: React.FC = () => {
     if (!attempt) return [];
     const questionOrderByItemCode = new Map<string | null | undefined, number>();
     attempt.questions.forEach((question) => questionOrderByItemCode.set(question.itemCode, question.questionOrder));
-    return attempt.questions.filter((question) => isQuestionVisible(question, responsesByOrder, questionOrderByItemCode));
+    return attempt.questions.filter((question) => isResearchQuestionVisible(question, responsesByOrder, questionOrderByItemCode));
   }, [attempt, responsesByOrder]);
   React.useEffect(() => {
     if (!attempt || visibleQuestions.length === 0) return;
@@ -675,11 +660,7 @@ const ResearchParticipantPage: React.FC = () => {
   }, [attempt, selectedIndex, visibleQuestions.length]);
   React.useEffect(() => {
     if (!attempt) return;
-    const questionOrderByItemCode = new Map<string | null | undefined, number>();
-    attempt.questions.forEach((question) => questionOrderByItemCode.set(question.itemCode, question.questionOrder));
-    const hiddenOrders = attempt.questions
-      .filter((question) => !isQuestionVisible(question, responsesByOrder, questionOrderByItemCode))
-      .map((question) => question.questionOrder);
+    const hiddenOrders = getHiddenQuestionOrders(attempt.questions, responsesByOrder);
     if (hiddenOrders.length === 0) return;
     const staleResponses = hiddenOrders.filter((order) => (responsesByOrder[order] || []).some((value) => value.trim().length > 0));
     const staleJustifications = hiddenOrders.filter((order) => Boolean(justificationsByOrder[order]));
@@ -700,6 +681,27 @@ const ResearchParticipantPage: React.FC = () => {
     }
     setDirtyRevision((value) => value + 1);
   }, [attempt, justificationsByOrder, responsesByOrder]);
+  const focusedQuestion = visibleQuestions[Math.min(selectedIndex, Math.max(0, visibleQuestions.length - 1))];
+  const previousFocusedQuestion = visibleQuestions[Math.max(0, selectedIndex - 1)];
+  React.useEffect(() => {
+    if (!focusedQuestion) return;
+    let frame = 0;
+    const timer = window.setTimeout(() => {
+      frame = window.requestAnimationFrame(() => {
+        const beginsMaterial = Boolean(focusedQuestion.sharedMaterial)
+          && (selectedIndex === 0 || previousFocusedQuestion?.sharedMaterial !== focusedQuestion.sharedMaterial);
+        (beginsMaterial ? materialRef.current : questionTitleRef.current)?.scrollIntoView({
+          behavior: reducedMotion ? 'auto' : 'smooth',
+          block: 'start',
+        });
+        questionContentRef.current?.querySelector<HTMLElement>('[data-question-title]')?.focus({ preventScroll: true });
+      });
+    }, reducedMotion ? 0 : 240);
+    return () => {
+      window.clearTimeout(timer);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [focusedQuestion, previousFocusedQuestion?.sharedMaterial, reducedMotion, selectedIndex]);
   const verify = async (event: React.FormEvent) => { event.preventDefault(); setVerifying(true); setErrorMessage(null); try { const session = await publicAssessmentService.verifyCode(normalizedReleaseCode, { participationCode: participationCode.trim().toUpperCase() }); rememberPublicSession(normalizedReleaseCode); applyAttempt(session.attempt); if (session.attempt.status === 'SUBMITTED') setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '参与码验证失败。')); } finally { setVerifying(false); } };
   const attemptSpelling = async (questionOrder: number) => {
     if (!attempt || spellingBusyRef.current) return;
@@ -751,15 +753,22 @@ const ResearchParticipantPage: React.FC = () => {
   if (!attempt) return <ResearchEntry metadata={metadata} participationCode={participationCode} verifying={verifying} qrEntering={qrEntering} qrRequested={qrRequested} errorMessage={errorMessage} onCodeChange={setParticipationCode} onVerify={verify} />;
 
   const currentQuestion = visibleQuestions[Math.min(selectedIndex, Math.max(0, visibleQuestions.length - 1))];
-  const { answeredCount, questionCount } = getAnswerProgress(visibleQuestions, responsesByOrder);
+  const stagedProgress = getStagedAnswerProgress(visibleQuestions, responsesByOrder);
   if (!currentQuestion) return <div className="research-loading">问卷暂无可作答题目。</div>;
   const currentResponses = responsesByOrder[currentQuestion.questionOrder] || [];
   const currentJustification = justificationsByOrder[currentQuestion.questionOrder] || '';
   const currentAnswered = hasQuestionResponse(currentQuestion, currentResponses, currentJustification);
-  const progressPercent = Math.round((answeredCount / Math.max(1, questionCount)) * 100);
-  const elapsedMs = Math.max(0, clockNow - serverOffsetMsRef.current - new Date(attempt.startedAt).getTime());
-  const elapsedMinutes = Math.floor(elapsedMs / 60000);
-  const elapsedSeconds = Math.floor((elapsedMs % 60000) / 1000);
+  const profileQuestions = visibleQuestions.filter((question) => question.formalSection === false && question.questionType !== 'INSTRUCTION');
+  const formalQuestions = visibleQuestions.filter((question) => question.formalSection === true);
+  const currentIsFormal = currentQuestion.formalSection === true;
+  const currentStageQuestions = currentIsFormal ? formalQuestions : profileQuestions;
+  const currentStageIndex = Math.max(0, currentStageQuestions.findIndex((question) => question.questionOrder === currentQuestion.questionOrder));
+  const stageAnsweredCount = currentIsFormal ? stagedProgress.formalAnsweredCount : stagedProgress.profileAnsweredCount;
+  const stageQuestionCount = currentIsFormal ? stagedProgress.formalQuestionCount : stagedProgress.profileFieldCount;
+  const progressPercent = Math.round((stageAnsweredCount / Math.max(1, stageQuestionCount)) * 100);
+  const remainingMs = Math.max(0, new Date(attempt.expiresAt).getTime() - (clockNow + serverOffsetMsRef.current));
+  const remainingMinutes = Math.floor(remainingMs / 60000);
+  const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
   const hasPendingSave = dirtyRevision > savedRevisionRef.current;
   const hasSaveError = hasPendingSave && failedRevisionRef.current >= dirtyRevision && Boolean(saveMessage);
   const saveState = hasSaveError ? 'error' : saving ? 'saving' : hasPendingSave ? 'pending' : saveMessage ? 'saved' : 'ready';
@@ -787,30 +796,35 @@ const ResearchParticipantPage: React.FC = () => {
             </div>
             <div className="research-progress-copy">LEXI-BRIDGE / 学生答卷</div>
           </div>
-          {attempt.status === 'IN_PROGRESS' ? (
-            <div className="research-elapsed" role="timer">
-              <Clock3 size={14} /><span>已做 {elapsedMinutes} 分 {elapsedSeconds} 秒</span>
+          <div className="research-header-status-group">
+            {attempt.status === 'IN_PROGRESS' ? (
+              <div className="research-elapsed" role="timer" aria-label={`剩余 ${remainingMinutes} 分 ${remainingSeconds} 秒`}>
+                <Clock3 size={15} /><span>{String(remainingMinutes).padStart(2, '0')}:{String(remainingSeconds).padStart(2, '0')}</span>
+              </div>
+            ) : null}
+            <div className={`research-save-status is-${saveState}`} role="status" aria-live="polite">
+              {hasSaveError ? <AlertCircle size={15} /> : saving || hasPendingSave ? <Clock3 size={15} /> : saveMessage ? <CheckCircle2 size={15} /> : <Save size={15} />}
+              <span>{saveStatusText}</span>
             </div>
-          ) : null}
-          <div className={`research-save-status is-${saveState}`} role="status" aria-live="polite">
-            {hasSaveError ? <AlertCircle size={15} /> : saving || hasPendingSave ? <Clock3 size={15} /> : saveMessage ? <CheckCircle2 size={15} /> : <Save size={15} />}
-            <span>{saveStatusText}</span>
           </div>
         </header>
         <div className="research-progress-overview">
           <div className="research-progress-heading">
-            <span>作答路线 / RESPONSE ROUTE</span>
+            <span>{currentIsFormal ? '正式题 / FORMAL QUESTIONS' : '资料收集 / PROFILE'}</span>
             <strong>{progressPercent}%</strong>
           </div>
-          <div className="research-progress" role="progressbar" aria-label="问卷作答进度" aria-valuemin={0} aria-valuemax={questionCount} aria-valuenow={answeredCount}>
-            <motion.span initial={false} animate={{ scaleX: progressPercent / 100 }} transition={{ duration: reducedMotion ? 0 : 0.38, ease: [0.2, 0, 0, 1] }} />
+          <div className="research-progress" role="progressbar" aria-label={currentIsFormal ? '正式题完成进度' : '资料填写进度'} aria-valuemin={0} aria-valuemax={stageQuestionCount} aria-valuenow={stageAnsweredCount}>
+            <motion.span initial={false} animate={{ scaleX: progressPercent / 100 }} transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.2, 0, 0, 1] }} />
           </div>
-          <div className="research-progress-meta"><span>已回答 {answeredCount} 题</span><span>共 {questionCount} 道正式题</span></div>
+          <div className="research-progress-meta">
+            <span>{currentIsFormal ? `已完成 ${stagedProgress.formalAnsweredCount}/${stagedProgress.formalQuestionCount}` : `资料 ${String(stagedProgress.profileAnsweredCount).padStart(2, '0')}/${String(stagedProgress.profileFieldCount).padStart(2, '0')}`}</span>
+            <span>正式题固定 60 道 · 限时 {attempt.durationMinutes} 分钟</span>
+          </div>
         </div>
         <div className="research-assessment-layout min-w-0">
           <aside className="research-route-panel" aria-label="当前作答位置">
             <div className="research-section-index">CURRENT POSITION</div>
-            <div className="research-route-position"><strong>{String(Math.min(selectedIndex, visibleQuestions.length - 1) + 1).padStart(2, '0')}</strong><span>/ {String(visibleQuestions.length).padStart(2, '0')}</span></div>
+            <div className="research-route-position"><strong>{String(currentStageIndex + 1).padStart(2, '0')}</strong><span>/ {String(stageQuestionCount).padStart(2, '0')}</span></div>
             <p>{currentQuestion.questionType === 'INSTRUCTION' ? '阅读说明' : currentAnswered ? '本题已作答' : '等待你的判断'}</p>
             <div className="research-route-line" aria-hidden="true">
               <span className="is-complete" />
@@ -818,14 +832,15 @@ const ResearchParticipantPage: React.FC = () => {
               <span />
             </div>
             <dl className="research-route-stats">
-              <div><dt>已回答</dt><dd>{answeredCount}</dd></div>
-              <div><dt>待完成</dt><dd>{Math.max(0, questionCount - answeredCount)}</dd></div>
+              <div><dt>{currentIsFormal ? '已完成' : '已填写'}</dt><dd>{stageAnsweredCount}</dd></div>
+              <div><dt>待完成</dt><dd>{Math.max(0, stageQuestionCount - stageAnsweredCount)}</dd></div>
             </dl>
             <p className="research-route-note">选择后立即记录；约 1 秒后自动保存。你可以随时返回上一题修改。</p>
           </aside>
           <motion.section className="research-question-card min-w-0" layout={!reducedMotion} transition={{ layout: { duration: 0.24, ease: [0.2, 0, 0, 1] } }}>
             <AnimatePresence mode="wait" initial={false} custom={navigationDirection}>
               <motion.div
+                ref={questionContentRef}
                 key={currentQuestion.questionId}
                 custom={navigationDirection}
                 variants={{
@@ -845,12 +860,18 @@ const ResearchParticipantPage: React.FC = () => {
                     <span>{QUESTION_TYPE_LABELS[currentQuestion.questionType] || currentQuestion.questionType}</span>
                   </div>
                 </div>
-                {currentQuestion.sharedMaterial ? <div className="research-shared-material break-words">{currentQuestion.sharedMaterial}</div> : null}
-                <div className="research-question-number">ITEM {String(currentQuestion.questionOrder).padStart(2, '0')} · {String(Math.min(selectedIndex, visibleQuestions.length - 1) + 1).padStart(2, '0')} / {String(visibleQuestions.length).padStart(2, '0')}</div>
+                {currentQuestion.sharedMaterial ? <>
+                  <nav className="research-material-nav" aria-label="长文阅读导航">
+                    <a href={`#material-${currentQuestion.questionOrder}`}>查看原文</a>
+                    <a href={`#question-${currentQuestion.questionOrder}`}>回到题目</a>
+                  </nav>
+                  <div ref={materialRef} id={`material-${currentQuestion.questionOrder}`} className="research-shared-material break-words" tabIndex={-1}>{currentQuestion.sharedMaterial}</div>
+                </> : null}
+                <div className="research-question-number">{currentQuestion.questionType === 'INSTRUCTION' ? '资料准备' : currentIsFormal ? `第 ${String(currentStageIndex + 1).padStart(2, '0')}/${String(stageQuestionCount).padStart(2, '0')} 题` : `资料 ${String(currentStageIndex + 1).padStart(2, '0')}/${String(stageQuestionCount).padStart(2, '0')}`}</div>
                 {currentQuestion.promptText && currentQuestion.questionType !== 'INSTRUCTION' ? (
                   <p className="research-question-prompt break-words">{currentQuestion.promptText}</p>
                 ) : null}
-                {currentQuestion.questionType !== 'INSTRUCTION' ? <h1 className="break-words"><EmphasizedText text={currentQuestion.stemText} /></h1> : null}
+                {currentQuestion.questionType !== 'INSTRUCTION' ? <h1 ref={questionTitleRef} id={`question-${currentQuestion.questionOrder}`} data-question-title tabIndex={-1} className="break-words"><EmphasizedText text={currentQuestion.stemText} /></h1> : null}
                 <PublicQuestion
                   question={currentQuestion}
                   responses={currentResponses}
@@ -868,6 +889,7 @@ const ResearchParticipantPage: React.FC = () => {
                   spellingBusy={spellingBusy}
                   spellingHintMessage={spellingHintMessage}
                   onSpellingAttempt={() => void attemptSpelling(currentQuestion.questionOrder)}
+                  labelledBy={`question-${currentQuestion.questionOrder}`}
                 />
               </motion.div>
             </AnimatePresence>
@@ -885,7 +907,7 @@ const ResearchParticipantPage: React.FC = () => {
                 </button>
               ) : (
                 <button type="button" disabled={submitting || saving} onClick={() => void submit()} className="research-primary-button w-full sm:w-auto">
-                  {submitting ? '正在提交…' : saving ? '正在保存…' : `提交问卷 · ${answeredCount}/${questionCount}`}
+                  {submitting ? '正在提交…' : saving ? '正在保存…' : `提交问卷 · ${stagedProgress.formalAnsweredCount}/${stagedProgress.formalQuestionCount}`}
                   <Send size={16} className="shrink-0" />
                 </button>
               )}
