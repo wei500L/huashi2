@@ -18,6 +18,7 @@ import {
   hasPublicSessionMarker,
   rememberPublicSession,
 } from './research-session';
+import { spellingTimingEventType } from './research-spelling';
 
 gsap.registerPlugin(useGSAP);
 
@@ -30,8 +31,12 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   SINGLE_CHOICE: '单项选择',
   MULTIPLE_CHOICE: '多项选择',
   TRUE_FALSE_WITH_JUSTIFICATION: '判断与说明',
+  TRUE_FALSE: '判断题',
   NUMBER: '数字填写',
   TEXT: '文字填写',
+  SHORT_TEXT: '文字填写',
+  FILL_BLANK: '填空',
+  SPELLING: '单词拼写',
 };
 
 function hasQuestionResponse(question: PublicAssessmentQuestionVO, responses: string[], justification: string): boolean {
@@ -260,15 +265,62 @@ const ResearchOption: React.FC<{
   );
 };
 
+const SpellingQuestion: React.FC<{
+  question: PublicAssessmentQuestionVO;
+  response: string;
+  disabled: boolean;
+  busy: boolean;
+  hintMessage: string | null;
+  onResponseChange: (value: string) => void;
+  onAttempt: () => void;
+}> = ({ question, response, disabled, busy, hintMessage, onResponseChange, onAttempt }) => {
+  const hintShown = Boolean(question.spellingHintShown);
+  return (
+    <div className="research-spelling-field">
+      <div className="research-spelling-input-row">
+        <input
+          type="text"
+          value={response}
+          disabled={disabled || busy}
+          onChange={(event) => onResponseChange(event.target.value)}
+          className="research-text-input"
+          placeholder="请输入法语单词"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          inputMode="text"
+          aria-label="填写对应的法语单词"
+        />
+        <button type="button" disabled={disabled || busy || !response.trim()} onClick={onAttempt} className="research-quiet-button">
+          {busy ? '检查中…' : '检查答案'}
+        </button>
+      </div>
+      {hintShown ? (
+        <p className="research-spelling-hint" role="status">
+          首字母提示：<strong>{question.spellingHintFirstLetter ?? '?'}</strong>
+          <span>（答错一次后出现，不会显示完整答案）</span>
+        </p>
+      ) : (
+        <p className="research-spelling-note">首次答错后将显示该单词的首字母提示。</p>
+      )}
+      {hintMessage ? <p className="research-form-error" role="alert">{hintMessage}</p> : null}
+      <p className="research-spelling-counter">已尝试次数：{question.spellingWrongAttemptCount ?? 0}</p>
+    </div>
+  );
+};
+
 const PublicQuestion: React.FC<{
   question: PublicAssessmentQuestionVO;
   responses: string[];
   justification: string;
   disabled: boolean;
   reducedMotion: boolean;
+  spellingBusy?: boolean;
+  spellingHintMessage?: string | null;
+  onSpellingAttempt?: () => void;
   onResponsesChange: (responses: string[]) => void;
   onJustificationChange: (value: string) => void;
-}> = ({ question, responses, justification, disabled, reducedMotion, onResponsesChange, onJustificationChange }) => {
+}> = ({ question, responses, justification, disabled, reducedMotion, spellingBusy, spellingHintMessage, onSpellingAttempt, onResponsesChange, onJustificationChange }) => {
   const type = question.questionType;
   if (type === 'INSTRUCTION') {
     return <section className="research-instruction" aria-labelledby={`instruction-title-${question.questionOrder}`}>
@@ -277,7 +329,18 @@ const PublicQuestion: React.FC<{
       <p>{instructionText(question)}</p>
     </section>;
   }
-  if (type === 'SINGLE_CHOICE' || type === 'INFORMED_CONSENT' || type === 'TRUE_FALSE_WITH_JUSTIFICATION') {
+  if (type === 'SPELLING') {
+    return <SpellingQuestion
+      question={question}
+      response={responses[0] || ''}
+      disabled={disabled}
+      busy={Boolean(spellingBusy)}
+      hintMessage={spellingHintMessage ?? null}
+      onResponseChange={(value) => onResponsesChange(value ? [value] : [])}
+      onAttempt={() => onSpellingAttempt?.()}
+    />;
+  }
+  if (type === 'SINGLE_CHOICE' || type === 'INFORMED_CONSENT' || type === 'TRUE_FALSE' || type === 'TRUE_FALSE_WITH_JUSTIFICATION') {
     return <div className="research-options">{question.options.map((option, index) => <ResearchOption
       key={option.key}
       inputType="radio"
@@ -406,6 +469,9 @@ const ResearchParticipantPage: React.FC = () => {
   const saveInFlightRef = React.useRef(false);
   const releaseGenerationRef = React.useRef(0);
   const serverOffsetMsRef = React.useRef(0);
+  const spellingBusyRef = React.useRef(false);
+  const [spellingBusy, setSpellingBusy] = React.useState(false);
+  const [spellingHintMessage, setSpellingHintMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!result || !['PENDING', 'PROCESSING'].includes(result.aiAnalysisStatus || '')) return;
@@ -572,7 +638,26 @@ const ResearchParticipantPage: React.FC = () => {
     }, 900);
     return () => window.clearTimeout(timer);
   }, [attemptId, attemptStatus, buildResponses, dirtyRevision, normalizedReleaseCode, saveCycle, submitting]);
-  React.useEffect(() => { if (!attempt || attempt.status !== 'IN_PROGRESS') return; const report = () => { if (document.hidden || !document.hasFocus()) return; const question = attempt.questions[selectedIndex]; if (!question) return; void publicAssessmentService.recordTiming(normalizedReleaseCode, { questionOrder: question.questionOrder, activeDurationMs: 15_000, eventId: crypto.randomUUID() }).catch(() => undefined); }; const timer = window.setInterval(report, 15_000); return () => window.clearInterval(timer); }, [attempt, normalizedReleaseCode, selectedIndex]);
+  React.useEffect(() => { if (!attempt || attempt.status !== 'IN_PROGRESS') return; const report = () => { if (document.hidden || !document.hasFocus()) return; const question = attempt.questions[selectedIndex]; if (!question || question.questionType === 'SPELLING') return; void publicAssessmentService.recordTiming(normalizedReleaseCode, { questionOrder: question.questionOrder, activeDurationMs: 15_000, eventId: crypto.randomUUID() }).catch(() => undefined); }; const timer = window.setInterval(report, 15_000); return () => window.clearInterval(timer); }, [attempt, normalizedReleaseCode, selectedIndex]);
+  React.useEffect(() => {
+    if (!attempt || attempt.status !== 'IN_PROGRESS') return;
+    const question = attempt.questions[selectedIndex];
+    if (!question || question.questionType !== 'SPELLING') return;
+    const report = () => {
+      if (document.hidden || !document.hasFocus()) return;
+      const current = attempt.questions[selectedIndex];
+      if (!current) return;
+      const segmentType = spellingTimingEventType(Boolean(current.spellingHintShown));
+      void publicAssessmentService.recordTiming(normalizedReleaseCode, {
+        questionOrder: current.questionOrder,
+        activeDurationMs: 15_000,
+        eventId: crypto.randomUUID(),
+        eventType: segmentType,
+      }).catch(() => undefined);
+    };
+    const timer = window.setInterval(report, 15_000);
+    return () => window.clearInterval(timer);
+  }, [attempt, normalizedReleaseCode, selectedIndex]);
   React.useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS') return;
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
@@ -616,6 +701,49 @@ const ResearchParticipantPage: React.FC = () => {
     setDirtyRevision((value) => value + 1);
   }, [attempt, justificationsByOrder, responsesByOrder]);
   const verify = async (event: React.FormEvent) => { event.preventDefault(); setVerifying(true); setErrorMessage(null); try { const session = await publicAssessmentService.verifyCode(normalizedReleaseCode, { participationCode: participationCode.trim().toUpperCase() }); rememberPublicSession(normalizedReleaseCode); applyAttempt(session.attempt); if (session.attempt.status === 'SUBMITTED') setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '参与码验证失败。')); } finally { setVerifying(false); } };
+  const attemptSpelling = async (questionOrder: number) => {
+    if (!attempt || spellingBusyRef.current) return;
+    const question = attempt.questions.find((q) => q.questionOrder === questionOrder);
+    if (!question || question.questionType !== 'SPELLING') return;
+    const candidate = (responsesByOrder[questionOrder] || [])[0] || '';
+    if (!candidate.trim()) return;
+    spellingBusyRef.current = true;
+    setSpellingBusy(true);
+    setSpellingHintMessage(null);
+    const generation = releaseGenerationRef.current;
+    try {
+      const outcome = await publicAssessmentService.attemptSpelling(normalizedReleaseCode, {
+        questionOrder: question.questionOrder,
+        candidate,
+      });
+      if (releaseGenerationRef.current !== generation) return;
+      setAttempt((current) => current ? {
+        ...current,
+        questions: current.questions.map((q) => q.questionOrder === question.questionOrder
+          ? {
+              ...q,
+              spellingHintShown: outcome.hintShown,
+              spellingHintFirstLetter: outcome.hintFirstLetter,
+              spellingWrongAttemptCount: outcome.wrongAttemptCount,
+            }
+          : q),
+      } : current);
+      if (outcome.correct) {
+        setSpellingHintMessage('回答正确。');
+      } else {
+        setSpellingHintMessage(outcome.hintShown ? `回答有误，已显示首字母提示（第 ${outcome.wrongAttemptCount} 次尝试）。` : '回答有误，请重试。');
+      }
+    } catch (error) {
+      if (releaseGenerationRef.current === generation) {
+        setSpellingHintMessage(getApiErrorMessage(error, '检查答案失败，请稍后重试。'));
+      }
+    } finally {
+      if (releaseGenerationRef.current === generation) {
+        spellingBusyRef.current = false;
+        setSpellingBusy(false);
+      }
+    }
+  };
   const submit = async () => { if (!attempt || submitting || saving || saveInFlightRef.current) return; setSubmitting(true); setErrorMessage(null); try { await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' }); setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '提交失败，请检查必答题后重试。')); } finally { setSubmitting(false); } };
 
   if (loading) return <div className="research-loading">正在加载研究入口…</div>;
@@ -737,6 +865,9 @@ const ResearchParticipantPage: React.FC = () => {
                     setJustificationsByOrder((current) => ({ ...current, [currentQuestion.questionOrder]: value }));
                     setDirtyRevision((revision) => revision + 1);
                   }}
+                  spellingBusy={spellingBusy}
+                  spellingHintMessage={spellingHintMessage}
+                  onSpellingAttempt={() => void attemptSpelling(currentQuestion.questionOrder)}
                 />
               </motion.div>
             </AnimatePresence>

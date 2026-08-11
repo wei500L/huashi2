@@ -2303,7 +2303,21 @@ export type ResearchQuestionType =
   | 'INFORMED_CONSENT'
   | 'SHORT_TEXT'
   | 'NUMBER'
-  | 'TRUE_FALSE_WITH_JUSTIFICATION';
+  | 'TRUE_FALSE'
+  | 'TRUE_FALSE_WITH_JUSTIFICATION'
+  | 'SPELLING';
+
+export interface SpellingAttemptRequest {
+  questionOrder: number;
+  candidate: string;
+}
+
+export interface SpellingAttemptVO {
+  correct: boolean;
+  hintShown: boolean;
+  hintFirstLetter?: string | null;
+  wrongAttemptCount: number;
+}
 
 export interface PublicAssessmentMetadataVO {
   releaseCode: string;
@@ -2339,6 +2353,9 @@ export interface PublicAssessmentQuestionVO {
   justificationText?: string | null;
   itemCode?: string | null;
   displayCondition?: string | null;
+  spellingHintFirstLetter?: string | null;
+  spellingHintShown?: boolean;
+  spellingWrongAttemptCount?: number;
 }
 
 export interface PublicAssessmentAttemptVO {
@@ -2385,6 +2402,7 @@ export interface PublicAssessmentTimingRequest {
   questionOrder: number;
   activeDurationMs: number;
   eventId: string;
+  eventType?: string;
 }
 
 export interface PublicAssessmentSubmitRequest extends PublicAssessmentSaveRequest {

@@ -1214,6 +1214,20 @@
   .research-justification textarea { display: block; width: 100%; min-height: 7rem; margin-top: 0.6rem; border: 1px solid hsl(var(--border-strong) / 0.72); border-radius: 0.6rem; background: hsl(var(--surface-sunken) / 0.55); color: hsl(var(--text)); outline: none; padding: 0.9rem; font: inherit; font-weight: 400; resize: vertical; }
   .research-text-input { margin-top: 2rem; border-radius: 0.6rem; font-family: var(--font-sans); letter-spacing: 0; }
   .research-number-field > p { margin-top: 0.5rem; color: hsl(var(--text-subtle)); font-size: 0.72rem; line-height: 1.5; }
+  .research-spelling-field { margin-top: 1.6rem; }
+  .research-spelling-input-row { display: flex; align-items: stretch; gap: 0.65rem; }
+  .research-spelling-input-row .research-text-input { margin-top: 0; min-width: 0; flex: 1 1 auto; }
+  .research-spelling-input-row .research-quiet-button { flex: 0 0 auto; border: 1px solid hsl(var(--border-strong) / 0.72); background: hsl(var(--surface-sunken) / 0.4); padding: 0.6rem 1rem; }
+  .research-spelling-hint { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.9rem; color: hsl(var(--action)); font-size: 0.92rem; font-weight: 700; }
+  .research-spelling-hint strong { font-family: var(--font-mono); font-size: 1.3rem; letter-spacing: 0.14em; }
+  .research-spelling-hint span, .research-spelling-note { color: hsl(var(--text-subtle)); font-size: 0.72rem; font-weight: 400; line-height: 1.6; }
+  .research-spelling-note { margin-top: 0.6rem; }
+  .research-spelling-counter { margin-top: 0.5rem; color: hsl(var(--text-subtle)); font-size: 0.7rem; }
+  @media (max-width: 40rem) {
+    .research-spelling-input-row { flex-direction: column; }
+    .research-spelling-input-row .research-text-input { margin-top: 0; }
+    .research-spelling-input-row .research-quiet-button { width: 100%; justify-content: center; }
+  }
   .research-question-error { display: flex; align-items: flex-start; gap: 0.45rem; margin-top: 1.5rem; padding: 0.8rem 0.9rem; border: 1px solid hsl(var(--error) / 0.28); border-radius: 0.55rem; background: hsl(var(--error) / 0.06); }
   .research-question-error svg { margin-top: 0.1rem; flex: 0 0 auto; }
   .research-question-footer { display: grid; grid-template-columns: auto minmax(9rem, 1fr) auto; align-items: center; gap: 1rem; margin-top: 2.8rem; padding-top: 1.2rem; border-top: 1px solid hsl(var(--border-subtle)); }

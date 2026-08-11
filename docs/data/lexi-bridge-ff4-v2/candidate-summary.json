@@ -1,0 +1,13 @@
+{
+  "total": 445,
+  "semanticNONE": 57,
+  "semanticPARTIAL": 185,
+  "semanticCORE": 203,
+  "eligibleT1": 57,
+  "eligibleT2": 8,
+  "eligibleT3": 57,
+  "eligibleT4": 221,
+  "exampleMissing": 406,
+  "morphologyOnly": 91,
+  "reviewQueue": 242
+}

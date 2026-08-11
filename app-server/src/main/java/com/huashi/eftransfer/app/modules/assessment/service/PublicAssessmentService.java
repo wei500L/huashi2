@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentVerifyRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentQrEntryRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentTimingRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.SpellingAttemptRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.AssessmentAttemptResponseRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SubmitAssessmentAttemptRequest;
@@ -49,6 +50,7 @@ import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentMetadataV
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentResultVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentQuestionVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentSessionVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.SpellingAttemptVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.AssessmentAttemptStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentPublishStatus;
@@ -296,6 +298,69 @@ public class PublicAssessmentService {
                 attempt.getAnsweredCount(), attempt.getLastSavedAt(), attempt.getVersion());
     }
 
+    /**
+     * Grade a single SPELLING candidate and manage the first-letter hint.
+     *
+     * The first wrong attempt reveals only the first character of the target
+     * word (hintFirstLetter) and records hintShownAt; subsequent wrong
+     * attempts keep the same hint. The complete answer is never exposed to
+     * the client before submission.
+     */
+    @Transactional
+    public SpellingAttemptVO attemptSpelling(
+            String releaseCode,
+            String sessionToken,
+            SpellingAttemptRequest request
+    ) {
+        SessionBundle session = requireSessionForUpdate(releaseCode, sessionToken);
+        AssessmentAttemptEntity attempt = session.attempt();
+        requireInProgress(attempt);
+        AssessmentAttemptAnswerEntity answer = answerMapper.selectOne(
+                Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
+                        .eq(AssessmentAttemptAnswerEntity::getAttemptId, attempt.getId())
+                        .eq(AssessmentAttemptAnswerEntity::getQuestionOrder, request.questionOrder())
+                        .last("LIMIT 1 FOR UPDATE"));
+        if (answer == null || !AssessmentQuestionType.SPELLING.code().equals(answer.getQuestionType())) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Spelling question was not found", 404);
+        }
+        List<String> expected = jsonCodec.readStringList(answer.getCorrectAnswerJson());
+        String candidate = request.candidate() == null ? "" : request.candidate().trim();
+        boolean correct = !expected.isEmpty()
+                && isCorrect(AssessmentQuestionType.SPELLING, List.of(candidate), expected);
+        LocalDateTime now = LocalDateTime.now();
+        int wrongAttempts = answer.getSpellingWrongAttemptCount() == null ? 0 : answer.getSpellingWrongAttemptCount();
+        if (!correct) {
+            wrongAttempts++;
+            answer.setSpellingWrongAttemptCount(wrongAttempts);
+            if (answer.getSpellingHintShownAt() == null) {
+                answer.setSpellingHintShownAt(now);
+            }
+            if (answer.getFirstPresentedAt() == null) {
+                answer.setFirstPresentedAt(now);
+            }
+            answerMapper.updateById(answer);
+            touchSession(session.session());
+            return new SpellingAttemptVO(false, true,
+                    firstLetterOf(expected), wrongAttempts);
+        }
+        if (answer.getFirstPresentedAt() == null) {
+            answer.setFirstPresentedAt(now);
+        }
+        answerMapper.updateById(answer);
+        touchSession(session.session());
+        return new SpellingAttemptVO(true, answer.getSpellingHintShownAt() != null,
+                answer.getSpellingHintShownAt() == null ? null : firstLetterOf(expected),
+                wrongAttempts);
+    }
+
+    private String firstLetterOf(List<String> expected) {
+        if (expected == null || expected.isEmpty()) {
+            return null;
+        }
+        String value = expected.get(0);
+        return value == null || value.isBlank() ? null : value.substring(0, 1);
+    }
+
     @Transactional
     public void recordTiming(
             String releaseCode,
@@ -319,12 +384,25 @@ public class PublicAssessmentService {
             return;
         }
         int acceptedDelta = (int) Math.min(30_000L, request.activeDurationMs());
+        String eventType = request.eventType() == null || request.eventType().isBlank()
+                ? "ACTIVE_DELTA" : request.eventType().trim().toUpperCase();
+        if (!"ACTIVE_DELTA".equals(eventType)
+                && !"SPELLING_PRE_HINT_DELTA".equals(eventType)
+                && !"SPELLING_POST_HINT_DELTA".equals(eventType)) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported timing event type: " + eventType, 400);
+        }
+        boolean spellingQuestion = AssessmentQuestionType.SPELLING.name().equals(answer.getQuestionType());
+        boolean spellingTimingEvent = eventType.startsWith("SPELLING_");
+        if (spellingQuestion != spellingTimingEvent) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR,
+                    "Timing event type does not match the question type", 400);
+        }
         LocalDateTime now = LocalDateTime.now();
         AssessmentTimingEventEntity event = new AssessmentTimingEventEntity();
         event.setAttemptId(session.attempt().getId());
         event.setQuestionId(answer.getQuestionId());
         event.setClientEventId(request.eventId());
-        event.setEventType("ACTIVE_DELTA");
+        event.setEventType(eventType);
         event.setEffectiveDeltaMs(acceptedDelta);
         event.setFirstPresentedAt(answer.getFirstPresentedAt() == null ? now : answer.getFirstPresentedAt());
         event.setFirstAnsweredAt(answer.getFirstAnsweredAt());
@@ -381,8 +459,25 @@ public class PublicAssessmentService {
         }
         List<AssessmentAttemptAnswerEntity> answers = loadAnswers(attempt.getId());
         Map<Long, AssessmentQuestionEntity> questions = loadQuestionMap(attempt.getPaperId());
-        AssessmentScoringV1.Result scoring = score(answers, questions);
-        AssessmentMetricSnapshotVO metric = toMetric(scoring);
+        String scoringVersion = scoringVersionOf(attempt.getPaperId());
+        boolean v3 = AssessmentScoringV3.VERSION.equals(scoringVersion);
+        int correctCount;
+        Double percentage;
+        List<String> qualityFlags;
+        AssessmentMetricSnapshotVO metric;
+        if (v3) {
+            AssessmentScoringV3.Result v3Scoring = scoreV3(attempt.getId(), answers, questions);
+            correctCount = v3Scoring.correctCount();
+            percentage = v3Scoring.percentage();
+            qualityFlags = v3Scoring.qualityFlags();
+            metric = toMetricV3(v3Scoring);
+        } else {
+            AssessmentScoringV1.Result v1Scoring = scoreV1(answers, questions);
+            correctCount = v1Scoring.correctCount();
+            percentage = v1Scoring.percentage();
+            qualityFlags = v1Scoring.qualityFlags();
+            metric = toMetric(v1Scoring);
+        }
         AssessmentAiAnalysisEntity analysis = aiAnalysisMapper.selectOne(
                 Wrappers.<AssessmentAiAnalysisEntity>lambdaQuery()
                         .eq(AssessmentAiAnalysisEntity::getAttemptId, attempt.getId())
@@ -395,8 +490,8 @@ public class PublicAssessmentService {
         touchSession(session.session());
         return new PublicAssessmentResultVO(attempt.getId(), session.release().release().getReleaseCode(),
                 session.release().publish().getPaperTitleSnapshot(), attempt.getStatus(), answers.size(),
-                attempt.getAnsweredCount(), scoring.correctCount(), attempt.getObjectiveScore(), attempt.getTotalScore(),
-                attempt.getSubmittedAt(), true, metric, scoring.qualityFlags(),
+                attempt.getAnsweredCount(), correctCount, attempt.getObjectiveScore(), attempt.getTotalScore(),
+                attempt.getSubmittedAt(), true, metric, qualityFlags,
                 analysis == null ? null : analysis.getStatus(), analysisPayload, resultQuestions);
     }
 
@@ -580,10 +675,10 @@ public class PublicAssessmentService {
             return List.of();
         }
         LinkedHashSet<String> values = raw.stream()
-                .map(value -> type == AssessmentQuestionType.FILL_BLANK ? normalizeFillBlankValue(value) : normalizeText(value))
+                .map(value -> isTextQuestion(type) ? normalizeFillBlankValue(value) : normalizeText(value))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (type == AssessmentQuestionType.FILL_BLANK || type == AssessmentQuestionType.SHORT_TEXT || type == AssessmentQuestionType.NUMBER) {
+        if (isTextQuestion(type) || type == AssessmentQuestionType.NUMBER) {
             if (values.size() > 1) {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "Text question accepts only one response", 400);
             }
@@ -613,7 +708,7 @@ public class PublicAssessmentService {
     }
 
     private boolean isCorrect(AssessmentQuestionType type, List<String> actual, List<String> expected) {
-        if (type == AssessmentQuestionType.FILL_BLANK) {
+        if (isTextQuestion(type)) {
             Set<String> actualSet = actual.stream().map(this::normalizeFillBlankValue).collect(Collectors.toCollection(LinkedHashSet::new));
             Set<String> expectedSet = expected.stream().map(this::normalizeFillBlankValue).collect(Collectors.toCollection(LinkedHashSet::new));
             return actualSet.size() == 1 && expectedSet.contains(actualSet.iterator().next());
@@ -629,6 +724,12 @@ public class PublicAssessmentService {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, exception.getMessage(), 400);
         }
+    }
+
+    private boolean isTextQuestion(AssessmentQuestionType type) {
+        return type == AssessmentQuestionType.FILL_BLANK
+                || type == AssessmentQuestionType.SHORT_TEXT
+                || type == AssessmentQuestionType.SPELLING;
     }
 
     private String normalizeText(String value) {
@@ -661,7 +762,7 @@ public class PublicAssessmentService {
         attempt.setLastSavedAt(now);
     }
 
-    private AssessmentScoringV1.Result score(
+    private AssessmentScoringV1.Result scoreV1(
             List<AssessmentAttemptAnswerEntity> answers,
             Map<Long, AssessmentQuestionEntity> questions
     ) {
@@ -680,6 +781,49 @@ public class PublicAssessmentService {
         return AssessmentScoringV1.score(scoredQuestions, responses);
     }
 
+    private AssessmentScoringV3.Result scoreV3(
+            Long attemptId,
+            List<AssessmentAttemptAnswerEntity> answers,
+            Map<Long, AssessmentQuestionEntity> questions
+    ) {
+        List<AssessmentScoringV3.Question> scoredQuestions = new ArrayList<>();
+        Map<Integer, AssessmentScoringV3.Response> responses = new LinkedHashMap<>();
+        Map<Long, Map<String, Long>> timingByQuestion = timingEventMapper.selectList(
+                        Wrappers.<AssessmentTimingEventEntity>lambdaQuery()
+                                .eq(AssessmentTimingEventEntity::getAttemptId, attemptId))
+                .stream()
+                .collect(Collectors.groupingBy(AssessmentTimingEventEntity::getQuestionId,
+                        Collectors.groupingBy(AssessmentTimingEventEntity::getEventType,
+                                Collectors.summingLong(event -> event.getEffectiveDeltaMs() == null
+                                        ? 0L : event.getEffectiveDeltaMs().longValue()))));
+        for (AssessmentAttemptAnswerEntity answer : answers) {
+            if (answer.getQuestionScore() == null || answer.getQuestionScore() <= 0) continue;
+            AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
+            scoredQuestions.add(new AssessmentScoringV3.Question(answer.getQuestionOrder(), answer.getQuestionType(),
+                    answer.getQuestionScore(), question == null || question.getWeight() == null ? 1d : question.getWeight().doubleValue(),
+                    question == null ? null : question.getConstructCode(), question == null ? null : question.getContextLevel(),
+                    question == null ? null : question.getTransferCategory(), jsonCodec.readStringList(answer.getCorrectAnswerJson())));
+            Map<String, Long> timing = timingByQuestion.getOrDefault(answer.getQuestionId(), Map.of());
+            Long preHintMs = timing.get("SPELLING_PRE_HINT_DELTA");
+            Long postHintMs = timing.get("SPELLING_POST_HINT_DELTA");
+            responses.put(answer.getQuestionOrder(), new AssessmentScoringV3.Response(
+                    jsonCodec.readStringList(answer.getResponseJson()), answer.getEffectiveDurationMs(),
+                    answer.getJustificationText(), answer.getSpellingHintShownAt() != null, preHintMs, postHintMs));
+        }
+        return AssessmentScoringV3.score(scoredQuestions, responses);
+    }
+
+    private String scoringVersionOf(Long paperId) {
+        if (paperId == null) {
+            return AssessmentScoringV1.VERSION;
+        }
+        List<String> versions = jdbcTemplate.query("""
+                        SELECT scoring_version FROM assessment_questionnaire_version
+                        WHERE paper_id = ? AND deleted = FALSE ORDER BY version_no DESC LIMIT 1
+                        """, (resultSet, rowNumber) -> resultSet.getString(1), paperId);
+        return versions.isEmpty() ? AssessmentScoringV1.VERSION : versions.getFirst();
+    }
+
     private AssessmentMetricSnapshotVO toMetric(AssessmentScoringV1.Result result) {
         List<AssessmentDimensionMetricVO> dimensions = result.dimensions().entrySet().stream()
                 .map(entry -> new AssessmentDimensionMetricVO(entry.getKey(), entry.getValue().numerator(),
@@ -688,8 +832,24 @@ public class PublicAssessmentService {
         AssessmentReactionTimeMetricVO reaction = result.reactionTime() == null ? null
                 : new AssessmentReactionTimeMetricVO(result.reactionTime().medianMs(), result.reactionTime().firstQuartileMs(),
                 result.reactionTime().thirdQuartileMs(), result.reactionTime().sampleCount());
-        return new AssessmentMetricSnapshotVO(AssessmentScoringV1.VERSION, result.percentage(), dimensions,
+        return new AssessmentMetricSnapshotVO(AssessmentScoringV1.VERSION,
+                result.percentage(), dimensions,
                 result.cognateAdvantagePoints(), result.falseFriendInterferencePoints(), result.contextRepairPoints(), reaction);
+    }
+
+    private AssessmentMetricSnapshotVO toMetricV3(AssessmentScoringV3.Result result) {
+        List<AssessmentDimensionMetricVO> dimensions = result.dimensions().entrySet().stream()
+                .map(entry -> new AssessmentDimensionMetricVO(entry.getKey(), entry.getValue().numerator(),
+                        entry.getValue().denominator(), entry.getValue().ratio()))
+                .toList();
+        AssessmentReactionTimeMetricVO reaction = result.reactionTime() == null ? null
+                : new AssessmentReactionTimeMetricVO(result.reactionTime().medianMs(), result.reactionTime().firstQuartileMs(),
+                result.reactionTime().thirdQuartileMs(), result.reactionTime().sampleCount());
+        AssessmentMetricSnapshotVO.SpellingMetricVO spelling = result.spelling() == null ? null
+                : new AssessmentMetricSnapshotVO.SpellingMetricVO(result.spelling().firstTryCorrectCount(),
+                result.spelling().hintCorrectCount(), result.spelling().preHintMedianMs(), result.spelling().postHintMedianMs());
+        return new AssessmentMetricSnapshotVO(AssessmentScoringV3.VERSION, result.percentage(), dimensions,
+                result.cognateAdvantagePoints(), result.falseFriendInterferencePoints(), result.contextRepairPoints(), reaction, spelling);
     }
 
     private void persistMetricsAndAiEvent(
@@ -697,36 +857,49 @@ public class PublicAssessmentService {
             List<AssessmentAttemptAnswerEntity> answers,
             Map<Long, AssessmentQuestionEntity> questions
     ) {
+        String scoringVersion = scoringVersionOf(attempt.getPaperId());
         AssessmentMetricSnapshotEntity existing = metricSnapshotMapper.selectOne(
                 Wrappers.<AssessmentMetricSnapshotEntity>lambdaQuery()
                         .eq(AssessmentMetricSnapshotEntity::getAttemptId, attempt.getId())
-                        .eq(AssessmentMetricSnapshotEntity::getMetricVersion, AssessmentScoringV1.VERSION)
+                        .eq(AssessmentMetricSnapshotEntity::getMetricVersion, scoringVersion)
                         .last("LIMIT 1"));
         if (existing != null) return;
-        AssessmentScoringV1.Result scoring = score(answers, questions);
         double weightedMax = questions.values().stream()
                 .filter(question -> question.getScore() != null && question.getScore() > 0)
                 .mapToDouble(question -> question.getScore() * (question.getWeight() == null ? 1d : question.getWeight().doubleValue()))
                 .sum();
-        double weightedRaw = scoring.percentage() == null ? 0d : weightedMax * scoring.percentage() / 100d;
-        AssessmentMetricSnapshotVO metric = toMetric(scoring);
+        AssessmentMetricSnapshotVO metric;
+        List<String> qualityFlags;
+        Double percentage;
+        if (AssessmentScoringV3.VERSION.equals(scoringVersion)) {
+            AssessmentScoringV3.Result v3Scoring = scoreV3(attempt.getId(), answers, questions);
+            metric = toMetricV3(v3Scoring);
+            qualityFlags = v3Scoring.qualityFlags();
+            percentage = v3Scoring.percentage();
+        } else {
+            AssessmentScoringV1.Result v1Scoring = scoreV1(answers, questions);
+            metric = toMetric(v1Scoring);
+            qualityFlags = v1Scoring.qualityFlags();
+            percentage = v1Scoring.percentage();
+        }
+        double weightedRaw = percentage == null ? 0d : weightedMax * percentage / 100d;
         AssessmentMetricSnapshotEntity snapshot = new AssessmentMetricSnapshotEntity();
         snapshot.setAttemptId(attempt.getId());
-        snapshot.setMetricVersion(AssessmentScoringV1.VERSION);
-        snapshot.setScoringVersion(AssessmentScoringV1.VERSION);
+        snapshot.setMetricVersion(scoringVersion);
+        snapshot.setScoringVersion(scoringVersion);
         snapshot.setRawScore(BigDecimal.valueOf(weightedRaw).setScale(4, RoundingMode.HALF_UP));
         snapshot.setMaxScore(BigDecimal.valueOf(weightedMax).setScale(4, RoundingMode.HALF_UP));
-        snapshot.setPercentageScore(scoring.percentage() == null ? null
-                : BigDecimal.valueOf(scoring.percentage()).setScale(4, RoundingMode.HALF_UP));
+        snapshot.setPercentageScore(percentage == null ? null
+                : BigDecimal.valueOf(percentage).setScale(4, RoundingMode.HALF_UP));
         snapshot.setMetricsJson(jsonCodec.write(metric));
-        snapshot.setQualityFlagsJson(jsonCodec.write(scoring.qualityFlags()));
+        snapshot.setQualityFlagsJson(jsonCodec.write(qualityFlags));
         metricSnapshotMapper.insert(snapshot);
 
         AssessmentAiAnalysisEntity analysis = new AssessmentAiAnalysisEntity();
         analysis.setAttemptId(attempt.getId());
         analysis.setMetricSnapshotId(snapshot.getId());
         analysis.setPromptVersion(AssessmentAiAnalysisProcessor.PROMPT_VERSION);
-        analysis.setIdempotencyKey(attempt.getId() + ":" + AssessmentScoringV1.VERSION + ":" + AssessmentAiAnalysisProcessor.PROMPT_VERSION);
+        analysis.setIdempotencyKey(attempt.getId() + ":" + scoringVersion + ":" + AssessmentAiAnalysisProcessor.PROMPT_VERSION);
         analysis.setStatus("PENDING");
         analysis.setRetryCount(0);
         aiAnalysisMapper.insert(analysis);
@@ -811,7 +984,10 @@ public class PublicAssessmentService {
                     AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
                     List<AssessmentOptionVO> options = jsonCodec.readOptions(answer.getOptionsJsonSnapshot()).stream()
                             .map(option -> new AssessmentOptionVO(option.key(), option.label())).toList();
-                    SectionPresentation section = question == null ? null : sections.get(question.getSectionCode());
+                    SectionPresentation section = question == null || question.getSectionCode() == null
+                            ? null : sections.get(question.getSectionCode());
+                    boolean hintShown = answer.getSpellingHintShownAt() != null;
+                    String hintLetter = hintShown ? firstLetterOf(jsonCodec.readStringList(answer.getCorrectAnswerJson())) : null;
                     return new PublicAssessmentQuestionVO(answer.getQuestionId(), answer.getQuestionOrder(), answer.getQuestionType(),
                             question == null ? null : question.getSectionCode(),
                             section == null ? null : section.title(),
@@ -820,7 +996,9 @@ public class PublicAssessmentService {
                             "TRUE_FALSE_WITH_JUSTIFICATION".equals(answer.getQuestionType()),
                             jsonCodec.readStringList(answer.getResponseJson()), answer.getJustificationText(),
                             question == null ? null : itemCodes.get(question.getId()),
-                            question == null ? null : question.getDisplayConditionJson());
+                            question == null ? null : question.getDisplayConditionJson(),
+                            hintLetter, hintShown,
+                            answer.getSpellingWrongAttemptCount() == null ? 0 : answer.getSpellingWrongAttemptCount());
                 }).toList();
         AssessmentPublishEntity publish = bundle.publish();
         return new PublicAssessmentAttemptVO(attempt.getId(), bundle.release().getReleaseCode(), publish.getPaperTitleSnapshot(),

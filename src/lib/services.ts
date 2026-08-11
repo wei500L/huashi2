@@ -125,6 +125,8 @@ import type {
   PublicAssessmentSubmitVO,
   PublicAssessmentTimingRequest,
   PublicAssessmentVerifyRequest,
+  SpellingAttemptRequest,
+  SpellingAttemptVO,
   ParticipationCodeBatchCreatedVO,
   ParticipationCodeItemVO,
   ParticipationCodeRevokeResultVO,
@@ -398,6 +400,8 @@ export const publicAssessmentService = {
     apiPost<PublicAssessmentProgressVO>(`${publicAssessmentPath(releaseCode)}/responses`, payload, publicAssessmentOptions()),
   recordTiming: (releaseCode: string, payload: PublicAssessmentTimingRequest) =>
     apiPost<void>(`${publicAssessmentPath(releaseCode)}/timing`, payload, publicAssessmentOptions()),
+  attemptSpelling: (releaseCode: string, payload: SpellingAttemptRequest) =>
+    apiPost<SpellingAttemptVO>(`${publicAssessmentPath(releaseCode)}/spelling-attempt`, payload, publicAssessmentOptions()),
   submit: (releaseCode: string, payload: PublicAssessmentSubmitRequest) =>
     apiPost<PublicAssessmentSubmitVO>(`${publicAssessmentPath(releaseCode)}/submit`, payload, publicAssessmentOptions()),
   getResult: (releaseCode: string, options?: RequestOptions) =>

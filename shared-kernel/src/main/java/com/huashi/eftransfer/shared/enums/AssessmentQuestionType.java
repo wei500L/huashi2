@@ -10,7 +10,9 @@ public enum AssessmentQuestionType {
     SINGLE_CHOICE("SINGLE_CHOICE", "Single Choice"),
     MULTIPLE_CHOICE("MULTIPLE_CHOICE", "Multiple Choice"),
     FILL_BLANK("FILL_BLANK", "Fill Blank"),
-    TRUE_FALSE_WITH_JUSTIFICATION("TRUE_FALSE_WITH_JUSTIFICATION", "True/False with Justification");
+    TRUE_FALSE("TRUE_FALSE", "True/False"),
+    TRUE_FALSE_WITH_JUSTIFICATION("TRUE_FALSE_WITH_JUSTIFICATION", "True/False with Justification"),
+    SPELLING("SPELLING", "Spelling with Hint");
 
     private final String code;
     private final String label;

@@ -4,6 +4,7 @@ import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentQrEntryRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentVerifyRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentTimingRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.SpellingAttemptRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SubmitAssessmentAttemptRequest;
 import com.huashi.eftransfer.app.modules.assessment.service.PublicAssessmentService;
@@ -11,6 +12,7 @@ import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentAttemptVO
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentMetadataVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentResultVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentSessionVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.SpellingAttemptVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgressVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptSubmitVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
@@ -113,6 +115,15 @@ public class PublicAssessmentController {
     ) {
         publicAssessmentService.recordTiming(releaseCode, sessionToken, request);
         return ApiResponse.success(null, MDC.get("traceId"));
+    }
+
+    @PostMapping("/{releaseCode}/spelling-attempt")
+    public ApiResponse<SpellingAttemptVO> attemptSpelling(
+            @PathVariable String releaseCode,
+            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken,
+            @Valid @RequestBody SpellingAttemptRequest request
+    ) {
+        return ApiResponse.success(publicAssessmentService.attemptSpelling(releaseCode, sessionToken, request), MDC.get("traceId"));
     }
 
     @PostMapping("/{releaseCode}/submit")

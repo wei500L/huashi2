@@ -6,7 +6,11 @@ import java.util.Arrays;
 public enum ConstructCode {
     LEXICAL_TRANSFER("LEXICAL_TRANSFER", "Lexical Transfer"),
     SEMANTIC_DISCRIMINATION("SEMANTIC_DISCRIMINATION", "Semantic Discrimination"),
-    CONTEXT_REPAIR("CONTEXT_REPAIR", "Context Repair");
+    CONTEXT_REPAIR("CONTEXT_REPAIR", "Context Repair"),
+    FF4_WORD_MEANING("FF4_WORD_MEANING", "FF4 Word Meaning"),
+    FF4_SENTENCE_SYNONYM("FF4_SENTENCE_SYNONYM", "FF4 Sentence Synonym"),
+    FF4_TRUE_FALSE_TRANSFER("FF4_TRUE_FALSE_TRANSFER", "FF4 True/False Transfer"),
+    FF4_SPELLING("FF4_SPELLING", "FF4 Spelling");
 
     private final String code;
     private final String label;

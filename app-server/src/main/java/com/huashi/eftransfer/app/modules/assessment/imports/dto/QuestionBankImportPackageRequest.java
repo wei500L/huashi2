@@ -58,11 +58,32 @@ public record QuestionBankImportPackageRequest(
             String contextLevel,
             String constructCode,
             String targetWord,
-            String displayConditionJson
+            String displayConditionJson,
+            Integer tem4PdfPage,
+            Integer falseFriendsPdfPage,
+            String exampleSentenceStatus,
+            Integer spellingRawEditDistance,
+            Integer spellingAccentFoldedEditDistance,
+            Boolean morphologyOnly,
+            String lexicalReviewStatus,
+            String pedagogicReviewStatus
     ) {
         public ItemRow {
             correctAnswers = correctAnswers == null ? List.of() : List.copyOf(correctAnswers);
             weight = weight == null ? BigDecimal.ONE : weight;
+        }
+
+        public ItemRow(
+                String itemCode, String sectionCode, String questionType,
+                String stemText, String promptText, List<String> correctAnswers,
+                String explanationText, boolean requiredAnswer, boolean scored,
+                BigDecimal weight, String transferCategory, String contextLevel,
+                String constructCode, String targetWord, String displayConditionJson
+        ) {
+            this(itemCode, sectionCode, questionType, stemText, promptText, correctAnswers,
+                    explanationText, requiredAnswer, scored, weight, transferCategory,
+                    contextLevel, constructCode, targetWord, displayConditionJson,
+                    null, null, null, null, null, null, null, null);
         }
     }
 
@@ -71,7 +92,11 @@ public record QuestionBankImportPackageRequest(
             @NotBlank String optionCode,
             @NotBlank String optionText,
             boolean correct,
-            String explanation
+            String explanation,
+            String role
     ) {
+        public OptionRow(String itemCode, String optionCode, String optionText, boolean correct, String explanation) {
+            this(itemCode, optionCode, optionText, correct, explanation, null);
+        }
     }
 }

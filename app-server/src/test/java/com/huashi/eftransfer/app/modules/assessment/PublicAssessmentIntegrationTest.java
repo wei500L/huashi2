@@ -374,6 +374,124 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(sessionCookie(resumed).getValue()).isNotBlank();
     }
 
+    @Test
+    void shouldHandleSpellingHintFlowAndKeepAnswerPrivateUntilSubmission() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createSpellingPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+
+        MvcResult attemptPayload = mockMvc.perform(get("/api/public/assessments/{releaseCode}/attempt", releaseCode)
+                        .cookie(cookie))
+                .andExpect(status().isOk())
+                .andReturn();
+        String attemptJson = attemptPayload.getResponse().getContentAsString();
+        assertThat(attemptJson).doesNotContain("paradis");
+        assertThat(attemptJson).doesNotContain("correctAnswer");
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/spelling-attempt", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questionOrder\":1,\"candidate\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/timing", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questionOrder\":1,\"activeDurationMs\":15000,\"eventId\":\"spelling-wrong-type\",\"eventType\":\"ACTIVE_DELTA\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/timing", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questionOrder\":1,\"activeDurationMs\":15000,\"eventId\":\"spelling-pre-hint\",\"eventType\":\"SPELLING_PRE_HINT_DELTA\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/spelling-attempt", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questionOrder\":1,\"candidate\":\"wrong-answer\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.correct").value(false))
+                .andExpect(jsonPath("$.data.hintShown").value(true))
+                .andExpect(jsonPath("$.data.hintFirstLetter").value("p"))
+                .andExpect(jsonPath("$.data.wrongAttemptCount").value(1));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/spelling-attempt", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questionOrder\":1,\"candidate\":\"paradis\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.correct").value(true))
+                .andExpect(jsonPath("$.data.hintShown").value(true));
+
+        MvcResult restored = mockMvc.perform(get("/api/public/assessments/{releaseCode}/attempt", releaseCode)
+                        .cookie(cookie))
+                .andExpect(status().isOk())
+                .andReturn();
+        String restoredJson = restored.getResponse().getContentAsString();
+        assertThat(restoredJson).contains("\"spellingHintShown\":true");
+        assertThat(restoredJson).contains("\"spellingHintFirstLetter\":\"p\"");
+        assertThat(restoredJson).contains("\"spellingWrongAttemptCount\":1");
+        assertThat(restoredJson).doesNotContain("\"correctAnswer");
+    }
+
+    @Test
+    void shouldRejectSpellingAttemptsOnNonSpellingQuestions() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/spelling-attempt", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questionOrder\":1,\"candidate\":\"x\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    private long createSpellingPaper(String teacherToken) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/teacher/assessments/papers")
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"Spelling hint research paper",
+                                  "paperPurpose":"RESEARCH_SURVEY",
+                                  "durationMinutes":40,
+                                  "questions":[{
+                                    "questionType":"SPELLING",
+                                    "stemText":"天堂；乐土 ______（填写对应法语单词）",
+                                    "correctAnswers":["paradis"],
+                                    "explanationText":"paradis",
+                                    "score":1,
+                                    "weight":1,
+                                    "transferCategory":"FALSE_FRIEND",
+                                    "contextLevel":"WORD",
+                                    "constructCode":"FF4_SPELLING"
+                                  }]
+                                }
+                                """))
+                .andExpect(status().isOk()).andReturn();
+        return readJson(result).path("data").path("paperId").asLong();
+    }
+
     private long createPaper(String teacherToken) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/teacher/assessments/papers")
                         .with(bearer(teacherToken))
