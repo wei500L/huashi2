@@ -15,6 +15,8 @@ public record PublicAssessmentQuestionVO(
         boolean required,
         boolean justificationRequired,
         List<String> responses,
-        String justificationText
+        String justificationText,
+        String itemCode,
+        String displayConditionJson
 ) {
 }

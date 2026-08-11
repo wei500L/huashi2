@@ -59,6 +59,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -110,6 +111,7 @@ public class PublicAssessmentService {
     private final AssessmentParticipantAccessCipher accessCipher;
     private final Duration configuredSessionTtl;
     private final AssessmentTimeoutProperties timeoutProperties;
+    private final JdbcTemplate jdbcTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, Deque<LocalDateTime>> verificationAttempts = new ConcurrentHashMap<>();
 
@@ -131,6 +133,7 @@ public class PublicAssessmentService {
             AssessmentParticipantProfileCipher profileCipher,
             AssessmentParticipantAccessCipher accessCipher,
             AssessmentTimeoutProperties timeoutProperties,
+            JdbcTemplate jdbcTemplate,
             @Value("${app.assessment.public-delivery.session-ttl:PT12H}") Duration configuredSessionTtl
     ) {
         this.publicReleaseMapper = publicReleaseMapper;
@@ -150,6 +153,7 @@ public class PublicAssessmentService {
         this.profileCipher = profileCipher;
         this.accessCipher = accessCipher;
         this.timeoutProperties = timeoutProperties;
+        this.jdbcTemplate = jdbcTemplate;
         this.configuredSessionTtl = configuredSessionTtl == null || configuredSessionTtl.isNegative()
                 ? MAX_SESSION_TTL : configuredSessionTtl.compareTo(MAX_SESSION_TTL) > 0 ? MAX_SESSION_TTL : configuredSessionTtl;
     }
@@ -797,6 +801,8 @@ public class PublicAssessmentService {
         for (AssessmentQuestionEntity question : loadQuestions(attempt.getPaperId())) {
             questions.put(question.getId(), question);
         }
+        Map<String, SectionPresentation> sections = loadSectionPresentations(attempt.getPaperId());
+        Map<Long, String> itemCodes = loadItemCodes(attempt.getPaperId());
         List<PublicAssessmentQuestionVO> items = answerMapper.selectList(
                         Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
                                 .eq(AssessmentAttemptAnswerEntity::getAttemptId, attempt.getId())
@@ -805,11 +811,16 @@ public class PublicAssessmentService {
                     AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
                     List<AssessmentOptionVO> options = jsonCodec.readOptions(answer.getOptionsJsonSnapshot()).stream()
                             .map(option -> new AssessmentOptionVO(option.key(), option.label())).toList();
+                    SectionPresentation section = question == null ? null : sections.get(question.getSectionCode());
                     return new PublicAssessmentQuestionVO(answer.getQuestionId(), answer.getQuestionOrder(), answer.getQuestionType(),
-                            question == null ? null : question.getSectionCode(), null, null, answer.getStemTextSnapshot(),
+                            question == null ? null : question.getSectionCode(),
+                            section == null ? null : section.title(),
+                            section == null ? null : section.sharedMaterial(), answer.getStemTextSnapshot(),
                             answer.getPromptTextSnapshot(), options, question == null || !Boolean.FALSE.equals(question.getRequiredAnswer()),
                             "TRUE_FALSE_WITH_JUSTIFICATION".equals(answer.getQuestionType()),
-                            jsonCodec.readStringList(answer.getResponseJson()), answer.getJustificationText());
+                            jsonCodec.readStringList(answer.getResponseJson()), answer.getJustificationText(),
+                            question == null ? null : itemCodes.get(question.getId()),
+                            question == null ? null : question.getDisplayConditionJson());
                 }).toList();
         AssessmentPublishEntity publish = bundle.publish();
         return new PublicAssessmentAttemptVO(attempt.getId(), bundle.release().getReleaseCode(), publish.getPaperTitleSnapshot(),
@@ -865,6 +876,42 @@ public class PublicAssessmentService {
         return questionMapper.selectList(Wrappers.<AssessmentQuestionEntity>lambdaQuery()
                 .eq(AssessmentQuestionEntity::getPaperId, paperId)
                 .orderByAsc(AssessmentQuestionEntity::getSortOrder).orderByAsc(AssessmentQuestionEntity::getId));
+    }
+
+    private Map<String, SectionPresentation> loadSectionPresentations(Long paperId) {
+        Long versionId = jdbcTemplate.query("""
+                        SELECT id FROM assessment_questionnaire_version
+                        WHERE paper_id = ? AND deleted = FALSE ORDER BY version_no DESC LIMIT 1
+                        """, (resultSet, rowNumber) -> resultSet.getLong(1), paperId)
+                .stream().findFirst().orElse(null);
+        if (versionId == null) {
+            return Map.of();
+        }
+        return jdbcTemplate.query("""
+                        SELECT section_code, title, shared_material FROM assessment_questionnaire_section
+                        WHERE questionnaire_version_id = ? AND deleted = FALSE
+                        """, (resultSet, rowNumber) -> new SectionPresentation(
+                        resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)), versionId)
+                .stream().collect(Collectors.toMap(SectionPresentation::sectionCode, Function.identity()));
+    }
+
+    private Map<Long, String> loadItemCodes(Long paperId) {
+        Long versionId = jdbcTemplate.query("""
+                        SELECT id FROM assessment_questionnaire_version
+                        WHERE paper_id = ? AND deleted = FALSE ORDER BY version_no DESC LIMIT 1
+                        """, (resultSet, rowNumber) -> resultSet.getLong(1), paperId)
+                .stream().findFirst().orElse(null);
+        if (versionId == null) {
+            return Map.of();
+        }
+        return jdbcTemplate.query("""
+                        SELECT assessment_question_id, item_code FROM assessment_questionnaire_item
+                        WHERE questionnaire_version_id = ? AND deleted = FALSE
+                        """, (resultSet, rowNumber) -> new Object[]{resultSet.getLong(1), resultSet.getString(2)}, versionId)
+                .stream().collect(Collectors.toMap(row -> (Long) row[0], row -> (String) row[1]));
+    }
+
+    private record SectionPresentation(String sectionCode, String title, String sharedMaterial) {
     }
 
     private void requireOpen(AssessmentPublishEntity publish, LocalDateTime now) {

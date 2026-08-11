@@ -29,7 +29,7 @@
     },
     {
       "sectionCode": "P1A",
-      "title": "Partie 1 / Section A",
+      "title": "Partie 1 – Compréhension lexicale 词汇理解 / Section A",
       "sortOrder": 1,
       "formalSection": true,
       "scoredItemCount": 10,
@@ -38,11 +38,11 @@
     },
     {
       "sectionCode": "P1B",
-      "title": "Partie 1 / Section B",
+      "title": "Partie 1 – Compréhension lexicale 词汇理解 / Section B",
       "sortOrder": 2,
       "formalSection": true,
       "scoredItemCount": 10,
-      "description": "请选出与下列短语中划线单词意思相同的选项",
+      "description": "请选出与下列短语中划线单词意思相同的选项；第 6–10 题请选出与下列短语中划线单词意思相反的选项。",
       "sharedMaterial": null
     },
     {
@@ -60,8 +60,8 @@
       "sortOrder": 4,
       "formalSection": true,
       "scoredItemCount": 10,
-      "description": "Une journée de travail",
-      "sharedMaterial": "Une journée de travail\nChaque matin, Julien prend toujours le même (1) ______ pour se rendre à son bureau, situé en périphérie（市郊） de la ville. Il ne veut absolument pas (2) ______ son train de 8h15, car une réunion très importante l’attend dès son arrivée. Après avoir quitté son appartement, il enfile rapidement son (3)______ préféré, une veste bleue qu’il a achetée la semaine dernière, puis il sort sans prendre le temps de déjeuner.\nDans l’entreprise où il travaille depuis trois ans, son (4) ______ lui plaît énormément, même si les journées sont parfois chargées. Chaque matin, il doit (5) ______ à de nombreux courriels que ses clients lui envoient la veille. Il apprécie particulièrement la (6) ______ qu’il a avec ses collègues de bureau, bien que l’ambiance puisse devenir tendue en fin de semaine.\nLa semaine dernière, son supérieur hiérarchique（上级） lui a demandé de (7) ______ à une longue réunion qui a duré plus de deux heures. Julien a accepté cette demande sans hésiter une seule seconde. Cependant, les décisions qui ont été prises lors de cette réunion ont commencé à le (8) ______, car aucune de ses idées n’a finalement été retenue par l’équipe. C’est une (9) ______ que tout le monde peut vivre ce genre de déception au cours de sa carrière professionnelle. Malgré tout, cela reste une situation relativement (10) ______ dans la vie de bureau, et Julien garde espoir que les choses s’amélioreront demain."
+      "description": "请阅读下面的完整短文，为每个空格选择最佳答案。",
+      "sharedMaterial": "Une journée de travail\nChaque matin, Julien prend toujours le même (1) ______ pour se rendre à son bureau, situé en périphérie（市郊） de la ville. Il ne veut absolument pas (2) ______ son train de 8h15, car une réunion très importante l’attend dès son arrivée. Après avoir quitté son appartement, il enfile rapidement son (3) ______ préféré, une veste bleue qu’il a achetée la semaine dernière, puis il sort sans prendre le temps de déjeuner.\nDans l’entreprise où il travaille depuis trois ans, son (4) ______ lui plaît énormément, même si les journées sont parfois chargées. Chaque matin, il doit (5) ______ à de nombreux courriels que ses clients lui envoient la veille. Il apprécie particulièrement la (6) ______ qu’il a avec ses collègues de bureau, bien que l’ambiance puisse devenir tendue en fin de semaine.\nLa semaine dernière, son supérieur hiérarchique（上级） lui a demandé de (7) ______ à une longue réunion qui a duré plus de deux heures. Julien a accepté cette demande sans hésiter une seule seconde. Cependant, les décisions qui ont été prises lors de cette réunion ont commencé à le (8) ______, car aucune de ses idées n’a finalement été retenue par l’équipe. C’est une (9) ______ que tout le monde peut vivre ce genre de déception au cours de sa carrière professionnelle. Malgré tout, cela reste une situation relativement (10) ______ dans la vie de bureau, et Julien garde espoir que les choses s’amélioreront demain."
     },
     {
       "sectionCode": "P4T1",
@@ -69,26 +69,26 @@
       "sortOrder": 5,
       "formalSection": true,
       "scoredItemCount": 5,
-      "description": null,
+      "description": "请阅读下面的完整短文，选择最佳答案。",
       "sharedMaterial": "La pollution est un problème important aujourd'hui. Bref, notre planète a besoin de solutions rapides. Si nous regardons vers l'horizon, nous voyons souvent les fumées grises provenant des usines. Certaines personnes sont sensibles à la qualité de l'air : elles se mettent à tousser dès que celle-ci se dégrade. Mais beaucoup de gens ignorent que la pollution peut aussi nuire aux animaux de nombreuses façons : un éventuel incendie pourrait détruire leurs habitats, et les produits chimiques rejetés dans la nature peuvent empoisonner leur nourriture.\nHeureusement, des gestes simples peuvent aider. Par exemple, prendre les transports en commun plutôt que sa voiture réduit la pollution. Si chacun fait un petit effort, les conséquences seront moins graves pour la nature. Agir maintenant est essentiel pour l'avenir."
     },
     {
       "sectionCode": "P4T2",
-      "title": "Texte 2",
+      "title": "Partie 4 – Compréhension écrite / Texte 2",
       "sortOrder": 6,
       "formalSection": true,
       "scoredItemCount": 5,
-      "description": null,
+      "description": "请阅读下面的完整短文，选择最佳答案。",
       "sharedMaterial": "L'année dernière, Sophie a quitté son poste dans une entreprise internationale. Elle travaillait comme secrétaire depuis cinq ans, mais elle voulait réaliser son rêve : ouvrir une librairie indépendante. Ce rêve lui est venu quand elle était au collège. Actuellement, elle suit une formation de gestion commerciale et elle doit souvent passer des examens pendant ses études.\nC'est un peu difficile car elle doit étudier beaucoup de matières nouvelles, mais elle trouve cette expérience très stimulante. Son magasin ouvrira le mois prochain, et elle espère que ce sera un succès."
     },
     {
       "sectionCode": "P4T3",
-      "title": "Texte 3",
+      "title": "Partie 4 – Compréhension écrite / Texte 3",
       "sortOrder": 7,
       "formalSection": true,
       "scoredItemCount": 10,
       "description": "请阅读下面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
-      "sharedMaterial": "Au cœur du Vaucluse, Avignon attire chaque année des milliers de visiteurs. Ce matin-là, Léa et son petit ami se promenaient dans les ruelles pavées. Tous deux profitaient de leurs dernières heures avec une pointe de nostalgie : ils avaient déjà réservé leurs billets de train pour le soir.\nLe soleil du Midi s’est mis à taper très fort. La chaleur était étouffante. Mais ils voulaient absolument visiter la vieille église du centre. Les ruelles étaient toutes pareilles, elles tournaient sans cesse. La carte ne servait à rien. Léa commençait à s’énerver. Son ami lui a pris doucement la main et lui a dit : « Ne t’inquiète pas, on va bien la trouver. »\nTout à coup, ils ont entendu un bruit d’eau. En le suivant, ils ont débouché sur une petite place. Là, une vieille fontaine coulait, claire et fraîche. Beaucoup de monde se tenait autour : des enfants trempaient leur casquette, des touristes remplissaient leur bouteille. Léa et son ami se sont mis de l’eau sur le visage et les bras, et ils se sont sentis tout de suite mieux.\nPourtant, l’église restait introuvable. Le jeune homme a alors aperçu un passant qui se reposait au bord de la fontaine. Il s’est approché et lui a demandé la direction. L’homme a souri et a montré du doigt une ruelle discrète : « Passez par là, tournez au coin, et vous tomberez juste devant. »\nAu tournant suivant, l’église est apparue. Ils ont poussé la lourde porte en bois et sont entrés. À l’intérieur, tout était frais et silencieux. Une lumière douce tombait sur une statue de la Vierge. Sa figure douce les a beaucoup touchés.\nIls sont restés longtemps côte à côte, sans rien dire. À ce moment, ils se sentaient pleinement engagés dans la contemplation. Tout leur paraissait formidable : la paix autour d’eux, ce silence, les gens sympathiques. Ils ont oublié la chaleur, la fatigue, le train du soir. Il ne restait qu’une émotion simple et profonde.Avignon était une destination qui plaisait à beaucoup de monde chaque année."
+      "sharedMaterial": "Au cœur du Vaucluse, Avignon attire chaque année des milliers de visiteurs. Ce matin-là, Léa et son petit ami se promenaient dans les ruelles pavées. Tous deux profitaient de leurs dernières heures avec une pointe de nostalgie : ils avaient déjà réservé leurs billets de train pour le soir.\nLe soleil du Midi s’est mis à taper très fort. La chaleur était étouffante. Mais ils voulaient absolument visiter la vieille église du centre. Les ruelles étaient toutes pareilles, elles tournaient sans cesse. La carte ne servait à rien. Léa commençait à s’énerver. Son ami lui a pris doucement la main et lui a dit : « Ne t’inquiète pas, on va bien la trouver. »\nTout à coup, ils ont entendu un bruit d’eau. En le suivant, ils ont débouché sur une petite place. Là, une vieille fontaine coulait, claire et fraîche. Beaucoup de monde se tenait autour : des enfants trempaient leur casquette, des touristes remplissaient leur bouteille. Léa et son ami se sont mis de l’eau sur le visage et les bras, et ils se sont sentis tout de suite mieux.\nPourtant, l’église restait introuvable. Le jeune homme a alors aperçu un passant qui se reposait au bord de la fontaine. Il s’est approché et lui a demandé la direction. L’homme a souri et a montré du doigt une ruelle discrète : « Passez par là, tournez au coin, et vous tomberez juste devant. »\nAu tournant suivant, l’église est apparue. Ils ont poussé la lourde porte en bois et sont entrés. À l’intérieur, tout était frais et silencieux. Une lumière douce tombait sur une statue de la Vierge. Sa figure douce les a beaucoup touchés.\nIls sont restés longtemps côte à côte, sans rien dire. À ce moment, ils se sentaient pleinement engagés dans la contemplation. Tout leur paraissait formidable : la paix autour d’eux, ce silence, les gens sympathiques. Ils ont oublié la chaleur, la fatigue, le train du soir. Il ne restait qu’une émotion simple et profonde."
     }
   ],
   "items": [
@@ -202,7 +202,7 @@
       "sectionCode": "BASIC_INFO",
       "sortOrder": 5,
       "questionType": "NUMBER",
-      "stemText": "高考英语分数______",
+      "stemText": "您的英语学习水平为：高考英语分数______",
       "promptText": null,
       "options": [],
       "correctAnswers": [],
@@ -218,12 +218,44 @@
       "targetWord": null,
       "displayCondition": null,
       "sourceReference": "questionnaire:paragraph-63",
-      "contentHash": "b99cf3d13f984d215d574e548a239985805ba6cce69b0c50264adcbd42d0cc12"
+      "contentHash": "3d1322826538599a20c2f757b88e9d8b50b621131d753917e4ee8306b4b248a1"
+    },
+    {
+      "itemCode": "BASIC-ENGLISH-MAJOR",
+      "sectionCode": "BASIC_INFO",
+      "sortOrder": 6,
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "您是否为英语专业学生：",
+      "promptText": "请选择英语专业或非英语专业。",
+      "options": [
+        {
+          "key": "ENGLISH_MAJOR",
+          "label": "英语专业"
+        },
+        {
+          "key": "NON_ENGLISH_MAJOR",
+          "label": "非英语专业"
+        }
+      ],
+      "correctAnswers": [],
+      "explanationText": null,
+      "optionExplanations": {},
+      "requiredAnswer": true,
+      "scored": false,
+      "score": 0,
+      "weight": 1,
+      "transferCategory": null,
+      "contextLevel": null,
+      "constructCode": null,
+      "targetWord": null,
+      "displayCondition": null,
+      "sourceReference": "questionnaire:fix-2026-08-basic-english-major",
+      "contentHash": "50576559d90bdb9bd0e6303c57d589735d17f3678898f3154748295850d2abee"
     },
     {
       "itemCode": "BASIC-CET4",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 6,
+      "sortOrder": 7,
       "questionType": "NUMBER",
       "stemText": "□ 四级分数_____",
       "promptText": null,
@@ -241,12 +273,12 @@
       "targetWord": null,
       "displayCondition": null,
       "sourceReference": "questionnaire:paragraph-64",
-      "contentHash": "1fd7c62902c969e13a96c0414f00cc12a9d1b20717dd72f2045c42a6ac1832be"
+      "contentHash": "8be463c23dcd018e7b902cfd84283184a57eeef9a9c087e33fb14894ebbd5ede"
     },
     {
       "itemCode": "BASIC-CET6",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 7,
+      "sortOrder": 8,
       "questionType": "NUMBER",
       "stemText": "□ 六级分数_____",
       "promptText": null,
@@ -264,7 +296,7 @@
       "targetWord": null,
       "displayCondition": null,
       "sourceReference": "questionnaire:paragraph-65",
-      "contentHash": "481a1cfb1ff670fd054fe2ebd8c8a56646db16037dbd8f3c00f38a56f6173f6e"
+      "contentHash": "4299e70381472dc35f73abb714b5ab8c4c4757f0ebbd6a1b66b8d00825f782e1"
     },
     {
       "itemCode": "BASIC-TEM4",
@@ -285,9 +317,13 @@
       "contextLevel": null,
       "constructCode": null,
       "targetWord": null,
-      "displayCondition": null,
+      "displayCondition": {
+        "fieldCode": "BASIC-ENGLISH-MAJOR",
+        "operator": "EQ",
+        "value": "ENGLISH_MAJOR"
+      },
       "sourceReference": "questionnaire:paragraph-66",
-      "contentHash": "fea14333c7af0607b54ece28d115051199afa16bc0de4b782e29acc4a1b50224"
+      "contentHash": "04b68af201331288c55034b572af77ed324c852307c793c581811324378ce764"
     },
     {
       "itemCode": "BASIC-TEM8",
@@ -308,14 +344,18 @@
       "contextLevel": null,
       "constructCode": null,
       "targetWord": null,
-      "displayCondition": null,
+      "displayCondition": {
+        "fieldCode": "BASIC-ENGLISH-MAJOR",
+        "operator": "EQ",
+        "value": "ENGLISH_MAJOR"
+      },
       "sourceReference": "questionnaire:paragraph-67",
-      "contentHash": "656f328186df87752c1f754116d0adbb4dc186120c9b9b4b0611985946eee89b"
+      "contentHash": "81e95369f9c30082e00c2bc1767186ce270c0ba3a02a30cb5db85ced40e754e4"
     },
     {
       "itemCode": "BASIC-FRENCH-DURATION",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 10,
+      "sortOrder": 11,
       "questionType": "SINGLE_CHOICE",
       "stemText": "您的法语学习时长约为：",
       "promptText": null,
@@ -354,12 +394,12 @@
       "targetWord": null,
       "displayCondition": null,
       "sourceReference": "questionnaire:paragraph-68",
-      "contentHash": "61ba2b735c10cff9110b8f56591aa289700d8234fa52d2556c2abaee744cbe73"
+      "contentHash": "69e533429268da3c85baf64815133b32e45bb05d3a5b59b558cc63d51f3bda6d"
     },
     {
       "itemCode": "BASIC-OTHER-LANGUAGE",
       "sectionCode": "BASIC_INFO",
-      "sortOrder": 11,
+      "sortOrder": 12,
       "questionType": "SHORT_TEXT",
       "stemText": "是否接触过其他语种（西语 / 意语 / 葡语/……）？",
       "promptText": null,
@@ -377,7 +417,7 @@
       "targetWord": null,
       "displayCondition": null,
       "sourceReference": "questionnaire:paragraph-69",
-      "contentHash": "bdb8d4401734e85e88c32a0f3171cdab237743d9e6a70d59034ba8aaf1975a9e"
+      "contentHash": "23770f06521a7338cbf72da7c5d3b378d13ec9d373925928cd7ce48cc067117c"
     },
     {
       "itemCode": "P1A-01",
@@ -385,7 +425,7 @@
       "sortOrder": 1,
       "questionType": "SINGLE_CHOICE",
       "stemText": "description",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -425,7 +465,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-01",
-      "contentHash": "611b33f652458e79c09451c9777d99c800956c3c1dbab098dd4d91113a525f4b"
+      "contentHash": "2984f61050c6592a5f03af03fd3b5774cab434d73190a2551630c693749cfa77"
     },
     {
       "itemCode": "P1A-02",
@@ -433,7 +473,7 @@
       "sortOrder": 2,
       "questionType": "SINGLE_CHOICE",
       "stemText": "actuellement",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -473,7 +513,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-02",
-      "contentHash": "525f28d0068d305545f258f0fb0c2d6a263c644d6116d5ff20e8d8ecdc5c1be2"
+      "contentHash": "bed2d358591b4e06f2bddd19c6d402407c90a05fe5d7013c62fbb7d2595ca817"
     },
     {
       "itemCode": "P1A-03",
@@ -481,7 +521,7 @@
       "sortOrder": 3,
       "questionType": "SINGLE_CHOICE",
       "stemText": "librairie",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -521,7 +561,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-03",
-      "contentHash": "739c8b5511b8eeb7fa2a5d7e12fd62e02cbec51cb8c1a22ea88919af2d2fc758"
+      "contentHash": "a608501ba752640c8704527f15d7a805f5873ccac1ecd0882deeaf1a3518890f"
     },
     {
       "itemCode": "P1A-04",
@@ -529,7 +569,7 @@
       "sortOrder": 4,
       "questionType": "SINGLE_CHOICE",
       "stemText": "bavarder",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -569,7 +609,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-04",
-      "contentHash": "af4652779e5e3b6df73a0c88eba56341da99a8a29d3b007be53fc69acca190e6"
+      "contentHash": "f70595a3840f530f32dcbf624da93cc5ca3592f8e296f8008b948880c22f2b86"
     },
     {
       "itemCode": "P1A-05",
@@ -577,7 +617,7 @@
       "sortOrder": 5,
       "questionType": "SINGLE_CHOICE",
       "stemText": "hésiter",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -617,7 +657,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-05",
-      "contentHash": "368fc2baf33a293d75b924372bea307d620c3a8fb27b8e0600063bdcb443a800"
+      "contentHash": "db245b08101f7e8a7ddd1092f03ac53a86ab4de179b7a588652064f53835491e"
     },
     {
       "itemCode": "P1A-06",
@@ -625,7 +665,7 @@
       "sortOrder": 6,
       "questionType": "SINGLE_CHOICE",
       "stemText": "participer",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -665,7 +705,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-06",
-      "contentHash": "bb24f52b519998a65f73d14f70309b2fdee507c1e161164daf9c78eb9c4ed0ef"
+      "contentHash": "08e91c00dc4af8d6c5fe4c0903ce8d6c2d38de311cc44fd6abb24876baa8bae7"
     },
     {
       "itemCode": "P1A-07",
@@ -673,7 +713,7 @@
       "sortOrder": 7,
       "questionType": "SINGLE_CHOICE",
       "stemText": "prétendre",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -713,7 +753,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-07",
-      "contentHash": "3624d8a3ff8ef08db517f2fa70d7410d2b78c7314ba0ff759a91fa0f4276ae83"
+      "contentHash": "ac08e43d07acddfc8f5bbd2e440252c0b224259c989e42272afc4f51eb815251"
     },
     {
       "itemCode": "P1A-08",
@@ -721,7 +761,7 @@
       "sortOrder": 8,
       "questionType": "SINGLE_CHOICE",
       "stemText": "injurier",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -761,7 +801,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-08",
-      "contentHash": "331c6e65f0909e0b960290222e67063cdc934a7b73a970c33c34d370a1ec3e65"
+      "contentHash": "506ba29d1a92604212e948702a8ab05fb1a2d65cd8e6354aaf50bc8f05219f3c"
     },
     {
       "itemCode": "P1A-09",
@@ -769,7 +809,7 @@
       "sortOrder": 9,
       "questionType": "SINGLE_CHOICE",
       "stemText": "se promener",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -809,7 +849,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-09",
-      "contentHash": "f02268caa0b6b5c06bce65a24b56feb350e1488debf65605bf0a89c05e35864d"
+      "contentHash": "6579b003a1e37df72473a1ff4d582debc064baeab1b22362b2e2b6631dc1e486"
     },
     {
       "itemCode": "P1A-10",
@@ -817,7 +857,7 @@
       "sortOrder": 10,
       "questionType": "SINGLE_CHOICE",
       "stemText": "respecter",
-      "promptText": null,
+      "promptText": "请选出下列法语单词对应的正确中文含义",
       "options": [
         {
           "key": "A",
@@ -857,15 +897,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1A-10",
-      "contentHash": "28ccf10e48c5fc499deff6bbab3dbacb05cd25a6edfb2894a50eb16fd675b252"
+      "contentHash": "a1935a99095bed1de8b475655d9bb58f5744db8a1746bb4ff193c08ec916724d"
     },
     {
       "itemCode": "P1B-01",
       "sectionCode": "P1B",
       "sortOrder": 11,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "une entreprise publique",
-      "promptText": null,
+      "stemText": "une **entreprise** publique",
+      "promptText": "请选出与下列短语中划线单词意思相同的选项",
       "options": [
         {
           "key": "A",
@@ -905,15 +945,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-01",
-      "contentHash": "e78b572a8be92ebca885254b22f862cf51c7be8624271c2ecf000746f6fe0cd0"
+      "contentHash": "991807ff6c3f84b39f27339826444ae3fb3408662db1f8871d77b4c0c7e11111"
     },
     {
       "itemCode": "P1B-02",
       "sectionCode": "P1B",
       "sortOrder": 12,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "faire des courses",
-      "promptText": null,
+      "stemText": "faire des **courses**",
+      "promptText": "请选出与下列短语中划线单词意思相同的选项",
       "options": [
         {
           "key": "A",
@@ -953,15 +993,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-02",
-      "contentHash": "599d53ae45d7b3f40451054e4bad4facca6bbfa66b46a7de49a9e1676485d084"
+      "contentHash": "c562ef395e351817ccdf73612525057bc281e97ec82162170d76d8097f068997"
     },
     {
       "itemCode": "P1B-03",
       "sectionCode": "P1B",
       "sortOrder": 13,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "une boisson sucrée",
-      "promptText": null,
+      "stemText": "une **boisson** sucrée",
+      "promptText": "请选出与下列短语中划线单词意思相同的选项",
       "options": [
         {
           "key": "A",
@@ -1001,15 +1041,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-03",
-      "contentHash": "3cea41c0120235832166b523f2c00d8e17ef7d534de5ee053ae569475cf98d8f"
+      "contentHash": "ed051ea1f933797983d73c4febcc555a70bab83f44765f5aed2ce16049f50310"
     },
     {
       "itemCode": "P1B-04",
       "sectionCode": "P1B",
       "sortOrder": 14,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "blesser mon amie",
-      "promptText": null,
+      "stemText": "**blesser** mon amie",
+      "promptText": "请选出与下列短语中划线单词意思相同的选项",
       "options": [
         {
           "key": "A",
@@ -1049,15 +1089,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-04",
-      "contentHash": "4ef6796fc9ab1e7ad959b05fde14292afe66f07f98846b029c4741eaf7446c6a"
+      "contentHash": "c63b3cb40d2deded11831a96f813ca898a53f486527a8e37622dd0e3b694f4d5"
     },
     {
       "itemCode": "P1B-05",
       "sectionCode": "P1B",
       "sortOrder": 15,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "accomplir une tâche",
-      "promptText": null,
+      "stemText": "**accomplir** une tâche",
+      "promptText": "请选出与下列短语中划线单词意思相同的选项",
       "options": [
         {
           "key": "A",
@@ -1097,15 +1137,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-05",
-      "contentHash": "75abd746812a2649533d32eb95ab7efafea31ac19fb7baf844682f0f1e336633"
+      "contentHash": "8922faa2c59d64d37b5a7e5647c19adeba7d6f5fe8329cf077f525601067360f"
     },
     {
       "itemCode": "P1B-06",
       "sectionCode": "P1B",
       "sortOrder": 16,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "un problème important",
-      "promptText": null,
+      "stemText": "un problème **important**",
+      "promptText": "请选出与下列短语中划线单词意思相反的选项",
       "options": [
         {
           "key": "A",
@@ -1145,15 +1185,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-06",
-      "contentHash": "fc33cad57ad19c84018f9fc90f1d80f7c349b1347d140bee705befa85c65432c"
+      "contentHash": "33337daebec091e72d37d5ed2301bb47b50f4cfd36728404b13b7e3d91d1aaec"
     },
     {
       "itemCode": "P1B-07",
       "sectionCode": "P1B",
       "sortOrder": 17,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "un film ennuyeux",
-      "promptText": null,
+      "stemText": "un film **ennuyeux**",
+      "promptText": "请选出与下列短语中划线单词意思相反的选项",
       "options": [
         {
           "key": "A",
@@ -1193,15 +1233,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-07",
-      "contentHash": "ca44eeef09293e6faa1943a3d72a6be3e4c625a1995f2417647b2cd13a16c2c8"
+      "contentHash": "167dc4795de115a4a69278ed6c4bb625e185a2376184d119adf0d2bd61031863"
     },
     {
       "itemCode": "P1B-08",
       "sectionCode": "P1B",
       "sortOrder": 18,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "une personne sensible",
-      "promptText": null,
+      "stemText": "une personne **sensible**",
+      "promptText": "请选出与下列短语中划线单词意思相反的选项",
       "options": [
         {
           "key": "A",
@@ -1241,15 +1281,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-08",
-      "contentHash": "83f14d84a09e0a4e84979787f2b9c4ed9a4412247cc15779f09d05342640e10d"
+      "contentHash": "1d857dd44acce3c0ca87d0bd7eed973ec922b121487fc82d5197409d30ea6a65"
     },
     {
       "itemCode": "P1B-09",
       "sectionCode": "P1B",
       "sortOrder": 19,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "une chambre propre",
-      "promptText": null,
+      "stemText": "une chambre **propre**",
+      "promptText": "请选出与下列短语中划线单词意思相反的选项",
       "options": [
         {
           "key": "A",
@@ -1289,15 +1329,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-09",
-      "contentHash": "dd0b40d6fee4eb618bdaf2537a35354502c849849c275b05f1eb2ec4d7c275c4"
+      "contentHash": "1f6dd1197f952a62769946265acbd9fc5ba1a323701169e84fe567d13b292d12"
     },
     {
       "itemCode": "P1B-10",
       "sectionCode": "P1B",
       "sortOrder": 20,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "une réponse exacte",
-      "promptText": null,
+      "stemText": "une réponse **exacte**",
+      "promptText": "请选出与下列短语中划线单词意思相反的选项",
       "options": [
         {
           "key": "A",
@@ -1337,15 +1377,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P1B-10",
-      "contentHash": "44ec1553672548ee9909ded4ccbbc1c66c5730eb9483f1a6d34661a6469b7ff8"
+      "contentHash": "64d64ff32c5be503d7cdc22c4c6a5ff4bb4b3c2b19f66a479ea884b060cfe36c"
     },
     {
       "itemCode": "P2-01",
       "sectionCode": "P2",
       "sortOrder": 21,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "La location de cet appartement coûte 400 euros par mois.",
-      "promptText": null,
+      "stemText": "La **location** de cet appartement coûte 400 euros par mois.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1385,15 +1425,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-01",
-      "contentHash": "f692cc13e69d46ff4e78e952417bd5d8a087d294d987286bf03b68d573842ff8"
+      "contentHash": "1e986972d4f444817ab70484be3ee3c2b8ab3ba8636f6989ff3cd311eaf9e4b9"
     },
     {
       "itemCode": "P2-02",
       "sectionCode": "P2",
       "sortOrder": 22,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Le petit commerce local a du mal à survivre.",
-      "promptText": null,
+      "stemText": "Le petit **commerce** local a du mal à survivre.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1433,15 +1473,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-02",
-      "contentHash": "0d12c5d702c31ca5ee3b86bc07b8bae570be57938c0a9cd17e0efd3de7ad4627"
+      "contentHash": "63f247086a5b7f0f5061bcfee5bdae410fc2b0065b749dc116143ffadf9a335b"
     },
     {
       "itemCode": "P2-03",
       "sectionCode": "P2",
       "sortOrder": 23,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Il y a une peinture représentant une femme dans cette galerie.",
-      "promptText": null,
+      "stemText": "Il y a une **peinture** représentant une femme dans cette galerie.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1481,15 +1521,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-03",
-      "contentHash": "86f3b286a0e49be814e6d77dc53625a4156c4314e1385dd168fa8462972e7a06"
+      "contentHash": "ec0f0119baf6f9b35c2b52b56c4cb5736b62016187f184acf82e2bf6090246ff"
     },
     {
       "itemCode": "P2-04",
       "sectionCode": "P2",
       "sortOrder": 24,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Il reporte sa décision à un moment plus favorable.",
-      "promptText": null,
+      "stemText": "Il **reporte** sa décision à un moment plus favorable.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1529,15 +1569,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-04",
-      "contentHash": "9023cb80ccaee56bfbe07c34e3a89e486d3bde60d7812cbb6ea80262ae46a7f7"
+      "contentHash": "f04bd6d84f9c00be6ec8b4d4f6b6b18cdf29aef884c4aed70c2a76da8bc11395"
     },
     {
       "itemCode": "P2-05",
       "sectionCode": "P2",
       "sortOrder": 25,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Les hirondelles annoncent le printemps.",
-      "promptText": null,
+      "stemText": "Les hirondelles **annoncent** le printemps.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1553,7 +1593,7 @@
         },
         {
           "key": "D",
-          "label": "Célébrer"
+          "label": "célébrer"
         }
       ],
       "correctAnswers": [
@@ -1577,15 +1617,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-05",
-      "contentHash": "71d0876ab8410bcc272221172d466f0327a97a9b0d733092df5183984a442d74"
+      "contentHash": "5db19009284fe059f37605eb0a72f4ac43ae92879195dea3d02188dcaf06851e"
     },
     {
       "itemCode": "P2-06",
       "sectionCode": "P2",
       "sortOrder": 26,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Les chasseurs ont réussi à capturer un animal sauvage.",
-      "promptText": null,
+      "stemText": "Les chasseurs ont réussi à **capturer** un animal sauvage.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1625,15 +1665,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-06",
-      "contentHash": "64b6cfd2349756a2dfebf2c4b57002ff9f9cfddc8ce7e1412215aa12d77b1fa1"
+      "contentHash": "af68b6b73f2a9ce0e27b53c4baa59bcf9d27305fa01e5fc434859a988506649e"
     },
     {
       "itemCode": "P2-07",
       "sectionCode": "P2",
       "sortOrder": 27,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Chaque matin, il doit se dépêcher au travail pour ne pas être en retard.",
-      "promptText": null,
+      "stemText": "Chaque matin, il doit **se dépêcher** au travail pour ne pas être en retard.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1673,15 +1713,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-07",
-      "contentHash": "21c8e2ff9e43285c3dd973b220f2c1a82b55bbb0ad848d7de22dd36c9e95a1e8"
+      "contentHash": "fc31058fe35dd6662c23c4845f181489ee11c06bc8dcaee6a0b751baaa5f6b10"
     },
     {
       "itemCode": "P2-08",
       "sectionCode": "P2",
       "sortOrder": 28,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Marie Curie était une grande physicienne.",
-      "promptText": null,
+      "stemText": "Marie Curie était une grande **physicienne**.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1721,15 +1761,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-08",
-      "contentHash": "38c46115310cf7c95b89dc7bef10c4291c373a204523f7048cec72bdf045acbc"
+      "contentHash": "171242a51fcaa5f9e68ae01cfd9807a3535089739ac9ccd7746840b93baf1773"
     },
     {
       "itemCode": "P2-09",
       "sectionCode": "P2",
       "sortOrder": 29,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "Ils se sont mêlés à une sale affaire.",
-      "promptText": null,
+      "stemText": "Ils se sont mêlés à une **sale** affaire.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1769,15 +1809,15 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-09",
-      "contentHash": "c49c3d01078dae588f71024b4ab399a274796c4871755baeee2808be5065a492"
+      "contentHash": "c77a10c3c52343aae9ae3674df0c7bbe7794efde5ee61c34c9ba6b51dab2981c"
     },
     {
       "itemCode": "P2-10",
       "sectionCode": "P2",
       "sortOrder": 30,
       "questionType": "SINGLE_CHOICE",
-      "stemText": "L’avocat doit constituer un dossier pour son client.",
-      "promptText": null,
+      "stemText": "L’avocat doit **constituer** un dossier pour son client.",
+      "promptText": "请根据句子选择画线单词的同义解释",
       "options": [
         {
           "key": "A",
@@ -1817,7 +1857,7 @@
       "displayCondition": null,
       "sharedMaterialRef": null,
       "sourceReference": "questionnaire:P2-10",
-      "contentHash": "ec25af4dde63fad53f7489e911350556a42c99034c734d293ba21e2f85cd588e"
+      "contentHash": "3166e72ffaf95ece81dd2e73ca5dd844649de52e840883727c7b58f8bcd540cf"
     },
     {
       "itemCode": "P3-01",
@@ -1825,7 +1865,7 @@
       "sortOrder": 31,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (1)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (1) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -1865,7 +1905,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-01",
-      "contentHash": "97c9af1e0f48451a1452b5e00edf034ba70c081be01e9b67da4593a87ecd880e"
+      "contentHash": "18d984c196e70260add4ba40c192712f507b462ee5c6b9fca8515f3ac22111e6"
     },
     {
       "itemCode": "P3-02",
@@ -1873,7 +1913,7 @@
       "sortOrder": 32,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (2)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (2) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -1913,7 +1953,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-02",
-      "contentHash": "e32f9e5baa9ed2f7a81e40b7f2fe1a39104a60455100c6944febc9b1f728d5f0"
+      "contentHash": "45e615247b0159aeb44ed4e43afab86c53f9542dfa297b5de75f1e99a654abc4"
     },
     {
       "itemCode": "P3-03",
@@ -1921,7 +1961,7 @@
       "sortOrder": 33,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (3)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (3) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -1961,7 +2001,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-03",
-      "contentHash": "3a718b08a3b095abe272d5ec0dacd415549acaf2aeb6f4b07304f435b4ff5535"
+      "contentHash": "b13ee00caa3d2bcfef08d387e8dfad8d5b4ff98a7b2ccc75128cb51c218a9ab5"
     },
     {
       "itemCode": "P3-04",
@@ -1969,7 +2009,7 @@
       "sortOrder": 34,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (4)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (4) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2009,7 +2049,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-04",
-      "contentHash": "2187a1884cbd57b2c3c73936fdea9ef93cd55b7b501c003b9cc79dff53d78eeb"
+      "contentHash": "61fd221117f2a6a040e3ad9403741a327d43af6ed44036b38cd683d8cc54ddcf"
     },
     {
       "itemCode": "P3-05",
@@ -2017,7 +2057,7 @@
       "sortOrder": 35,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (5)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (5) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2057,7 +2097,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-05",
-      "contentHash": "26052a122bd6832e551361d7c7453dc49b344ecbdeacc168ef184228a07a1a8b"
+      "contentHash": "1206ecee4d4bf1724c3378319515acd409405e0b2d7b7ed1feb9dd40f216126d"
     },
     {
       "itemCode": "P3-06",
@@ -2065,7 +2105,7 @@
       "sortOrder": 36,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (6)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (6) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2105,7 +2145,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-06",
-      "contentHash": "0d10c4849fda8310abc2703a9d79c3234195c4e15cc0bebb2f062f1dbf2dc69e"
+      "contentHash": "90a6cfcd328e464402e0c4bc8ed54a8b7a8b17b1bbf233f4b968b5bc86d588e8"
     },
     {
       "itemCode": "P3-07",
@@ -2113,7 +2153,7 @@
       "sortOrder": 37,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (7)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (7) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2153,7 +2193,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-07",
-      "contentHash": "fd7be4732a11cd8485e680be2daee3b7295e3bdd02094b00e9da38e53638a598"
+      "contentHash": "ca2200c8a6becade8f72e45761012b2b8757c626f3686e1f45a52c5a7124997a"
     },
     {
       "itemCode": "P3-08",
@@ -2161,7 +2201,7 @@
       "sortOrder": 38,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (8)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (8) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2201,7 +2241,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-08",
-      "contentHash": "947fac3d78ecc7099afc2413ee0898a7bcaa6df63d529fd3be14e8162d3e916d"
+      "contentHash": "4c0df5fbd20550632cd9b8c42771438800f8b60407c6e943952e5f7db6b02491"
     },
     {
       "itemCode": "P3-09",
@@ -2209,7 +2249,7 @@
       "sortOrder": 39,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (9)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (9) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2249,7 +2289,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-09",
-      "contentHash": "6715e43978547be725e22ee58f537554559f895f8e99af63892a24babacf69e0"
+      "contentHash": "a9a8ea209f7952b450087ee9da9dab5a33d42a9a2e57d158b21d3b49246f0500"
     },
     {
       "itemCode": "P3-10",
@@ -2257,7 +2297,7 @@
       "sortOrder": 40,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Une journée de travail — blanc (10)",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，为空格 (10) 选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2297,7 +2337,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P3",
       "sourceReference": "questionnaire:P3-10",
-      "contentHash": "8a233c8ef90667d6612b9aaf77aee27e7c35c5169fbe39287d8cad63202e54bf"
+      "contentHash": "1d7efec1856a0959c576dad313cd73edf8b745e4eb63fa158951aa6e353b116c"
     },
     {
       "itemCode": "P4T1-01",
@@ -2305,7 +2345,7 @@
       "sortOrder": 41,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Quelle est l'idée principale du texte ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2345,7 +2385,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T1",
       "sourceReference": "questionnaire:P4T1-01",
-      "contentHash": "54680dab315afd483b7e362e5cd963f3f45de282ddf3bd1ee3f780d0fdbb2521"
+      "contentHash": "cd656a926046a558708c6af8378e82785f72ed3de461496c255d0791ea2c5de9"
     },
     {
       "itemCode": "P4T1-02",
@@ -2353,7 +2393,7 @@
       "sortOrder": 42,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Que peut-on déduire des gens qui « ignorent que la pollution peut aussi nuire aux animaux » ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2393,7 +2433,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T1",
       "sourceReference": "questionnaire:P4T1-02",
-      "contentHash": "90c64ecddc1a046a0052101826dee9a3c0124c6e375a89e17df594671846687f"
+      "contentHash": "95a402d9bf1df7de72fdfa69dd79a7f267d944597a8882e6055ef189a0dfbca8"
     },
     {
       "itemCode": "P4T1-03",
@@ -2401,7 +2441,7 @@
       "sortOrder": 43,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Si la qualité de l'air devient mauvaise :",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2441,7 +2481,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T1",
       "sourceReference": "questionnaire:P4T1-03",
-      "contentHash": "e35654eed926efb380d7264a645235329d7ee7c7439f74a52a80c8c1e7d7b728"
+      "contentHash": "f8a6c94d05d912e7afd7a3cfcffe86928d2e8db59b04c65a16bb9e25eb779038"
     },
     {
       "itemCode": "P4T1-04",
@@ -2449,7 +2489,7 @@
       "sortOrder": 44,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Que signifie « un éventuel incendie » ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2489,7 +2529,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T1",
       "sourceReference": "questionnaire:P4T1-04",
-      "contentHash": "2542af9058d87c394e7e00cc0d069d31da6f79f19993e2b77e51ec995fe9ed47"
+      "contentHash": "118a9efab32a5218356d0405cdfd84ccbd27236923c030ae8756523df699f62f"
     },
     {
       "itemCode": "P4T1-05",
@@ -2497,7 +2537,7 @@
       "sortOrder": 45,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Que signifie « Agir maintenant est essentiel pour l'avenir » ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2537,7 +2577,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T1",
       "sourceReference": "questionnaire:P4T1-05",
-      "contentHash": "6b3906d14756edfe29d56c0a7285fb3ca2da7da4ff322811efbfd5aac194b198"
+      "contentHash": "351628ff15b7c129d0b729f1b3489d7b82c416b2003f3ebfff9478024083fb35"
     },
     {
       "itemCode": "P4T2-01",
@@ -2545,7 +2585,7 @@
       "sortOrder": 46,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Quelle est l'idée principale du texte ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2585,7 +2625,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T2",
       "sourceReference": "questionnaire:P4T2-01",
-      "contentHash": "d229ce408f9973de8b0d9d7bee8d6ca0c35f31a134565f9e078246cf3a093f94"
+      "contentHash": "789d43c3f1d538038d3b6592bd0dc2ee96d8ca7bd3e3417f6bd23ed6c8c51724"
     },
     {
       "itemCode": "P4T2-02",
@@ -2593,7 +2633,7 @@
       "sortOrder": 47,
       "questionType": "SINGLE_CHOICE",
       "stemText": "À quel âge Sophie a-t-elle probablement commencé à rêver d’ouvrir une librairie ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2633,7 +2673,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T2",
       "sourceReference": "questionnaire:P4T2-02",
-      "contentHash": "7deb5790d2c296161a8ee21628fad633c50744cbd2ef9e95390f1a78dc1c0d35"
+      "contentHash": "4ceb9b76e889887a94858ae415404b3ffedbf02b25ccd60e8c19f9b60f2d29ec"
     },
     {
       "itemCode": "P4T2-03",
@@ -2641,7 +2681,7 @@
       "sortOrder": 48,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Que signifie « formation » dans ce texte ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2681,7 +2721,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T2",
       "sourceReference": "questionnaire:P4T2-03",
-      "contentHash": "0aefb5f45eeeaf8bf7bf4cbb5c059c7d00221fba6aee8dfee226e49d18892e6a"
+      "contentHash": "8f5e4b3bc9a1d97aea4caee29b9c607426a23852896310c14486ae0a0004581e"
     },
     {
       "itemCode": "P4T2-04",
@@ -2689,7 +2729,7 @@
       "sortOrder": 49,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Pendant sa formation, Sophie ______.",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2729,7 +2769,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T2",
       "sourceReference": "questionnaire:P4T2-04",
-      "contentHash": "567c16c459c513725eb4bb80c032d3d1250654878eff0390652f5600b42acad8"
+      "contentHash": "e455fed5c4bd372131b14d8c96ad1f0b894def6e0139b56168a1106d604c4187"
     },
     {
       "itemCode": "P4T2-05",
@@ -2737,7 +2777,7 @@
       "sortOrder": 50,
       "questionType": "SINGLE_CHOICE",
       "stemText": "Dans la phrase « elle trouve cette expérience très stimulante », que signifie le mot « stimulante » ?",
-      "promptText": null,
+      "promptText": "请阅读上面的完整短文，选择最佳答案。",
       "options": [
         {
           "key": "A",
@@ -2777,7 +2817,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T2",
       "sourceReference": "questionnaire:P4T2-05",
-      "contentHash": "574e245d829ce3b9b1a8cee25bc9bcb559c4c37d8f2dd4cc1f0698b9931a4acf"
+      "contentHash": "36289dd635bf64ade201f24288b8fa79f5197dae22663e2435a0190e8bc7de8e"
     },
     {
       "itemCode": "P4T3-01",
@@ -2785,7 +2825,7 @@
       "sortOrder": 51,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Avignon était une destination qui plaisait à beaucoup de monde chaque année.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -2812,7 +2852,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-01",
-      "contentHash": "103292294e5f4a3fc6afa7fb56326098319f019361c83b326c9f84f3973fcfa4"
+      "contentHash": "8fad53d1cab0501190dd56284ac101c83086f93989ca12ae5b84bfcf0305bebd"
     },
     {
       "itemCode": "P4T3-02",
@@ -2820,7 +2860,7 @@
       "sortOrder": 52,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Léa et son ami avaient déjà commandé leurs places dans le train pour rentrer le soir.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -2847,7 +2887,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-02",
-      "contentHash": "b88ca0d91eea52f258a40395c3e30b43131aada5f01f4e3c7ef9bd106f6418f7"
+      "contentHash": "b887f545440ed461cd2245b789dca9cefbd6a5377d07bc7570ec978a00baad04"
     },
     {
       "itemCode": "P4T3-03",
@@ -2855,7 +2895,7 @@
       "sortOrder": 53,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "La chaleur était très agréable et rafraîchissante.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -2882,7 +2922,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-03",
-      "contentHash": "d2873131281705c8233a85248d1108e2f5f11cd9f2b86e9063676fbcdcd670bf"
+      "contentHash": "2a617bc5df8abca186cb080834195b4a395d1a10c4fbfa19d1bddb04ed9231f0"
     },
     {
       "itemCode": "P4T3-04",
@@ -2890,7 +2930,7 @@
       "sortOrder": 54,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Les ruelles étaient toutes différentes les unes des autres.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -2917,7 +2957,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-04",
-      "contentHash": "24341e2a2eca1ee42220847426d9cae1564a898df0623868a7ceca762727b930"
+      "contentHash": "3c906f43ee07a25a452ad9c34ed04e9280554e325763e34c0e0655be988050e3"
     },
     {
       "itemCode": "P4T3-05",
@@ -2925,7 +2965,7 @@
       "sortOrder": 55,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Ils ont utilisé une carte de crédit pour payer, mais la carte était cassée.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -2952,7 +2992,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-05",
-      "contentHash": "5e29cf2134aad9706ba3effe44e2c4244710f9e3063ddd90c2ac81afb5e94ad8"
+      "contentHash": "69c94ad40506113f413cc51bc5b9264d2767ae47b462793c1629ced25b1df66a"
     },
     {
       "itemCode": "P4T3-06",
@@ -2960,7 +3000,7 @@
       "sortOrder": 56,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "L’endroit autour de la fontaine était très petit.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -2987,7 +3027,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-06",
-      "contentHash": "b6236798f8bb0e3ff1a0a8df2be1ae21dcbc536cba83b80f1f600d0c1539671c"
+      "contentHash": "090440ca1f213d6fee66e73b5405a836dfae0876fa74584328787fd61536450d"
     },
     {
       "itemCode": "P4T3-07",
@@ -2995,7 +3035,7 @@
       "sortOrder": 57,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Ils se sont fiancés dans l’église et ont passé un moment romantique.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -3022,7 +3062,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-07",
-      "contentHash": "cf96af2d183fed68517684a43e35d7faa39be9f80fdbce3413840b6cbeec870c"
+      "contentHash": "c1d0108d322efbc47021ebf8de530d1e3f3c2d6be9c9e4322e015bd13694f2c8"
     },
     {
       "itemCode": "P4T3-08",
@@ -3030,7 +3070,7 @@
       "sortOrder": 58,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Ils ont trouvé cette expérience difficile et effrayante.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -3057,7 +3097,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-08",
-      "contentHash": "aa053683688a52194a4dbc29fd80bd5a73b3549ac3295d1eb07f4c44ac1479de"
+      "contentHash": "8487d6a067df9ae6c84012838ec3b39904b75676e66b5dad6588646f6034f0f4"
     },
     {
       "itemCode": "P4T3-09",
@@ -3065,7 +3105,7 @@
       "sortOrder": 59,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Le visage de la Vierge était doux et les a beaucoup touchés.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -3092,7 +3132,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-09",
-      "contentHash": "0e5edee700352fddd6267ec5d1698cca325ba916740e00327e3a42caa0697413"
+      "contentHash": "6308ce70d9bcfc693f5fd1be3422fb184486bac0ba6ee6187c54ecf324bcac5c"
     },
     {
       "itemCode": "P4T3-10",
@@ -3100,7 +3140,7 @@
       "sortOrder": 60,
       "questionType": "TRUE_FALSE_WITH_JUSTIFICATION",
       "stemText": "Ils ont réfléchi profondément en silence dans l’église.",
-      "promptText": null,
+      "promptText": "请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。",
       "options": [
         {
           "key": "V",
@@ -3127,7 +3167,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-10",
-      "contentHash": "7111d9c17be8a53f0dc98e40f7361b6dd7d3ac21401ca161e4683e3cca1aeea4"
+      "contentHash": "75212e535760d44f23d33638d3df8bb09419e0a5ae4f91eb9578827967dbbe69"
     }
   ],
   "options": [

@@ -55,11 +55,12 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         if (!enabled) {
             return;
         }
+        JsonNode seed = readSeed();
         if (exists("assessment_questionnaire", "questionnaire_code", PACKAGE_CODE)) {
+            updateResearchPackageContent(seed);
             backfillResearchPaperPurpose();
             return;
         }
-        JsonNode seed = readSeed();
         Long ownerId = ensureSystemOwner();
         Long bankId = insertQuestionBank(ownerId, seed);
         Long paperId = insertPaper(ownerId, seed);
@@ -79,6 +80,145 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                 WHERE paper_code LIKE ? AND deleted = FALSE AND paper_purpose <> ?
                 """, AssessmentPaperPurpose.RESEARCH_SURVEY.name(), PACKAGE_CODE + "%",
                 AssessmentPaperPurpose.RESEARCH_SURVEY.name());
+    }
+
+    private void updateResearchPackageContent(JsonNode seed) throws IOException {
+        Long questionnaireId = id("assessment_questionnaire", "questionnaire_code", PACKAGE_CODE);
+        Long versionId = jdbcTemplate.queryForObject("""
+                SELECT id FROM assessment_questionnaire_version
+                WHERE questionnaire_id = ? AND deleted = FALSE ORDER BY version_no DESC LIMIT 1
+                """, Long.class, questionnaireId);
+        Long paperId = jdbcTemplate.queryForObject("""
+                SELECT paper_id FROM assessment_questionnaire_version WHERE id = ? AND deleted = FALSE
+                """, Long.class, versionId);
+        Long bankId = id("assessment_question_bank", "bank_code", BANK_CODE);
+
+        java.util.Map<String, Long> sectionIds = new java.util.LinkedHashMap<>();
+        for (JsonNode section : seed.path("sections")) {
+            String sectionCode = section.path("sectionCode").asString();
+            jdbcTemplate.update("""
+                    UPDATE assessment_questionnaire_section
+                    SET title = ?, description = ?, shared_material = ?, scored_item_count = ?
+                    WHERE questionnaire_version_id = ? AND section_code = ? AND deleted = FALSE
+                    """, section.path("title").asString(), nullableText(section, "description"),
+                    nullableText(section, "sharedMaterial"), section.path("scoredItemCount").asInt(),
+                    versionId, sectionCode);
+            sectionIds.put(sectionCode, jdbcTemplate.queryForObject("""
+                    SELECT id FROM assessment_questionnaire_section
+                    WHERE questionnaire_version_id = ? AND section_code = ? AND deleted = FALSE
+                    """, Long.class, versionId, sectionCode));
+        }
+
+        int globalOrder = 1;
+        for (JsonNode item : seed.path("items")) {
+            String itemCode = item.path("itemCode").asString();
+            Long questionnaireItemId = jdbcTemplate.query("""
+                    SELECT id FROM assessment_questionnaire_item
+                    WHERE questionnaire_version_id = ? AND item_code = ? AND deleted = FALSE
+                    """, (resultSet, rowNumber) -> resultSet.getLong(1), versionId, itemCode)
+                    .stream().findFirst().orElse(null);
+            Long questionVersionId = upsertQuestionVersion(bankId, item);
+            if (questionnaireItemId == null) {
+                jdbcTemplate.update("""
+                        UPDATE assessment_question
+                        SET sort_order = sort_order + 1
+                        WHERE paper_id = ? AND sort_order >= ? AND deleted = FALSE
+                        """, paperId, globalOrder);
+                Long questionId = insertAssessmentQuestion(paperId, questionVersionId, item, globalOrder);
+                insertQuestionnaireItem(versionId, sectionIds.get(item.path("sectionCode").asString()),
+                        questionId, questionVersionId, item);
+            } else {
+                Long questionId = jdbcTemplate.queryForObject("""
+                        SELECT assessment_question_id FROM assessment_questionnaire_item
+                        WHERE id = ? AND deleted = FALSE
+                        """, Long.class, questionnaireItemId);
+                updateAssessmentQuestion(questionId, item);
+                updateQuestionnaireItem(questionnaireItemId, item);
+            }
+            globalOrder++;
+        }
+        log.info("event=lexibridge_seed_updated packageCode={} scoredItems=60 formalSections=7", PACKAGE_CODE);
+    }
+
+    private Long upsertQuestionVersion(Long bankId, JsonNode item) throws IOException {
+        List<Long> existing = jdbcTemplate.query("""
+                SELECT id FROM assessment_question_version
+                WHERE question_bank_id = ? AND question_code = ? AND version_no = 1 AND deleted = FALSE
+                """, (resultSet, rowNumber) -> resultSet.getLong(1), bankId, item.path("itemCode").asString());
+        if (existing.isEmpty()) {
+            return insertQuestionVersion(bankId, item);
+        }
+        Long id = existing.getFirst();
+        jdbcTemplate.update("""
+                UPDATE assessment_question_version
+                SET question_type = ?, stem_text = ?, prompt_text = ?, options_json = ?, correct_answer_json = ?,
+                    explanation_text = ?, option_explanations_json = ?, required_answer = ?, weight = ?,
+                    transfer_category = ?, context_level = ?, construct_code = ?, target_word = ?,
+                    display_condition_json = ?, source_reference = ?, content_hash = ?
+                WHERE id = ? AND deleted = FALSE
+                """, item.path("questionType").asString(), item.path("stemText").asString(),
+                nullableText(item, "promptText"), objectMapper.writeValueAsString(item.path("options")),
+                objectMapper.writeValueAsString(item.path("correctAnswers")), nullableText(item, "explanationText"),
+                objectMapper.writeValueAsString(item.path("optionExplanations")), item.path("requiredAnswer").asBoolean(),
+                decimal(item, "weight", BigDecimal.ONE), nullableText(item, "transferCategory"),
+                nullableText(item, "contextLevel"), nullableText(item, "constructCode"), nullableText(item, "targetWord"),
+                item.path("displayCondition").isNull() ? null : objectMapper.writeValueAsString(item.path("displayCondition")),
+                nullableText(item, "sourceReference"), item.path("contentHash").asString(), id);
+        return id;
+    }
+
+    private void updateAssessmentQuestion(Long questionId, JsonNode item) throws IOException {
+        jdbcTemplate.update("""
+                UPDATE assessment_question
+                SET question_type = ?, stem_text = ?, prompt_text = ?, options_json = ?, correct_answer_json = ?,
+                    explanation_text = ?, score = ?, section_code = ?, required_answer = ?, weight = ?,
+                    transfer_category = ?, context_level = ?, construct_code = ?, target_word = ?,
+                    option_explanations_json = ?, display_condition_json = ?
+                WHERE id = ? AND deleted = FALSE
+                """, item.path("questionType").asString(), item.path("stemText").asString(),
+                nullableText(item, "promptText"), objectMapper.writeValueAsString(item.path("options")),
+                objectMapper.writeValueAsString(item.path("correctAnswers")), nullableText(item, "explanationText"),
+                item.path("score").asInt(), item.path("sectionCode").asString(), item.path("requiredAnswer").asBoolean(),
+                decimal(item, "weight", BigDecimal.ONE), nullableText(item, "transferCategory"),
+                nullableText(item, "contextLevel"), nullableText(item, "constructCode"), nullableText(item, "targetWord"),
+                objectMapper.writeValueAsString(item.path("optionExplanations")),
+                item.path("displayCondition").isNull() ? null : objectMapper.writeValueAsString(item.path("displayCondition")),
+                questionId);
+    }
+
+    private void updateQuestionnaireItem(Long questionnaireItemId, JsonNode item) throws IOException {
+        jdbcTemplate.update("""
+                UPDATE assessment_questionnaire_item
+                SET required_answer = ?, scored = ?, weight = ?, transfer_category = ?, context_level = ?,
+                    construct_code = ?, target_word = ?, option_explanations_json = ?, display_condition_json = ?
+                WHERE id = ? AND deleted = FALSE
+                """, item.path("requiredAnswer").asBoolean(), item.path("scored").asBoolean(),
+                decimal(item, "weight", BigDecimal.ONE), nullableText(item, "transferCategory"),
+                nullableText(item, "contextLevel"), nullableText(item, "constructCode"), nullableText(item, "targetWord"),
+                objectMapper.writeValueAsString(item.path("optionExplanations")),
+                item.path("displayCondition").isNull() ? null : objectMapper.writeValueAsString(item.path("displayCondition")),
+                questionnaireItemId);
+    }
+
+    private void insertQuestionnaireItem(
+            Long questionnaireVersionId,
+            Long sectionId,
+            Long assessmentQuestionId,
+            Long questionVersionId,
+            JsonNode item
+    ) throws IOException {
+        jdbcTemplate.update("""
+                INSERT INTO assessment_questionnaire_item
+                    (questionnaire_version_id,section_id,assessment_question_id,question_version_id,item_code,
+                     required_answer,scored,weight,transfer_category,context_level,construct_code,target_word,
+                     option_explanations_json,display_condition_json,created_by,updated_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)
+                """, questionnaireVersionId, sectionId, assessmentQuestionId, questionVersionId,
+                item.path("itemCode").asString(), item.path("requiredAnswer").asBoolean(), item.path("scored").asBoolean(),
+                decimal(item, "weight", BigDecimal.ONE), nullableText(item, "transferCategory"),
+                nullableText(item, "contextLevel"), nullableText(item, "constructCode"), nullableText(item, "targetWord"),
+                objectMapper.writeValueAsString(item.path("optionExplanations")),
+                item.path("displayCondition").isNull() ? null : objectMapper.writeValueAsString(item.path("displayCondition")));
     }
 
     private JsonNode readSeed() throws IOException {
@@ -196,19 +336,8 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         for (JsonNode item : seed.path("items")) {
             Long questionVersionId = insertQuestionVersion(bankId, item);
             Long assessmentQuestionId = insertAssessmentQuestion(paperId, questionVersionId, item, globalOrder++);
-            jdbcTemplate.update("""
-                    INSERT INTO assessment_questionnaire_item
-                        (questionnaire_version_id,section_id,assessment_question_id,question_version_id,item_code,
-                         required_answer,scored,weight,transfer_category,context_level,construct_code,target_word,
-                         option_explanations_json,display_condition_json,created_by,updated_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)
-                    """, questionnaireVersionId, sectionIds.get(item.path("sectionCode").asString()), assessmentQuestionId,
-                    questionVersionId, item.path("itemCode").asString(), item.path("requiredAnswer").asBoolean(),
-                    item.path("scored").asBoolean(), decimal(item, "weight", BigDecimal.ONE),
-                    nullableText(item, "transferCategory"), nullableText(item, "contextLevel"),
-                    nullableText(item, "constructCode"), nullableText(item, "targetWord"),
-                    objectMapper.writeValueAsString(item.path("optionExplanations")),
-                    item.path("displayCondition").isNull() ? null : objectMapper.writeValueAsString(item.path("displayCondition")));
+            insertQuestionnaireItem(questionnaireVersionId, sectionIds.get(item.path("sectionCode").asString()),
+                    assessmentQuestionId, questionVersionId, item);
         }
     }
 

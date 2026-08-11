@@ -51,6 +51,40 @@ function hydrateResponses(attempt: PublicAssessmentAttemptVO) {
   return { responses, justifications };
 }
 
+const EmphasizedText: React.FC<{ text: string }> = ({ text }) => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return <>{parts.map((part, index) => part.startsWith('**') && part.endsWith('**') && part.length > 4
+    ? <strong key={index}><u>{part.slice(2, -2)}</u></strong>
+    : <React.Fragment key={index}>{part}</React.Fragment>)}</>;
+};
+
+type DisplayCondition = { fieldCode: string; operator: string; value: string };
+
+function parseDisplayCondition(question: PublicAssessmentQuestionVO): DisplayCondition | null {
+  if (!question.displayCondition) return null;
+  try {
+    const parsed = JSON.parse(question.displayCondition) as Partial<DisplayCondition>;
+    if (parsed && typeof parsed === 'object' && typeof parsed.fieldCode === 'string') {
+      return parsed as DisplayCondition;
+    }
+  } catch {
+    // A malformed condition falls back to always-visible.
+  }
+  return null;
+}
+
+function isQuestionVisible(
+  question: PublicAssessmentQuestionVO,
+  responsesByOrder: ResponsesByOrder,
+  questionOrderByItemCode: Map<string | null | undefined, number>
+): boolean {
+  const condition = parseDisplayCondition(question);
+  if (!condition || condition.operator !== 'EQ') return true;
+  const fieldOrder = questionOrderByItemCode.get(condition.fieldCode);
+  if (fieldOrder == null) return true;
+  return (responsesByOrder[fieldOrder] || [])[0] === condition.value;
+}
+
 const ThreadMap: React.FC = () => (
   <svg className="research-thread-map" viewBox="0 0 720 410" aria-hidden="true" focusable="false">
     <path d="M20 280 C 170 55, 260 350, 390 155 S 560 65, 705 220" />
@@ -363,6 +397,7 @@ const ResearchParticipantPage: React.FC = () => {
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
   const [dirtyRevision, setDirtyRevision] = React.useState(0);
   const [saveCycle, setSaveCycle] = React.useState(0);
+  const [clockNow, setClockNow] = React.useState(() => Date.now());
   const hydratedRef = React.useRef(false);
   const qrEntryAttemptedRef = React.useRef(false);
   const currentVersionRef = React.useRef(1);
@@ -370,6 +405,7 @@ const ResearchParticipantPage: React.FC = () => {
   const failedRevisionRef = React.useRef(0);
   const saveInFlightRef = React.useRef(false);
   const releaseGenerationRef = React.useRef(0);
+  const serverOffsetMsRef = React.useRef(0);
 
   React.useEffect(() => {
     if (!result || !['PENDING', 'PROCESSING'].includes(result.aiAnalysisStatus || '')) return;
@@ -396,6 +432,7 @@ const ResearchParticipantPage: React.FC = () => {
     currentVersionRef.current = nextAttempt.version;
     savedRevisionRef.current = 0;
     failedRevisionRef.current = 0;
+    serverOffsetMsRef.current = new Date(nextAttempt.serverTime).getTime() - Date.now();
     setAttempt(nextAttempt);
     setResponsesByOrder(hydrated.responses);
     setJustificationsByOrder(hydrated.justifications);
@@ -536,6 +573,48 @@ const ResearchParticipantPage: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [attemptId, attemptStatus, buildResponses, dirtyRevision, normalizedReleaseCode, saveCycle, submitting]);
   React.useEffect(() => { if (!attempt || attempt.status !== 'IN_PROGRESS') return; const report = () => { if (document.hidden || !document.hasFocus()) return; const question = attempt.questions[selectedIndex]; if (!question) return; void publicAssessmentService.recordTiming(normalizedReleaseCode, { questionOrder: question.questionOrder, activeDurationMs: 15_000, eventId: crypto.randomUUID() }).catch(() => undefined); }; const timer = window.setInterval(report, 15_000); return () => window.clearInterval(timer); }, [attempt, normalizedReleaseCode, selectedIndex]);
+  React.useEffect(() => {
+    if (!attempt || attempt.status !== 'IN_PROGRESS') return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [attempt]);
+  const visibleQuestions = React.useMemo(() => {
+    if (!attempt) return [];
+    const questionOrderByItemCode = new Map<string | null | undefined, number>();
+    attempt.questions.forEach((question) => questionOrderByItemCode.set(question.itemCode, question.questionOrder));
+    return attempt.questions.filter((question) => isQuestionVisible(question, responsesByOrder, questionOrderByItemCode));
+  }, [attempt, responsesByOrder]);
+  React.useEffect(() => {
+    if (!attempt || visibleQuestions.length === 0) return;
+    if (selectedIndex >= visibleQuestions.length) setSelectedIndex(Math.max(0, visibleQuestions.length - 1));
+  }, [attempt, selectedIndex, visibleQuestions.length]);
+  React.useEffect(() => {
+    if (!attempt) return;
+    const questionOrderByItemCode = new Map<string | null | undefined, number>();
+    attempt.questions.forEach((question) => questionOrderByItemCode.set(question.itemCode, question.questionOrder));
+    const hiddenOrders = attempt.questions
+      .filter((question) => !isQuestionVisible(question, responsesByOrder, questionOrderByItemCode))
+      .map((question) => question.questionOrder);
+    if (hiddenOrders.length === 0) return;
+    const staleResponses = hiddenOrders.filter((order) => (responsesByOrder[order] || []).some((value) => value.trim().length > 0));
+    const staleJustifications = hiddenOrders.filter((order) => Boolean(justificationsByOrder[order]));
+    if (staleResponses.length === 0 && staleJustifications.length === 0) return;
+    if (staleResponses.length > 0) {
+      setResponsesByOrder((current) => {
+        const next = { ...current };
+        staleResponses.forEach((order) => { next[order] = []; });
+        return next;
+      });
+    }
+    if (staleJustifications.length > 0) {
+      setJustificationsByOrder((current) => {
+        const next = { ...current };
+        staleJustifications.forEach((order) => { next[order] = ''; });
+        return next;
+      });
+    }
+    setDirtyRevision((value) => value + 1);
+  }, [attempt, justificationsByOrder, responsesByOrder]);
   const verify = async (event: React.FormEvent) => { event.preventDefault(); setVerifying(true); setErrorMessage(null); try { const session = await publicAssessmentService.verifyCode(normalizedReleaseCode, { participationCode: participationCode.trim().toUpperCase() }); rememberPublicSession(normalizedReleaseCode); applyAttempt(session.attempt); if (session.attempt.status === 'SUBMITTED') setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '参与码验证失败。')); } finally { setVerifying(false); } };
   const submit = async () => { if (!attempt || submitting || saving || saveInFlightRef.current) return; setSubmitting(true); setErrorMessage(null); try { await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' }); setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '提交失败，请检查必答题后重试。')); } finally { setSubmitting(false); } };
 
@@ -543,13 +622,16 @@ const ResearchParticipantPage: React.FC = () => {
   if (result) return <PublicResult result={result} />;
   if (!attempt) return <ResearchEntry metadata={metadata} participationCode={participationCode} verifying={verifying} qrEntering={qrEntering} qrRequested={qrRequested} errorMessage={errorMessage} onCodeChange={setParticipationCode} onVerify={verify} />;
 
-  const currentQuestion = attempt.questions[selectedIndex];
-  const { answeredCount, questionCount } = getAnswerProgress(attempt.questions, responsesByOrder);
+  const currentQuestion = visibleQuestions[Math.min(selectedIndex, Math.max(0, visibleQuestions.length - 1))];
+  const { answeredCount, questionCount } = getAnswerProgress(visibleQuestions, responsesByOrder);
   if (!currentQuestion) return <div className="research-loading">问卷暂无可作答题目。</div>;
   const currentResponses = responsesByOrder[currentQuestion.questionOrder] || [];
   const currentJustification = justificationsByOrder[currentQuestion.questionOrder] || '';
   const currentAnswered = hasQuestionResponse(currentQuestion, currentResponses, currentJustification);
   const progressPercent = Math.round((answeredCount / Math.max(1, questionCount)) * 100);
+  const elapsedMs = Math.max(0, clockNow - serverOffsetMsRef.current - new Date(attempt.startedAt).getTime());
+  const elapsedMinutes = Math.floor(elapsedMs / 60000);
+  const elapsedSeconds = Math.floor((elapsedMs % 60000) / 1000);
   const hasPendingSave = dirtyRevision > savedRevisionRef.current;
   const hasSaveError = hasPendingSave && failedRevisionRef.current >= dirtyRevision && Boolean(saveMessage);
   const saveState = hasSaveError ? 'error' : saving ? 'saving' : hasPendingSave ? 'pending' : saveMessage ? 'saved' : 'ready';
@@ -561,7 +643,7 @@ const ResearchParticipantPage: React.FC = () => {
         ? '已记录，等待自动保存'
         : saveMessage || (attempt.lastSavedAt ? '答卷已恢复，当前内容安全' : '自动保存已开启');
   const navigateToQuestion = (nextIndex: number) => {
-    const boundedIndex = Math.min(attempt.questions.length - 1, Math.max(0, nextIndex));
+    const boundedIndex = Math.min(visibleQuestions.length - 1, Math.max(0, nextIndex));
     if (boundedIndex === selectedIndex) return;
     setNavigationDirection(boundedIndex > selectedIndex ? 1 : -1);
     setSelectedIndex(boundedIndex);
@@ -577,6 +659,11 @@ const ResearchParticipantPage: React.FC = () => {
             </div>
             <div className="research-progress-copy">LEXI-BRIDGE / 学生答卷</div>
           </div>
+          {attempt.status === 'IN_PROGRESS' ? (
+            <div className="research-elapsed" role="timer">
+              <Clock3 size={14} /><span>已做 {elapsedMinutes} 分 {elapsedSeconds} 秒</span>
+            </div>
+          ) : null}
           <div className={`research-save-status is-${saveState}`} role="status" aria-live="polite">
             {hasSaveError ? <AlertCircle size={15} /> : saving || hasPendingSave ? <Clock3 size={15} /> : saveMessage ? <CheckCircle2 size={15} /> : <Save size={15} />}
             <span>{saveStatusText}</span>
@@ -595,7 +682,7 @@ const ResearchParticipantPage: React.FC = () => {
         <div className="research-assessment-layout min-w-0">
           <aside className="research-route-panel" aria-label="当前作答位置">
             <div className="research-section-index">CURRENT POSITION</div>
-            <div className="research-route-position"><strong>{String(selectedIndex + 1).padStart(2, '0')}</strong><span>/ {String(attempt.questions.length).padStart(2, '0')}</span></div>
+            <div className="research-route-position"><strong>{String(Math.min(selectedIndex, visibleQuestions.length - 1) + 1).padStart(2, '0')}</strong><span>/ {String(visibleQuestions.length).padStart(2, '0')}</span></div>
             <p>{currentQuestion.questionType === 'INSTRUCTION' ? '阅读说明' : currentAnswered ? '本题已作答' : '等待你的判断'}</p>
             <div className="research-route-line" aria-hidden="true">
               <span className="is-complete" />
@@ -631,11 +718,11 @@ const ResearchParticipantPage: React.FC = () => {
                   </div>
                 </div>
                 {currentQuestion.sharedMaterial ? <div className="research-shared-material break-words">{currentQuestion.sharedMaterial}</div> : null}
-                <div className="research-question-number">ITEM {String(currentQuestion.questionOrder).padStart(2, '0')} · {String(selectedIndex + 1).padStart(2, '0')} / {String(attempt.questions.length).padStart(2, '0')}</div>
-                {currentQuestion.questionType !== 'INSTRUCTION' ? <h1 className="break-words">{currentQuestion.stemText}</h1> : null}
+                <div className="research-question-number">ITEM {String(currentQuestion.questionOrder).padStart(2, '0')} · {String(Math.min(selectedIndex, visibleQuestions.length - 1) + 1).padStart(2, '0')} / {String(visibleQuestions.length).padStart(2, '0')}</div>
                 {currentQuestion.promptText && currentQuestion.questionType !== 'INSTRUCTION' ? (
                   <p className="research-question-prompt break-words">{currentQuestion.promptText}</p>
                 ) : null}
+                {currentQuestion.questionType !== 'INSTRUCTION' ? <h1 className="break-words"><EmphasizedText text={currentQuestion.stemText} /></h1> : null}
                 <PublicQuestion
                   question={currentQuestion}
                   responses={currentResponses}
@@ -661,7 +748,7 @@ const ResearchParticipantPage: React.FC = () => {
               <div className={`research-answer-feedback ${currentAnswered ? 'is-complete' : ''}`} aria-live="polite">
                 {currentQuestion.questionType === 'INSTRUCTION' ? '阅读完成后继续' : currentAnswered ? <><CheckCircle2 size={15} />本题回答已记录</> : currentQuestion.required ? '请选择或填写答案' : '本题可以暂时跳过'}
               </div>
-              {selectedIndex < attempt.questions.length - 1 ? (
+              {selectedIndex < visibleQuestions.length - 1 ? (
                 <button type="button" onClick={() => navigateToQuestion(selectedIndex + 1)} className="research-primary-button w-full sm:w-auto">
                   {currentQuestion.questionType === 'INSTRUCTION' ? '开始作答' : currentAnswered ? '已记录，继续' : '暂不回答，下一题'}<ChevronRight size={17} className="shrink-0" />
                 </button>

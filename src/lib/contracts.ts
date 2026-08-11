@@ -2337,6 +2337,8 @@ export interface PublicAssessmentQuestionVO {
   justificationRequired?: boolean;
   responses: string[];
   justificationText?: string | null;
+  itemCode?: string | null;
+  displayCondition?: string | null;
 }
 
 export interface PublicAssessmentAttemptVO {
