@@ -56,6 +56,7 @@ public record TeacherResearchAttemptDetailVO(
             String questionType,
             String questionCode,
             String sectionTitle,
+            Boolean formalSection,
             String stemText,
             String promptText,
             List<AssessmentOptionVO> options,

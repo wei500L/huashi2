@@ -411,15 +411,36 @@ export function formatMs(value?: number | null): string {
   return `${Math.round(value)} ms`;
 }
 
+export const DISPLAY_TIME_ZONE = 'Asia/Shanghai';
+
+export function parseBackendDateTime(value: string): Date {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return new Date(Number.NaN);
+  }
+  if (/[zZ]$/.test(trimmed) || /[+-]\d{2}:?\d{2}$/.test(trimmed)) {
+    return new Date(trimmed);
+  }
+  const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+  return new Date(`${normalized}Z`);
+}
+
 export function formatDateTime(value?: string | null): string {
   if (!value) {
     return localeCopy().emptyLabel;
   }
-  return new Date(value).toLocaleString(getActiveLocale(), {
+  const date = parseBackendDateTime(value);
+  if (Number.isNaN(date.getTime())) {
+    return localeCopy().emptyLabel;
+  }
+  return date.toLocaleString(getActiveLocale(), {
+    timeZone: DISPLAY_TIME_ZONE,
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 }
 
@@ -427,7 +448,12 @@ export function formatDate(value?: string | null): string {
   if (!value) {
     return localeCopy().emptyLabel;
   }
-  return new Date(value).toLocaleDateString(getActiveLocale(), {
+  const date = parseBackendDateTime(value);
+  if (Number.isNaN(date.getTime())) {
+    return localeCopy().emptyLabel;
+  }
+  return date.toLocaleDateString(getActiveLocale(), {
+    timeZone: DISPLAY_TIME_ZONE,
     year: 'numeric',
     month: 'short',
     day: 'numeric',

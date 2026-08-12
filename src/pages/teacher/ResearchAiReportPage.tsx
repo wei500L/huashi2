@@ -7,6 +7,8 @@ import { getApiErrorMessage } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { researchAnalyticsService } from '@/lib/services';
 import { researchAnalyticsKeys } from '@/features/research-analytics/queryKeys';
+import { ResearchExcelExportButton } from '@/features/research-analytics/components/ResearchExcelExportButton';
+import { useResearchExcelExport } from '@/features/research-analytics/useResearchExcelExport';
 
 const ResearchAiReportPage: React.FC = () => {
   const { publishId } = useParams();
@@ -35,15 +37,28 @@ const ResearchAiReportPage: React.FC = () => {
 
   const report = query.data;
   const interpretation = report?.status === 'FALLBACK' ? report.ruleFallback : report?.report;
+  const { exporting, exportError, lastFileName, exportExcel } = useResearchExcelExport();
 
   return (
     <div className="page-stack pb-16">
       <PageHeader
-        eyebrow="GROUP REPORT"
+        eyebrow="群体报告"
         title="群体研究报告"
         subtitle="先看统计事实，再看模型或规则解读。低样本不会生成模型报告。"
-        actions={<button type="button" className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-white/10" onClick={() => navigate(`/teacher/research?tab=data&publishId=${numericId}`)}>返回数据</button>}
+        actions={
+          <div className="page-actions">
+            <ResearchExcelExportButton
+              variant="primary"
+              exporting={exporting}
+              disabled={!Number.isFinite(numericId)}
+              onClick={() => void exportExcel(numericId)}
+            />
+            <button type="button" className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-white/10" onClick={() => navigate(`/teacher/research?tab=data&publishId=${numericId}`)}>返回数据</button>
+          </div>
+        }
       />
+      {exportError ? <p className="text-sm text-rose-600">{exportError}</p> : null}
+      {lastFileName ? <p className="text-sm text-emerald-700">已下载 {lastFileName}</p> : null}
       {query.isLoading ? <FeedbackState kind="loading" title="正在读取报告" description="正在加载最新群体报告和统计快照。" /> : null}
       {query.isError ? <FeedbackState kind="error" title="报告加载失败" description={getApiErrorMessage(query.error, '暂时无法读取群体报告。')} /> : null}
       {!query.isLoading && !report ? (
@@ -59,8 +74,8 @@ const ResearchAiReportPage: React.FC = () => {
           <section className="rounded-2xl liquid-glass-panel p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <SectionEyebrow>REPORT BASIS</SectionEyebrow>
-                <h2 className="mt-2 text-lg font-black">报告依据</h2>
+                <SectionEyebrow>报告依据</SectionEyebrow>
+                <h2 className="mt-2 text-lg font-black">统计快照</h2>
               </div>
               <StatusBadge label={report.status === 'FALLBACK' ? '规则摘要' : report.status} tone={report.status === 'COMPLETED' ? 'success' : report.status === 'FAILED' ? 'danger' : 'warning'} />
             </div>
@@ -81,8 +96,8 @@ const ResearchAiReportPage: React.FC = () => {
             <FeedbackState kind="saving" title="报告生成中" description="基础统计仍可查看。完成后会自动刷新，不会把规则摘要标成模型结论。" />
           ) : null}
           <section className="rounded-2xl liquid-glass-panel p-4 sm:p-6">
-            <SectionEyebrow>STATISTICAL FACTS</SectionEyebrow>
-            <h2 className="mt-2 text-lg font-black">统计事实</h2>
+            <SectionEyebrow>统计事实</SectionEyebrow>
+            <h2 className="mt-2 text-lg font-black">模型看不到的原始答卷</h2>
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-white/70">
               这份报告绑定快照 {report.snapshot?.snapshotVersion || 'RESEARCH_STATS_V1'}，样本量 {report.sampleCount ?? '—'}。
               模型只能看到聚合数据、匿名题号和题干摘要，不会看到姓名、联系方式、参与码、IP 或附件原文。
@@ -90,7 +105,7 @@ const ResearchAiReportPage: React.FC = () => {
           </section>
           {interpretation ? (
             <section className="rounded-2xl liquid-glass-panel p-4 sm:p-6">
-              <SectionEyebrow>MODEL OR RULE READING</SectionEyebrow>
+              <SectionEyebrow>解读</SectionEyebrow>
               <h2 className="mt-2 text-lg font-black">{report.status === 'FALLBACK' ? '规则摘要' : '模型解读'}</h2>
               <p className="mt-3 text-sm leading-7">{interpretation.executiveSummary}</p>
               <FindingList title="观察到的模式" items={interpretation.observedPatterns} />

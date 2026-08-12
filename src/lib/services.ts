@@ -477,12 +477,13 @@ export const researchAnalyticsService = {
       scope?: string;
       includeSensitiveFields?: boolean;
       includeAttachmentManifest?: boolean;
-    }
-  ) => apiPost<ResearchExportJobVO>(`/teacher/research/publishes/${publishId}/exports`, payload),
+    },
+    options?: RequestOptions
+  ) => apiPost<ResearchExportJobVO>(`/teacher/research/publishes/${publishId}/exports`, payload, { timeout: 60_000, ...options }),
   getExport: (jobId: number, options?: RequestOptions) =>
     apiGet<ResearchExportJobVO>(`/teacher/research/exports/${jobId}`, options),
   downloadExport: (jobId: number, options?: RequestOptions) =>
-    apiDownload(`/teacher/research/exports/${jobId}/download`, options),
+    apiDownload(`/teacher/research/exports/${jobId}/download`, { timeout: 60_000, ...options }),
   getFileMetadata: (fileId: number, options?: RequestOptions) =>
     apiGet<ResearchAttachmentVO>(`/teacher/research/files/${fileId}/metadata`, options),
   downloadFile: (fileId: number, options?: RequestOptions) =>

@@ -28,6 +28,12 @@ type ResponsesByOrder = Record<number, string[]>;
 type JustificationsByOrder = Record<number, string>;
 type AttachmentsByOrder = Record<number, string[]>;
 
+const QUALITY_FLAG_LABELS: Record<string, string> = {
+  FAST_ITEM: '过快作答',
+  SHORT_TOTAL_DURATION: '总时长过短',
+  TIMING_GAP: '计时缺失',
+};
+
 const QUESTION_TYPE_LABELS: Record<string, string> = {
   INFORMED_CONSENT: '参与确认',
   INSTRUCTION: '阅读说明',
@@ -41,6 +47,46 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   FILL_BLANK: '填空',
   SPELLING: '单词拼写',
   FILE_UPLOAD: '文件上传',
+};
+
+const ResearchQuestionMap: React.FC<{
+  questions: PublicAssessmentQuestionVO[];
+  selectedOrder: number;
+  responsesByOrder: ResponsesByOrder;
+  justificationsByOrder: JustificationsByOrder;
+  attachmentsByOrder: AttachmentsByOrder;
+  onSelect: (index: number) => void;
+}> = ({ questions, selectedOrder, responsesByOrder, justificationsByOrder, attachmentsByOrder, onSelect }) => {
+  const profile = questions.filter((question) => question.formalSection === false && question.questionType !== 'INSTRUCTION');
+  const formal = questions.filter((question) => question.formalSection === true);
+  const renderGroup = (items: PublicAssessmentQuestionVO[], prefix: string) => items.map((question, index) => {
+    const globalIndex = questions.findIndex((item) => item.questionOrder === question.questionOrder);
+    const answered = hasQuestionResponse(
+      question,
+      responsesByOrder[question.questionOrder] || [],
+      justificationsByOrder[question.questionOrder] || '',
+      attachmentsByOrder[question.questionOrder] || [],
+    );
+    const current = question.questionOrder === selectedOrder;
+    return (
+      <button
+        key={question.questionOrder}
+        type="button"
+        className={`research-map-dot ${current ? 'is-current' : ''} ${answered ? 'is-answered' : ''}`}
+        aria-current={current ? 'step' : undefined}
+        aria-label={`${prefix}${index + 1}${answered ? '，已作答' : '，未作答'}`}
+        onClick={() => onSelect(globalIndex)}
+      >
+        {prefix === '正式题' ? index + 1 : `资${index + 1}`}
+      </button>
+    );
+  });
+  return (
+    <div className="research-question-map" aria-label="题目跳转">
+      {profile.length ? <div className="research-map-group"><span>资料</span><div>{renderGroup(profile, '资料')}</div></div> : null}
+      {formal.length ? <div className="research-map-group"><span>正式题</span><div>{renderGroup(formal, '正式题')}</div></div> : null}
+    </div>
+  );
 };
 
 function hasQuestionResponse(question: PublicAssessmentQuestionVO, responses: string[], justification: string, attachmentTokens: string[] = []): boolean {
@@ -465,7 +511,7 @@ const PublicResult: React.FC<{ result: PublicAssessmentResultVO }> = ({ result }
           <strong className="min-w-0 break-words">{result.objectiveScore ?? '—'}<small>{result.totalScore != null ? ` / ${result.totalScore}` : ''}</small></strong>
         </div>
       ) : null}
-      {result.qualityFlags?.length ? <div className="research-quality break-words">数据质量提醒：{result.qualityFlags.join('、')}</div> : null}
+      {result.qualityFlags?.length ? <div className="research-quality break-words">数据质量提醒：{result.qualityFlags.map((flag) => QUALITY_FLAG_LABELS[flag] || flag).join('、')}</div> : null}
       <div className="research-analysis min-w-0">
         <div className="research-analysis-heading">
           <div>
@@ -982,6 +1028,14 @@ const ResearchParticipantPage: React.FC = () => {
             <span>{currentIsFormal ? `已完成 ${stagedProgress.formalAnsweredCount}/${stagedProgress.formalQuestionCount}` : `资料 ${String(stagedProgress.profileAnsweredCount).padStart(2, '0')}/${String(stagedProgress.profileFieldCount).padStart(2, '0')}`}</span>
             <span>正式题 {stagedProgress.formalQuestionCount} 道 · 限时 {attempt.durationMinutes} 分钟</span>
           </div>
+          <ResearchQuestionMap
+            questions={visibleQuestions}
+            selectedOrder={currentQuestion.questionOrder}
+            responsesByOrder={responsesByOrder}
+            justificationsByOrder={justificationsByOrder}
+            attachmentsByOrder={attachmentsByOrder}
+            onSelect={navigateToQuestion}
+          />
         </div>
         <div className="research-assessment-layout min-w-0">
           <aside className="research-route-panel" aria-label="当前作答位置">

@@ -12,7 +12,7 @@ public record ResearchExportRequest(
         String submittedFrom,
         String submittedTo,
         String keyword,
-        boolean includeSensitiveFields,
-        boolean includeAttachmentManifest
+        Boolean includeSensitiveFields,
+        Boolean includeAttachmentManifest
 ) {
 }

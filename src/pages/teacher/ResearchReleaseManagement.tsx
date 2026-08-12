@@ -22,6 +22,8 @@ import type {
 } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
+import { ResearchExcelExportButton } from '@/features/research-analytics/components/ResearchExcelExportButton';
+import { useResearchExcelExport } from '@/features/research-analytics/useResearchExcelExport';
 
 const statusLabels: Record<string, string> = {
   UNUSED: '未使用',
@@ -69,6 +71,7 @@ export const ResearchReleaseManagement: React.FC = () => {
   const [pendingSelectedPublishId, setPendingSelectedPublishId] = React.useState<number | null>(null);
   const [clearCreatedBatchOpen, setClearCreatedBatchOpen] = React.useState(false);
   const [qrGenerationError, setQrGenerationError] = React.useState<string | null>(null);
+  const { exporting, exportError, lastFileName, exportExcel } = useResearchExcelExport();
 
   useLeaveProtection({
     active: createdBatch != null,
@@ -299,20 +302,32 @@ export const ResearchReleaseManagement: React.FC = () => {
       {selectedRelease ? (
         <section className="space-y-6 rounded-2xl liquid-glass-panel p-4 sm:p-6">
           <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0"><SectionEyebrow>PUBLIC ACCESS MANAGEMENT</SectionEyebrow><h2 className="mt-2 break-words text-2xl font-black">{selectedRelease.paperTitle}</h2><p className="mt-2 break-all text-sm text-slate-500">{`${window.location.origin}/research/${selectedRelease.releaseCode}`}</p></div>
-            <a href={`/research/${selectedRelease.releaseCode}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-white/10">打开学生页 <ExternalLink size={15} /></a>
+            <div className="min-w-0"><SectionEyebrow>公开入口</SectionEyebrow><h2 className="mt-2 break-words text-2xl font-black">{selectedRelease.paperTitle}</h2><p className="mt-2 break-all text-sm text-slate-500">{`${window.location.origin}/research/${selectedRelease.releaseCode}`}</p></div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <ResearchExcelExportButton
+                variant="primary"
+                exporting={exporting}
+                disabled={selectedRelease.submittedCount <= 0}
+                onClick={() => void exportExcel(selectedRelease.publishId)}
+              >
+                导出 Excel
+              </ResearchExcelExportButton>
+              <a href={`/research/${selectedRelease.releaseCode}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-white/10">打开学生页 <ExternalLink size={15} /></a>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             {metricCards(selectedRelease).map(([label, value]) => <div key={label} className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-black tabular-nums">{value}</div></div>)}
           </div>
 
+          {exportError ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{exportError}</div> : null}
+          {lastFileName ? <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">已下载 {lastFileName}</div> : null}
           {actionError ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{actionError}</div> : null}
           {actionMessage ? <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{actionMessage}</div> : null}
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
             <div className="rounded-2xl border border-slate-200 p-5 dark:border-white/10">
-              <div className="flex flex-wrap items-center justify-between gap-3"><div><SectionEyebrow>CODE BATCH</SectionEyebrow><h3 className="mt-2 font-black">批量新增参与码</h3></div><KeyRound className="text-primary" /></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><SectionEyebrow>参与码批次</SectionEyebrow><h3 className="mt-2 font-black">批量新增参与码</h3></div><KeyRound className="text-primary" /></div>
               <p className="mt-3 text-sm leading-6 text-slate-500">每批可生成 1–5000 个。系统只保存摘要，明文仅在生成成功后显示一次。</p>
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                 <input type="number" min={1} max={5000} value={batchCount} disabled={createdBatch != null || pendingAction != null} onChange={(event) => setBatchCount(Math.max(1, Math.min(5000, Number(event.target.value) || 1)))} className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 disabled:opacity-50 sm:w-40 dark:border-white/10 dark:bg-slate-900" />
@@ -329,7 +344,7 @@ export const ResearchReleaseManagement: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border border-slate-200 p-5 dark:border-white/10">
-              <div className="flex flex-wrap items-center justify-between gap-3"><div><SectionEyebrow>QR ENTRY</SectionEyebrow><h3 className="mt-2 font-black">二维码免码参与</h3></div><StatusBadge label={selectedRelease.qrEntryEnabled ? '已开启' : '未开启'} tone={selectedRelease.qrEntryEnabled ? 'success' : 'warning'} /></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><SectionEyebrow>二维码</SectionEyebrow><h3 className="mt-2 font-black">二维码免码参与</h3></div><StatusBadge label={selectedRelease.qrEntryEnabled ? '已开启' : '未开启'} tone={selectedRelease.qrEntryEnabled ? 'success' : 'warning'} /></div>
               <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                 {qrDataUrl ? <img src={qrDataUrl} alt={`${selectedRelease.paperTitle}二维码`} className="h-40 w-40 rounded-xl border border-slate-200 bg-white p-2" /> : <div className="flex h-40 w-40 items-center justify-center rounded-xl bg-slate-100"><QrCode /></div>}
                 <div className="min-w-0 flex-1"><p className="break-all text-xs leading-5 text-slate-500">{qrUrl}</p>{qrGenerationError ? <p role="alert" className="mt-2 text-xs text-rose-700">{qrGenerationError}</p> : null}<div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={pendingAction != null} onClick={() => void copyQrUrl()} className="min-h-10 rounded-xl border border-slate-200 text-xs font-bold disabled:opacity-50 dark:border-white/10">{pendingAction === 'copy-qr-url' ? '复制中…' : '复制链接'}</button><button type="button" disabled={!qrDataUrl || pendingAction != null} onClick={downloadQr} className="min-h-10 rounded-xl border border-slate-200 text-xs font-bold disabled:opacity-50 dark:border-white/10">下载 PNG</button><button type="button" disabled={!qrDataUrl || pendingAction != null} onClick={printQr} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-xl border border-slate-200 text-xs font-bold disabled:opacity-50 dark:border-white/10"><Printer size={14} />打印</button><button type="button" disabled={pendingAction != null} onClick={() => setQrToggleTarget({ enabled: !selectedRelease.qrEntryEnabled })} className={`min-h-10 rounded-xl text-xs font-bold text-white ${selectedRelease.qrEntryEnabled ? 'bg-rose-600' : 'bg-primary'}`}>{pendingAction === 'toggle-qr' ? '保存中…' : selectedRelease.qrEntryEnabled ? '关闭免码' : '开启免码'}</button></div></div>
@@ -338,7 +353,7 @@ export const ResearchReleaseManagement: React.FC = () => {
           </div>
 
           <div className="rounded-2xl border border-slate-200 p-4 dark:border-white/10 sm:p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div><SectionEyebrow>PARTICIPATION CODES</SectionEyebrow><h3 className="mt-2 font-black">参与码状态与兑换 IP</h3></div><div className="flex flex-col gap-2 sm:flex-row"><select value={status} onChange={(event) => setStatus(event.target.value as '' | ParticipationCodeStatus)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-slate-900"><option value="">全部状态</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select value={batchId} onChange={(event) => setBatchId(event.target.value)} className="min-h-11 max-w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-slate-900"><option value="">全部批次</option>{selectedRelease.batches.map((batch) => <option key={batch.batchId} value={batch.batchId}>{batch.batchId === 'legacy' ? '历史批次' : batch.batchId.slice(0, 8)} · {batch.totalCount} 个</option>)}</select></div></div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div><SectionEyebrow>参与码列表</SectionEyebrow><h3 className="mt-2 font-black">参与码状态与兑换 IP</h3></div><div className="flex flex-col gap-2 sm:flex-row"><select value={status} onChange={(event) => setStatus(event.target.value as '' | ParticipationCodeStatus)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-slate-900"><option value="">全部状态</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select value={batchId} onChange={(event) => setBatchId(event.target.value)} className="min-h-11 max-w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-slate-900"><option value="">全部批次</option>{selectedRelease.batches.map((batch) => <option key={batch.batchId} value={batch.batchId}>{batch.batchId === 'legacy' ? '历史批次' : batch.batchId.slice(0, 8)} · {batch.totalCount} 个</option>)}</select></div></div>
 
             {selectedRelease.batches.some((batch) => batch.unusedCount > 0) ? <div className="mt-4 flex flex-wrap gap-2">{selectedRelease.batches.filter((batch) => batch.unusedCount > 0 && batch.batchId !== 'legacy').map((batch) => <button key={batch.batchId} type="button" onClick={() => setRevokeTarget({ type: 'batch', batchId: batch.batchId, label: `${batch.batchId.slice(0, 8)}（${batch.unusedCount} 个未使用）` })} className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-rose-200 px-3 text-xs font-bold text-rose-700"><ShieldOff size={14} />停用批次 {batch.batchId.slice(0, 8)}</button>)}</div> : null}
 

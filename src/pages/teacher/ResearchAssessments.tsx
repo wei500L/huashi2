@@ -26,12 +26,24 @@ type ResearchTab = 'bank' | 'questionnaires' | 'releases' | 'data';
 const isResearchTab = (value: string | null): value is ResearchTab =>
   value === 'bank' || value === 'questionnaires' || value === 'releases' || value === 'data';
 
+const LAST_TAB_KEY = 'lexibridge.research.tab';
+
 const tabs: Array<{ id: ResearchTab; label: string; description: string; icon: typeof BookOpen }> = [
-  { id: 'bank', label: '项目题库', description: '共享题目、版本与内容审核', icon: BookOpen },
-  { id: 'questionnaires', label: '问卷', description: '问卷版本与编辑入口', icon: Files },
-  { id: 'releases', label: '发布', description: '班级和参与码发布', icon: Send },
-  { id: 'data', label: '数据', description: '完成率与规则分析', icon: BarChart3 },
+  { id: 'data', label: '数据', description: '答卷、完成率与报告', icon: BarChart3 },
+  { id: 'releases', label: '发布', description: '参与码和二维码', icon: Send },
+  { id: 'questionnaires', label: '问卷', description: '版本与编辑', icon: Files },
+  { id: 'bank', label: '题库', description: '题目导入与审核', icon: BookOpen },
 ];
+
+const readLastTab = (): ResearchTab => {
+  try {
+    const stored = sessionStorage.getItem(LAST_TAB_KEY);
+    if (isResearchTab(stored)) return stored;
+  } catch {
+    /* ignore */
+  }
+  return 'data';
+};
 
 const reviewTone = (status: string) => {
   if (status === 'APPROVED') return 'success' as const;
@@ -59,7 +71,7 @@ const ResearchAssessmentsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const requestedTab = searchParams.get('tab');
-  const activeTab: ResearchTab = isResearchTab(requestedTab) ? requestedTab : 'bank';
+  const activeTab: ResearchTab = isResearchTab(requestedTab) ? requestedTab : readLastTab();
   const [keyword, setKeyword] = React.useState('');
   const [tag, setTag] = React.useState('');
   const [reviewStatus, setReviewStatus] = React.useState('');
@@ -72,9 +84,16 @@ const ResearchAssessmentsPage: React.FC = () => {
   const [resolvingIssueId, setResolvingIssueId] = React.useState<number | string | null>(null);
 
   React.useEffect(() => {
-    if (isResearchTab(requestedTab)) return;
+    if (isResearchTab(requestedTab)) {
+      try {
+        sessionStorage.setItem(LAST_TAB_KEY, requestedTab);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     const next = new URLSearchParams(searchParams);
-    next.set('tab', 'bank');
+    next.set('tab', readLastTab());
     setSearchParams(next, { replace: true });
   }, [requestedTab, searchParams, setSearchParams]);
 
@@ -175,21 +194,13 @@ const ResearchAssessmentsPage: React.FC = () => {
       <PageHeader
         eyebrow="LEXI-BRIDGE RESEARCH"
         title="研究问卷"
-        subtitle="从共享题库组织问卷版本，发布到班级或公开参与码，并查看规则分析与后续 AI 解读。"
+        subtitle="查看答卷和统计，管理参与码，编辑问卷版本。"
         actions={
           <button type="button" onClick={() => navigate('/teacher/assessments/new?context=research')} className="btn-liquid inline-flex items-center gap-2 px-5 py-3 text-white">
             <Plus size={16} />新建问卷
           </button>
         }
       />
-
-      <section className="min-w-0 rounded-2xl border border-primary/15 bg-primary/[0.06] p-4 sm:p-6 dark:bg-primary/[0.08]">
-        <SectionEyebrow>RESEARCH SURVEY WORKSPACE</SectionEyebrow>
-        <h2 className="mt-3 text-lg font-black text-slate-900 dark:text-white">社会研究测试独立工作区</h2>
-        <p className="mt-2 max-w-4xl text-sm leading-7 text-slate-600 dark:text-white/55">
-          这里的问卷用于自愿参与的社会研究，不属于课堂必测任务，也不会出现在“课堂测评”列表中。编辑、发布、答卷与分析仍复用现有测评能力。
-        </p>
-      </section>
 
       <nav aria-label="研究问卷板块" className="grid min-w-0 grid-cols-1 gap-3 rounded-2xl liquid-glass-panel p-3 sm:grid-cols-2 md:grid-cols-4">
         {tabs.map((tab) => {

@@ -5,6 +5,8 @@ import com.huashi.eftransfer.app.common.audit.mapper.AuditLogMapper;
 import com.huashi.eftransfer.app.common.trace.TraceIdSupport;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -24,6 +26,7 @@ public class AuditLogService {
         this.objectMapper = objectMapper;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(String actionType, String targetType, String targetId, Object requestPayload, String responseCode) {
         HttpServletRequest request = currentRequest();
         AuditLogEntity entity = new AuditLogEntity();

@@ -3035,6 +3035,7 @@ export interface TeacherResearchAttemptDetailVO {
     questionType: AssessmentQuestionType | string;
     questionCode?: string | null;
     sectionTitle?: string | null;
+    formalSection?: boolean | null;
     stemText: string;
     promptText?: string | null;
     options: AssessmentOptionVO[];

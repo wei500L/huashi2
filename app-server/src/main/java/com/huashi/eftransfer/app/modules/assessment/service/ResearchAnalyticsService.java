@@ -63,6 +63,8 @@ import com.huashi.eftransfer.shared.enums.AssessmentQuestionType;
 import com.huashi.eftransfer.shared.enums.AssessmentSubmitReason;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.page.PageResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -83,6 +85,7 @@ import java.util.stream.Collectors;
 @Service
 public class ResearchAnalyticsService {
 
+    private static final Logger log = LoggerFactory.getLogger(ResearchAnalyticsService.class);
     public static final String METRIC_VERSION = "RESEARCH_STATS_V1";
 
     private final ResearchAccessService accessService;
@@ -299,8 +302,13 @@ public class ResearchAnalyticsService {
                 .collect(Collectors.groupingBy(AssessmentSubmissionFileEntity::getQuestionId));
         AssessmentMetricSnapshotEntity metric = dataset.metricsByAttempt.get(attempt.getId());
         AssessmentAiAnalysisEntity analysis = dataset.analysesByAttempt.get(attempt.getId());
-        auditLogService.record("RESEARCH_RESPONSE_VIEWED", "ASSESSMENT_ATTEMPT", String.valueOf(attempt.getId()),
-                Map.of("publishId", attempt.getPublishId()), "SUCCESS");
+        try {
+            auditLogService.record("RESEARCH_RESPONSE_VIEWED", "ASSESSMENT_ATTEMPT", String.valueOf(attempt.getId()),
+                    Map.of("publishId", attempt.getPublishId()), "SUCCESS");
+        } catch (RuntimeException exception) {
+            log.warn("event=research_response_view_audit_failed attemptId={} reason={}",
+                    attempt.getId(), exception.getMessage());
+        }
         List<TeacherResearchAttemptDetailVO.ResearchAttemptQuestionVO> questionVos = answers.stream()
                 .map(answer -> {
                     AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
@@ -313,6 +321,7 @@ public class ResearchAnalyticsService {
                             answer.getQuestionType(),
                             question == null ? null : question.getTargetWord(),
                             question == null ? null : question.getSectionCode(),
+                            resolveFormalSection(question, answer.getQuestionType()),
                             answer.getStemTextSnapshot(),
                             answer.getPromptTextSnapshot(),
                             options,
@@ -515,6 +524,42 @@ public class ResearchAnalyticsService {
 
     Dataset loadFilteredDataset(Long publishId, ResearchQueryFilter filter) {
         return loadDataset(accessService.requireAccessibleResearchPublish(publishId), filter);
+    }
+
+    ResearchExportMaterial loadExportMaterial(Long publishId, ResearchQueryFilter filter) {
+        Dataset dataset = loadFilteredDataset(publishId, filter);
+        List<Long> attemptIds = dataset.filteredAttempts.stream().map(AssessmentAttemptEntity::getId).toList();
+        List<AssessmentAttemptAnswerEntity> answers = attemptIds.isEmpty() ? List.of() : answerMapper.selectList(
+                Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
+                        .in(AssessmentAttemptAnswerEntity::getAttemptId, attemptIds)
+                        .orderByAsc(AssessmentAttemptAnswerEntity::getAttemptId)
+                        .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder)
+                        .orderByAsc(AssessmentAttemptAnswerEntity::getId));
+        String releaseCode = dataset.access.release() == null ? null : dataset.access.release().getReleaseCode();
+        return new ResearchExportMaterial(
+                dataset.access.paper().getTitle(),
+                releaseCode,
+                dataset.filteredAttempts,
+                dataset.participantsByAttempt,
+                dataset.metricsByAttempt,
+                dataset.analysesByAttempt,
+                dataset.filesByAttempt,
+                answers,
+                dataset.questions
+        );
+    }
+
+    record ResearchExportMaterial(
+            String paperTitle,
+            String releaseCode,
+            List<AssessmentAttemptEntity> attempts,
+            Map<Long, AssessmentParticipantEntity> participantsByAttempt,
+            Map<Long, AssessmentMetricSnapshotEntity> metricsByAttempt,
+            Map<Long, AssessmentAiAnalysisEntity> analysesByAttempt,
+            Map<Long, List<AssessmentSubmissionFileEntity>> filesByAttempt,
+            List<AssessmentAttemptAnswerEntity> answers,
+            List<AssessmentQuestionEntity> questions
+    ) {
     }
 
     Dataset loadDataset(ResearchAccessService.ResearchPublishAccess access, ResearchQueryFilter filter) {
@@ -883,6 +928,18 @@ public class ResearchAnalyticsService {
         } catch (IllegalArgumentException exception) {
             return false;
         }
+    }
+
+    private boolean resolveFormalSection(AssessmentQuestionEntity question, String questionType) {
+        String sectionCode = question == null ? null : question.getSectionCode();
+        if (sectionCode != null && sectionCode.toUpperCase(Locale.ROOT).startsWith("BASIC")) {
+            return false;
+        }
+        if ("INSTRUCTION".equalsIgnoreCase(questionType)
+                && (sectionCode == null || sectionCode.toUpperCase(Locale.ROOT).contains("BASIC"))) {
+            return false;
+        }
+        return true;
     }
 
     private String questionCode(AssessmentQuestionEntity question) {

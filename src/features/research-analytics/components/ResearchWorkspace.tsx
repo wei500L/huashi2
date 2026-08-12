@@ -1,12 +1,12 @@
 import React from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Download, RefreshCcw, Sparkles } from 'lucide-react';
+import { RefreshCcw, Sparkles } from 'lucide-react';
 import { ChartCard } from '@/components/common/ChartCard';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import { Pagination } from '@/components/common/Pagination';
-import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
-import { getApiErrorMessage, saveBlob } from '@/lib/api';
+import { PageHeader, StatusBadge } from '@/components/common';
+import { getApiErrorMessage } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { researchAnalyticsService } from '@/lib/services';
 import { dimensionChartOption, difficultyChartOption } from '../chartOptions';
@@ -15,6 +15,8 @@ import { formatDuration, formatRate, formatRateHint, formatScore } from '../form
 import { researchAnalyticsKeys } from '../queryKeys';
 import { EMPTY_RESEARCH_FILTERS, type ResearchWorkspaceFilters } from '../types';
 import { ResearchAttemptList } from './ResearchAttemptList';
+import { ResearchExcelExportButton } from './ResearchExcelExportButton';
+import { useResearchExcelExport } from '../useResearchExcelExport';
 
 const filterFieldClass = 'min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-900';
 
@@ -24,10 +26,10 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
   const [searchParams, setSearchParams] = useSearchParams();
   const publishId = Number(searchParams.get('publishId') || initialPublishId || '') || null;
   const [filters, setFilters] = React.useState<ResearchWorkspaceFilters>(() => normalizeResearchFilters(searchParams));
+  const [keywordInput, setKeywordInput] = React.useState(() => normalizeResearchFilters(searchParams).keyword);
   const [page, setPage] = React.useState(Number(searchParams.get('page') || '1') || 1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
-  const [exportError, setExportError] = React.useState<string | null>(null);
-  const [exporting, setExporting] = React.useState(false);
+  const { exporting, exportError, lastFileName, exportExcel } = useResearchExcelExport();
 
   const releasesQuery = useQuery({
     queryKey: researchAnalyticsKeys.releases(),
@@ -82,15 +84,24 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
   const emptyDataset = overview != null && overview.funnel.attemptStarted === 0;
   const filteredEmpty = overview != null && !emptyDataset && (attemptsQuery.data?.total ?? 0) === 0 && hasActiveResearchFilters(filters);
 
-  const applyFilters = (next: ResearchWorkspaceFilters) => {
+  const applyFilters = React.useCallback((next: ResearchWorkspaceFilters) => {
     setFilters(next);
+    setKeywordInput(next.keyword);
     setPage(1);
     const params = new URLSearchParams(searchParams);
     if (publishId) params.set('publishId', String(publishId));
     writeResearchFiltersToSearch(params, next);
     params.delete('page');
     setSearchParams(params);
-  };
+  }, [publishId, searchParams, setSearchParams]);
+
+  React.useEffect(() => {
+    const handle = window.setTimeout(() => {
+      if (keywordInput.trim() === filters.keyword.trim()) return;
+      applyFilters({ ...filters, keyword: keywordInput.trim() });
+    }, 350);
+    return () => window.clearTimeout(handle);
+  }, [keywordInput, filters, applyFilters]);
 
   const selectPublish = (nextId: number) => {
     const params = new URLSearchParams(searchParams);
@@ -106,24 +117,6 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
       void queryClient.invalidateQueries({ queryKey: researchAnalyticsKeys.aiReport(publishId || 0) });
     },
   });
-
-  const exportData = async () => {
-    if (!publishId) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      const job = await researchAnalyticsService.createExport(publishId, {
-        ...apiFilters,
-        format: 'CSV',
-        includeAttachmentManifest: true,
-      });
-      saveBlob(await researchAnalyticsService.downloadExport(job.jobId), job.fileName || 'research-export.csv');
-    } catch (error) {
-      setExportError(getApiErrorMessage(error, '导出失败。'));
-    } finally {
-      setExporting(false);
-    }
-  };
 
   return (
     <div className="space-y-5">
@@ -152,14 +145,30 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
               ))}
             </select>
           </label>
-          <div className="page-actions">
-            <button type="button" className="lg:hidden rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-bold dark:border-white/10" onClick={() => setMobileFiltersOpen((open) => !open)}>
-              {mobileFiltersOpen ? '收起筛选' : '展开筛选'}
-            </button>
-            <button type="button" disabled={!publishId || exporting} onClick={() => void exportData()} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-bold disabled:opacity-40 dark:border-white/10">
-              <Download size={16} />{exporting ? '导出中…' : '导出脱敏 CSV'}
-            </button>
-            <button type="button" disabled={!publishId} onClick={() => navigate(`/teacher/research/publishes/${publishId}/report`)} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-bold disabled:opacity-40 dark:border-white/10">
+          <button type="button" className="lg:hidden rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-bold dark:border-white/10" onClick={() => setMobileFiltersOpen((open) => !open)}>
+            {mobileFiltersOpen ? '收起筛选' : '展开筛选'}
+          </button>
+        </div>
+        <div className="mt-4 flex min-w-0 flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/[0.05] p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-primary/[0.08]">
+          <div className="min-w-0">
+            <h2 className="font-black">导出研究数据包</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              {selectedRelease ? `${selectedRelease.paperTitle} · ${selectedRelease.releaseCode || selectedRelease.publishId}` : '先选择一份发布'}
+              。含总体统计、AI 总结、题目分析和逐题作答，时间已换算为北京时间。
+            </p>
+            {hasActiveResearchFilters(filters) ? <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">将按当前筛选导出，不是全部答卷。</p> : null}
+            {lastFileName ? <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">已下载 {lastFileName}</p> : null}
+          </div>
+          <div className="page-actions shrink-0">
+            <ResearchExcelExportButton
+              variant="primary"
+              exporting={exporting}
+              disabled={!publishId || emptyDataset}
+              onClick={() => { if (publishId) void exportExcel(publishId, apiFilters); }}
+            >
+              导出 Excel
+            </ResearchExcelExportButton>
+            <button type="button" disabled={!publishId} onClick={() => navigate(`/teacher/research/publishes/${publishId}/report`)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-bold disabled:opacity-40 dark:border-white/10">
               <Sparkles size={16} />群体报告
             </button>
           </div>
@@ -188,7 +197,7 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
             </select>
           </label>
           <label className="text-xs font-bold text-slate-500">关键词
-            <input className={`${filterFieldClass} mt-2 w-full`} value={filters.keyword} onChange={(event) => applyFilters({ ...filters, keyword: event.target.value })} placeholder="匿名编号，如 P-000137" />
+            <input className={`${filterFieldClass} mt-2 w-full`} value={keywordInput} onChange={(event) => setKeywordInput(event.target.value)} placeholder="匿名编号，如 P-000137" />
           </label>
         </div>
         {hasActiveResearchFilters(filters) ? (
@@ -209,24 +218,24 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
             {selectedRelease?.paperTitle} · 完成率分母是已开始答卷 · 最近更新 {formatDateTime(overview.statisticsGeneratedAt)}
           </section>
           <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard title="已开始" value={String(overview.funnel.attemptStarted)} hint="实际会话漏斗：创建了答卷的人数" />
-            <MetricCard title="已提交" value={String(overview.funnel.submitted)} hint="已完成提交的答卷数" />
-            <MetricCard title="完成率" value={formatRate(overview.rates.completionRate)} hint={`${formatRateHint(overview.rates.completionRate)} · submitted / started`} />
-            <MetricCard title="有效样本" value={String(overview.dataQuality.valid)} hint={`质量标记 ${overview.dataQuality.flagged} 份`} />
-            <MetricCard title="中位分" value={formatScore(overview.score.median)} hint={`样本 ${overview.score.sampleCount}`} />
+            <MetricCard title="已开始" value={String(overview.funnel.attemptStarted)} hint="进入问卷并开始作答的人数" />
+            <MetricCard title="已提交" value={String(overview.funnel.submitted)} hint="已经提交的答卷数" />
+            <MetricCard title="完成率" value={formatRate(overview.rates.completionRate)} hint={`${formatRateHint(overview.rates.completionRate)} · 已提交 / 已开始`} />
             <MetricCard title="中位用时" value={formatDuration(overview.timing.median)} hint={`样本 ${overview.timing.sampleCount}`} />
+            <MetricCard title="质量标记" value={String(overview.dataQuality.flagged)} hint={`有效样本 ${overview.dataQuality.valid}`} />
+            <MetricCard title="中位分" value={formatScore(overview.score.median)} hint={`参考分 · 样本 ${overview.score.sampleCount}`} />
           </div>
           <section className="rounded-2xl liquid-glass-panel p-4 sm:p-6">
-            <SectionEyebrow>FUNNEL</SectionEyebrow>
-            <h2 className="mt-2 text-lg font-black">两个漏斗，口径始终可见</h2>
+            <p className="text-xs font-bold text-slate-400">回收情况</p>
+            <h2 className="mt-2 text-lg font-black">参与码兑换和实际作答</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
-                <h3 className="font-bold">邀请码漏斗</h3>
-                <p className="mt-1 text-sm text-slate-500">已生成有效码 {overview.funnel.codeGenerated} → 已核销 {overview.funnel.codeVerified}。兑换率 {formatRate(overview.rates.codeRedemptionRate)}（{formatRateHint(overview.rates.codeRedemptionRate, '个码')}）。二维码没有预生成总人数。</p>
+                <h3 className="font-bold">参与码</h3>
+                <p className="mt-1 text-sm text-slate-500">已生成 {overview.funnel.codeGenerated} 个，已核销 {overview.funnel.codeVerified} 个，兑换率 {formatRate(overview.rates.codeRedemptionRate)}。二维码入口没有预发总数。</p>
               </div>
               <div>
-                <h3 className="font-bold">实际会话漏斗</h3>
-                <p className="mt-1 text-sm text-slate-500">参与者 {overview.funnel.participantCreated} → 已开始 {overview.funnel.attemptStarted} → 作答中 {overview.funnel.inProgress} → 已提交 {overview.funnel.submitted} → 超时 {overview.funnel.expired}。</p>
+                <h3 className="font-bold">作答</h3>
+                <p className="mt-1 text-sm text-slate-500">参与者 {overview.funnel.participantCreated} → 已开始 {overview.funnel.attemptStarted} → 作答中 {overview.funnel.inProgress} → 已提交 {overview.funnel.submitted}，超时 {overview.funnel.expired}。</p>
               </div>
             </div>
           </section>
@@ -259,6 +268,13 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
             error={attemptsQuery.error}
             onRetry={() => void attemptsQuery.refetch()}
             onOpen={(attemptId) => navigate(`/teacher/research/attempts/${attemptId}`)}
+            exportAction={publishId ? (
+              <ResearchExcelExportButton
+                exporting={exporting}
+                disabled={emptyDataset}
+                onClick={() => void exportExcel(publishId, apiFilters)}
+              />
+            ) : null}
           />
           <Pagination
             page={page}
@@ -280,7 +296,7 @@ export const ResearchWorkspace: React.FC<{ embed?: boolean; initialPublishId?: n
         <section className="rounded-2xl liquid-glass-panel p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <SectionEyebrow>GROUP AI REPORT</SectionEyebrow>
+              <p className="text-xs font-bold text-slate-400">群体报告</p>
               <h2 className="mt-2 text-lg font-black">群体研究报告</h2>
               <p className="mt-2 max-w-2xl text-sm text-slate-500">报告基于不可变统计快照。低于 5 份提交时只显示规则统计，不会调用模型。</p>
             </div>

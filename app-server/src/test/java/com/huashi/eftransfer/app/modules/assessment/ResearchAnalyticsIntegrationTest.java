@@ -1,7 +1,10 @@
 package com.huashi.eftransfer.app.modules.assessment;
 
 import com.huashi.eftransfer.app.modules.assessment.entity.ResearchAiReportEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.ResearchExportJobEntity;
 import com.huashi.eftransfer.app.modules.assessment.mapper.ResearchAiReportMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.ResearchExportJobMapper;
+import com.huashi.eftransfer.app.modules.assessment.service.ObjectStorageService;
 import com.huashi.eftransfer.app.modules.assessment.service.ResearchAiReportProcessor;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
 import jakarta.servlet.http.Cookie;
@@ -31,6 +34,8 @@ class ResearchAnalyticsIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired private ResearchAiReportMapper reportMapper;
     @Autowired private ResearchAiReportProcessor reportProcessor;
+    @Autowired private ResearchExportJobMapper exportJobMapper;
+    @Autowired private ObjectStorageService objectStorageService;
 
     @Test
     void teacherCanInspectPublicAttemptsWithoutTeachingClassAndOthersAreForbidden() throws Exception {
@@ -137,6 +142,53 @@ class ResearchAnalyticsIntegrationTest extends AbstractWebIntegrationTest {
 
         mockMvc.perform(post("/api/teacher/research/publishes/{publishId}/ai-reports", publishId).with(bearer(teacherToken)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void teacherCanExportResearchWorkbookWithItemAnswers() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createChoicePaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String firstCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+        submitChoice(releaseCode, firstCode, "A");
+
+        MvcResult created = mockMvc.perform(post("/api/teacher/research/publishes/{publishId}/exports", publishId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"format":"XLSX","includeAttachmentManifest":true}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.format").value("XLSX"))
+                .andReturn();
+        long jobId = readJson(created).path("data").path("jobId").asLong();
+        mockMvc.perform(get("/api/teacher/research/exports/{jobId}/download", jobId).with(bearer(teacherToken)))
+                .andExpect(status().isOk());
+        ResearchExportJobEntity job = exportJobMapper.selectById(jobId);
+        assertThat(job.getObjectKey()).isNotBlank();
+        byte[] body;
+        try (java.io.InputStream input = objectStorageService.open(job.getObjectKey())) {
+            body = input.readAllBytes();
+        }
+        assertThat(body.length).isGreaterThan(100);
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(body))) {
+            assertThat(workbook.getSheet("答卷总览")).isNotNull();
+            assertThat(workbook.getSheet("总体统计")).isNotNull();
+            assertThat(workbook.getSheet("题目统计")).isNotNull();
+            assertThat(workbook.getSheet("选项分布")).isNotNull();
+            assertThat(workbook.getSheet("群体AI报告")).isNotNull();
+            assertThat(workbook.getSheet("单份AI摘要")).isNotNull();
+            assertThat(workbook.getSheet("作答宽表")).isNotNull();
+            assertThat(workbook.getSheet("逐题明细")).isNotNull();
+            assertThat(workbook.getSheet("题目说明")).isNotNull();
+            assertThat(workbook.getSheet("总体统计").getRow(1).getCell(0).getStringCellValue()).isNotBlank();
+            org.apache.poi.ss.usermodel.Sheet wide = workbook.getSheet("作答宽表");
+            assertThat(wide.getRow(0).getCell(1).getStringCellValue()).startsWith("Q");
+            assertThat(wide.getRow(1).getCell(1).getStringCellValue()).isEqualTo("A");
+        }
     }
 
     @Test

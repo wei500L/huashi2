@@ -145,6 +145,8 @@ describe('ResearchAssessments data tab', () => {
     renderDataTab();
     await waitFor(() => expect(screen.getByText('50%')).toBeInTheDocument());
     expect(screen.queryByText('这份发布还没有答卷')).not.toBeInTheDocument();
+    expect(screen.getByText('导出研究数据包')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '导出 Excel' }).length).toBeGreaterThan(0);
   });
 
   it('uses compact cards instead of the wide table on small viewports conceptually', async () => {

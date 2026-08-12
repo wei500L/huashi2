@@ -1089,7 +1089,7 @@
   .research-language-loop { display: flex; align-items: center; gap: 0.75rem; margin-top: 3rem; color: hsl(var(--text-muted)); font-family: var(--font-mono); font-size: 0.8rem; }
   .research-language-loop span:first-child { color: hsl(var(--text)); }
   .research-loop-arrow { color: hsl(var(--teacher)); }
-  .research-heading { display: flex; flex-direction: column; margin: 1.2rem 0 0; font-family: var(--font-display); font-size: clamp(3.8rem, 9vw, 8.3rem); font-weight: 730; letter-spacing: -0.085em; line-height: 0.88; }
+  .research-heading { display: flex; flex-direction: column; margin: 1.2rem 0 0; font-family: var(--font-display); font-size: clamp(2.4rem, 6.4vw, 5.2rem); font-weight: 730; letter-spacing: -0.07em; line-height: 0.96; }
   .research-heading span:last-child { color: hsl(var(--action)); font-style: italic; font-weight: 560; }
   .research-lede { max-width: 34rem; margin-top: 2rem; color: hsl(var(--text-muted)); font-size: clamp(0.98rem, 1.6vw, 1.13rem); line-height: 1.8; }
   .research-hero-notes { display: flex; flex-wrap: wrap; gap: 1rem 1.4rem; margin-top: 3.5rem; color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em; }
@@ -1167,6 +1167,13 @@
   .research-progress span { position: absolute; inset: 0; border-radius: inherit; background: hsl(var(--action)); transform-origin: left center; will-change: transform; }
   .research-progress span::after { position: absolute; top: 50%; right: -0.25rem; width: 0.6rem; height: 0.6rem; border: 2px solid hsl(var(--background-solid)); border-radius: 50%; background: hsl(var(--action)); content: ''; transform: translateY(-50%); box-shadow: 0 0 0 1px hsl(var(--action) / 0.22); }
   .research-progress-meta { margin-top: 0.65rem; letter-spacing: 0; }
+  .research-question-map { display: grid; gap: 0.7rem; margin-top: 0.95rem; }
+  .research-map-group { display: grid; gap: 0.4rem; }
+  .research-map-group > span { color: hsl(var(--text-subtle)); font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; }
+  .research-map-group > div { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .research-map-dot { min-width: 2.15rem; min-height: 2.15rem; padding: 0 0.35rem; border: 1px solid hsl(var(--border-strong) / 0.7); border-radius: 0.42rem; background: hsl(var(--surface)); color: hsl(var(--text-muted)); cursor: pointer; font-family: var(--font-mono); font-size: 0.62rem; font-weight: 750; }
+  .research-map-dot.is-answered { border-color: hsl(var(--success) / 0.45); color: hsl(var(--text)); }
+  .research-map-dot.is-current { border-color: hsl(var(--action)); background: hsl(var(--action)); color: hsl(var(--action-foreground)); }
   .research-assessment-layout { display: grid; grid-template-columns: minmax(11.5rem, 0.28fr) minmax(0, 1fr); gap: clamp(1.2rem, 3vw, 2.4rem); align-items: start; }
   .research-route-panel { position: sticky; top: 6.6rem; padding: 1.35rem 1.2rem; border-top: 2px solid hsl(var(--action)); background: hsl(var(--background-solid) / 0.76); }
   .research-route-position { display: flex; align-items: baseline; gap: 0.35rem; margin-top: 1.15rem; }
@@ -1313,7 +1320,7 @@
     .research-nav-meta { display: none; }
     .research-entry { padding-inline: 1rem; }
     .research-language-loop { margin-top: 2.3rem; }
-    .research-heading { font-size: clamp(3.5rem, 18vw, 5.5rem); }
+    .research-heading { font-size: clamp(2.1rem, 11vw, 3.1rem); }
     .research-hero-notes { margin-top: 2.3rem; }
     .research-hero-visual { min-height: 16rem; }
     .research-assessment { padding-inline: 0.85rem; }
@@ -1325,6 +1332,8 @@
     .research-save-status { min-width: 0; max-width: 8.5rem; justify-content: flex-end; font-size: 0.54rem; line-height: 1.3; text-align: right; }
     .research-progress-overview { padding-top: 1rem; }
     .research-progress-meta { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
+    .research-question-map { max-height: 7.5rem; overflow-y: auto; padding-right: 0.15rem; }
+    .research-map-dot { min-width: 2.35rem; min-height: 2.35rem; }
     .research-question-card { min-height: 0; padding: 1.2rem 1rem; border-radius: 0.65rem; }
     .research-material-nav { top: 4.65rem; margin-right: -0.25rem; }
     .research-material-nav a { min-height: 2.75rem; padding-inline: 0.58rem; font-size: 0.68rem; }

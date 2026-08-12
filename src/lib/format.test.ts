@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  formatDate,
+  formatDateTime,
+  parseBackendDateTime,
   assessmentAttemptStatusLabel,
   assessmentPaperStatusLabel,
   diagnosisSessionStatusLabel,
@@ -57,6 +60,14 @@ describe('format display mappings', () => {
     expect(invitationStatusLabel('UNKNOWN')).toBe('未知邀请状态');
     expect(profileLinkStatusLabel('MYSTERY')).toBe('未知关联状态');
     expect(lexicalPairTypeLabel('ALIEN')).toBe('未定义词对类型');
+  });
+
+  it('formats naive backend timestamps in Beijing time', () => {
+    expect(parseBackendDateTime('2026-08-12T05:40:08').toISOString()).toBe('2026-08-12T05:40:08.000Z');
+    expect(formatDateTime('2026-08-12T05:40:08')).toContain('13:40');
+    expect(formatDateTime('2026-08-12T05:40:08')).toMatch(/2026/);
+    expect(formatDateTime('2026-08-12T05:40:08')).toMatch(/8月12日|12/);
+    expect(formatDate('2026-08-12T16:20:00')).toContain('2026');
   });
 
   it('switches labels with the active locale', async () => {
