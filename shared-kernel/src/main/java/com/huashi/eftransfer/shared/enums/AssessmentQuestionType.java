@@ -12,7 +12,8 @@ public enum AssessmentQuestionType {
     FILL_BLANK("FILL_BLANK", "Fill Blank"),
     TRUE_FALSE("TRUE_FALSE", "True/False"),
     TRUE_FALSE_WITH_JUSTIFICATION("TRUE_FALSE_WITH_JUSTIFICATION", "True/False with Justification"),
-    SPELLING("SPELLING", "Spelling with Hint");
+    SPELLING("SPELLING", "Spelling with Hint"),
+    FILE_UPLOAD("FILE_UPLOAD", "File Upload");
 
     private final String code;
     private final String label;

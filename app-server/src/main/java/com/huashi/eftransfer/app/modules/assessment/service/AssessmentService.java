@@ -969,7 +969,8 @@ public class AssessmentService {
 
             if (questionType == AssessmentQuestionType.INSTRUCTION
                     || questionType == AssessmentQuestionType.SHORT_TEXT
-                    || questionType == AssessmentQuestionType.NUMBER) {
+                    || questionType == AssessmentQuestionType.NUMBER
+                    || questionType == AssessmentQuestionType.FILE_UPLOAD) {
                 normalizedQuestions.add(new NormalizedQuestion(
                         questionType,
                         stemText,

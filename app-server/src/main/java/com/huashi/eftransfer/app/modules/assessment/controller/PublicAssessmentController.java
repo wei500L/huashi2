@@ -7,7 +7,11 @@ import com.huashi.eftransfer.app.modules.assessment.dto.PublicAssessmentTimingRe
 import com.huashi.eftransfer.app.modules.assessment.dto.SpellingAttemptRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SaveAssessmentResponsesRequest;
 import com.huashi.eftransfer.app.modules.assessment.dto.SubmitAssessmentAttemptRequest;
+import com.huashi.eftransfer.app.modules.assessment.dto.ResearchFileInitiateRequest;
 import com.huashi.eftransfer.app.modules.assessment.service.PublicAssessmentService;
+import com.huashi.eftransfer.app.modules.assessment.service.ResearchFileService;
+import com.huashi.eftransfer.app.modules.assessment.vo.ResearchAttachmentVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.ResearchFileInitiateVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentAttemptVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentMetadataVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentResultVO;
@@ -25,10 +29,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -40,9 +47,14 @@ public class PublicAssessmentController {
     public static final String SESSION_COOKIE = "LEXIBRIDGE_SESSION";
 
     private final PublicAssessmentService publicAssessmentService;
+    private final ResearchFileService researchFileService;
 
-    public PublicAssessmentController(PublicAssessmentService publicAssessmentService) {
+    public PublicAssessmentController(
+            PublicAssessmentService publicAssessmentService,
+            ResearchFileService researchFileService
+    ) {
         this.publicAssessmentService = publicAssessmentService;
+        this.researchFileService = researchFileService;
     }
 
     @GetMapping("/{releaseCode}")
@@ -133,6 +145,36 @@ public class PublicAssessmentController {
             @Valid @RequestBody SubmitAssessmentAttemptRequest request
     ) {
         return ApiResponse.success(publicAssessmentService.submit(releaseCode, sessionToken, request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/{releaseCode}/files/initiate")
+    public ApiResponse<ResearchFileInitiateVO> initiateFile(
+            @PathVariable String releaseCode,
+            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken,
+            @Valid @RequestBody ResearchFileInitiateRequest request
+    ) {
+        return ApiResponse.success(researchFileService.initiate(releaseCode, sessionToken, request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/{releaseCode}/files/{uploadToken}/content")
+    public ApiResponse<ResearchAttachmentVO> uploadFileContent(
+            @PathVariable String releaseCode,
+            @PathVariable String uploadToken,
+            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken,
+            @RequestParam("file") MultipartFile file
+    ) throws Exception {
+        return ApiResponse.success(researchFileService.uploadContent(
+                releaseCode, sessionToken, uploadToken, file.getBytes(), file.getContentType()), MDC.get("traceId"));
+    }
+
+    @DeleteMapping("/{releaseCode}/files/{uploadToken}")
+    public ApiResponse<Void> deleteFile(
+            @PathVariable String releaseCode,
+            @PathVariable String uploadToken,
+            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken
+    ) {
+        researchFileService.deleteTemporary(releaseCode, sessionToken, uploadToken);
+        return ApiResponse.success(null, MDC.get("traceId"));
     }
 
     @GetMapping("/{releaseCode}/result")

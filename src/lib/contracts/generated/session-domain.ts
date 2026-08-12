@@ -12,6 +12,15 @@ export type AssessmentAttemptStatus = typeof AssessmentAttemptStatusValues[numbe
 export const AssessmentDeliveryModeValues = ["CLASS","PUBLIC_CODE"] as const;
 export type AssessmentDeliveryMode = typeof AssessmentDeliveryModeValues[number];
 
+export const AssessmentFileBindingStatusValues = ["TEMPORARY","BOUND","ORPHANED","DELETED"] as const;
+export type AssessmentFileBindingStatus = typeof AssessmentFileBindingStatusValues[number];
+
+export const AssessmentFileScanStatusValues = ["PENDING","CLEAN","INFECTED","FAILED"] as const;
+export type AssessmentFileScanStatus = typeof AssessmentFileScanStatusValues[number];
+
+export const AssessmentFileStorageProviderValues = ["LOCAL","S3","OSS","MINIO"] as const;
+export type AssessmentFileStorageProvider = typeof AssessmentFileStorageProviderValues[number];
+
 export const AssessmentPaperPurposeValues = ["CLASS_ASSESSMENT","RESEARCH_SURVEY"] as const;
 export type AssessmentPaperPurpose = typeof AssessmentPaperPurposeValues[number];
 
@@ -21,7 +30,7 @@ export type AssessmentPaperStatus = typeof AssessmentPaperStatusValues[number];
 export const AssessmentPublishStatusValues = ["PUBLISHED"] as const;
 export type AssessmentPublishStatus = typeof AssessmentPublishStatusValues[number];
 
-export const AssessmentQuestionTypeValues = ["INSTRUCTION","INFORMED_CONSENT","SHORT_TEXT","NUMBER","SINGLE_CHOICE","MULTIPLE_CHOICE","FILL_BLANK","TRUE_FALSE","TRUE_FALSE_WITH_JUSTIFICATION","SPELLING"] as const;
+export const AssessmentQuestionTypeValues = ["INSTRUCTION","INFORMED_CONSENT","SHORT_TEXT","NUMBER","SINGLE_CHOICE","MULTIPLE_CHOICE","FILL_BLANK","TRUE_FALSE","TRUE_FALSE_WITH_JUSTIFICATION","SPELLING","FILE_UPLOAD"] as const;
 export type AssessmentQuestionType = typeof AssessmentQuestionTypeValues[number];
 
 export const AssessmentResultReleasePolicyValues = ["IMMEDIATE","AFTER_DUE"] as const;
@@ -68,6 +77,9 @@ export type LexicalPairType = typeof LexicalPairTypeValues[number];
 
 export const QuestionBankImportStatusValues = ["UPLOADED","PREFLIGHT_FAILED","REVIEW_REQUIRED","READY","COMMITTED"] as const;
 export type QuestionBankImportStatus = typeof QuestionBankImportStatusValues[number];
+
+export const ResearchExportJobStatusValues = ["PENDING","PROCESSING","COMPLETED","FAILED"] as const;
+export type ResearchExportJobStatus = typeof ResearchExportJobStatusValues[number];
 
 export const ResultCodeValues = ["SUCCESS","BAD_REQUEST","UNAUTHORIZED","FORBIDDEN","NOT_FOUND","VALIDATION_ERROR","CONFLICT","INVALID_CREDENTIALS","CURRENT_PASSWORD_INCORRECT","ACCOUNT_DISABLED","ACCOUNT_LOCKED","TOKEN_INVALID","TOKEN_EXPIRED","REGISTRATION_CONTEXT_INVALID","REGISTRATION_CONTEXT_BUSY","ACTIVE_SESSION_EXISTS","ASSESSMENT_NOT_STARTED","ASSESSMENT_CLOSED","ATTEMPT_SUBMITTED","RESULT_NOT_RELEASED","VERSION_CONFLICT","SESSION_OUT_OF_SEQUENCE","ANSWER_ALREADY_ACCEPTED","PARTICIPATION_CODE_INVALID","RATE_LIMITED","AI_PROVIDER_UNAVAILABLE","INTERNAL_ERROR"] as const;
 export type ResultCode = typeof ResultCodeValues[number];

@@ -2284,6 +2284,7 @@ export interface AssessmentAttemptResponseRequest {
   questionOrder: number;
   responses?: string[];
   justificationText?: string | null;
+  attachmentTokens?: string[] | null;
 }
 
 export interface SaveAssessmentResponsesRequest {
@@ -2358,6 +2359,7 @@ export interface PublicAssessmentQuestionVO {
   spellingHintFirstLetter?: string | null;
   spellingHintShown?: boolean;
   spellingWrongAttemptCount?: number;
+  attachments?: ResearchAttachmentVO[];
 }
 
 export interface PublicAssessmentAttemptVO {
@@ -2878,6 +2880,358 @@ export interface AssessmentPublishDetailVO {
   submittedCount: number;
   averageScore?: number | null;
   roster: AssessmentPublishRosterItemVO[];
+}
+
+export type ResearchAiReportStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FALLBACK' | 'FAILED';
+export type ResearchExportJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type ResearchFileScanStatus = 'PENDING' | 'CLEAN' | 'INFECTED' | 'FAILED';
+export type ResearchFileBindingStatus = 'TEMPORARY' | 'BOUND' | 'ORPHANED' | 'DELETED';
+export type ResearchParticipantType = 'PUBLIC_CODE' | 'PUBLIC_QR';
+
+export interface ResearchRateVO {
+  numerator: number;
+  denominator: number;
+  value: number | null;
+}
+
+export interface ResearchReleaseListItemVO {
+  publishId: number;
+  paperId: number;
+  paperTitle: string;
+  releaseCode?: string | null;
+  publishedAt?: string | null;
+  status: string;
+  startedCount: number;
+  submittedCount: number;
+  latestSubmissionAt?: string | null;
+  aiReportStatus?: ResearchAiReportStatus | string | null;
+}
+
+export interface ResearchFunnelVO {
+  codeGenerated: number;
+  codeVerified: number;
+  participantCreated: number;
+  attemptStarted: number;
+  inProgress: number;
+  submitted: number;
+  expired: number;
+}
+
+export interface ResearchRatesVO {
+  completionRate: ResearchRateVO;
+  codeRedemptionRate: ResearchRateVO;
+  submissionRate: ResearchRateVO;
+}
+
+export interface ResearchDistributionStatsVO {
+  average?: number | null;
+  median?: number | null;
+  q1?: number | null;
+  q3?: number | null;
+  p90?: number | null;
+  sampleCount: number;
+}
+
+export interface ResearchFlagCountVO {
+  flag: string;
+  count: number;
+}
+
+export interface ResearchDataQualityOverviewVO {
+  valid: number;
+  flagged: number;
+  flagDistribution: ResearchFlagCountVO[];
+}
+
+export interface ResearchAiStatusOverviewVO {
+  pending: number;
+  processing: number;
+  completed: number;
+  fallback: number;
+  failed: number;
+}
+
+export interface ResearchPublishOverviewVO {
+  publishId: number;
+  paperId: number;
+  paperTitle: string;
+  releaseCode?: string | null;
+  funnel: ResearchFunnelVO;
+  rates: ResearchRatesVO;
+  timing: ResearchDistributionStatsVO;
+  score: ResearchDistributionStatsVO;
+  dataQuality: ResearchDataQualityOverviewVO;
+  ai: ResearchAiStatusOverviewVO;
+  latestSubmissionAt?: string | null;
+  statisticsGeneratedAt: string;
+}
+
+export interface ResearchAttachmentVO {
+  fileId: number;
+  uploadToken?: string | null;
+  originalFileName: string;
+  mimeType: string;
+  fileExtension?: string | null;
+  sizeBytes: number;
+  scanStatus: ResearchFileScanStatus | string;
+  bindingStatus: ResearchFileBindingStatus | string;
+  uploadedAt?: string | null;
+  downloadable: boolean;
+}
+
+export interface ResearchAttemptSummaryVO {
+  attemptId: number;
+  participantCode: string;
+  participantType?: ResearchParticipantType | string | null;
+  status: string;
+  answeredCount: number;
+  questionCount: number;
+  percentageScore?: number | null;
+  effectiveDurationMs?: number | null;
+  qualityFlags: string[];
+  attachmentCount: number;
+  aiAnalysisStatus?: AssessmentAiAnalysisStatus | string | null;
+  startedAt?: string | null;
+  lastSavedAt?: string | null;
+  submittedAt?: string | null;
+}
+
+export interface TeacherResearchAttemptDetailVO {
+  participant: {
+    participantCode: string;
+    participantType?: string | null;
+    consentedAt?: string | null;
+  };
+  attempt: {
+    attemptId: number;
+    publishId: number;
+    paperId: number;
+    paperTitle: string;
+    status: string;
+    answeredCount: number;
+    questionCount: number;
+    startedAt?: string | null;
+    lastSavedAt?: string | null;
+    submittedAt?: string | null;
+    submitReason?: string | null;
+  };
+  result: {
+    objectiveScore?: number | null;
+    totalScore?: number | null;
+    percentageScore?: number | null;
+    metricSnapshot?: AssessmentMetricSnapshotVO | null;
+    qualityFlags: string[];
+  };
+  ai: {
+    status?: AssessmentAiAnalysisStatus | string | null;
+    analysis?: AssessmentAiAnalysisVO | null;
+    modelName?: string | null;
+    completedAt?: string | null;
+    fallbackReason?: string | null;
+  };
+  questions: Array<{
+    questionId: number;
+    questionOrder: number;
+    questionType: AssessmentQuestionType | string;
+    questionCode?: string | null;
+    sectionTitle?: string | null;
+    stemText: string;
+    promptText?: string | null;
+    options: AssessmentOptionVO[];
+    responses: string[];
+    correctAnswers: string[];
+    justification?: string | null;
+    correct?: boolean | null;
+    scoreAwarded?: number | null;
+    questionScore?: number | null;
+    explanationText?: string | null;
+    effectiveDurationMs?: number | null;
+    responseChangeCount?: number | null;
+    attachments: ResearchAttachmentVO[];
+  }>;
+}
+
+export interface ResearchFilterEchoVO {
+  status?: string | null;
+  entryType?: string | null;
+  qualityFlag?: string | null;
+  aiStatus?: string | null;
+  submittedFrom?: string | null;
+  submittedTo?: string | null;
+  keyword?: string | null;
+}
+
+export interface ResearchStatisticsMetaVO {
+  filterEcho: ResearchFilterEchoVO;
+  sampleCount: number;
+  generatedAt: string;
+  metricVersion: string;
+}
+
+export interface ResearchQuestionStatisticVO {
+  questionId: number;
+  questionOrder: number;
+  questionCode?: string | null;
+  sectionTitle?: string | null;
+  questionType: string;
+  answeredCount: number;
+  skippedCount: number;
+  correctRate?: number | null;
+  medianReactionMs?: number | null;
+  qualityWarning: boolean;
+}
+
+export interface ResearchQuestionStatisticsVO {
+  meta: ResearchStatisticsMetaVO;
+  questions: ResearchQuestionStatisticVO[];
+}
+
+export interface ResearchOptionShareVO {
+  optionKey: string;
+  optionLabel: string;
+  count: number;
+  answeredShare?: number | null;
+  submittedShare?: number | null;
+}
+
+export interface ResearchOptionStatisticVO {
+  questionId: number;
+  questionOrder: number;
+  questionCode?: string | null;
+  questionType: string;
+  exactCorrectRate?: number | null;
+  options: ResearchOptionShareVO[];
+}
+
+export interface ResearchOptionStatisticsVO {
+  meta: ResearchStatisticsMetaVO;
+  questions: ResearchOptionStatisticVO[];
+}
+
+export interface ResearchDimensionStatisticVO {
+  dimension: string;
+  answeredCount: number;
+  correctCount: number;
+  correctRate?: number | null;
+}
+
+export interface ResearchDimensionStatisticsVO {
+  meta: ResearchStatisticsMetaVO;
+  dimensions: ResearchDimensionStatisticVO[];
+}
+
+export interface ResearchReactionTimeStatisticVO {
+  questionId: number;
+  questionOrder: number;
+  questionCode?: string | null;
+  sampleCount: number;
+  medianMs?: number | null;
+  q1Ms?: number | null;
+  q3Ms?: number | null;
+  p90Ms?: number | null;
+}
+
+export interface ResearchReactionTimeStatisticsVO {
+  meta: ResearchStatisticsMetaVO;
+  questions: ResearchReactionTimeStatisticVO[];
+}
+
+export interface ResearchQualityStatisticVO {
+  meta: ResearchStatisticsMetaVO;
+  validCount: number;
+  flaggedCount: number;
+  flagDistribution: ResearchFlagCountVO[];
+}
+
+export interface ResearchTextThemeStatisticVO {
+  questionId: number;
+  questionOrder: number;
+  questionCode?: string | null;
+  questionType: string;
+  answeredCount: number;
+  emptyCount: number;
+  themeStatus: string;
+}
+
+export interface ResearchTextThemeStatisticsVO {
+  meta: ResearchStatisticsMetaVO;
+  questions: ResearchTextThemeStatisticVO[];
+}
+
+export interface ResearchAggregateSnapshotVO {
+  snapshotId: number;
+  publishId: number;
+  paperId: number;
+  snapshotVersion: string;
+  snapshotKey: string;
+  sampleCount: number;
+  submittedCount: number;
+  sourceMaxUpdatedAt?: string | null;
+  createdAt?: string | null;
+}
+
+export interface ResearchAiReportContentVO {
+  executiveSummary: string;
+  observedPatterns: string[];
+  dimensionFindings: string[];
+  difficultQuestions: string[];
+  distractorFindings: string[];
+  reactionTimeFindings: string[];
+  dataQualityLimitations: string[];
+  researchCautions: string[];
+  recommendedNextAnalyses: string[];
+  confidence: number;
+}
+
+export interface ResearchAiReportVO {
+  reportId: number;
+  publishId: number;
+  snapshot?: ResearchAggregateSnapshotVO | null;
+  promptVersion: string;
+  status: ResearchAiReportStatus | string;
+  source?: 'AI' | 'RULE_FALLBACK' | string | null;
+  modelName?: string | null;
+  sampleCount?: number | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  report?: ResearchAiReportContentVO | null;
+  ruleFallback?: ResearchAiReportContentVO | null;
+  fallbackReason?: string | null;
+  requestedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface ResearchExportJobVO {
+  jobId: number;
+  jobKey: string;
+  publishId: number;
+  status: ResearchExportJobStatus | string;
+  format: 'CSV' | 'XLSX' | string;
+  scope: string;
+  includeSensitiveFields: boolean;
+  includeAttachmentManifest: boolean;
+  fileName?: string | null;
+  downloadPath?: string | null;
+  errorMessage?: string | null;
+  requestedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface ResearchFileInitiateVO {
+  uploadToken: string;
+  fileId: number;
+  maxFileBytes: number;
+  maxFilesPerQuestion: number;
+}
+
+export interface ResearchAnalyticsFilter {
+  status?: string;
+  entryType?: string;
+  qualityFlag?: string;
+  aiStatus?: string;
+  submittedFrom?: string;
+  submittedTo?: string;
+  keyword?: string;
 }
 
 export interface TeacherAssessmentAttemptResultVO {

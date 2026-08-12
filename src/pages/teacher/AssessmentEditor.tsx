@@ -78,6 +78,7 @@ QUESTION_TYPE_OPTIONS.unshift(
 );
 QUESTION_TYPE_OPTIONS.push({ value: 'TRUE_FALSE_WITH_JUSTIFICATION', label: '判断并说明理由' });
 QUESTION_TYPE_OPTIONS.push({ value: 'TRUE_FALSE', label: '判断题' });
+QUESTION_TYPE_OPTIONS.push({ value: 'FILE_UPLOAD', label: '文件上传' });
 
 const CHOICE_QUESTION_TYPES = new Set<AssessmentQuestionType>([
   'INFORMED_CONSENT',
@@ -260,11 +261,12 @@ export function validateEditorPaperDraft(draft: PaperDraft, isResearchContext: b
     const prefix = `第 ${index + 1} 题`;
     const basicInfoItem = isResearchContext && question.sectionCode === 'BASIC_INFO';
     const instruction = question.questionType === 'INSTRUCTION';
+    const fileUpload = question.questionType === 'FILE_UPLOAD';
     const scoredItem = Number(question.score) > 0;
 
     if (!question.stemText.trim()) errors.push(`${prefix}缺少题干。`);
     if (!Number.isFinite(question.score) || question.score < 0) errors.push(`${prefix}分值不能小于 0。`);
-    if (!basicInfoItem && !instruction && !scoredItem) errors.push(`${prefix}分值必须大于 0。`);
+    if (!basicInfoItem && !instruction && !fileUpload && !scoredItem) errors.push(`${prefix}分值必须大于 0。`);
 
     if (isChoiceQuestionType(question.questionType)) {
       if (question.options.length < 2 || question.options.some((option) => !option.label.trim())) {

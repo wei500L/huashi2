@@ -18,6 +18,7 @@ import { saveBlob } from '@/lib/api';
 import type { QuestionBankImportPreflightVO } from '@/lib/contracts';
 import { assessmentPaperStatusLabel, assessmentPaperStatusTone, formatDateTime } from '@/lib/format';
 import { assessmentService } from '@/lib/services';
+import { ResearchWorkspace } from '@/features/research-analytics/components/ResearchWorkspace';
 import { ResearchReleaseManagement } from './ResearchReleaseManagement';
 
 type ResearchTab = 'bank' | 'questionnaires' | 'releases' | 'data';
@@ -168,7 +169,6 @@ const ResearchAssessmentsPage: React.FC = () => {
   };
 
   const papers = papersQuery.data || [];
-  const publishedPapers = papers.filter((paper) => paper.latestPublishAt);
 
   return (
     <div className="page-stack pb-16">
@@ -344,12 +344,7 @@ const ResearchAssessmentsPage: React.FC = () => {
         <ResearchReleaseManagement />
       ) : null}
 
-      {activeTab === 'data' ? (
-        <div className="space-y-5">
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3"><div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6"><div className="text-sm text-slate-500">问卷版本</div><div className="mt-2 text-3xl font-black">{papers.length}</div></div><div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6"><div className="text-sm text-slate-500">已有发布</div><div className="mt-2 text-3xl font-black">{publishedPapers.length}</div></div><div className="min-w-0 rounded-2xl liquid-glass-panel p-4 sm:p-6"><div className="text-sm text-slate-500">完成率</div><div className="mt-2 text-3xl font-black">—</div></div></div>
-          <EmptyPanel title="尚无可汇总的研究数据" description="产生答卷后，这里将展示完成率、题目难度、干扰项分布、维度正确率和反应时统计；敏感信息默认不进入导出。" />
-        </div>
-      ) : null}
+      {activeTab === 'data' ? <ResearchWorkspace embed /> : null}
     </div>
   );
 };

@@ -31,7 +31,8 @@ public final class AssessmentScoringV1 {
         List<Long> reactionTimes = new ArrayList<>();
         List<String> qualityFlags = new ArrayList<>();
         for (Question question : questions) {
-            if (question == null) {
+            if (question == null || "FILE_UPLOAD".equalsIgnoreCase(question.questionType())
+                    || "INSTRUCTION".equalsIgnoreCase(question.questionType())) {
                 continue;
             }
             int max = Math.max(0, question.maxScore());

@@ -173,6 +173,21 @@ import type {
   SubmitTrainingAnswerRequest,
   TeacherAssessmentAttemptResultVO,
   TeacherInterventionSuggestRequest,
+  ResearchAnalyticsFilter,
+  ResearchReleaseListItemVO,
+  ResearchPublishOverviewVO,
+  ResearchAttemptSummaryVO,
+  TeacherResearchAttemptDetailVO,
+  ResearchQuestionStatisticsVO,
+  ResearchOptionStatisticsVO,
+  ResearchDimensionStatisticsVO,
+  ResearchReactionTimeStatisticsVO,
+  ResearchQualityStatisticVO,
+  ResearchTextThemeStatisticsVO,
+  ResearchAiReportVO,
+  ResearchExportJobVO,
+  ResearchAttachmentVO,
+  ResearchFileInitiateVO,
 } from './contracts';
 
 type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout'>;
@@ -392,6 +407,98 @@ export const assessmentService = {
     apiGet<AssessmentAttemptResultVO>(`/student/assessments/attempts/${attemptId}/result`, options),
 };
 
+const researchFilterParams = (filters?: ResearchAnalyticsFilter) => ({
+  status: filters?.status || undefined,
+  entryType: filters?.entryType || undefined,
+  qualityFlag: filters?.qualityFlag || undefined,
+  aiStatus: filters?.aiStatus || undefined,
+  submittedFrom: filters?.submittedFrom || undefined,
+  submittedTo: filters?.submittedTo || undefined,
+  keyword: filters?.keyword || undefined,
+});
+
+export const researchAnalyticsService = {
+  listReleases: (options?: RequestOptions) =>
+    apiGet<ResearchReleaseListItemVO[]>('/teacher/research/releases', options),
+  getOverview: (publishId: number, filters?: ResearchAnalyticsFilter, options?: RequestOptions) =>
+    apiGet<ResearchPublishOverviewVO>(`/teacher/research/publishes/${publishId}/overview`, {
+      ...options,
+      params: researchFilterParams(filters),
+    }),
+  listAttempts: (
+    publishId: number,
+    params: ResearchAnalyticsFilter & { pageNo?: number; pageSize?: number; sort?: string },
+    options?: RequestOptions
+  ) => apiGet<PageResult<ResearchAttemptSummaryVO>>(`/teacher/research/publishes/${publishId}/attempts`, {
+    ...options,
+    params: {
+      ...researchFilterParams(params),
+      pageNo: params.pageNo,
+      pageSize: params.pageSize,
+      sort: params.sort,
+    },
+  }),
+  getAttemptDetail: (attemptId: number, options?: RequestOptions) =>
+    apiGet<TeacherResearchAttemptDetailVO>(`/teacher/research/attempts/${attemptId}`, options),
+  getQuestionStats: (publishId: number, filters?: ResearchAnalyticsFilter, options?: RequestOptions) =>
+    apiGet<ResearchQuestionStatisticsVO>(`/teacher/research/publishes/${publishId}/statistics/questions`, {
+      ...options,
+      params: researchFilterParams(filters),
+    }),
+  getOptionStats: (publishId: number, filters?: ResearchAnalyticsFilter, options?: RequestOptions) =>
+    apiGet<ResearchOptionStatisticsVO>(`/teacher/research/publishes/${publishId}/statistics/options`, {
+      ...options,
+      params: researchFilterParams(filters),
+    }),
+  getDimensionStats: (publishId: number, filters?: ResearchAnalyticsFilter, options?: RequestOptions) =>
+    apiGet<ResearchDimensionStatisticsVO>(`/teacher/research/publishes/${publishId}/statistics/dimensions`, {
+      ...options,
+      params: researchFilterParams(filters),
+    }),
+  getReactionStats: (publishId: number, filters?: ResearchAnalyticsFilter, options?: RequestOptions) =>
+    apiGet<ResearchReactionTimeStatisticsVO>(`/teacher/research/publishes/${publishId}/statistics/reaction-times`, {
+      ...options,
+      params: researchFilterParams(filters),
+    }),
+  getQualityStats: (publishId: number, filters?: ResearchAnalyticsFilter, options?: RequestOptions) =>
+    apiGet<ResearchQualityStatisticVO>(`/teacher/research/publishes/${publishId}/statistics/quality`, {
+      ...options,
+      params: researchFilterParams(filters),
+    }),
+  getTextThemeStats: (publishId: number, filters?: ResearchAnalyticsFilter, options?: RequestOptions) =>
+    apiGet<ResearchTextThemeStatisticsVO>(`/teacher/research/publishes/${publishId}/statistics/text-themes`, {
+      ...options,
+      params: researchFilterParams(filters),
+    }),
+  createExport: (
+    publishId: number,
+    payload: ResearchAnalyticsFilter & {
+      format: 'CSV' | 'XLSX';
+      scope?: string;
+      includeSensitiveFields?: boolean;
+      includeAttachmentManifest?: boolean;
+    }
+  ) => apiPost<ResearchExportJobVO>(`/teacher/research/publishes/${publishId}/exports`, payload),
+  getExport: (jobId: number, options?: RequestOptions) =>
+    apiGet<ResearchExportJobVO>(`/teacher/research/exports/${jobId}`, options),
+  downloadExport: (jobId: number, options?: RequestOptions) =>
+    apiDownload(`/teacher/research/exports/${jobId}/download`, options),
+  getFileMetadata: (fileId: number, options?: RequestOptions) =>
+    apiGet<ResearchAttachmentVO>(`/teacher/research/files/${fileId}/metadata`, options),
+  downloadFile: (fileId: number, options?: RequestOptions) =>
+    apiDownload(`/teacher/research/files/${fileId}/download`, options),
+  createAiReport: (publishId: number, filters?: ResearchAnalyticsFilter) =>
+    apiPost<ResearchAiReportVO>(`/teacher/research/publishes/${publishId}/ai-reports`, {}, {
+      params: researchFilterParams(filters),
+    }),
+  getLatestAiReport: (publishId: number, options?: RequestOptions) =>
+    apiGet<ResearchAiReportVO | null>(`/teacher/research/publishes/${publishId}/ai-reports/latest`, options),
+  getAiReport: (reportId: number, options?: RequestOptions) =>
+    apiGet<ResearchAiReportVO>(`/teacher/research/ai-reports/${reportId}`, options),
+  retryAiReport: (reportId: number) =>
+    apiPost<ResearchAiReportVO>(`/teacher/research/ai-reports/${reportId}/retry`),
+};
+
 const publicAssessmentPath = (releaseCode: string) =>
   `/public/assessments/${encodeURIComponent(releaseCode.trim())}`;
 const publicAssessmentOptions = (options?: RequestOptions): AxiosRequestConfig => ({
@@ -418,6 +525,19 @@ export const publicAssessmentService = {
     apiPost<PublicAssessmentSubmitVO>(`${publicAssessmentPath(releaseCode)}/submit`, payload, publicAssessmentOptions()),
   getResult: (releaseCode: string, options?: RequestOptions) =>
     apiGet<PublicAssessmentResultVO>(`${publicAssessmentPath(releaseCode)}/result`, publicAssessmentOptions(options)),
+  initiateFile: (releaseCode: string, payload: { questionOrder: number; fileName: string; contentType?: string; sizeBytes: number }) =>
+    apiPost<ResearchFileInitiateVO>(`${publicAssessmentPath(releaseCode)}/files/initiate`, payload, publicAssessmentOptions()),
+  uploadFileContent: (releaseCode: string, uploadToken: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiUpload<ResearchAttachmentVO>(
+      `${publicAssessmentPath(releaseCode)}/files/${encodeURIComponent(uploadToken)}/content`,
+      formData,
+      publicAssessmentOptions()
+    );
+  },
+  deleteFile: (releaseCode: string, uploadToken: string) =>
+    apiDelete<void>(`${publicAssessmentPath(releaseCode)}/files/${encodeURIComponent(uploadToken)}`, publicAssessmentOptions()),
 };
 
 export const practiceService = {

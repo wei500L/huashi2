@@ -34,6 +34,10 @@ app:
       lexibridge-v3-enabled: false
     ai-analysis:
       enabled: false
+    research:
+      ai-enabled: false
+      poll-interval: PT1H
+      local-root: ${java.io.tmpdir}/huashi-research-files-test
   demo-data:
     enabled: true
   events:

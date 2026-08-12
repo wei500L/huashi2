@@ -37,6 +37,9 @@ const TeacherClassesPage = React.lazy(() => import('./pages/teacher/Classes'));
 const TeacherClassEditorPage = React.lazy(() => import('./pages/teacher/ClassEditor'));
 const TeacherAssessmentsPage = React.lazy(() => import('./pages/teacher/Assessments'));
 const TeacherResearchAssessmentsPage = React.lazy(() => import('./pages/teacher/ResearchAssessments'));
+const TeacherResearchPublishDataPage = React.lazy(() => import('./pages/teacher/ResearchPublishData'));
+const TeacherResearchAttemptDetailPage = React.lazy(() => import('./pages/teacher/ResearchAttemptDetail'));
+const TeacherResearchAiReportPage = React.lazy(() => import('./pages/teacher/ResearchAiReportPage'));
 const TeacherAssessmentEditorPage = React.lazy(() => import('./pages/teacher/AssessmentEditor'));
 const TeacherAssessmentPublishDetailPage = React.lazy(() => import('./pages/teacher/AssessmentPublishDetail'));
 const TeacherAssessmentAttemptResultPage = React.lazy(() => import('./pages/teacher/AssessmentAttemptResult'));
@@ -364,6 +367,24 @@ const App: React.FC = () => {
           path="teacher/research"
           element={
             <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherResearchAssessmentsPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/research/publishes/:publishId/data"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherResearchPublishDataPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/research/attempts/:attemptId"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherResearchAttemptDetailPage />)}</RequireCapability>
+          }
+        />
+        <Route
+          path="teacher/research/publishes/:publishId/report"
+          element={
+            <RequireCapability capability="TEACHING_WORKSPACE">{withSuspense(<TeacherResearchAiReportPage />)}</RequireCapability>
           }
         />
         <Route

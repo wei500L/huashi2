@@ -48,6 +48,7 @@ import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentAttemptVO
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentMetadataVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentResultVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentQuestionVO;
+import com.huashi.eftransfer.app.modules.assessment.vo.ResearchAttachmentVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.PublicAssessmentSessionVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.SpellingAttemptVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
@@ -56,6 +57,7 @@ import com.huashi.eftransfer.shared.enums.AssessmentPublishStatus;
 import com.huashi.eftransfer.shared.enums.AssessmentQuestionType;
 import com.huashi.eftransfer.shared.enums.AssessmentSubmitReason;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
@@ -113,6 +115,7 @@ public class PublicAssessmentService {
     private final Duration configuredSessionTtl;
     private final AssessmentTimeoutProperties timeoutProperties;
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectProvider<ResearchFileService> researchFileService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, Deque<LocalDateTime>> verificationAttempts = new ConcurrentHashMap<>();
 
@@ -134,6 +137,7 @@ public class PublicAssessmentService {
             AssessmentParticipantAccessCipher accessCipher,
             AssessmentTimeoutProperties timeoutProperties,
             JdbcTemplate jdbcTemplate,
+            ObjectProvider<ResearchFileService> researchFileService,
             @Value("${app.assessment.public-delivery.session-ttl:PT12H}") Duration configuredSessionTtl
     ) {
         this.publicReleaseMapper = publicReleaseMapper;
@@ -153,6 +157,7 @@ public class PublicAssessmentService {
         this.accessCipher = accessCipher;
         this.timeoutProperties = timeoutProperties;
         this.jdbcTemplate = jdbcTemplate;
+        this.researchFileService = researchFileService;
         this.configuredSessionTtl = configuredSessionTtl == null || configuredSessionTtl.isNegative()
                 ? MAX_SESSION_TTL : configuredSessionTtl.compareTo(MAX_SESSION_TTL) > 0 ? MAX_SESSION_TTL : configuredSessionTtl;
     }
@@ -280,7 +285,7 @@ public class PublicAssessmentService {
         requireInProgress(attempt);
         requireVersion(attempt, request.baseVersion());
         List<AssessmentAttemptAnswerEntity> answers = loadAnswers(attempt.getId());
-        applyResponses(request.responses(), answers, loadQuestionMap(attempt.getPaperId()), false);
+        applyResponses(attempt, session.participant(), request.responses(), answers, loadQuestionMap(attempt.getPaperId()), false);
         recomputeProgress(attempt, answers, LocalDateTime.now());
         if (attemptMapper.updateProgressIfInProgress(attempt) == 0) {
             throw versionConflict();
@@ -430,7 +435,8 @@ public class PublicAssessmentService {
         AssessmentSubmitReason reason = parseSubmitReason(request.reason());
         List<AssessmentAttemptAnswerEntity> answers = loadAnswers(attempt.getId());
         Map<Long, AssessmentQuestionEntity> questions = loadQuestionMap(attempt.getPaperId());
-        applyResponses(request.responses(), answers, questions, true);
+        applyResponses(attempt, session.participant(), request.responses(), answers, questions, true);
+        answers = loadAnswers(attempt.getId());
         LocalDateTime now = LocalDateTime.now();
         recomputeProgress(attempt, answers, now);
         attempt.setStatus(AssessmentAttemptStatus.SUBMITTED.name());
@@ -591,6 +597,8 @@ public class PublicAssessmentService {
     }
 
     private void applyResponses(
+            AssessmentAttemptEntity attempt,
+            AssessmentParticipantEntity participant,
             List<AssessmentAttemptResponseRequest> requests,
             List<AssessmentAttemptAnswerEntity> answers,
             Map<Long, AssessmentQuestionEntity> questions,
@@ -612,6 +620,8 @@ public class PublicAssessmentService {
             applyResponse(answer, entry.getValue(), finalSubmission);
             answerMapper.updateResponseSnapshot(answer);
         }
+        bindAttachments(attempt, participant, requests);
+        refreshFileUploadAnswered(answers);
         if (finalSubmission) {
             for (AssessmentAttemptAnswerEntity answer : answers) {
                 AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
@@ -668,7 +678,7 @@ public class PublicAssessmentService {
     }
 
     private List<String> normalizeResponses(AssessmentQuestionType type, List<String> raw, String optionsJson) {
-        if (type == AssessmentQuestionType.INSTRUCTION || raw == null || raw.isEmpty()) {
+        if (type == AssessmentQuestionType.INSTRUCTION || type == AssessmentQuestionType.FILE_UPLOAD || raw == null || raw.isEmpty()) {
             return List.of();
         }
         LinkedHashSet<String> values = raw.stream()
@@ -998,7 +1008,8 @@ public class PublicAssessmentService {
                             question == null ? null : itemCodes.get(question.getId()),
                             question == null ? null : question.getDisplayConditionJson(),
                             hintLetter, hintShown,
-                            answer.getSpellingWrongAttemptCount() == null ? 0 : answer.getSpellingWrongAttemptCount());
+                            answer.getSpellingWrongAttemptCount() == null ? 0 : answer.getSpellingWrongAttemptCount(),
+                            listPublicAttachments(attempt.getId(), answer.getQuestionId()));
                 }).toList();
         AssessmentPublishEntity publish = bundle.publish();
         return new PublicAssessmentAttemptVO(attempt.getId(), bundle.release().getReleaseCode(), publish.getPaperTitleSnapshot(),
@@ -1030,6 +1041,53 @@ public class PublicAssessmentService {
         }
         Integer fallback = publish.getDurationMinutes();
         return fallback == null || fallback < 1 ? 1 : fallback;
+    }
+
+    private void bindAttachments(
+            AssessmentAttemptEntity attempt,
+            AssessmentParticipantEntity participant,
+            List<AssessmentAttemptResponseRequest> requests
+    ) {
+        ResearchFileService fileService = researchFileService.getIfAvailable();
+        if (fileService != null) {
+            fileService.bindTokens(attempt, participant, requests);
+        }
+    }
+
+    private void refreshFileUploadAnswered(List<AssessmentAttemptAnswerEntity> answers) {
+        if (answers.isEmpty()) {
+            return;
+        }
+        ResearchFileService fileService = researchFileService.getIfAvailable();
+        if (fileService == null) {
+            return;
+        }
+        Long attemptId = answers.getFirst().getAttemptId();
+        for (AssessmentAttemptAnswerEntity answer : answers) {
+            if (!AssessmentQuestionType.FILE_UPLOAD.name().equalsIgnoreCase(answer.getQuestionType())) {
+                continue;
+            }
+            boolean answered = !fileService.listPublicAttachments(attemptId, answer.getQuestionId()).isEmpty();
+            answer.setAnswered(answered);
+        }
+    }
+
+    private List<ResearchAttachmentVO> listPublicAttachments(Long attemptId, Long questionId) {
+        ResearchFileService fileService = researchFileService.getIfAvailable();
+        return fileService == null ? List.of() : fileService.listPublicAttachments(attemptId, questionId);
+    }
+
+    public PublicSession requirePublicSession(String releaseCode, String token, boolean forUpdate) {
+        SessionBundle session = forUpdate ? requireSessionForUpdate(releaseCode, token) : requireSession(releaseCode, token);
+        return new PublicSession(session.attempt(), session.participant(), session.release().publish(), session.release().release());
+    }
+
+    public record PublicSession(
+            AssessmentAttemptEntity attempt,
+            AssessmentParticipantEntity participant,
+            AssessmentPublishEntity publish,
+            AssessmentPublicReleaseEntity release
+    ) {
     }
 
     private SessionBundle requireSession(String releaseCode, String token) {

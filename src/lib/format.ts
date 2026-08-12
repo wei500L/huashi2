@@ -135,6 +135,8 @@ const COPY: Record<
       FILL_BLANK: '填空题',
       TRUE_FALSE_WITH_JUSTIFICATION: '判断并说明理由',
       TRUE_FALSE: '判断题',
+      SPELLING: '拼写',
+      FILE_UPLOAD: '文件上传',
     },
     lexicalImportBatchStatusLabels: {
       PARSING: '解析中',
@@ -294,6 +296,8 @@ const COPY: Record<
       FILL_BLANK: 'Fill in the blank',
       TRUE_FALSE_WITH_JUSTIFICATION: 'True/false with justification',
       TRUE_FALSE: 'True/false',
+      SPELLING: 'Spelling',
+      FILE_UPLOAD: 'File upload',
     },
     lexicalImportBatchStatusLabels: {
       PARSING: 'Parsing',

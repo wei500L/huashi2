@@ -26,6 +26,7 @@ gsap.registerPlugin(useGSAP);
 
 type ResponsesByOrder = Record<number, string[]>;
 type JustificationsByOrder = Record<number, string>;
+type AttachmentsByOrder = Record<number, string[]>;
 
 const QUESTION_TYPE_LABELS: Record<string, string> = {
   INFORMED_CONSENT: '参与确认',
@@ -39,10 +40,12 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   SHORT_TEXT: '文字填写',
   FILL_BLANK: '填空',
   SPELLING: '单词拼写',
+  FILE_UPLOAD: '文件上传',
 };
 
-function hasQuestionResponse(question: PublicAssessmentQuestionVO, responses: string[], justification: string): boolean {
+function hasQuestionResponse(question: PublicAssessmentQuestionVO, responses: string[], justification: string, attachmentTokens: string[] = []): boolean {
   if (question.questionType === 'INSTRUCTION') return true;
+  if (question.questionType === 'FILE_UPLOAD') return attachmentTokens.length > 0 || (question.attachments || []).some((file) => file.bindingStatus !== 'DELETED' && file.uploadToken);
   const hasValue = responses.some((value) => value.trim().length > 0);
   if (!hasValue) return false;
   return !question.justificationRequired || justification.trim().length > 0;
@@ -51,11 +54,15 @@ function hasQuestionResponse(question: PublicAssessmentQuestionVO, responses: st
 function hydrateResponses(attempt: PublicAssessmentAttemptVO) {
   const responses: ResponsesByOrder = {};
   const justifications: JustificationsByOrder = {};
+  const attachments: AttachmentsByOrder = {};
   attempt.questions.forEach((question) => {
     responses[question.questionOrder] = question.responses || [];
     justifications[question.questionOrder] = question.justificationText || '';
+    attachments[question.questionOrder] = (question.attachments || [])
+      .map((file) => file.uploadToken)
+      .filter((token): token is string => Boolean(token));
   });
-  return { responses, justifications };
+  return { responses, justifications, attachments };
 }
 
 const EmphasizedText: React.FC<{ text: string }> = ({ text }) => {
@@ -289,6 +296,83 @@ const SpellingQuestion: React.FC<{
   );
 };
 
+const ResearchFileUpload: React.FC<{
+  question: PublicAssessmentQuestionVO;
+  disabled: boolean;
+  labelledBy: string;
+  onAttachmentsChange?: (tokens: string[], files: NonNullable<PublicAssessmentQuestionVO['attachments']>) => void;
+}> = ({ question, disabled, labelledBy, onAttachmentsChange }) => {
+  const { releaseCode = '' } = useParams();
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const [files, setFiles] = React.useState(question.attachments || []);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const emit = (next: NonNullable<PublicAssessmentQuestionVO['attachments']>) => {
+    setFiles(next);
+    onAttachmentsChange?.(next.map((file) => file.uploadToken).filter((token): token is string => Boolean(token)), next);
+  };
+
+  const upload = async (selected: FileList | null) => {
+    if (!selected?.length || disabled) return;
+    setBusy(true);
+    setError(null);
+    const next = [...files];
+    try {
+      for (const file of Array.from(selected)) {
+        const initiated = await publicAssessmentService.initiateFile(releaseCode, {
+          questionOrder: question.questionOrder,
+          fileName: file.name,
+          contentType: file.type,
+          sizeBytes: file.size,
+        });
+        const uploaded = await publicAssessmentService.uploadFileContent(releaseCode, initiated.uploadToken, file);
+        next.push(uploaded);
+      }
+      emit(next);
+    } catch (uploadError) {
+      setError(getApiErrorMessage(uploadError, '文件上传失败。'));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const remove = async (token?: string | null) => {
+    if (!token || disabled) return;
+    setBusy(true);
+    try {
+      await publicAssessmentService.deleteFile(releaseCode, token);
+      emit(files.filter((file) => file.uploadToken !== token));
+    } catch (deleteError) {
+      setError(getApiErrorMessage(deleteError, '无法删除这份附件。'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3" aria-labelledby={labelledBy}>
+      <p className="text-sm text-slate-500">允许 PDF、DOCX、XLSX、CSV、TXT、PNG、JPG。单文件不超过 20 MB，每题最多 5 个，整卷不超过 50 MB。</p>
+      <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-center dark:border-white/15">
+        <input ref={inputRef} type="file" multiple className="sr-only" disabled={disabled || busy} onChange={(event) => void upload(event.target.files)} />
+        <button type="button" disabled={disabled || busy} onClick={() => inputRef.current?.click()} className="btn-liquid px-4 py-2 text-sm text-white">
+          {busy ? '上传中…' : '选择或拖放文件'}
+        </button>
+      </div>
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      <ul className="space-y-2">
+        {files.map((file) => (
+          <li key={file.uploadToken || file.fileId} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-white/10">
+            <span>{file.originalFileName} · {file.scanStatus}</span>
+            <button type="button" disabled={disabled || busy} onClick={() => void remove(file.uploadToken)} className="text-xs font-bold text-rose-600">删除</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 export const PublicQuestion: React.FC<{
   question: PublicAssessmentQuestionVO;
   responses: string[];
@@ -300,8 +384,9 @@ export const PublicQuestion: React.FC<{
   onSpellingAttempt?: () => void;
   onResponsesChange: (responses: string[]) => void;
   onJustificationChange: (value: string) => void;
+  onAttachmentsChange?: (tokens: string[], files: PublicAssessmentQuestionVO['attachments']) => void;
   labelledBy: string;
-}> = ({ question, responses, justification, disabled, reducedMotion, spellingBusy, spellingHintMessage, onSpellingAttempt, onResponsesChange, onJustificationChange, labelledBy }) => {
+}> = ({ question, responses, justification, disabled, reducedMotion, spellingBusy, spellingHintMessage, onSpellingAttempt, onResponsesChange, onJustificationChange, onAttachmentsChange, labelledBy }) => {
   const type = question.questionType;
   if (type === 'INSTRUCTION') {
     return <section className="research-instruction" aria-labelledby={`instruction-title-${question.questionOrder}`}>
@@ -352,6 +437,9 @@ export const PublicQuestion: React.FC<{
       onChange={() => onResponsesChange(selected ? responses.filter((value) => value !== option.key) : [...responses, option.key])}
     />;
   })}</fieldset>;
+  if (type === 'FILE_UPLOAD') {
+    return <ResearchFileUpload question={question} disabled={disabled} labelledBy={labelledBy} onAttachmentsChange={onAttachmentsChange} />;
+  }
   if (type === 'NUMBER') return <div className="research-number-field">
     <label htmlFor={`number-answer-${question.questionOrder}`} className="sr-only">数字答案</label>
     <input id={`number-answer-${question.questionOrder}`} type="number" inputMode="decimal" step="any" value={responses[0] || ''} disabled={disabled} onChange={(event) => onResponsesChange(event.target.value ? [event.target.value] : [])} className="research-text-input" placeholder="可选，仅填写数字" aria-labelledby={labelledBy} aria-describedby={`number-hint-${question.questionOrder}`} />
@@ -432,6 +520,7 @@ const ResearchParticipantPage: React.FC = () => {
   const [participationCode, setParticipationCode] = React.useState('');
   const [responsesByOrder, setResponsesByOrder] = React.useState<ResponsesByOrder>({});
   const [justificationsByOrder, setJustificationsByOrder] = React.useState<JustificationsByOrder>({});
+  const [attachmentsByOrder, setAttachmentsByOrder] = React.useState<AttachmentsByOrder>({});
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [navigationDirection, setNavigationDirection] = React.useState(1);
   const [loading, setLoading] = React.useState(true);
@@ -490,6 +579,7 @@ const ResearchParticipantPage: React.FC = () => {
     setAttempt(nextAttempt);
     setResponsesByOrder(hydrated.responses);
     setJustificationsByOrder(hydrated.justifications);
+    setAttachmentsByOrder(hydrated.attachments);
     setDirtyRevision(0);
     hydratedRef.current = true;
   }, []);
@@ -511,6 +601,7 @@ const ResearchParticipantPage: React.FC = () => {
     setParticipationCode('');
     setResponsesByOrder({});
     setJustificationsByOrder({});
+    setAttachmentsByOrder({});
     setSelectedIndex(0);
     setNavigationDirection(1);
     setDirtyRevision(0);
@@ -590,7 +681,12 @@ const ResearchParticipantPage: React.FC = () => {
     return () => { active = false; };
   }, [applyAttempt, attempt, loading, metadata?.qrEntryEnabled, normalizedReleaseCode, qrRequested, result]);
 
-  const buildResponses = React.useCallback(() => (attempt?.questions || []).map((question) => ({ questionOrder: question.questionOrder, responses: responsesByOrder[question.questionOrder] || [], justificationText: justificationsByOrder[question.questionOrder] || null })), [attempt?.questions, justificationsByOrder, responsesByOrder]);
+  const buildResponses = React.useCallback(() => (attempt?.questions || []).map((question) => ({
+    questionOrder: question.questionOrder,
+    responses: responsesByOrder[question.questionOrder] || [],
+    justificationText: justificationsByOrder[question.questionOrder] || null,
+    attachmentTokens: attachmentsByOrder[question.questionOrder] || [],
+  })), [attempt?.questions, attachmentsByOrder, justificationsByOrder, responsesByOrder]);
   const attemptId = attempt?.attemptId; const attemptStatus = attempt?.status;
   React.useEffect(() => {
     if (!attemptId || attemptStatus !== 'IN_PROGRESS' || !hydratedRef.current || submitting
@@ -823,7 +919,7 @@ const ResearchParticipantPage: React.FC = () => {
   if (!currentQuestion) return <div className="research-loading">问卷暂无可作答题目。</div>;
   const currentResponses = responsesByOrder[currentQuestion.questionOrder] || [];
   const currentJustification = justificationsByOrder[currentQuestion.questionOrder] || '';
-  const currentAnswered = hasQuestionResponse(currentQuestion, currentResponses, currentJustification);
+  const currentAnswered = hasQuestionResponse(currentQuestion, currentResponses, currentJustification, attachmentsByOrder[currentQuestion.questionOrder] || []);
   const profileQuestions = visibleQuestions.filter((question) => question.formalSection === false && question.questionType !== 'INSTRUCTION');
   const formalQuestions = visibleQuestions.filter((question) => question.formalSection === true);
   const currentIsFormal = currentQuestion.formalSection === true;
@@ -950,6 +1046,16 @@ const ResearchParticipantPage: React.FC = () => {
                   }}
                   onJustificationChange={(value) => {
                     setJustificationsByOrder((current) => ({ ...current, [currentQuestion.questionOrder]: value }));
+                    setDirtyRevision((revision) => revision + 1);
+                  }}
+                  onAttachmentsChange={(tokens, files) => {
+                    setAttachmentsByOrder((current) => ({ ...current, [currentQuestion.questionOrder]: tokens }));
+                    setAttempt((current) => current ? {
+                      ...current,
+                      questions: current.questions.map((question) => question.questionOrder === currentQuestion.questionOrder
+                        ? { ...question, attachments: files || [] }
+                        : question),
+                    } : current);
                     setDirtyRevision((revision) => revision + 1);
                   }}
                   spellingBusy={spellingBusy}

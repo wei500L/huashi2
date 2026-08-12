@@ -8,6 +8,36 @@ import java.util.Map;
 @Component
 public class AiOutputSchemaFactory {
 
+    public Map<String, Object> researchAggregateReportSchema() {
+        Map<String, Object> stringArray = Map.of(
+                "type", "array",
+                "minItems", 1,
+                "maxItems", 8,
+                "items", Map.of("type", "string")
+        );
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "properties", Map.of(
+                        "executiveSummary", Map.of("type", "string"),
+                        "observedPatterns", stringArray,
+                        "dimensionFindings", stringArray,
+                        "difficultQuestions", stringArray,
+                        "distractorFindings", stringArray,
+                        "reactionTimeFindings", stringArray,
+                        "dataQualityLimitations", stringArray,
+                        "researchCautions", stringArray,
+                        "recommendedNextAnalyses", stringArray,
+                        "confidence", Map.of("type", "number", "minimum", 0, "maximum", 1)
+                ),
+                "required", List.of(
+                        "executiveSummary", "observedPatterns", "dimensionFindings", "difficultQuestions",
+                        "distractorFindings", "reactionTimeFindings", "dataQualityLimitations",
+                        "researchCautions", "recommendedNextAnalyses", "confidence"
+                )
+        );
+    }
+
     public Map<String, Object> assessmentAnalysisSchema() {
         Map<String, Object> stringArray = Map.of(
                 "type", "array",

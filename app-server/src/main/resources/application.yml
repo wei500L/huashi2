@@ -119,6 +119,22 @@ app:
       poll-interval: ${APP_ASSESSMENT_TIMEOUT_POLL_INTERVAL:PT30S}
       batch-size: ${APP_ASSESSMENT_TIMEOUT_BATCH_SIZE:200}
       submission-grace-period: ${APP_ASSESSMENT_SUBMISSION_GRACE_PERIOD:PT3S}
+    research:
+      min-sample-size: ${APP_ASSESSMENT_RESEARCH_MIN_SAMPLE_SIZE:5}
+      statistics-version: ${APP_ASSESSMENT_RESEARCH_STATS_VERSION:RESEARCH_STATS_V1}
+      prompt-version: ${APP_ASSESSMENT_RESEARCH_PROMPT_VERSION:research-aggregate-report/v1}
+      ai-enabled: ${APP_ASSESSMENT_RESEARCH_AI_ENABLED:true}
+      poll-interval: ${APP_ASSESSMENT_RESEARCH_POLL_INTERVAL:PT5S}
+      batch-size: ${APP_ASSESSMENT_RESEARCH_BATCH_SIZE:5}
+      max-retries: ${APP_ASSESSMENT_RESEARCH_MAX_RETRIES:2}
+      retry-delay: ${APP_ASSESSMENT_RESEARCH_RETRY_DELAY:PT5S}
+      processing-timeout: ${APP_ASSESSMENT_RESEARCH_PROCESSING_TIMEOUT:PT5M}
+      max-file-bytes: ${APP_ASSESSMENT_RESEARCH_MAX_FILE_BYTES:20971520}
+      max-files-per-question: ${APP_ASSESSMENT_RESEARCH_MAX_FILES_PER_QUESTION:5}
+      max-attempt-bytes: ${APP_ASSESSMENT_RESEARCH_MAX_ATTEMPT_BYTES:52428800}
+      storage-provider: ${APP_ASSESSMENT_RESEARCH_STORAGE_PROVIDER:LOCAL}
+      local-root: ${APP_ASSESSMENT_RESEARCH_LOCAL_ROOT:${java.io.tmpdir}/huashi-research-files}
+      orphan-after: ${APP_ASSESSMENT_RESEARCH_ORPHAN_AFTER:PT24H}
   notification:
     health-monitor:
       enabled: ${APP_NOTIFICATION_HEALTH_MONITOR_ENABLED:true}
