@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
 import com.huashi.eftransfer.app.modules.ai.dto.ExplainDiagnosisRequest;
 import com.huashi.eftransfer.app.modules.ai.dto.LexicalRagQueryRequest;
+import com.huashi.eftransfer.app.modules.ai.dto.PracticeTutoringRequest;
 import com.huashi.eftransfer.app.modules.ai.dto.RecommendTrainingRequest;
 import com.huashi.eftransfer.app.modules.ai.entity.AiAsyncJobEntity;
 import com.huashi.eftransfer.app.modules.ai.mapper.AiAsyncJobMapper;
@@ -72,6 +73,14 @@ public class AiAsyncJobService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "query must not be blank", 400);
         }
         return submit(AiConstants.SCENE_LEXICAL_RAG_QUERY, request);
+    }
+
+    @Transactional
+    public AiAsyncJobSubmitVO submitPracticeTutoring(PracticeTutoringRequest request) {
+        if (request == null || request.practiceSessionId() == null) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "practiceSessionId must not be null", 400);
+        }
+        return submit(AiConstants.SCENE_PRACTICE_TUTORING, request);
     }
 
     @Transactional(readOnly = true)
@@ -178,6 +187,9 @@ public class AiAsyncJobService {
             );
             case AiConstants.SCENE_LEXICAL_RAG_QUERY -> lexicalRagQueryService.query(
                     aiJsonCodec.read(entity.getRequestJson(), LexicalRagQueryRequest.class)
+            );
+            case AiConstants.SCENE_PRACTICE_TUTORING -> aiInsightService.explainPracticeTutoring(
+                    aiJsonCodec.read(entity.getRequestJson(), PracticeTutoringRequest.class)
             );
             default -> throw new IllegalStateException("Unsupported AI async scene: " + entity.getScene());
         };

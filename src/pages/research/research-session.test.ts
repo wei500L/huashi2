@@ -6,6 +6,7 @@ import {
   getHiddenQuestionOrders,
   getStagedAnswerProgress,
   hasPublicSessionMarker,
+  isResearchQuestionVisible,
   rememberPublicSession,
 } from './research-session';
 
@@ -71,6 +72,75 @@ describe('public research session markers', () => {
 
     expect(getHiddenQuestionOrders(questions, { 1: ['ENGLISH_MAJOR'], 2: ['80'], 3: ['75'] })).toEqual([]);
     expect(getHiddenQuestionOrders(questions, { 1: ['NON_ENGLISH_MAJOR'], 2: ['80'], 3: ['75'] })).toEqual([2, 3]);
+  });
+});
+
+describe('public research profile fields', () => {
+  const englishMajorCondition = JSON.stringify({
+    fieldCode: 'BASIC-ENGLISH-MAJOR',
+    operator: 'EQ',
+    value: 'ENGLISH_MAJOR',
+  });
+
+  const buildV1Questions = (): PublicAssessmentQuestionVO[] => [
+    { questionOrder: 1, itemCode: 'BASIC-INSTRUCTION', questionType: 'INSTRUCTION', formalSection: false },
+    { questionOrder: 2, itemCode: 'BASIC-NAME', questionType: 'SHORT_TEXT', formalSection: false },
+    { questionOrder: 3, itemCode: 'BASIC-CONTACT', questionType: 'SHORT_TEXT', formalSection: false },
+    { questionOrder: 4, itemCode: 'BASIC-GAOKAO-ENGLISH', questionType: 'NUMBER', formalSection: false },
+    { questionOrder: 5, itemCode: 'BASIC-ENGLISH-MAJOR', questionType: 'SINGLE_CHOICE', formalSection: false },
+    { questionOrder: 6, itemCode: 'BASIC-CET4', questionType: 'NUMBER', formalSection: false },
+    { questionOrder: 7, itemCode: 'BASIC-CET6', questionType: 'NUMBER', formalSection: false },
+    { questionOrder: 8, itemCode: 'BASIC-TEM4', questionType: 'NUMBER', formalSection: false, displayCondition: englishMajorCondition },
+    { questionOrder: 9, itemCode: 'BASIC-TEM8', questionType: 'NUMBER', formalSection: false, displayCondition: englishMajorCondition },
+    ...Array.from({ length: 60 }, (_, index) => ({
+      questionOrder: 10 + index,
+      itemCode: `P1A-${String(index + 1).padStart(2, '0')}`,
+      questionType: 'SINGLE_CHOICE',
+      formalSection: true,
+    })),
+  ] as PublicAssessmentQuestionVO[];
+
+  const visibleQuestions = (questions: PublicAssessmentQuestionVO[], responsesByOrder: Record<number, string[]>) => {
+    const questionOrderByItemCode = new Map(questions.map((q) => [q.itemCode, q.questionOrder]));
+    return questions.filter((question) => isResearchQuestionVisible(question, responsesByOrder, questionOrderByItemCode));
+  };
+
+  it('counts 6 profile fields for non-English majors and keeps 60 formal questions', () => {
+    const responses = { 5: ['NON_ENGLISH_MAJOR'] };
+    const progress = getStagedAnswerProgress(visibleQuestions(buildV1Questions(), responses), responses);
+    expect(progress.profileFieldCount).toBe(6);
+    expect(progress.formalQuestionCount).toBe(60);
+    expect(progress.profileAnsweredCount).toBe(1);
+  });
+
+  it('counts 8 profile fields for English majors', () => {
+    const responses = { 5: ['ENGLISH_MAJOR'] };
+    const progress = getStagedAnswerProgress(visibleQuestions(buildV1Questions(), responses), responses);
+    expect(progress.profileFieldCount).toBe(8);
+    expect(progress.formalQuestionCount).toBe(60);
+  });
+
+  it('lists name and contact before any score field and never counts profile fields as formal questions', () => {
+    const questions = buildV1Questions();
+    const visible = visibleQuestions(questions, { 5: ['ENGLISH_MAJOR'] });
+    const profileFields = visible.filter((question) => question.formalSection === false && question.questionType !== 'INSTRUCTION');
+    expect(profileFields.map((question) => question.itemCode)).toEqual([
+      'BASIC-NAME',
+      'BASIC-CONTACT',
+      'BASIC-GAOKAO-ENGLISH',
+      'BASIC-ENGLISH-MAJOR',
+      'BASIC-CET4',
+      'BASIC-CET6',
+      'BASIC-TEM4',
+      'BASIC-TEM8',
+    ]);
+    expect(visible.filter((question) => question.formalSection === true)).toHaveLength(60);
+  });
+
+  it('clears hidden TEM answers when switching from English major to non-English major', () => {
+    const questions = buildV1Questions();
+    const hiddenOrders = getHiddenQuestionOrders(questions, { 5: ['NON_ENGLISH_MAJOR'], 8: ['80'], 9: ['75'] });
+    expect(hiddenOrders).toEqual([8, 9]);
   });
 });
 

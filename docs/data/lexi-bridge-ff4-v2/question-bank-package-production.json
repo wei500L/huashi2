@@ -154,37 +154,10 @@
       "itemCode": "FF4PROD-T1-005",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
-      "stemText": "请选出下列法语单词对应的正确中文含义\ncoin",
-      "promptText": null,
-      "correctAnswers": [
-        "D"
-      ],
-      "explanationText": "法语词：coin；易混英文词：coin。\nTEM4 前 2–3 义项：角落、隅；一小块、一隅之地。\n英文迁移义：硬币。\n来源：TEM4 p.223；假朋友词典 p.39。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_WORD_MEANING",
-      "targetWord": "coin",
-      "displayConditionJson": null,
-      "tem4PdfPage": 223,
-      "falseFriendsPdfPage": 39,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T1-006",
-      "sectionCode": "FF4_WORD_MEANING",
-      "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\ncomplémentaire",
       "promptText": null,
       "correctAnswers": [
-        "B"
+        "C"
       ],
       "explanationText": "法语词：complémentaire；易混英文词：complimentary。\nTEM4 前 2–3 义项：补充的；互补的。\n英文迁移义：赞美的。\n来源：TEM4 p.41；假朋友词典 p.41。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -205,40 +178,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-007",
-      "sectionCode": "FF4_WORD_MEANING",
-      "questionType": "SINGLE_CHOICE",
-      "stemText": "请选出下列法语单词对应的正确中文含义\nconvenir",
-      "promptText": null,
-      "correctAnswers": [
-        "D"
-      ],
-      "explanationText": "法语词：convenir；易混英文词：convene。\nTEM4 前 2–3 义项：适合、使中意；约定；适合的。\n英文迁移义：召集。\n来源：TEM4 p.177；假朋友词典 p.47。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_WORD_MEANING",
-      "targetWord": "convenir",
-      "displayConditionJson": null,
-      "tem4PdfPage": 177,
-      "falseFriendsPdfPage": 47,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T1-008",
+      "itemCode": "FF4PROD-T1-006",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\ndisposer",
       "promptText": null,
       "correctAnswers": [
-        "D"
+        "B"
       ],
       "explanationText": "法语词：disposer；易混英文词：dispose。\nTEM4 前 2–3 义项：摆放；拥有；准备。\n英文迁移义：处理；处置。\n来源：TEM4 p.42；假朋友词典 p.65。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -259,40 +205,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-009",
-      "sectionCode": "FF4_WORD_MEANING",
-      "questionType": "SINGLE_CHOICE",
-      "stemText": "请选出下列法语单词对应的正确中文含义\ndon",
-      "promptText": null,
-      "correctAnswers": [
-        "C"
-      ],
-      "explanationText": "法语词：don；易混英文词：don。\nTEM4 前 2–3 义项：捐赠；天赋。\n英文迁移义：先生。\n来源：TEM4 p.256；假朋友词典 p.66。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_WORD_MEANING",
-      "targetWord": "don",
-      "displayConditionJson": null,
-      "tem4PdfPage": 256,
-      "falseFriendsPdfPage": 66,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T1-010",
+      "itemCode": "FF4PROD-T1-007",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\ndoter",
       "promptText": null,
       "correctAnswers": [
-        "D"
+        "A"
       ],
       "explanationText": "法语词：doter；易混英文词：dote。\nTEM4 前 2–3 义项：装备；配备；授予。\n英文迁移义：溺爱。\n来源：TEM4 p.312；假朋友词典 p.66。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -313,40 +232,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-011",
-      "sectionCode": "FF4_WORD_MEANING",
-      "questionType": "SINGLE_CHOICE",
-      "stemText": "请选出下列法语单词对应的正确中文含义\ndésigner",
-      "promptText": null,
-      "correctAnswers": [
-        "C"
-      ],
-      "explanationText": "法语词：désigner；易混英文词：design。\nTEM4 前 2–3 义项：指、指出；意思是；指定。\n英文迁移义：设计。\n来源：TEM4 p.242；假朋友词典 p.61。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_WORD_MEANING",
-      "targetWord": "désigner",
-      "displayConditionJson": null,
-      "tem4PdfPage": 242,
-      "falseFriendsPdfPage": 61,
-      "exampleSentenceStatus": "SOURCE_VERIFIED",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T1-012",
+      "itemCode": "FF4PROD-T1-008",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nentraîner",
       "promptText": null,
       "correctAnswers": [
-        "B"
+        "A"
       ],
       "explanationText": "法语词：entraîner；易混英文词：entrain。\nTEM4 前 2–3 义项：卷走；拖；拉。\n英文迁移义：兴致。\n来源：TEM4 p.34；假朋友词典 p.73。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -367,13 +259,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-013",
+      "itemCode": "FF4PROD-T1-009",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nfin",
       "promptText": null,
       "correctAnswers": [
-        "A"
+        "B"
       ],
       "explanationText": "法语词：fin；易混英文词：fin。\nTEM4 前 2–3 义项：细的、薄的；精美的；敏锐的。\n英文迁移义：鳍；金融。\n来源：TEM4 p.250；假朋友词典 p.81。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -394,13 +286,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-014",
+      "itemCode": "FF4PROD-T1-010",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nfondre",
       "promptText": null,
       "correctAnswers": [
-        "A"
+        "B"
       ],
       "explanationText": "法语词：fondre；易混英文词：founder。\nTEM4 前 2–3 义项：使融化、使熔格化；使合并；融化、熔化。\n英文迁移义：失败；沉没。\n来源：TEM4 p.200；假朋友词典 p.83。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -421,13 +313,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-015",
+      "itemCode": "FF4PROD-T1-011",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nformer",
       "promptText": null,
       "correctAnswers": [
-        "B"
+        "A"
       ],
       "explanationText": "法语词：former；易混英文词：former。\nTEM4 前 2–3 义项：制作、形成、使成形；组建；构成。\n英文迁移义：以前的。\n来源：TEM4 p.139；假朋友词典 p.85。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -448,13 +340,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-016",
+      "itemCode": "FF4PROD-T1-012",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nfour",
       "promptText": null,
       "correctAnswers": [
-        "D"
+        "B"
       ],
       "explanationText": "法语词：four；易混英文词：four。\nTEM4 前 2–3 义项：烤炉；烤箱。\n英文迁移义：四。\n来源：TEM4 p.41；假朋友词典 p.85。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -475,7 +367,7 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-017",
+      "itemCode": "FF4PROD-T1-013",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\ngeste",
@@ -502,13 +394,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-018",
+      "itemCode": "FF4PROD-T1-014",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nhardi",
       "promptText": null,
       "correctAnswers": [
-        "B"
+        "A"
       ],
       "explanationText": "法语词：hardi；易混英文词：hardy。\nTEM4 前 2–3 义项：大胆的；放肆的、厚脸皮的。\n英文迁移义：耐寒的；健壮的。\n来源：TEM4 p.144；假朋友词典 p.95。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -529,7 +421,7 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-019",
+      "itemCode": "FF4PROD-T1-015",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nhâter",
@@ -556,13 +448,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-020",
+      "itemCode": "FF4PROD-T1-016",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\ninstance",
       "promptText": null,
       "correctAnswers": [
-        "D"
+        "A"
       ],
       "explanationText": "法语词：instance；易混英文词：instance。\nTEM4 前 2–3 义项：诉讼；恳求、迫切要求。\n英文迁移义：实例。\n来源：TEM4 p.192；假朋友词典 p.104。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -583,34 +475,7 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-021",
-      "sectionCode": "FF4_WORD_MEANING",
-      "questionType": "SINGLE_CHOICE",
-      "stemText": "请选出下列法语单词对应的正确中文含义\njoli",
-      "promptText": null,
-      "correctAnswers": [
-        "A"
-      ],
-      "explanationText": "法语词：joli；易混英文词：jolly。\nTEM4 前 2–3 义项：漂亮的。\n英文迁移义：快乐的；愉快的。\n来源：TEM4 p.255；假朋友词典 p.108。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_WORD_MEANING",
-      "targetWord": "joli",
-      "displayConditionJson": null,
-      "tem4PdfPage": 255,
-      "falseFriendsPdfPage": 108,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T1-022",
+      "itemCode": "FF4PROD-T1-017",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nlecteur",
@@ -637,13 +502,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-023",
+      "itemCode": "FF4PROD-T1-018",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nlicencier",
       "promptText": null,
       "correctAnswers": [
-        "C"
+        "D"
       ],
       "explanationText": "法语词：licencier；易混英文词：license。\nTEM4 前 2–3 义项：解雇。\n英文迁移义：许可。\n来源：TEM4 p.27；假朋友词典 p.113。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -664,13 +529,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-024",
+      "itemCode": "FF4PROD-T1-019",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nlier",
       "promptText": null,
       "correctAnswers": [
-        "C"
+        "B"
       ],
       "explanationText": "法语词：lier；易混英文词：lie。\nTEM4 前 2–3 义项：捆；绑；结合。\n英文迁移义：撒谎；躺。\n来源：TEM4 p.63；假朋友词典 p.113。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -691,13 +556,13 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-025",
+      "itemCode": "FF4PROD-T1-020",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
       "stemText": "请选出下列法语单词对应的正确中文含义\nmince",
       "promptText": null,
       "correctAnswers": [
-        "B"
+        "D"
       ],
       "explanationText": "法语词：mince；易混英文词：mince。\nTEM4 前 2–3 义项：薄的；瘦长的、细的；微薄的、不重要的。\n英文迁移义：剁碎肉；细小。\n来源：TEM4 p.165；假朋友词典 p.123。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
@@ -718,25 +583,160 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T1-026",
+      "itemCode": "FF4PROD-T1-021",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
-      "stemText": "请选出下列法语单词对应的正确中文含义\npair",
+      "stemText": "请选出下列法语单词对应的正确中文含义\nquart",
       "promptText": null,
       "correctAnswers": [
-        "A"
+        "C"
       ],
-      "explanationText": "法语词：pair；易混英文词：pair。\nTEM4 前 2–3 义项：同等的人或物；同龄、同辈者。\n英文迁移义：一对；配对。\n来源：TEM4 p.178；假朋友词典 p.134。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
+      "explanationText": "法语词：quart；易混英文词：quart。\nTEM4 前 2–3 义项：四分之一；一刻钟。\n英文迁移义：夸脱。\n来源：TEM4 p.336；假朋友词典 p.156。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
       "transferCategory": "FALSE_FRIEND",
       "contextLevel": "WORD",
       "constructCode": "FF4_WORD_MEANING",
-      "targetWord": "pair",
+      "targetWord": "quart",
       "displayConditionJson": null,
-      "tem4PdfPage": 178,
-      "falseFriendsPdfPage": 134,
+      "tem4PdfPage": 336,
+      "falseFriendsPdfPage": 156,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T1-022",
+      "sectionCode": "FF4_WORD_MEANING",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请选出下列法语单词对应的正确中文含义\nrater",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：rater；易混英文词：rate。\nTEM4 前 2–3 义项：没有做成功；未命中；未赶上。\n英文迁移义：评价；比率。\n来源：TEM4 p.53；假朋友词典 p.159。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_WORD_MEANING",
+      "targetWord": "rater",
+      "displayConditionJson": null,
+      "tem4PdfPage": 53,
+      "falseFriendsPdfPage": 159,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T1-023",
+      "sectionCode": "FF4_WORD_MEANING",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请选出下列法语单词对应的正确中文含义\nrentable",
+      "promptText": null,
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "法语词：rentable；易混英文词：rentable。\nTEM4 前 2–3 义项：有收益的。\n英文迁移义：可出租的。\n来源：TEM4 p.82；假朋友词典 p.164。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_WORD_MEANING",
+      "targetWord": "rentable",
+      "displayConditionJson": null,
+      "tem4PdfPage": 82,
+      "falseFriendsPdfPage": 164,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T1-024",
+      "sectionCode": "FF4_WORD_MEANING",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请选出下列法语单词对应的正确中文含义\nressentir",
+      "promptText": null,
+      "correctAnswers": [
+        "C"
+      ],
+      "explanationText": "法语词：ressentir；易混英文词：resent。\nTEM4 前 2–3 义项：感受到；受到影响。\n英文迁移义：怨恨。\n来源：TEM4 p.258；假朋友词典 p.166。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_WORD_MEANING",
+      "targetWord": "ressentir",
+      "displayConditionJson": null,
+      "tem4PdfPage": 258,
+      "falseFriendsPdfPage": 166,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T1-025",
+      "sectionCode": "FF4_WORD_MEANING",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请选出下列法语单词对应的正确中文含义\nrécipient",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：récipient；易混英文词：recipient。\nTEM4 前 2–3 义项：容器。\n英文迁移义：接受者。\n来源：TEM4 p.228；假朋友词典 p.160。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_WORD_MEANING",
+      "targetWord": "récipient",
+      "displayConditionJson": null,
+      "tem4PdfPage": 228,
+      "falseFriendsPdfPage": 160,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T1-026",
+      "sectionCode": "FF4_WORD_MEANING",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请选出下列法语单词对应的正确中文含义\nscolaire",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：scolaire；易混英文词：scholar。\nTEM4 前 2–3 义项：学校的。\n英文迁移义：学者。\n来源：TEM4 p.94；假朋友词典 p.174。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_WORD_MEANING",
+      "targetWord": "scolaire",
+      "displayConditionJson": null,
+      "tem4PdfPage": 94,
+      "falseFriendsPdfPage": 174,
       "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
@@ -748,23 +748,23 @@
       "itemCode": "FF4PROD-T1-027",
       "sectionCode": "FF4_WORD_MEANING",
       "questionType": "SINGLE_CHOICE",
-      "stemText": "请选出下列法语单词对应的正确中文含义\npeine",
+      "stemText": "请选出下列法语单词对应的正确中文含义\nsinge",
       "promptText": null,
       "correctAnswers": [
-        "C"
+        "D"
       ],
-      "explanationText": "法语词：peine；易混英文词：pain。\nTEM4 前 2–3 义项：刑罚；惩罚；辛劳。\n英文迁移义：身体疼痛。\n来源：TEM4 p.21；假朋友词典 p.140。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
+      "explanationText": "法语词：singe；易混英文词：singe。\nTEM4 前 2–3 义项：猴子。\n英文迁移义：烧焦一点。\n来源：TEM4 p.260；假朋友词典 p.177。\n生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
       "transferCategory": "FALSE_FRIEND",
       "contextLevel": "WORD",
       "constructCode": "FF4_WORD_MEANING",
-      "targetWord": "peine",
+      "targetWord": "singe",
       "displayConditionJson": null,
-      "tem4PdfPage": 21,
-      "falseFriendsPdfPage": 140,
-      "exampleSentenceStatus": "SOURCE_VERIFIED",
+      "tem4PdfPage": 260,
+      "falseFriendsPdfPage": 177,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
       "morphologyOnly": false,
@@ -780,7 +780,7 @@
       "correctAnswers": [
         "A"
       ],
-      "explanationText": "法语词：remarquer；易混英文词：remark。\nTEM4 前 2–3 义项：注意到；察觉。\n英文迁移义：评论；言论。\n来源：TEM4 p.303；假朋友词典 p.163。\n生产审查：APPROVED（TEM4 原句、近义词、英语迁移义对应词与答案一致性已复核）。",
+      "explanationText": "法语词：remarquer；易混英文词：remark。\nTEM4 前 2–3 义项：注意到；察觉。\n英文迁移义：评论；言论。\n来源：TEM4 p.303；假朋友词典 p.163。\n生产审查：APPROVED（TEM4 完整原句可定位；近义词、英语迁移义对应词及平行语法已逐项复核）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
@@ -791,7 +791,412 @@
       "displayConditionJson": null,
       "tem4PdfPage": 303,
       "falseFriendsPdfPage": 163,
-      "exampleSentenceStatus": "SOURCE_VERIFIED",
+      "exampleSentenceStatus": "TEM4_EXACT_SENTENCE",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-002",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nÇa **vaut la peine** d'aller visiter ce musée.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：peine；易混英文词：pain。\nTEM4 前 2–3 义项：刑罚；惩罚；辛劳。\n英文迁移义：身体疼痛。\n来源：TEM4 p.21；假朋友词典 p.140。\n生产审查：APPROVED（TEM4 完整原句可定位；近义词、英语迁移义对应词及平行语法已逐项复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "peine",
+      "displayConditionJson": null,
+      "tem4PdfPage": 21,
+      "falseFriendsPdfPage": 140,
+      "exampleSentenceStatus": "TEM4_EXACT_SENTENCE",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-003",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nQue **désigne** ce mot dans le texte ?",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：désigner；易混英文词：design。\nTEM4 前 2–3 义项：指、指出；意思是；指定。\n英文迁移义：设计。\n来源：TEM4 p.242；假朋友词典 p.61。\n生产审查：APPROVED（TEM4 完整原句可定位；近义词、英语迁移义对应词及平行语法已逐项复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "désigner",
+      "displayConditionJson": null,
+      "tem4PdfPage": 242,
+      "falseFriendsPdfPage": 61,
+      "exampleSentenceStatus": "TEM4_EXACT_SENTENCE",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-004",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nJe t'en **supplie**.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：supplier；易混英文词：supply。\nTEM4 前 2–3 义项：恳求；请求。\n英文迁移义：供应。\n来源：TEM4 p.284；假朋友词典 p.184。\n生产审查：APPROVED（TEM4 完整原句可定位；近义词、英语迁移义对应词及平行语法已逐项复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "supplier",
+      "displayConditionJson": null,
+      "tem4PdfPage": 284,
+      "falseFriendsPdfPage": 184,
+      "exampleSentenceStatus": "TEM4_EXACT_SENTENCE",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-005",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nSa vue le **trompe** souvent.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：tromper；易混英文词：trump。\nTEM4 前 2–3 义项：欺骗；弄错。\n英文迁移义：王牌；胜过。\n来源：TEM4 p.151；假朋友词典 p.193。\n生产审查：APPROVED（TEM4 完整原句可定位；近义词、英语迁移义对应词及平行语法已逐项复核）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "tromper",
+      "displayConditionJson": null,
+      "tem4PdfPage": 151,
+      "falseFriendsPdfPage": 193,
+      "exampleSentenceStatus": "TEM4_EXACT_SENTENCE",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-006",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nIl habite au **coin** de la rue.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：coin；易混英文词：coin。\nTEM4 前 2–3 义项：角落、隅；一小块、一隅之地。\n英文迁移义：硬币。\n来源：TEM4 p.223；假朋友词典 p.39。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“au coin de la rue”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "coin",
+      "displayConditionJson": null,
+      "tem4PdfPage": 223,
+      "falseFriendsPdfPage": 39,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-007",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nCette date me **convient**.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：convenir；易混英文词：convene。\nTEM4 前 2–3 义项：适合、使中意；约定；适合的。\n英文迁移义：召集。\n来源：TEM4 p.177；假朋友词典 p.47。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“convenir à”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "convenir",
+      "displayConditionJson": null,
+      "tem4PdfPage": 177,
+      "falseFriendsPdfPage": 47,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-008",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nElle a un **don** pour la musique.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：don；易混英文词：don。\nTEM4 前 2–3 义项：捐赠；天赋。\n英文迁移义：先生。\n来源：TEM4 p.256；假朋友词典 p.66。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“avoir un don pour la musique”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "don",
+      "displayConditionJson": null,
+      "tem4PdfPage": 256,
+      "falseFriendsPdfPage": 66,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-009",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nC'est une **jolie** petite fille.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：joli；易混英文词：jolly。\nTEM4 前 2–3 义项：漂亮的。\n英文迁移义：快乐的；愉快的。\n来源：TEM4 p.255；假朋友词典 p.108。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“jolie petite fille”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "joli",
+      "displayConditionJson": null,
+      "tem4PdfPage": 255,
+      "falseFriendsPdfPage": 108,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-010",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nCet artiste est sans **pair**.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：pair；易混英文词：pair。\nTEM4 前 2–3 义项：同等的人或物；同龄、同辈者。\n英文迁移义：一对；配对。\n来源：TEM4 p.178；假朋友词典 p.134。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“sans pair”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "pair",
+      "displayConditionJson": null,
+      "tem4PdfPage": 178,
+      "falseFriendsPdfPage": 134,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-011",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nIls ont acheté une maison en **province**.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：province；易混英文词：Provence。\nTEM4 前 2–3 义项：省；外省（法国人指巴黎以外的地方）。\n英文迁移义：普罗旺斯。\n来源：TEM4 p.137；假朋友词典 p.154。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“acheter une maison en province”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "province",
+      "displayConditionJson": null,
+      "tem4PdfPage": 137,
+      "falseFriendsPdfPage": 154,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-012",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nIl cherche une **recette** pour réussir.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：recette；易混英文词：receipt。\nTEM4 前 2–3 义项：收入；烹饪法；秘诀。\n英文迁移义：收据。\n来源：TEM4 p.60；假朋友词典 p.160。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“recette pour réussir”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "recette",
+      "displayConditionJson": null,
+      "tem4PdfPage": 60,
+      "falseFriendsPdfPage": 160,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-013",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nIls ont **reporté** la cérémonie.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：reporter；易混英文词：report。\nTEM4 前 2–3 义项：送回、送还；推迟。\n英文迁移义：报道；报告。\n来源：TEM4 p.249；假朋友词典 p.165。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“reporter la cérémonie = remettre”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "reporter",
+      "displayConditionJson": null,
+      "tem4PdfPage": 249,
+      "falseFriendsPdfPage": 165,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-014",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nElle **résume** une histoire.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：résumer；易混英文词：resume。\nTEM4 前 2–3 义项：总结。\n英文迁移义：简历；继续。\n来源：TEM4 p.111；假朋友词典 p.166。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“résumer une histoire”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "résumer",
+      "displayConditionJson": null,
+      "tem4PdfPage": 111,
+      "falseFriendsPdfPage": 166,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-015",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nIl est maître de son **sort**.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：sort；易混英文词：sort。\nTEM4 前 2–3 义项：命运；遭遇；运气。\n英文迁移义：种类；分类。\n来源：TEM4 p.96；假朋友词典 p.179。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“être maître du sort de quelqu'un”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "sort",
+      "displayConditionJson": null,
+      "tem4PdfPage": 96,
+      "falseFriendsPdfPage": 179,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T2-016",
+      "sectionCode": "FF4_SENTENCE_SELECTION",
+      "questionType": "SINGLE_CHOICE",
+      "stemText": "请根据句子选择画线单词的同义解释\nIl admire une **toile** de Cézanne.",
+      "promptText": null,
+      "correctAnswers": [
+        "A"
+      ],
+      "explanationText": "法语词：toile；易混英文词：toil。\nTEM4 前 2–3 义项：布；织物；画布上的画。\n英文迁移义：辛劳。\n来源：TEM4 p.129；假朋友词典 p.189。\n生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。\n证据等级：基于 TEM4 原搭配“toile de Cézanne”补充最小语境，并非逐字原句。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "SENTENCE",
+      "constructCode": "FF4_SENTENCE_SYNONYM",
+      "targetWord": "toile",
+      "displayConditionJson": null,
+      "tem4PdfPage": 129,
+      "falseFriendsPdfPage": 189,
+      "exampleSentenceStatus": "TEM4_COLLOCATION_CONTEXTUALIZED",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
       "morphologyOnly": false,
@@ -802,22 +1207,22 @@
       "itemCode": "FF4PROD-T3-001",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
-      "stemText": "car = 汽车",
+      "stemText": "surnommer = 给姓氏；姓氏",
       "promptText": null,
       "correctAnswers": [
         "F"
       ],
-      "explanationText": "法语词：car；易混英文词：car。\nTEM4 前 2–3 义项：因为。\n英文迁移义：汽车。\n来源：TEM4 p.92；假朋友词典 p.31。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：surnommer；易混英文词：surname。\nTEM4 前 2–3 义项：给…起外号。\n英文迁移义：给姓氏；姓氏。\n来源：TEM4 p.13；假朋友词典 p.185。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
       "transferCategory": "FALSE_FRIEND",
       "contextLevel": "WORD",
       "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "car",
+      "targetWord": "surnommer",
       "displayConditionJson": null,
-      "tem4PdfPage": 92,
-      "falseFriendsPdfPage": 31,
+      "tem4PdfPage": 13,
+      "falseFriendsPdfPage": 185,
       "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
@@ -834,7 +1239,7 @@
       "correctAnswers": [
         "F"
       ],
-      "explanationText": "法语词：encore；易混英文词：encore。\nTEM4 前 2–3 义项：还、尚、仍；又、再。\n英文迁移义：返场。\n来源：TEM4 p.208；假朋友词典 p.71。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：encore；易混英文词：encore。\nTEM4 前 2–3 义项：还、尚、仍；又、再。\n英文迁移义：返场。\n来源：TEM4 p.208；假朋友词典 p.71。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
@@ -856,22 +1261,22 @@
       "itemCode": "FF4PROD-T3-003",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
-      "stemText": "or = 或者",
+      "stemText": "science = 科学",
       "promptText": null,
       "correctAnswers": [
-        "F"
+        "V"
       ],
-      "explanationText": "法语词：or；易混英文词：or。\nTEM4 前 2–3 义项：然而。\n英文迁移义：或者。\n来源：TEM4 p.205；假朋友词典 p.133。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：science；易混英文词：science。\nTEM4 前 2–3 义项：科学；某一门学科。\n英文迁移义：科学。\n来源：TEM4 p.36；假朋友词典 p.174。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
+      "transferCategory": "COGNATE",
       "contextLevel": "WORD",
       "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "or",
+      "targetWord": "science",
       "displayConditionJson": null,
-      "tem4PdfPage": 205,
-      "falseFriendsPdfPage": 133,
+      "tem4PdfPage": 36,
+      "falseFriendsPdfPage": 174,
       "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
@@ -883,22 +1288,22 @@
       "itemCode": "FF4PROD-T3-004",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
-      "stemText": "province = 普罗旺斯",
+      "stemText": "verger = 执达员",
       "promptText": null,
       "correctAnswers": [
         "F"
       ],
-      "explanationText": "法语词：province；易混英文词：Provence。\nTEM4 前 2–3 义项：省；外省（法国人指巴黎以外的地方）。\n英文迁移义：普罗旺斯。\n来源：TEM4 p.137；假朋友词典 p.154。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：verger；易混英文词：verger。\nTEM4 前 2–3 义项：果园。\n英文迁移义：执达员。\n来源：TEM4 p.22；假朋友词典 p.198。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
       "transferCategory": "FALSE_FRIEND",
       "contextLevel": "WORD",
       "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "province",
+      "targetWord": "verger",
       "displayConditionJson": null,
-      "tem4PdfPage": 137,
-      "falseFriendsPdfPage": 154,
+      "tem4PdfPage": 22,
+      "falseFriendsPdfPage": 198,
       "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
@@ -910,22 +1315,22 @@
       "itemCode": "FF4PROD-T3-005",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
-      "stemText": "quart = 夸脱",
+      "stemText": "villa = 别墅",
       "promptText": null,
       "correctAnswers": [
-        "F"
+        "V"
       ],
-      "explanationText": "法语词：quart；易混英文词：quart。\nTEM4 前 2–3 义项：四分之一；一刻钟。\n英文迁移义：夸脱。\n来源：TEM4 p.336；假朋友词典 p.156。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：villa；易混英文词：villa。\nTEM4 前 2–3 义项：别墅。\n英文迁移义：别墅。\n来源：TEM4 p.41；假朋友词典 p.199。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
+      "transferCategory": "COGNATE",
       "contextLevel": "WORD",
       "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "quart",
+      "targetWord": "villa",
       "displayConditionJson": null,
-      "tem4PdfPage": 336,
-      "falseFriendsPdfPage": 156,
+      "tem4PdfPage": 41,
+      "falseFriendsPdfPage": 199,
       "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
@@ -937,255 +1342,12 @@
       "itemCode": "FF4PROD-T3-006",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
-      "stemText": "rater = 评价；比率",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：rater；易混英文词：rate。\nTEM4 前 2–3 义项：没有做成功；未命中；未赶上。\n英文迁移义：评价；比率。\n来源：TEM4 p.53；假朋友词典 p.159。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "rater",
-      "displayConditionJson": null,
-      "tem4PdfPage": 53,
-      "falseFriendsPdfPage": 159,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-007",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "recette = 收据",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：recette；易混英文词：receipt。\nTEM4 前 2–3 义项：收入；烹饪法；秘诀。\n英文迁移义：收据。\n来源：TEM4 p.60；假朋友词典 p.160。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "recette",
-      "displayConditionJson": null,
-      "tem4PdfPage": 60,
-      "falseFriendsPdfPage": 160,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-008",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "rentable = 可出租的",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：rentable；易混英文词：rentable。\nTEM4 前 2–3 义项：有收益的。\n英文迁移义：可出租的。\n来源：TEM4 p.82；假朋友词典 p.164。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "rentable",
-      "displayConditionJson": null,
-      "tem4PdfPage": 82,
-      "falseFriendsPdfPage": 164,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-009",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "reporter = 报道；报告",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：reporter；易混英文词：report。\nTEM4 前 2–3 义项：送回、送还；推迟。\n英文迁移义：报道；报告。\n来源：TEM4 p.249；假朋友词典 p.165。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "reporter",
-      "displayConditionJson": null,
-      "tem4PdfPage": 249,
-      "falseFriendsPdfPage": 165,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-010",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "ressentir = 怨恨",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：ressentir；易混英文词：resent。\nTEM4 前 2–3 义项：感受到；受到影响。\n英文迁移义：怨恨。\n来源：TEM4 p.258；假朋友词典 p.166。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "ressentir",
-      "displayConditionJson": null,
-      "tem4PdfPage": 258,
-      "falseFriendsPdfPage": 166,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-011",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "récipient = 接受者",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：récipient；易混英文词：recipient。\nTEM4 前 2–3 义项：容器。\n英文迁移义：接受者。\n来源：TEM4 p.228；假朋友词典 p.160。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "récipient",
-      "displayConditionJson": null,
-      "tem4PdfPage": 228,
-      "falseFriendsPdfPage": 160,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-012",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "résumer = 简历；继续",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：résumer；易混英文词：resume。\nTEM4 前 2–3 义项：总结。\n英文迁移义：简历；继续。\n来源：TEM4 p.111；假朋友词典 p.166。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "résumer",
-      "displayConditionJson": null,
-      "tem4PdfPage": 111,
-      "falseFriendsPdfPage": 166,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-013",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "scolaire = 学者",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：scolaire；易混英文词：scholar。\nTEM4 前 2–3 义项：学校的。\n英文迁移义：学者。\n来源：TEM4 p.94；假朋友词典 p.174。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "scolaire",
-      "displayConditionJson": null,
-      "tem4PdfPage": 94,
-      "falseFriendsPdfPage": 174,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-014",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "singe = 烧焦一点",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：singe；易混英文词：singe。\nTEM4 前 2–3 义项：猴子。\n英文迁移义：烧焦一点。\n来源：TEM4 p.260；假朋友词典 p.177。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "singe",
-      "displayConditionJson": null,
-      "tem4PdfPage": 260,
-      "falseFriendsPdfPage": 177,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-015",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
       "stemText": "solde = 已售的",
       "promptText": null,
       "correctAnswers": [
         "F"
       ],
-      "explanationText": "法语词：solde；易混英文词：sold。\nTEM4 前 2–3 义项：余额；清仓存货；军饷。\n英文迁移义：已售的。\n来源：TEM4 p.322；假朋友词典 p.179。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：solde；易混英文词：sold。\nTEM4 前 2–3 义项：余额；清仓存货；军饷。\n英文迁移义：已售的。\n来源：TEM4 p.322；假朋友词典 p.179。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
@@ -1204,25 +1366,25 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T3-016",
+      "itemCode": "FF4PROD-T3-007",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
-      "stemText": "somme = 一些",
+      "stemText": "radio = 收音机",
       "promptText": null,
       "correctAnswers": [
-        "F"
+        "V"
       ],
-      "explanationText": "法语词：somme；易混英文词：some。\nTEM4 前 2–3 义项：金额、款项；总量。\n英文迁移义：一些。\n来源：TEM4 p.230；假朋友词典 p.179。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：radio；易混英文词：radio。\nTEM4 前 2–3 义项：广播；收音机；射线透视检查。\n英文迁移义：收音机；无线电。\n来源：TEM4 p.43；假朋友词典 p.157。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
+      "transferCategory": "COGNATE",
       "contextLevel": "WORD",
       "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "somme",
+      "targetWord": "radio",
       "displayConditionJson": null,
-      "tem4PdfPage": 230,
-      "falseFriendsPdfPage": 179,
+      "tem4PdfPage": 43,
+      "falseFriendsPdfPage": 157,
       "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
@@ -1231,250 +1393,7 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T3-017",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "sort = 种类；分类",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：sort；易混英文词：sort。\nTEM4 前 2–3 义项：命运；遭遇；运气。\n英文迁移义：种类；分类。\n来源：TEM4 p.96；假朋友词典 p.179。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "sort",
-      "displayConditionJson": null,
-      "tem4PdfPage": 96,
-      "falseFriendsPdfPage": 179,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-018",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "stage = 舞台；阶段",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：stage；易混英文词：stage。\nTEM4 前 2–3 义项：实习期；培训期。\n英文迁移义：舞台；阶段。\n来源：TEM4 p.77；假朋友词典 p.181。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "stage",
-      "displayConditionJson": null,
-      "tem4PdfPage": 77,
-      "falseFriendsPdfPage": 181,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-019",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "supplier = 供应",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：supplier；易混英文词：supply。\nTEM4 前 2–3 义项：恳求；请求。\n英文迁移义：供应。\n来源：TEM4 p.284；假朋友词典 p.184。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "supplier",
-      "displayConditionJson": null,
-      "tem4PdfPage": 284,
-      "falseFriendsPdfPage": 184,
-      "exampleSentenceStatus": "SOURCE_VERIFIED",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-020",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "surnommer = 给姓氏；姓氏",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：surnommer；易混英文词：surname。\nTEM4 前 2–3 义项：给…起外号。\n英文迁移义：给姓氏；姓氏。\n来源：TEM4 p.13；假朋友词典 p.185。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "surnommer",
-      "displayConditionJson": null,
-      "tem4PdfPage": 13,
-      "falseFriendsPdfPage": 185,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-021",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "taper = 胶带；录制",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：taper；易混英文词：tape。\nTEM4 前 2–3 义项：打字；拍打；敲击。\n英文迁移义：胶带；录制。\n来源：TEM4 p.49；假朋友词典 p.187。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "taper",
-      "displayConditionJson": null,
-      "tem4PdfPage": 49,
-      "falseFriendsPdfPage": 187,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-022",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "tirer = 轮胎；疲倦",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：tirer；易混英文词：tire。\nTEM4 前 2–3 义项：拉；抽取；射击。\n英文迁移义：轮胎；疲倦。\n来源：TEM4 p.360；假朋友词典 p.189。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "tirer",
-      "displayConditionJson": null,
-      "tem4PdfPage": 360,
-      "falseFriendsPdfPage": 189,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-023",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "toile = 辛劳",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：toile；易混英文词：toil。\nTEM4 前 2–3 义项：布；织物；画布上的画。\n英文迁移义：辛劳。\n来源：TEM4 p.129；假朋友词典 p.189。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "toile",
-      "displayConditionJson": null,
-      "tem4PdfPage": 129,
-      "falseFriendsPdfPage": 189,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-024",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "trier = 尝试",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：trier；易混英文词：try。\nTEM4 前 2–3 义项：挑选；分拣；分类。\n英文迁移义：尝试。\n来源：TEM4 p.44；假朋友词典 p.192。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "trier",
-      "displayConditionJson": null,
-      "tem4PdfPage": 44,
-      "falseFriendsPdfPage": 192,
-      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-025",
-      "sectionCode": "FF4_TRUE_FALSE",
-      "questionType": "TRUE_FALSE",
-      "stemText": "tromper = 王牌；胜过",
-      "promptText": null,
-      "correctAnswers": [
-        "F"
-      ],
-      "explanationText": "法语词：tromper；易混英文词：trump。\nTEM4 前 2–3 义项：欺骗；弄错。\n英文迁移义：王牌；胜过。\n来源：TEM4 p.151；假朋友词典 p.193。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
-      "requiredAnswer": true,
-      "scored": true,
-      "weight": 1,
-      "transferCategory": "FALSE_FRIEND",
-      "contextLevel": "WORD",
-      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "tromper",
-      "displayConditionJson": null,
-      "tem4PdfPage": 151,
-      "falseFriendsPdfPage": 193,
-      "exampleSentenceStatus": "SOURCE_VERIFIED",
-      "spellingRawEditDistance": null,
-      "spellingAccentFoldedEditDistance": null,
-      "morphologyOnly": false,
-      "lexicalReviewStatus": "APPROVED",
-      "pedagogicReviewStatus": "APPROVED"
-    },
-    {
-      "itemCode": "FF4PROD-T3-026",
+      "itemCode": "FF4PROD-T3-008",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
       "stemText": "vaisselle = 容器；船",
@@ -1482,7 +1401,7 @@
       "correctAnswers": [
         "F"
       ],
-      "explanationText": "法语词：vaisselle；易混英文词：vessel。\nTEM4 前 2–3 义项：餐具；需洗刷的餐具。\n英文迁移义：容器；船。\n来源：TEM4 p.156；假朋友词典 p.196。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：vaisselle；易混英文词：vessel。\nTEM4 前 2–3 义项：餐具；需洗刷的餐具。\n英文迁移义：容器；船。\n来源：TEM4 p.156；假朋友词典 p.196。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
@@ -1501,25 +1420,376 @@
       "pedagogicReviewStatus": "APPROVED"
     },
     {
-      "itemCode": "FF4PROD-T3-027",
+      "itemCode": "FF4PROD-T3-009",
       "sectionCode": "FF4_TRUE_FALSE",
       "questionType": "TRUE_FALSE",
-      "stemText": "verger = 执达员",
+      "stemText": "flatter = 奉承",
+      "promptText": null,
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "法语词：flatter；易混英文词：flatter。\nTEM4 前 2–3 义项：奉承。\n英文迁移义：奉承。\n来源：TEM4 p.147；假朋友词典 p.82。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "flatter",
+      "displayConditionJson": null,
+      "tem4PdfPage": 147,
+      "falseFriendsPdfPage": 82,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-010",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "tirer = 轮胎；疲倦",
       "promptText": null,
       "correctAnswers": [
         "F"
       ],
-      "explanationText": "法语词：verger；易混英文词：verger。\nTEM4 前 2–3 义项：果园。\n英文迁移义：执达员。\n来源：TEM4 p.22；假朋友词典 p.198。\n生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+      "explanationText": "法语词：tirer；易混英文词：tire。\nTEM4 前 2–3 义项：拉；抽取；射击。\n英文迁移义：轮胎；疲倦。\n来源：TEM4 p.360；假朋友词典 p.189。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
       "requiredAnswer": true,
       "scored": true,
       "weight": 1,
       "transferCategory": "FALSE_FRIEND",
       "contextLevel": "WORD",
       "constructCode": "FF4_TRUE_FALSE_TRANSFER",
-      "targetWord": "verger",
+      "targetWord": "tirer",
       "displayConditionJson": null,
-      "tem4PdfPage": 22,
-      "falseFriendsPdfPage": 198,
+      "tem4PdfPage": 360,
+      "falseFriendsPdfPage": 189,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-011",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "dragon = 龙",
+      "promptText": null,
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "法语词：dragon；易混英文词：dragon。\nTEM4 前 2–3 义项：龙。\n英文迁移义：龙。\n来源：TEM4 p.196；假朋友词典 p.67。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "dragon",
+      "displayConditionJson": null,
+      "tem4PdfPage": 196,
+      "falseFriendsPdfPage": 67,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-012",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "trier = 尝试",
+      "promptText": null,
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "法语词：trier；易混英文词：try。\nTEM4 前 2–3 义项：挑选；分拣；分类。\n英文迁移义：尝试。\n来源：TEM4 p.44；假朋友词典 p.192。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "trier",
+      "displayConditionJson": null,
+      "tem4PdfPage": 44,
+      "falseFriendsPdfPage": 192,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-013",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "opinion = 意见",
+      "promptText": null,
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "法语词：opinion；易混英文词：opinion。\nTEM4 前 2–3 义项：意见；舆论。\n英文迁移义：意见。\n来源：TEM4 p.220；假朋友词典 p.132。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "opinion",
+      "displayConditionJson": null,
+      "tem4PdfPage": 220,
+      "falseFriendsPdfPage": 132,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-014",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "car = 汽车",
+      "promptText": null,
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "法语词：car；易混英文词：car。\nTEM4 前 2–3 义项：因为。\n英文迁移义：汽车。\n来源：TEM4 p.92；假朋友词典 p.31。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "car",
+      "displayConditionJson": null,
+      "tem4PdfPage": 92,
+      "falseFriendsPdfPage": 31,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-015",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "site = 网站",
+      "promptText": null,
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "法语词：site；易混英文词：site。\nTEM4 前 2–3 义项：地点；网站。\n英文迁移义：地点；网站。\n来源：TEM4 p.267；假朋友词典 p.177。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "site",
+      "displayConditionJson": null,
+      "tem4PdfPage": 267,
+      "falseFriendsPdfPage": 177,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-016",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "stage = 舞台；阶段",
+      "promptText": null,
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "法语词：stage；易混英文词：stage。\nTEM4 前 2–3 义项：实习期；培训期。\n英文迁移义：舞台；阶段。\n来源：TEM4 p.77；假朋友词典 p.181。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "stage",
+      "displayConditionJson": null,
+      "tem4PdfPage": 77,
+      "falseFriendsPdfPage": 181,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-017",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "standard = 标准",
+      "promptText": null,
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "法语词：standard；易混英文词：standard。\nTEM4 前 2–3 义项：标准。\n英文迁移义：标准。\n来源：TEM4 p.270；假朋友词典 p.181。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "standard",
+      "displayConditionJson": null,
+      "tem4PdfPage": 270,
+      "falseFriendsPdfPage": 181,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-018",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "somme = 一些",
+      "promptText": null,
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "法语词：somme；易混英文词：some。\nTEM4 前 2–3 义项：金额、款项；总量。\n英文迁移义：一些。\n来源：TEM4 p.230；假朋友词典 p.179。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "somme",
+      "displayConditionJson": null,
+      "tem4PdfPage": 230,
+      "falseFriendsPdfPage": 179,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-019",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "contact = 联系",
+      "promptText": null,
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "法语词：contact；易混英文词：contact。\nTEM4 前 2–3 义项：联系；接触。\n英文迁移义：联系。\n来源：TEM4 p.303；假朋友词典 p.46。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "contact",
+      "displayConditionJson": null,
+      "tem4PdfPage": 303,
+      "falseFriendsPdfPage": 46,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-020",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "taper = 胶带；录制",
+      "promptText": null,
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "法语词：taper；易混英文词：tape。\nTEM4 前 2–3 义项：打字；拍打；敲击。\n英文迁移义：胶带；录制。\n来源：TEM4 p.49；假朋友词典 p.187。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "taper",
+      "displayConditionJson": null,
+      "tem4PdfPage": 49,
+      "falseFriendsPdfPage": 187,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-021",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "ski = 滑雪；滑雪板",
+      "promptText": null,
+      "correctAnswers": [
+        "V"
+      ],
+      "explanationText": "法语词：ski；易混英文词：ski。\nTEM4 前 2–3 义项：滑雪；滑雪板。\n英文迁移义：滑雪；滑雪板。\n来源：TEM4 p.358；假朋友词典 p.178。\n生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "COGNATE",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "ski",
+      "displayConditionJson": null,
+      "tem4PdfPage": 358,
+      "falseFriendsPdfPage": 178,
+      "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
+      "spellingRawEditDistance": null,
+      "spellingAccentFoldedEditDistance": null,
+      "morphologyOnly": false,
+      "lexicalReviewStatus": "APPROVED",
+      "pedagogicReviewStatus": "APPROVED"
+    },
+    {
+      "itemCode": "FF4PROD-T3-022",
+      "sectionCode": "FF4_TRUE_FALSE",
+      "questionType": "TRUE_FALSE",
+      "stemText": "or = 或者",
+      "promptText": null,
+      "correctAnswers": [
+        "F"
+      ],
+      "explanationText": "法语词：or；易混英文词：or。\nTEM4 前 2–3 义项：然而。\n英文迁移义：或者。\n来源：TEM4 p.205；假朋友词典 p.133。\n生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。",
+      "requiredAnswer": true,
+      "scored": true,
+      "weight": 1,
+      "transferCategory": "FALSE_FRIEND",
+      "contextLevel": "WORD",
+      "constructCode": "FF4_TRUE_FALSE_TRANSFER",
+      "targetWord": "or",
+      "displayConditionJson": null,
+      "tem4PdfPage": 205,
+      "falseFriendsPdfPage": 133,
       "exampleSentenceStatus": "SOURCE_EXAMPLE_MISSING",
       "spellingRawEditDistance": null,
       "spellingAccentFoldedEditDistance": null,
@@ -6358,7 +6628,7 @@
     {
       "itemCode": "FF4PROD-T1-005",
       "optionCode": "A",
-      "optionText": "怜悯",
+      "optionText": "大胆的; 放肆的、厚脸皮的",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
@@ -6366,7 +6636,7 @@
     {
       "itemCode": "FF4PROD-T1-005",
       "optionCode": "B",
-      "optionText": "担保; 保证",
+      "optionText": "有规律的",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
@@ -6374,45 +6644,13 @@
     {
       "itemCode": "FF4PROD-T1-005",
       "optionCode": "C",
-      "optionText": "硬币",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-005",
-      "optionCode": "D",
-      "optionText": "角落、隅；一小块、一隅之地",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-006",
-      "optionCode": "A",
-      "optionText": "贵重的; 宝贵的",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-006",
-      "optionCode": "B",
       "optionText": "补充的；互补的",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-006",
-      "optionCode": "C",
-      "optionText": "暗的; 阴郁的",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-006",
+      "itemCode": "FF4PROD-T1-005",
       "optionCode": "D",
       "optionText": "赞美的",
       "correct": false,
@@ -6420,215 +6658,119 @@
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-007",
+      "itemCode": "FF4PROD-T1-006",
       "optionCode": "A",
-      "optionText": "使转向; 拍摄（影视）",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-007",
-      "optionCode": "B",
-      "optionText": "召集",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-007",
-      "optionCode": "C",
-      "optionText": "刺; 扎",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-007",
-      "optionCode": "D",
-      "optionText": "适合、使中意；约定；适合的",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-008",
-      "optionCode": "A",
-      "optionText": "走; 运行",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-008",
-      "optionCode": "B",
-      "optionText": "改革",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-008",
-      "optionCode": "C",
       "optionText": "处理；处置",
       "correct": false,
       "explanation": null,
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-008",
-      "optionCode": "D",
+      "itemCode": "FF4PROD-T1-006",
+      "optionCode": "B",
       "optionText": "摆放；拥有；准备",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-009",
-      "optionCode": "A",
-      "optionText": "金额、款项; 总量",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-009",
-      "optionCode": "B",
-      "optionText": "喧哗; 谣传",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-009",
+      "itemCode": "FF4PROD-T1-006",
       "optionCode": "C",
-      "optionText": "捐赠；天赋",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-009",
-      "optionCode": "D",
-      "optionText": "先生",
+      "optionText": "安顿; 安家",
       "correct": false,
       "explanation": null,
-      "role": "TRANSFER"
+      "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-010",
+      "itemCode": "FF4PROD-T1-006",
+      "optionCode": "D",
+      "optionText": "指挥; 命令某人做某事",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-007",
       "optionCode": "A",
-      "optionText": "待、停留; 保持",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-010",
-      "optionCode": "B",
-      "optionText": "集合; 归队",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-010",
-      "optionCode": "C",
-      "optionText": "溺爱",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-010",
-      "optionCode": "D",
       "optionText": "装备；配备；授予",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-011",
-      "optionCode": "A",
-      "optionText": "设计",
+      "itemCode": "FF4PROD-T1-007",
+      "optionCode": "B",
+      "optionText": "溺爱",
       "correct": false,
       "explanation": null,
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-011",
-      "optionCode": "B",
-      "optionText": "估价; 估计",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-011",
+      "itemCode": "FF4PROD-T1-007",
       "optionCode": "C",
-      "optionText": "指、指出；意思是；指定",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-011",
-      "optionCode": "D",
-      "optionText": "再上; 重新登上",
+      "optionText": "吸（气）; 使获得灵感",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-012",
-      "optionCode": "A",
-      "optionText": "兴致",
+      "itemCode": "FF4PROD-T1-007",
+      "optionCode": "D",
+      "optionText": "解开; 使移开",
       "correct": false,
       "explanation": null,
-      "role": "TRANSFER"
+      "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-012",
-      "optionCode": "B",
+      "itemCode": "FF4PROD-T1-008",
+      "optionCode": "A",
       "optionText": "卷走；拖；拉",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-012",
+      "itemCode": "FF4PROD-T1-008",
+      "optionCode": "B",
+      "optionText": "领入、引荐; 引进",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-008",
       "optionCode": "C",
-      "optionText": "推动; 行驶",
+      "optionText": "碰撞; 触犯",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-012",
+      "itemCode": "FF4PROD-T1-008",
       "optionCode": "D",
-      "optionText": "接替; 继而来",
+      "optionText": "兴致",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-009",
+      "optionCode": "A",
+      "optionText": "大的; 高的",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-013",
-      "optionCode": "A",
+      "itemCode": "FF4PROD-T1-009",
+      "optionCode": "B",
       "optionText": "细的、薄的；精美的；敏锐的",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-013",
-      "optionCode": "B",
-      "optionText": "可能的",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-013",
+      "itemCode": "FF4PROD-T1-009",
       "optionCode": "C",
       "optionText": "鳍；金融",
       "correct": false,
@@ -6636,119 +6778,119 @@
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-013",
+      "itemCode": "FF4PROD-T1-009",
       "optionCode": "D",
-      "optionText": "补充的; 互补的",
+      "optionText": "健康的",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-014",
+      "itemCode": "FF4PROD-T1-010",
       "optionCode": "A",
-      "optionText": "使融化、使熔格化；使合并；融化、熔化",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-014",
-      "optionCode": "B",
       "optionText": "失败；沉没",
       "correct": false,
       "explanation": null,
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-014",
-      "optionCode": "C",
-      "optionText": "请求; 申请",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-014",
-      "optionCode": "D",
-      "optionText": "使着迷; 吸引",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-015",
-      "optionCode": "A",
-      "optionText": "奉承",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-015",
+      "itemCode": "FF4PROD-T1-010",
       "optionCode": "B",
+      "optionText": "使融化、使熔格化；使合并；融化、熔化",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-010",
+      "optionCode": "C",
+      "optionText": "促使",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-010",
+      "optionCode": "D",
+      "optionText": "压榨、挤、按; 催促",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-011",
+      "optionCode": "A",
       "optionText": "制作、形成、使成形；组建；构成",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-015",
-      "optionCode": "C",
-      "optionText": "强行弄开; 强迫",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-015",
-      "optionCode": "D",
+      "itemCode": "FF4PROD-T1-011",
+      "optionCode": "B",
       "optionText": "以前的",
       "correct": false,
       "explanation": null,
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-016",
-      "optionCode": "A",
-      "optionText": "流感",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-016",
-      "optionCode": "B",
-      "optionText": "四",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-016",
+      "itemCode": "FF4PROD-T1-011",
       "optionCode": "C",
-      "optionText": "直行; 直列",
+      "optionText": "扣留、扣除; 预定",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-016",
+      "itemCode": "FF4PROD-T1-011",
       "optionCode": "D",
+      "optionText": "要求; 请求",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-012",
+      "optionCode": "A",
+      "optionText": "讲台; 主席台",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-012",
+      "optionCode": "B",
       "optionText": "烤炉；烤箱",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-017",
-      "optionCode": "A",
-      "optionText": "语言、用语",
+      "itemCode": "FF4PROD-T1-012",
+      "optionCode": "C",
+      "optionText": "四",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-012",
+      "optionCode": "D",
+      "optionText": "水库; （盛液体或气体的）容器",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-017",
+      "itemCode": "FF4PROD-T1-013",
+      "optionCode": "A",
+      "optionText": "港口",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-013",
       "optionCode": "B",
       "optionText": "手势；动作；行为",
       "correct": true,
@@ -6756,55 +6898,55 @@
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-017",
+      "itemCode": "FF4PROD-T1-013",
       "optionCode": "C",
+      "optionText": "细节; 详细",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-013",
+      "optionCode": "D",
       "optionText": "笑话",
       "correct": false,
       "explanation": null,
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-017",
-      "optionCode": "D",
-      "optionText": "怜悯; 仁慈",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-018",
+      "itemCode": "FF4PROD-T1-014",
       "optionCode": "A",
-      "optionText": "可携带的; 便携式的",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-018",
-      "optionCode": "B",
       "optionText": "大胆的；放肆的、厚脸皮的",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-018",
-      "optionCode": "C",
-      "optionText": "细的、薄的; 精美的",
+      "itemCode": "FF4PROD-T1-014",
+      "optionCode": "B",
+      "optionText": "耐心的; 病人",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-018",
-      "optionCode": "D",
+      "itemCode": "FF4PROD-T1-014",
+      "optionCode": "C",
       "optionText": "耐寒的；健壮的",
       "correct": false,
       "explanation": null,
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-019",
+      "itemCode": "FF4PROD-T1-014",
+      "optionCode": "D",
+      "optionText": "给人深刻印象的; 巨大的",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-015",
       "optionCode": "A",
       "optionText": "仇恨",
       "correct": false,
@@ -6812,15 +6954,15 @@
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-019",
+      "itemCode": "FF4PROD-T1-015",
       "optionCode": "B",
-      "optionText": "使转向; 拍摄（影视）",
+      "optionText": "辩驳; 反驳",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-019",
+      "itemCode": "FF4PROD-T1-015",
       "optionCode": "C",
       "optionText": "加速；提前；赶紧",
       "correct": true,
@@ -6828,167 +6970,7 @@
       "role": "CORRECT"
     },
     {
-      "itemCode": "FF4PROD-T1-019",
-      "optionCode": "D",
-      "optionText": "摆放; 拥有",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-020",
-      "optionCode": "A",
-      "optionText": "实例",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-020",
-      "optionCode": "B",
-      "optionText": "喧哗; 谣传",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-020",
-      "optionCode": "C",
-      "optionText": "壁炉; 家",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-020",
-      "optionCode": "D",
-      "optionText": "诉讼；恳求、迫切要求",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-021",
-      "optionCode": "A",
-      "optionText": "漂亮的",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-021",
-      "optionCode": "B",
-      "optionText": "可爱的; 和蔼可亲的",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-021",
-      "optionCode": "C",
-      "optionText": "助消化的",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-021",
-      "optionCode": "D",
-      "optionText": "快乐的；愉快的",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-022",
-      "optionCode": "A",
-      "optionText": "理论、原理",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-022",
-      "optionCode": "B",
-      "optionText": "读者；朗读者",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-022",
-      "optionCode": "C",
-      "optionText": "烟囱; 壁炉",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-022",
-      "optionCode": "D",
-      "optionText": "讲师",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-023",
-      "optionCode": "A",
-      "optionText": "混淆; 使困惑",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-023",
-      "optionCode": "B",
-      "optionText": "许可",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-023",
-      "optionCode": "C",
-      "optionText": "解雇",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-023",
-      "optionCode": "D",
-      "optionText": "放置; 提出",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-024",
-      "optionCode": "A",
-      "optionText": "撒谎；躺",
-      "correct": false,
-      "explanation": null,
-      "role": "TRANSFER"
-    },
-    {
-      "itemCode": "FF4PROD-T1-024",
-      "optionCode": "B",
-      "optionText": "冒烟; 熏制",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T1-024",
-      "optionCode": "C",
-      "optionText": "捆；绑；结合",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T1-024",
+      "itemCode": "FF4PROD-T1-015",
       "optionCode": "D",
       "optionText": "引起; 导致",
       "correct": false,
@@ -6996,7 +6978,135 @@
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T1-025",
+      "itemCode": "FF4PROD-T1-016",
+      "optionCode": "A",
+      "optionText": "诉讼；恳求、迫切要求",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-016",
+      "optionCode": "B",
+      "optionText": "材料; 方面",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-016",
+      "optionCode": "C",
+      "optionText": "担保; 保证",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-016",
+      "optionCode": "D",
+      "optionText": "实例",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-017",
+      "optionCode": "A",
+      "optionText": "直行; 直列",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-017",
+      "optionCode": "B",
+      "optionText": "读者；朗读者",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-017",
+      "optionCode": "C",
+      "optionText": "机体; 人体",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-017",
+      "optionCode": "D",
+      "optionText": "讲师",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-018",
+      "optionCode": "A",
+      "optionText": "许可",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-018",
+      "optionCode": "B",
+      "optionText": "描绘; 体现、相当于、意味着",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-018",
+      "optionCode": "C",
+      "optionText": "使融化、使熔格化; 使合并",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-018",
+      "optionCode": "D",
+      "optionText": "解雇",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-019",
+      "optionCode": "A",
+      "optionText": "使着迷; 吸引",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-019",
+      "optionCode": "B",
+      "optionText": "捆；绑；结合",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-019",
+      "optionCode": "C",
+      "optionText": "犯（罪行、错误）; 做（坏事、蠢事）",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-019",
+      "optionCode": "D",
+      "optionText": "撒谎；躺",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-020",
       "optionCode": "A",
       "optionText": "剁碎肉；细小",
       "correct": false,
@@ -7004,17 +7114,177 @@
       "role": "TRANSFER"
     },
     {
-      "itemCode": "FF4PROD-T1-025",
+      "itemCode": "FF4PROD-T1-020",
       "optionCode": "B",
+      "optionText": "漂亮的",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-020",
+      "optionCode": "C",
+      "optionText": "命运的; 决定命运的",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-020",
+      "optionCode": "D",
       "optionText": "薄的；瘦长的、细的；微薄的、不重要的",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
     },
     {
+      "itemCode": "FF4PROD-T1-021",
+      "optionCode": "A",
+      "optionText": "偶然; 机会",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-021",
+      "optionCode": "B",
+      "optionText": "夸脱",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-021",
+      "optionCode": "C",
+      "optionText": "四分之一；一刻钟",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-021",
+      "optionCode": "D",
+      "optionText": "码头; 站台",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-022",
+      "optionCode": "A",
+      "optionText": "没有做成功；未命中；未赶上",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-022",
+      "optionCode": "B",
+      "optionText": "评价；比率",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-022",
+      "optionCode": "C",
+      "optionText": "判处; 谴责",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-022",
+      "optionCode": "D",
+      "optionText": "推荐; 叮嘱",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-023",
+      "optionCode": "A",
+      "optionText": "严重的; 严重的（事故）",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-023",
+      "optionCode": "B",
+      "optionText": "漂亮的; 别致的",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-023",
+      "optionCode": "C",
+      "optionText": "有收益的",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-023",
+      "optionCode": "D",
+      "optionText": "可出租的",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-024",
+      "optionCode": "A",
+      "optionText": "表示、意味着",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-024",
+      "optionCode": "B",
+      "optionText": "怨恨",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T1-024",
+      "optionCode": "C",
+      "optionText": "感受到；受到影响",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-024",
+      "optionCode": "D",
+      "optionText": "总结",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T1-025",
+      "optionCode": "A",
+      "optionText": "容器",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T1-025",
+      "optionCode": "B",
+      "optionText": "接受者",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
       "itemCode": "FF4PROD-T1-025",
       "optionCode": "C",
-      "optionText": "美好的",
+      "optionText": "绳子; 乐器的弦",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
@@ -7022,7 +7292,7 @@
     {
       "itemCode": "FF4PROD-T1-025",
       "optionCode": "D",
-      "optionText": "液态的; 液体",
+      "optionText": "同等的人或物; 同龄、同辈者",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
@@ -7030,7 +7300,7 @@
     {
       "itemCode": "FF4PROD-T1-026",
       "optionCode": "A",
-      "optionText": "同等的人或物；同龄、同辈者",
+      "optionText": "学校的",
       "correct": true,
       "explanation": null,
       "role": "CORRECT"
@@ -7038,7 +7308,7 @@
     {
       "itemCode": "FF4PROD-T1-026",
       "optionCode": "B",
-      "optionText": "语言、用语",
+      "optionText": "著名的; 极好的",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
@@ -7046,31 +7316,31 @@
     {
       "itemCode": "FF4PROD-T1-026",
       "optionCode": "C",
-      "optionText": "一对；配对",
+      "optionText": "巨大的; 结实的",
       "correct": false,
       "explanation": null,
-      "role": "TRANSFER"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T1-026",
       "optionCode": "D",
-      "optionText": "办事处; 职务",
+      "optionText": "学者",
       "correct": false,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "TRANSFER"
     },
     {
       "itemCode": "FF4PROD-T1-027",
       "optionCode": "A",
-      "optionText": "搁板; 平板电脑",
+      "optionText": "烧焦一点",
       "correct": false,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "TRANSFER"
     },
     {
       "itemCode": "FF4PROD-T1-027",
       "optionCode": "B",
-      "optionText": "洋葱",
+      "optionText": "同等的人或物; 同龄、同辈者",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
@@ -7078,18 +7348,18 @@
     {
       "itemCode": "FF4PROD-T1-027",
       "optionCode": "C",
-      "optionText": "刑罚；惩罚；辛劳",
-      "correct": true,
+      "optionText": "宝藏、宝库",
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T1-027",
       "optionCode": "D",
-      "optionText": "身体疼痛",
-      "correct": false,
+      "optionText": "猴子",
+      "correct": true,
       "explanation": null,
-      "role": "TRANSFER"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T2-001",
@@ -7124,6 +7394,486 @@
       "role": "DISTRACTOR"
     },
     {
+      "itemCode": "FF4PROD-T2-002",
+      "optionCode": "A",
+      "optionText": "vaut le coup",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-002",
+      "optionCode": "B",
+      "optionText": "fait mal",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-002",
+      "optionCode": "C",
+      "optionText": "reste possible",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-002",
+      "optionCode": "D",
+      "optionText": "semble facile",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-003",
+      "optionCode": "A",
+      "optionText": "signifie",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-003",
+      "optionCode": "B",
+      "optionText": "dessine",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-003",
+      "optionCode": "C",
+      "optionText": "prononce",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-003",
+      "optionCode": "D",
+      "optionText": "efface",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-004",
+      "optionCode": "A",
+      "optionText": "prie",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-004",
+      "optionCode": "B",
+      "optionText": "fournis",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-004",
+      "optionCode": "C",
+      "optionText": "parle",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-004",
+      "optionCode": "D",
+      "optionText": "veux",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-005",
+      "optionCode": "A",
+      "optionText": "induit en erreur",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-005",
+      "optionCode": "B",
+      "optionText": "surpasse",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-005",
+      "optionCode": "C",
+      "optionText": "protège",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-005",
+      "optionCode": "D",
+      "optionText": "rassure",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-006",
+      "optionCode": "A",
+      "optionText": "angle",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-006",
+      "optionCode": "B",
+      "optionText": "pièce",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-006",
+      "optionCode": "C",
+      "optionText": "centre",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-006",
+      "optionCode": "D",
+      "optionText": "sommet",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-007",
+      "optionCode": "A",
+      "optionText": "va",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-007",
+      "optionCode": "B",
+      "optionText": "réunit",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-007",
+      "optionCode": "C",
+      "optionText": "surprend",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-007",
+      "optionCode": "D",
+      "optionText": "retarde",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-008",
+      "optionCode": "A",
+      "optionText": "talent",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-008",
+      "optionCode": "B",
+      "optionText": "seigneur",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-008",
+      "optionCode": "C",
+      "optionText": "doute",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-008",
+      "optionCode": "D",
+      "optionText": "goût",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-009",
+      "optionCode": "A",
+      "optionText": "belle",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-009",
+      "optionCode": "B",
+      "optionText": "joyeuse",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-009",
+      "optionCode": "C",
+      "optionText": "timide",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-009",
+      "optionCode": "D",
+      "optionText": "grande",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-010",
+      "optionCode": "A",
+      "optionText": "égal",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-010",
+      "optionCode": "B",
+      "optionText": "paire",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-010",
+      "optionCode": "C",
+      "optionText": "public",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-010",
+      "optionCode": "D",
+      "optionText": "avenir",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-011",
+      "optionCode": "A",
+      "optionText": "région",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-011",
+      "optionCode": "B",
+      "optionText": "Provence",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-011",
+      "optionCode": "C",
+      "optionText": "banlieue",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-011",
+      "optionCode": "D",
+      "optionText": "montagne",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-012",
+      "optionCode": "A",
+      "optionText": "méthode",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-012",
+      "optionCode": "B",
+      "optionText": "reçu",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-012",
+      "optionCode": "C",
+      "optionText": "question",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-012",
+      "optionCode": "D",
+      "optionText": "chance",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-013",
+      "optionCode": "A",
+      "optionText": "remis",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-013",
+      "optionCode": "B",
+      "optionText": "rapporté",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-013",
+      "optionCode": "C",
+      "optionText": "annoncé",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-013",
+      "optionCode": "D",
+      "optionText": "préparé",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-014",
+      "optionCode": "A",
+      "optionText": "synthétise",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-014",
+      "optionCode": "B",
+      "optionText": "reprend",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-014",
+      "optionCode": "C",
+      "optionText": "invente",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-014",
+      "optionCode": "D",
+      "optionText": "traduit",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-015",
+      "optionCode": "A",
+      "optionText": "destin",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-015",
+      "optionCode": "B",
+      "optionText": "type",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-015",
+      "optionCode": "C",
+      "optionText": "secret",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-015",
+      "optionCode": "D",
+      "optionText": "choix",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-016",
+      "optionCode": "A",
+      "optionText": "tableau",
+      "correct": true,
+      "explanation": null,
+      "role": "CORRECT"
+    },
+    {
+      "itemCode": "FF4PROD-T2-016",
+      "optionCode": "B",
+      "optionText": "labeur",
+      "correct": false,
+      "explanation": null,
+      "role": "TRANSFER"
+    },
+    {
+      "itemCode": "FF4PROD-T2-016",
+      "optionCode": "C",
+      "optionText": "sculpture",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
+      "itemCode": "FF4PROD-T2-016",
+      "optionCode": "D",
+      "optionText": "photo",
+      "correct": false,
+      "explanation": null,
+      "role": "DISTRACTOR"
+    },
+    {
       "itemCode": "FF4PROD-T3-001",
       "optionCode": "V",
       "optionText": "正确",
@@ -7159,17 +7909,17 @@
       "itemCode": "FF4PROD-T3-003",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-003",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-004",
@@ -7191,17 +7941,17 @@
       "itemCode": "FF4PROD-T3-005",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-005",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-006",
@@ -7223,17 +7973,17 @@
       "itemCode": "FF4PROD-T3-007",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-007",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-008",
@@ -7255,17 +8005,17 @@
       "itemCode": "FF4PROD-T3-009",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-009",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-010",
@@ -7287,17 +8037,17 @@
       "itemCode": "FF4PROD-T3-011",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-011",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-012",
@@ -7319,17 +8069,17 @@
       "itemCode": "FF4PROD-T3-013",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-013",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-014",
@@ -7351,17 +8101,17 @@
       "itemCode": "FF4PROD-T3-015",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-015",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-016",
@@ -7383,17 +8133,17 @@
       "itemCode": "FF4PROD-T3-017",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-017",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-018",
@@ -7415,17 +8165,17 @@
       "itemCode": "FF4PROD-T3-019",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-019",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
+      "correct": false,
       "explanation": null,
-      "role": "CORRECT"
+      "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-020",
@@ -7447,36 +8197,20 @@
       "itemCode": "FF4PROD-T3-021",
       "optionCode": "V",
       "optionText": "正确",
-      "correct": false,
+      "correct": true,
       "explanation": null,
-      "role": "DISTRACTOR"
+      "role": "CORRECT"
     },
     {
       "itemCode": "FF4PROD-T3-021",
       "optionCode": "F",
       "optionText": "错误",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T3-022",
-      "optionCode": "V",
-      "optionText": "正确",
       "correct": false,
       "explanation": null,
       "role": "DISTRACTOR"
     },
     {
       "itemCode": "FF4PROD-T3-022",
-      "optionCode": "F",
-      "optionText": "错误",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T3-023",
       "optionCode": "V",
       "optionText": "正确",
       "correct": false,
@@ -7484,71 +8218,7 @@
       "role": "DISTRACTOR"
     },
     {
-      "itemCode": "FF4PROD-T3-023",
-      "optionCode": "F",
-      "optionText": "错误",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T3-024",
-      "optionCode": "V",
-      "optionText": "正确",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T3-024",
-      "optionCode": "F",
-      "optionText": "错误",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T3-025",
-      "optionCode": "V",
-      "optionText": "正确",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T3-025",
-      "optionCode": "F",
-      "optionText": "错误",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T3-026",
-      "optionCode": "V",
-      "optionText": "正确",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T3-026",
-      "optionCode": "F",
-      "optionText": "错误",
-      "correct": true,
-      "explanation": null,
-      "role": "CORRECT"
-    },
-    {
-      "itemCode": "FF4PROD-T3-027",
-      "optionCode": "V",
-      "optionText": "正确",
-      "correct": false,
-      "explanation": null,
-      "role": "DISTRACTOR"
-    },
-    {
-      "itemCode": "FF4PROD-T3-027",
+      "itemCode": "FF4PROD-T3-022",
       "optionCode": "F",
       "optionText": "错误",
       "correct": true,

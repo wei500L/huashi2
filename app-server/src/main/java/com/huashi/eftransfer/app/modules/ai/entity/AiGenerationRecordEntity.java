@@ -32,6 +32,9 @@ public class AiGenerationRecordEntity extends BaseAuditEntity {
     @TableField("intervention_record_id")
     private Long interventionRecordId;
 
+    @TableField("practice_session_id")
+    private Long practiceSessionId;
+
     @TableField("prompt_version")
     private String promptVersion;
 
@@ -126,6 +129,14 @@ public class AiGenerationRecordEntity extends BaseAuditEntity {
 
     public void setInterventionRecordId(Long interventionRecordId) {
         this.interventionRecordId = interventionRecordId;
+    }
+
+    public Long getPracticeSessionId() {
+        return practiceSessionId;
+    }
+
+    public void setPracticeSessionId(Long practiceSessionId) {
+        this.practiceSessionId = practiceSessionId;
     }
 
     public String getPromptVersion() {

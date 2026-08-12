@@ -1,13 +1,17 @@
 package com.huashi.eftransfer.app.modules.ai.controller;
 
 import com.huashi.eftransfer.app.modules.ai.dto.ExplainDiagnosisRequest;
+import com.huashi.eftransfer.app.modules.ai.dto.PracticeQuestionTutorRequest;
+import com.huashi.eftransfer.app.modules.ai.dto.PracticeTutoringRequest;
 import com.huashi.eftransfer.app.modules.ai.dto.RecommendTrainingRequest;
 import com.huashi.eftransfer.app.modules.ai.service.AiAsyncJobService;
 import com.huashi.eftransfer.app.modules.ai.service.AiInsightService;
 import com.huashi.eftransfer.app.modules.ai.vo.AiAsyncJobSubmitVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiAsyncJobVO;
 import com.huashi.eftransfer.app.modules.ai.vo.AiGuidanceResponseVO;
+import com.huashi.eftransfer.app.modules.ai.vo.PracticeQuestionTutorVO;
 import com.huashi.eftransfer.shared.api.ApiResponse;
+import jakarta.validation.Valid;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -60,6 +64,21 @@ public class AiInsightController {
             @RequestBody(required = false) ExplainDiagnosisRequest request
     ) {
         return ApiResponse.success(aiAsyncJobService.submitExplainDiagnosis(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/practice-tutoring/async")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResponse<AiAsyncJobSubmitVO> practiceTutoringAsync(
+            @Valid @RequestBody PracticeTutoringRequest request
+    ) {
+        return ApiResponse.success(aiAsyncJobService.submitPracticeTutoring(request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/practice-question-tutor")
+    public ApiResponse<PracticeQuestionTutorVO> explainPracticeQuestion(
+            @Valid @RequestBody PracticeQuestionTutorRequest request
+    ) {
+        return ApiResponse.success(aiInsightService.explainPracticeQuestion(request), MDC.get("traceId"));
     }
 
     @GetMapping("/jobs/{jobId}")

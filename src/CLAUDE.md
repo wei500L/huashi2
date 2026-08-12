@@ -6,7 +6,7 @@
 
 基于 React 19 + TypeScript + Vite 构建的单页应用，服务三类用户角色：
 
-- **学生 (STUDENT_WORKSPACE)**: 学习总览、智能诊断、个性化训练、学情分析、错题与复习、AI 词汇检索助手
+- **学生 (STUDENT_WORKSPACE)**: 学习总览、智能诊断、个性化训练、自测练习、学情分析、错题与复习、AI 词汇检索助手
 - **教师 (TEACHING_WORKSPACE)**: 班级总览、诊断模板管理、词对/词表管理、干预工作台
 - **管理员 (ADMIN_CONSOLE)**: 用户管理、语料库管理、AI 运维配置中心
 
@@ -113,6 +113,7 @@ src/
     dashboard/index.tsx             # 学生总览
     diagnosis/index.tsx             # 智能诊断
     training/index.tsx              # 个性化训练
+    practice/index.tsx              # 自测练习（假朋友题库，无计时整卷作答 + LLM 辅导）
     analytics/index.tsx             # 学情分析
     student/Errors.tsx              # 错题与复习
     student/Settings.tsx            # 设置

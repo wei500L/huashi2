@@ -36,7 +36,6 @@ import com.huashi.eftransfer.app.modules.assessment.support.AssessmentJsonCodec;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentClientIpNormalizer;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantAccessCipher;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantCodeCodec;
-import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantProfileCipher;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentOptionVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgressVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultQuestionVO;
@@ -93,6 +92,7 @@ public class PublicAssessmentService {
     private static final Logger log = LoggerFactory.getLogger(PublicAssessmentService.class);
     private static final int VERIFY_LIMIT = 10;
     private static final Duration VERIFY_WINDOW = Duration.ofMinutes(10);
+    private static final int MAX_SPELLING_WRONG_ATTEMPTS = 30;
     private static final Duration MAX_SESSION_TTL = Duration.ofHours(12);
 
     private final AssessmentPublicReleaseMapper publicReleaseMapper;
@@ -109,7 +109,6 @@ public class PublicAssessmentService {
     private final AssessmentAiAnalysisMapper aiAnalysisMapper;
     private final AssessmentParticipantCodeCodec codeCodec;
     private final AssessmentJsonCodec jsonCodec;
-    private final AssessmentParticipantProfileCipher profileCipher;
     private final AssessmentParticipantAccessCipher accessCipher;
     private final Duration configuredSessionTtl;
     private final AssessmentTimeoutProperties timeoutProperties;
@@ -132,7 +131,6 @@ public class PublicAssessmentService {
             AssessmentAiAnalysisMapper aiAnalysisMapper,
             AssessmentParticipantCodeCodec codeCodec,
             AssessmentJsonCodec jsonCodec,
-            AssessmentParticipantProfileCipher profileCipher,
             AssessmentParticipantAccessCipher accessCipher,
             AssessmentTimeoutProperties timeoutProperties,
             JdbcTemplate jdbcTemplate,
@@ -152,7 +150,6 @@ public class PublicAssessmentService {
         this.aiAnalysisMapper = aiAnalysisMapper;
         this.codeCodec = codeCodec;
         this.jsonCodec = jsonCodec;
-        this.profileCipher = profileCipher;
         this.accessCipher = accessCipher;
         this.timeoutProperties = timeoutProperties;
         this.jdbcTemplate = jdbcTemplate;
@@ -201,15 +198,8 @@ public class PublicAssessmentService {
             participant.setPublishId(bundle.publish().getId());
             participant.setParticipantType("PUBLIC_CODE");
             participant.setParticipationCodeId(participationCode.getId());
-            participantMapper.insert(participant);
-        }
-        if (request.basicInfo() != null && !request.basicInfo().isEmpty()) {
-            AssessmentParticipantProfileCipher.EncryptedProfile encrypted = profileCipher.encrypt(request.basicInfo());
-            participant.setSensitiveProfileCiphertext(encrypted.ciphertext());
-            participant.setSensitiveProfileIv(encrypted.iv());
-            participant.setSensitiveProfileKeyVersion(encrypted.keyVersion());
             participant.setConsentedAt(LocalDateTime.now());
-            participantMapper.updateById(participant);
+            participantMapper.insert(participant);
         }
         AssessmentAttemptEntity attempt = participant.getAttemptId() == null ? null : attemptMapper.selectById(participant.getAttemptId());
         if (attempt == null) {
@@ -250,6 +240,7 @@ public class PublicAssessmentService {
             participant.setPublishId(bundle.publish().getId());
             participant.setParticipantType("PUBLIC_QR");
             participant.setBrowserFingerprintDigest(fingerprintDigest);
+            participant.setConsentedAt(LocalDateTime.now());
             try {
                 participantMapper.insert(participant);
             } catch (DataIntegrityViolationException exception) {
@@ -332,6 +323,10 @@ public class PublicAssessmentService {
         LocalDateTime now = LocalDateTime.now();
         int wrongAttempts = answer.getSpellingWrongAttemptCount() == null ? 0 : answer.getSpellingWrongAttemptCount();
         if (!correct) {
+            if (wrongAttempts >= MAX_SPELLING_WRONG_ATTEMPTS) {
+                throw new BusinessException(ResultCode.RATE_LIMITED,
+                        "Spelling attempt limit reached for this question", 429);
+            }
             wrongAttempts++;
             answer.setSpellingWrongAttemptCount(wrongAttempts);
             if (answer.getSpellingHintShownAt() == null) {
@@ -622,7 +617,7 @@ public class PublicAssessmentService {
                 AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
                 AssessmentQuestionType type = parseQuestionType(answer.getQuestionType());
                 boolean required = type != AssessmentQuestionType.INSTRUCTION
-                        && (question == null || !Boolean.FALSE.equals(question.getRequiredAnswer()));
+                        && question != null && !Boolean.FALSE.equals(question.getRequiredAnswer());
                 if (required && !Boolean.TRUE.equals(answer.getAnswered())) {
                     throw new BusinessException(ResultCode.VALIDATION_ERROR,
                             "Required question " + answer.getQuestionOrder() + " has not been answered", 400);
@@ -982,7 +977,9 @@ public class PublicAssessmentService {
                         Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
                                 .eq(AssessmentAttemptAnswerEntity::getAttemptId, attempt.getId())
                                 .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder))
-                .stream().map(answer -> {
+                .stream()
+                .filter(answer -> questions.containsKey(answer.getQuestionId()))
+                .map(answer -> {
                     AssessmentQuestionEntity question = questions.get(answer.getQuestionId());
                     List<AssessmentOptionVO> options = jsonCodec.readOptions(answer.getOptionsJsonSnapshot()).stream()
                             .map(option -> new AssessmentOptionVO(option.key(), option.label())).toList();
@@ -1005,9 +1002,34 @@ public class PublicAssessmentService {
                 }).toList();
         AssessmentPublishEntity publish = bundle.publish();
         return new PublicAssessmentAttemptVO(attempt.getId(), bundle.release().getReleaseCode(), publish.getPaperTitleSnapshot(),
-                publish.getPaperDescriptionSnapshot(), publish.getInstructionsText(), attempt.getStatus(), publish.getDurationMinutes(),
+                publish.getPaperDescriptionSnapshot(), publish.getInstructionsText(), attempt.getStatus(),
+                resolveAttemptDurationMinutes(attempt, publish),
                 items.size(), attempt.getAnsweredCount(), attempt.getStartedAt(), attempt.getExpiresAt(), attempt.getLastSavedAt(),
                 attempt.getVersion(), LocalDateTime.now(), items);
+    }
+
+    /**
+     * Resolves the effective answering window displayed for this attempt. The attempt's own
+     * {@code expiresAt} is authoritative (it may have been capped by the publish dueAt, or
+     * created under an older publish duration such as a 40-minute window synced to a later
+     * 60-minute publish), so the stored publish duration is only a fallback when the attempt
+     * lacks its own timestamps. Sub-minute windows are rounded up so an attempt of e.g.
+     * 39m59s is never reported as 39 minutes.
+     */
+    private int resolveAttemptDurationMinutes(AssessmentAttemptEntity attempt, AssessmentPublishEntity publish) {
+        if (attempt.getStartedAt() != null && attempt.getExpiresAt() != null
+                && attempt.getExpiresAt().isAfter(attempt.getStartedAt())) {
+            long seconds = Duration.between(attempt.getStartedAt(), attempt.getExpiresAt()).getSeconds();
+            if (seconds > 0) {
+                long minutes = Math.floorDiv(seconds, 60);
+                if (seconds % 60 != 0) {
+                    minutes++;
+                }
+                return (int) Math.min(minutes, Integer.MAX_VALUE);
+            }
+        }
+        Integer fallback = publish.getDurationMinutes();
+        return fallback == null || fallback < 1 ? 1 : fallback;
     }
 
     private SessionBundle requireSession(String releaseCode, String token) {

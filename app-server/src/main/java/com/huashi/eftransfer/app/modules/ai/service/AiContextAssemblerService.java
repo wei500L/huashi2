@@ -18,6 +18,9 @@ import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisHighRiskLexi
 import com.huashi.eftransfer.app.modules.diagnosis.support.DiagnosisJsonCodec;
 import com.huashi.eftransfer.app.modules.lexicon.entity.LexicalPairEntity;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
+import com.huashi.eftransfer.app.modules.practice.service.PracticeSessionService;
+import com.huashi.eftransfer.app.modules.practice.vo.PracticeResultVO;
+import com.huashi.eftransfer.app.modules.practice.vo.PracticeSectionMetricVO;
 import com.huashi.eftransfer.app.modules.training.entity.TrainingSessionEntity;
 import com.huashi.eftransfer.app.modules.training.mapper.TrainingSessionMapper;
 import com.huashi.eftransfer.app.modules.training.support.TrainingJsonCodec;
@@ -59,6 +62,7 @@ public class AiContextAssemblerService {
     private final TrainingJsonCodec trainingJsonCodec;
     private final AnalyticsJsonCodec analyticsJsonCodec;
     private final AnalyticsQueryService analyticsQueryService;
+    private final PracticeSessionService practiceSessionService;
 
     public AiContextAssemblerService(
             StudentProfileMapper studentProfileMapper,
@@ -70,7 +74,8 @@ public class AiContextAssemblerService {
             DiagnosisJsonCodec diagnosisJsonCodec,
             TrainingJsonCodec trainingJsonCodec,
             AnalyticsJsonCodec analyticsJsonCodec,
-            AnalyticsQueryService analyticsQueryService
+            AnalyticsQueryService analyticsQueryService,
+            PracticeSessionService practiceSessionService
     ) {
         this.studentProfileMapper = studentProfileMapper;
         this.userMapper = userMapper;
@@ -82,6 +87,7 @@ public class AiContextAssemblerService {
         this.trainingJsonCodec = trainingJsonCodec;
         this.analyticsJsonCodec = analyticsJsonCodec;
         this.analyticsQueryService = analyticsQueryService;
+        this.practiceSessionService = practiceSessionService;
     }
 
     public RecommendTrainingContext buildRecommendTrainingContext(Long studentUserId, Long diagnosisSummaryId) {
@@ -184,6 +190,175 @@ public class AiContextAssemblerService {
                 safeDouble(diagnosisSummary.getOverallAccuracy()),
                 safeLong(diagnosisSummary.getAverageReactionTimeMs())
         );
+    }
+
+    /**
+     * Assembles the tutoring context of a completed self-practice session:
+     * practice metrics, the wrong words discovered by the session (each mapped
+     * to its lexical pair when one exists), and the student profile. The
+     * question bank finds the problems first; this context feeds the
+     * personalized tutoring scene.
+     */
+    public PracticeTutoringContext buildPracticeTutoringContext(Long studentUserId, Long practiceSessionId) {
+        StudentProfileEntity studentProfile = requireStudentProfile(studentUserId);
+        UserEntity student = requireUser(studentUserId);
+        PracticeResultVO result = practiceSessionService.getResult(practiceSessionId);
+        List<PracticeSessionService.WrongAnswerEntry> wrongAnswers = practiceSessionService.listWrongAnswers(practiceSessionId);
+        List<AiFocusLexicalPairVO> focusPairs = buildPracticeFocusPairs(wrongAnswers);
+        List<PracticeSessionService.WrongWordStat> recentWrongStats =
+                practiceSessionService.listRecentWrongWordStats(studentUserId, practiceSessionId, 10);
+        Map<String, PracticeSessionService.WrongWordStat> statByWord = recentWrongStats.stream()
+                .collect(Collectors.toMap(
+                        stat -> stat.targetWord().trim().toLowerCase(Locale.ROOT),
+                        stat -> stat,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+
+        List<Map<String, Object>> wrongAnswerPayload = wrongAnswers.stream()
+                .limit(40)
+                .map(entry -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("questionCode", entry.questionCode());
+                    payload.put("questionType", entry.questionType());
+                    payload.put("sectionCode", entry.sectionCode());
+                    payload.put("constructCode", entry.constructCode());
+                    payload.put("targetWord", entry.targetWord());
+                    payload.put("stemText", entry.stemText());
+                    payload.put("studentAnswer", entry.response());
+                    payload.put("correctAnswer", entry.correctAnswer());
+                    payload.put("bankExplanation", entry.explanationText());
+                    payload.put("hintShown", entry.hintShown());
+                    if (entry.spellingErrorPattern() != null) {
+                        payload.put("spellingErrorPattern", entry.spellingErrorPattern());
+                    }
+                    PracticeSessionService.WrongWordStat history = statByWord.get(
+                            entry.targetWord() == null ? null : entry.targetWord().trim().toLowerCase(Locale.ROOT));
+                    if (history != null) {
+                        Map<String, Object> historyPayload = new LinkedHashMap<>();
+                        historyPayload.put("wrongTimesInRecentSessions", history.wrongTimes());
+                        historyPayload.put("sessionsWithError", history.sessionsWithError());
+                        historyPayload.put("firstSeenAt", history.firstSeenAt());
+                        historyPayload.put("lastSeenAt", history.lastSeenAt());
+                        payload.put("recentHistory", historyPayload);
+                    }
+                    return payload;
+                })
+                .toList();
+
+        Map<String, Object> promptPayload = new LinkedHashMap<>();
+        promptPayload.put("studentProfile", buildStudentProfilePayload(studentProfile, student, null));
+        Map<String, Object> practiceResult = new LinkedHashMap<>();
+        practiceResult.put("practiceSessionId", result.sessionId());
+        practiceResult.put("bankCode", result.bankCode());
+        practiceResult.put("sectionCode", result.sectionCode());
+        practiceResult.put("answeredCount", result.answeredCount());
+        practiceResult.put("correctCount", result.correctCount());
+        practiceResult.put("percentage", result.percentage());
+        practiceResult.put("sectionMetrics", result.sectionMetrics());
+        promptPayload.put("practiceResult", practiceResult);
+        promptPayload.put("wrongAnswers", wrongAnswerPayload);
+        promptPayload.put("focusWords", focusPairs);
+        promptPayload.put("recentWrongWords", recentWrongStats.stream()
+                .limit(15)
+                .map(stat -> Map.<String, Object>of(
+                        "targetWord", stat.targetWord(),
+                        "wrongTimesInRecentSessions", stat.wrongTimes(),
+                        "sessionsWithError", stat.sessionsWithError()
+                ))
+                .toList());
+        promptPayload.put("currentCourseStage", courseStage(studentProfile));
+
+        return new PracticeTutoringContext(
+                studentUserId,
+                practiceSessionId,
+                courseStage(studentProfile),
+                promptPayload,
+                focusPairs,
+                wrongAnswers,
+                result
+        );
+    }
+
+    /**
+     * Maps the wrong words of a practice session to lexical pairs by French
+     * word (best effort). Unmatched words still enter the focus list with a
+     * zero id so the model can reference them without inventing pair ids.
+     */
+    private List<AiFocusLexicalPairVO> buildPracticeFocusPairs(List<PracticeSessionService.WrongAnswerEntry> wrongAnswers) {
+        if (wrongAnswers.isEmpty()) {
+            return List.of();
+        }
+        List<String> words = wrongAnswers.stream()
+                .map(PracticeSessionService.WrongAnswerEntry::targetWord)
+                .filter(word -> word != null && !word.isBlank())
+                .distinct()
+                .limit(20)
+                .toList();
+        if (words.isEmpty()) {
+            return List.of();
+        }
+        Map<String, LexicalPairEntity> pairByFrenchWord = lexicalPairMapper.selectList(
+                        Wrappers.<LexicalPairEntity>lambdaQuery()
+                                .in(LexicalPairEntity::getFrenchWord, words))
+                .stream()
+                .filter(pair -> pair.getFrenchWord() != null)
+                .collect(Collectors.toMap(pair -> pair.getFrenchWord().trim().toLowerCase(Locale.ROOT), Function.identity(), (left, right) -> left));
+        Map<String, Long> wrongCountByWord = wrongAnswers.stream()
+                .map(PracticeSessionService.WrongAnswerEntry::targetWord)
+                .filter(word -> word != null)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+        List<AiFocusLexicalPairVO> focusPairs = new ArrayList<>();
+        for (String word : words) {
+            LexicalPairEntity pair = pairByFrenchWord.get(word.trim().toLowerCase(Locale.ROOT));
+            String construct = wrongAnswers.stream()
+                    .filter(entry -> word.equals(entry.targetWord()))
+                    .map(PracticeSessionService.WrongAnswerEntry::constructCode)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse("FF4_WORD_MEANING");
+            String errorType = errorTypeOfConstruct(construct);
+            double risk = Math.min(0.95d, 0.55d + (wrongCountByWord.getOrDefault(word, 1L) - 1) * 0.08d);
+            String focusReason = "本次自测中该词答错，需要优先复习其真实语义与迁移关系。";
+            if (pair == null) {
+                focusPairs.add(new AiFocusLexicalPairVO(
+                        0L,
+                        word,
+                        word,
+                        null,
+                        "FALSE_FRIEND",
+                        risk,
+                        errorType,
+                        focusReason
+                ));
+            } else {
+                focusPairs.add(new AiFocusLexicalPairVO(
+                        pair.getId(),
+                        pair.getEnglishWord(),
+                        pair.getFrenchWord(),
+                        pair.getChineseGloss(),
+                        pair.getLexicalPairType() == null ? "FALSE_FRIEND" : pair.getLexicalPairType(),
+                        risk,
+                        errorType,
+                        focusReason
+                ));
+            }
+        }
+        focusPairs.sort((left, right) -> Double.compare(right.riskScore(), left.riskScore()));
+        return focusPairs.stream().limit(10).toList();
+    }
+
+    private String errorTypeOfConstruct(String constructCode) {
+        if (constructCode == null) {
+            return "FALSE_FRIEND_CONFUSION";
+        }
+        return switch (constructCode) {
+            case "FF4_SPELLING" -> "ORTHOGRAPHIC_INTERFERENCE";
+            case "FF4_SENTENCE_SYNONYM", "FF4_SENTENCE_SELECTION" -> "CONTEXT_IGNORED";
+            case "FF4_TRUE_FALSE_TRANSFER", "FF4_TRUE_FALSE" -> "SEMANTIC_MISFIRE";
+            default -> "FALSE_FRIEND_CONFUSION";
+        };
     }
 
     public TeacherInterventionContext buildTeacherInterventionContext(Long teacherUserId, Long classId, Long studentUserId, Long diagnosisSummaryId) {
@@ -582,6 +757,17 @@ public class AiContextAssemblerService {
             double overallAccuracy,
             long averageReactionTimeMs,
             String studentName
+    ) {
+    }
+
+    public record PracticeTutoringContext(
+            Long studentUserId,
+            Long practiceSessionId,
+            String courseStage,
+            Map<String, Object> promptPayload,
+            List<AiFocusLexicalPairVO> focusPairs,
+            List<PracticeSessionService.WrongAnswerEntry> wrongAnswers,
+            PracticeResultVO practiceResult
     ) {
     }
 }

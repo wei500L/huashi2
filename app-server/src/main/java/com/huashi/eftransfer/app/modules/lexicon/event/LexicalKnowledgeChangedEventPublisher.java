@@ -20,6 +20,8 @@ public class LexicalKnowledgeChangedEventPublisher {
 
     public void publish(LexicalKnowledgeChangedEvent event) {
         if (!enabled) {
+            log.warn("event=lexical_knowledge_changed_publish_disabled eventId={} sourceType={} sourceIds={}",
+                    event.eventId(), event.sourceType(), event.sourceIds());
             return;
         }
         outboxService.enqueue(

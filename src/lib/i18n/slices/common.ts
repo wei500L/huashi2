@@ -26,6 +26,7 @@ export const commonSlice: TranslationSlice = {
         backToTrainingHome: '返回训练首页',
         backToWorkspace: '返回工作区首页',
         close: '关闭',
+        cancel: '取消',
         moreOptions: '更多选项',
       },
       loading: {
@@ -69,6 +70,7 @@ export const commonSlice: TranslationSlice = {
         backToTrainingHome: 'Back to training home',
         backToWorkspace: 'Back to workspace home',
         close: 'Close',
+        cancel: 'Cancel',
         moreOptions: 'More options',
       },
       loading: {

@@ -19,10 +19,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import tools.jackson.databind.JsonNode;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -41,6 +44,7 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
     @Autowired private AssessmentAiAnalysisMapper aiAnalysisMapper;
     @Autowired private AssessmentParticipantAccessMapper participantAccessMapper;
     @Autowired private AssessmentParticipationCodeMapper participationCodeMapper;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     @Test
     void shouldReturnSpecificErrorForInvalidOrRevokedParticipationCode() throws Exception {
@@ -469,33 +473,235 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    private long createSpellingPaper(String teacherToken) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/teacher/assessments/papers")
-                        .with(bearer(teacherToken))
+    @Test
+    void oldAttemptKeepsItsFortyMinuteWindowWhenPublishDurationIsSyncedToSixty() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken, 40);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempt.durationMinutes").value(40))
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+
+        JsonNode baseline = attemptData(releaseCode, cookie);
+        assertThat(baseline.path("durationMinutes").asInt()).isEqualTo(40);
+        assertThat(baseline.path("questions").size()).isEqualTo(1);
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/responses", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"baseVersion\":1,\"responses\":[{\"questionOrder\":1,\"responses\":[\"T\"],\"justificationText\":null}]}"))
+                .andExpect(status().isOk());
+
+        JsonNode beforeSync = attemptData(releaseCode, cookie);
+        assertThat(beforeSync.path("startedAt").asText()).isEqualTo(baseline.path("startedAt").asText());
+        assertThat(beforeSync.path("expiresAt").asText()).isEqualTo(baseline.path("expiresAt").asText());
+        assertThat(beforeSync.path("questions").get(0).path("responses").get(0).asText()).isEqualTo("T");
+
+        jdbcTemplate.update("UPDATE assessment_publish SET duration_minutes = 60 WHERE id = ?", publishId);
+
+        JsonNode afterSync = attemptData(releaseCode, cookie);
+        assertThat(afterSync.path("startedAt").asText()).isEqualTo(beforeSync.path("startedAt").asText());
+        assertThat(afterSync.path("expiresAt").asText()).isEqualTo(beforeSync.path("expiresAt").asText());
+        assertThat(afterSync.path("durationMinutes").asInt()).isEqualTo(40);
+        assertThat(java.time.Duration.between(LocalDateTime.parse(afterSync.path("startedAt").asText(), ISO_TIME),
+                LocalDateTime.parse(afterSync.path("expiresAt").asText(), ISO_TIME))).isEqualTo(java.time.Duration.ofMinutes(40));
+        assertThat(afterSync.path("attemptId").asLong()).isEqualTo(beforeSync.path("attemptId").asLong());
+        assertThat(afterSync.path("questions").size()).isEqualTo(beforeSync.path("questions").size());
+        assertThat(afterSync.path("questions").get(0).path("questionOrder").asInt())
+                .isEqualTo(beforeSync.path("questions").get(0).path("questionOrder").asInt());
+        assertThat(afterSync.path("questions").get(0).path("responses").get(0).asText()).isEqualTo("T");
+    }
+
+    @Test
+    void attemptExpiringAtPublishDueAtReportsActualWindowInsteadOfConfiguredDuration() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken, 60);
+        LocalDateTime dueAt = LocalDateTime.now().plusMinutes(20);
+        MvcResult published = publishPublic(teacherToken, paperId, dueAt);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+        JsonNode attempt = readJson(verified).path("data").path("attempt");
+        LocalDateTime startedAt = LocalDateTime.parse(attempt.path("startedAt").asText(), ISO_TIME);
+        LocalDateTime expiresAt = LocalDateTime.parse(attempt.path("expiresAt").asText(), ISO_TIME);
+        assertThat(java.time.Duration.between(dueAt, expiresAt).abs())
+                .isLessThanOrEqualTo(java.time.Duration.ofSeconds(1));
+        long seconds = java.time.Duration.between(startedAt, expiresAt).getSeconds();
+        long expectedMinutes = Math.floorDiv(seconds, 60);
+        if (seconds % 60 != 0) {
+            expectedMinutes++;
+        }
+        assertThat(java.time.Duration.between(startedAt, expiresAt)).isGreaterThan(java.time.Duration.ZERO);
+        assertThat(java.time.Duration.between(startedAt, expiresAt)).isLessThan(java.time.Duration.ofMinutes(60));
+        assertThat(expiresAt).isBefore(startedAt.plusMinutes(60));
+        assertThat(attempt.path("durationMinutes").asInt()).isEqualTo((int) expectedMinutes);
+        assertThat(attempt.path("durationMinutes").asInt()).isLessThan(60);
+
+        JsonNode restored = attemptData(releaseCode, cookie);
+        assertThat(restored.path("durationMinutes").asInt()).isEqualTo(attempt.path("durationMinutes").asInt());
+        assertThat(LocalDateTime.parse(restored.path("expiresAt").asText(), ISO_TIME).truncatedTo(ChronoUnit.SECONDS))
+                .isEqualTo(expiresAt.truncatedTo(ChronoUnit.SECONDS));
+        assertThat(java.time.Duration.between(LocalDateTime.parse(restored.path("startedAt").asText(), ISO_TIME),
+                LocalDateTime.parse(restored.path("expiresAt").asText(), ISO_TIME)))
+                .isCloseTo(java.time.Duration.between(startedAt, expiresAt), java.time.Duration.ofSeconds(1));
+    }
+
+    @Test
+    void shouldCreateAttemptExpiringSixtyMinutesAfterStartWhenPublishDurationIsSixty() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken, 60);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempt.durationMinutes").value(60))
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+        String startedAt = readJson(verified).path("data").path("attempt").path("startedAt").asText();
+        String expiresAt = readJson(verified).path("data").path("attempt").path("expiresAt").asText();
+        LocalDateTime start = LocalDateTime.parse(startedAt, ISO_TIME);
+        LocalDateTime expiry = LocalDateTime.parse(expiresAt, ISO_TIME);
+        assertThat(java.time.Duration.between(start, expiry)).isEqualTo(java.time.Duration.ofMinutes(60));
+
+        mockMvc.perform(get("/api/public/assessments/{releaseCode}/attempt", releaseCode)
+                        .cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.durationMinutes").value(60));
+    }
+
+    @Test
+    void attemptHidesSoftDeletedQuestionsAndSubmitsWithoutRequiringThem() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken, 60, """
+                {
+                  "questionType":"TRUE_FALSE_WITH_JUSTIFICATION",
+                  "stemText":"Kept statement",
+                  "options":[{"key":"T","label":"True"},{"key":"F","label":"False"}],
+                  "correctAnswers":["T"],
+                  "explanationText":"T is correct",
+                  "score":1,
+                  "weight":1,
+                  "transferCategory":"COGNATE",
+                  "contextLevel":"WORD",
+                  "constructCode":"LEXICAL_RECOGNITION"
+                },
+                {
+                  "questionType":"TRUE_FALSE_WITH_JUSTIFICATION",
+                  "stemText":"To be removed statement",
+                  "options":[{"key":"T","label":"True"},{"key":"F","label":"False"}],
+                  "correctAnswers":["T"],
+                  "explanationText":"T is correct",
+                  "score":1,
+                  "weight":1,
+                  "transferCategory":"COGNATE",
+                  "contextLevel":"WORD",
+                  "constructCode":"LEXICAL_RECOGNITION"
+                }
+                """);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempt.questions.length()").value(2))
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+
+        long removedQuestionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM assessment_question WHERE paper_id = ? AND sort_order = 2 AND deleted = FALSE",
+                Long.class, paperId);
+        jdbcTemplate.update("UPDATE assessment_question SET deleted = TRUE WHERE id = ?", removedQuestionId);
+
+        JsonNode restored = attemptData(releaseCode, cookie);
+        assertThat(restored.path("questions").size()).isEqualTo(1);
+        assertThat(restored.path("questions").get(0).path("questionOrder").asInt()).isEqualTo(1);
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/responses", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"baseVersion\":1,\"responses\":[{\"questionOrder\":1,\"responses\":[\"T\"]}]}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/submit", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"baseVersion\":2,\"reason\":\"MANUAL\",\"responses\":[{\"questionOrder\":1,\"responses\":[\"T\"]}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
+    }
+
+    private long createSpellingPaper(String teacherToken) throws Exception {
+        return createPaper(teacherToken, 40, """
                                 {
-                                  "title":"Spelling hint research paper",
-                                  "paperPurpose":"RESEARCH_SURVEY",
-                                  "durationMinutes":40,
-                                  "questions":[{
-                                    "questionType":"SPELLING",
-                                    "stemText":"天堂；乐土 ______（填写对应法语单词）",
-                                    "correctAnswers":["paradis"],
-                                    "explanationText":"paradis",
-                                    "score":1,
-                                    "weight":1,
-                                    "transferCategory":"FALSE_FRIEND",
-                                    "contextLevel":"WORD",
-                                    "constructCode":"FF4_SPELLING"
-                                  }]
+                                  "questionType":"SPELLING",
+                                  "stemText":"天堂；乐土 ______（填写对应法语单词）",
+                                  "correctAnswers":["paradis"],
+                                  "explanationText":"paradis",
+                                  "score":1,
+                                  "weight":1,
+                                  "transferCategory":"FALSE_FRIEND",
+                                  "contextLevel":"WORD",
+                                  "constructCode":"FF4_SPELLING"
                                 }
-                                """))
-                .andExpect(status().isOk()).andReturn();
-        return readJson(result).path("data").path("paperId").asLong();
+                                """);
     }
 
     private long createPaper(String teacherToken) throws Exception {
+        return createPaper(teacherToken, 40, """
+                                {
+                                  "questionType":"TRUE_FALSE_WITH_JUSTIFICATION",
+                                  "stemText":"The statement is correct",
+                                  "options":[{"key":"T","label":"True"},{"key":"F","label":"False"}],
+                                  "correctAnswers":["T"],
+                                  "explanationText":"T is correct",
+                                  "score":1,
+                                  "weight":1,
+                                  "transferCategory":"COGNATE",
+                                  "contextLevel":"WORD",
+                                  "constructCode":"LEXICAL_RECOGNITION"
+                                }
+                                """);
+    }
+
+    private long createPaper(String teacherToken, int durationMinutes) throws Exception {
+        return createPaper(teacherToken, durationMinutes, """
+                                {
+                                  "questionType":"TRUE_FALSE_WITH_JUSTIFICATION",
+                                  "stemText":"The statement is correct",
+                                  "options":[{"key":"T","label":"True"},{"key":"F","label":"False"}],
+                                  "correctAnswers":["T"],
+                                  "explanationText":"T is correct",
+                                  "score":1,
+                                  "weight":1,
+                                  "transferCategory":"COGNATE",
+                                  "contextLevel":"WORD",
+                                  "constructCode":"LEXICAL_RECOGNITION"
+                                }
+                                """);
+    }
+
+    private long createPaper(String teacherToken, int durationMinutes, String questionJson) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/teacher/assessments/papers")
                         .with(bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -503,26 +709,19 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                                 {
                                   "title":"Public research integration",
                                   "paperPurpose":"RESEARCH_SURVEY",
-                                  "durationMinutes":40,
-                                  "questions":[{
-                                    "questionType":"TRUE_FALSE_WITH_JUSTIFICATION",
-                                    "stemText":"The statement is correct",
-                                    "options":[{"key":"T","label":"True"},{"key":"F","label":"False"}],
-                                    "correctAnswers":["T"],
-                                    "explanationText":"T is correct",
-                                    "score":1,
-                                    "weight":1,
-                                    "transferCategory":"COGNATE",
-                                    "contextLevel":"WORD",
-                                    "constructCode":"LEXICAL_RECOGNITION"
-                                  }]
+                                  "durationMinutes":%d,
+                                  "questions":[%s]
                                 }
-                                """))
+                                """.formatted(durationMinutes, questionJson)))
                 .andExpect(status().isOk()).andReturn();
         return readJson(result).path("data").path("paperId").asLong();
     }
 
     private MvcResult publishPublic(String teacherToken, long paperId) throws Exception {
+        return publishPublic(teacherToken, paperId, LocalDateTime.now().plusHours(2));
+    }
+
+    private MvcResult publishPublic(String teacherToken, long paperId, LocalDateTime dueAt) throws Exception {
         return mockMvc.perform(post("/api/teacher/assessments/papers/{paperId}/publish", paperId)
                         .with(bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -535,10 +734,18 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                                   "resultReleasePolicy":"IMMEDIATE"
                                 }
                                 """.formatted(LocalDateTime.now().minusMinutes(1).format(ISO_TIME),
-                                LocalDateTime.now().plusHours(1).format(ISO_TIME))))
+                                dueAt.format(ISO_TIME))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.participationCodes.length()").value(2))
                 .andReturn();
+    }
+
+    private JsonNode attemptData(String releaseCode, Cookie cookie) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/public/assessments/{releaseCode}/attempt", releaseCode)
+                        .cookie(cookie))
+                .andExpect(status().isOk())
+                .andReturn();
+        return readJson(result).path("data");
     }
 
     private Cookie sessionCookie(MvcResult result) {

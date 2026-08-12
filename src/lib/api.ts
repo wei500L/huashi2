@@ -90,7 +90,7 @@ http.interceptors.response.use(
       !isAccountSessionExempt(originalRequest.url)
     ) {
       originalRequest._retry = true;
-      const refreshedSession = await refreshSession();
+      const refreshedSession = await refreshSession().catch(() => null);
       if (refreshedSession?.accessToken) {
         originalRequest.headers = originalRequest.headers ?? {};
         originalRequest.headers.Authorization = `Bearer ${refreshedSession.accessToken}`;

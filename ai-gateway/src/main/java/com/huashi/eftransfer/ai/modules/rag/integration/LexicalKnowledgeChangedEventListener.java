@@ -44,6 +44,13 @@ public class LexicalKnowledgeChangedEventListener {
     @RabbitListener(queues = PlatformEventTopics.AI_GATEWAY_KNOWLEDGE_SYNC_QUEUE)
     public void onMessage(byte[] payload) {
         LexicalKnowledgeChangedEvent event = parse(payload);
+        if (event.eventVersion() == null || event.eventVersion() != 1
+                || event.sourceIds() == null || event.sourceIds().isEmpty()) {
+            String message = "Lexical knowledge change event rejected: eventVersion=" + event.eventVersion()
+                    + " sourceIds=" + event.sourceIds();
+            integrationConsumeRecordRepository.markFailed(CONSUMER_NAME, event.eventId(), event.sourceType(), message);
+            throw new AmqpRejectAndDontRequeueException(message);
+        }
         if (integrationConsumeRecordRepository.isSucceeded(CONSUMER_NAME, event.eventId())) {
             log.info("event=lexical_knowledge_changed_duplicate_skipped eventId={}", event.eventId());
             return;

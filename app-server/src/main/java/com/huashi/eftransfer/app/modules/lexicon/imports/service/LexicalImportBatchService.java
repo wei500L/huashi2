@@ -392,6 +392,7 @@ public class LexicalImportBatchService {
     }
 
     private void importBatch(Long batchId) {
+        List<Long> importedLexicalPairIds = new ArrayList<>();
         try {
             List<LexicalImportRowEntity> readyRows = rowMapper.selectList(Wrappers.<LexicalImportRowEntity>lambdaQuery()
                     .eq(LexicalImportRowEntity::getBatchId, batchId)
@@ -399,7 +400,6 @@ public class LexicalImportBatchService {
                     .orderByAsc(LexicalImportRowEntity::getRowNumber)
                     .orderByAsc(LexicalImportRowEntity::getId));
 
-            List<Long> importedLexicalPairIds = new ArrayList<>();
             for (LexicalImportRowEntity row : readyRows) {
                 Long lexicalPairId = processReadyRow(batchId, row);
                 if (lexicalPairId != null) {
@@ -414,6 +414,14 @@ public class LexicalImportBatchService {
             batchMapper.updateById(batch);
             log.info("event=lexical_import_batch_completed batchId={} importedRows={}", batchId, batch.getImportedRows());
         } catch (Exception exception) {
+            if (!importedLexicalPairIds.isEmpty()) {
+                try {
+                    lexicalPairService.publishKnowledgeChangedEvent(importedLexicalPairIds);
+                } catch (Exception republishException) {
+                    log.warn("event=lexical_import_event_republish_failed batchId={} importedRows={} message={}",
+                            batchId, importedLexicalPairIds.size(), resolveFailureMessage(republishException));
+                }
+            }
             LexicalImportBatchEntity batch = batchMapper.selectById(batchId);
             if (batch != null) {
                 batch.setStatus(LexicalImportBatchStatus.FAILED.name());

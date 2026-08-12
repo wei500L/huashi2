@@ -147,6 +147,9 @@ public class DiagnosisSessionService {
         try {
             diagnosisSessionMapper.insert(session);
         } catch (DataIntegrityViolationException exception) {
+            if (!isActiveOwnerViolation(exception)) {
+                throw exception;
+            }
             throw new BusinessException(
                     ResultCode.ACTIVE_SESSION_EXISTS,
                     "Diagnosis session already in progress. Resume the active session before starting a new one.",
@@ -1060,5 +1063,11 @@ public class DiagnosisSessionService {
         } catch (IllegalArgumentException exception) {
             return SessionCompletionHookStatus.FAILED;
         }
+    }
+
+    private boolean isActiveOwnerViolation(DataIntegrityViolationException exception) {
+        Throwable cause = exception.getMostSpecificCause();
+        String message = cause == null || cause.getMessage() == null ? "" : cause.getMessage().toLowerCase();
+        return message.contains("active_owner");
     }
 }

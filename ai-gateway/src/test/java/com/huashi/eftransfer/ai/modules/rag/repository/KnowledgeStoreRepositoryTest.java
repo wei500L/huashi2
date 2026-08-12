@@ -6,6 +6,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.ai.integration.provider.AiProviderRegistry;
 import com.huashi.eftransfer.ai.modules.rag.config.RagProperties;
 import com.huashi.eftransfer.ai.modules.rag.service.KnowledgeSearchService;
+import com.huashi.eftransfer.ai.modules.rag.service.RetrievalQueryPlanner;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeChunkPayload;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeDocumentPayload;
 import com.huashi.eftransfer.ai.modules.rag.support.KnowledgeSearchCandidate;
@@ -166,7 +167,12 @@ class KnowledgeStoreRepositoryTest {
         AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
         when(runtimeConfigService.current()).thenReturn(runtimeBundle(ragProperties));
 
-        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(providerRegistry, knowledgeStoreRepository, runtimeConfigService);
+        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(
+                providerRegistry,
+                knowledgeStoreRepository,
+                runtimeConfigService,
+                new RetrievalQueryPlanner(providerRegistry)
+        );
         RagRetrievalResult result = knowledgeSearchService.search("Why is coin/coin risky?", RagSearchFilter.empty());
 
         assertThat(result.chunks()).hasSize(2);
@@ -205,7 +211,12 @@ class KnowledgeStoreRepositoryTest {
         AiRuntimeConfigService runtimeConfigService = mock(AiRuntimeConfigService.class);
         when(runtimeConfigService.current()).thenReturn(runtimeBundle(ragProperties));
 
-        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(providerRegistry, knowledgeStoreRepository, runtimeConfigService);
+        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(
+                providerRegistry,
+                knowledgeStoreRepository,
+                runtimeConfigService,
+                new RetrievalQueryPlanner(providerRegistry)
+        );
         RagRetrievalResult result = knowledgeSearchService.search("Why is coin/coin risky?", RagSearchFilter.empty());
 
         assertThat(result.chunks()).hasSize(2);

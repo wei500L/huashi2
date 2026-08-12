@@ -185,4 +185,39 @@ public class AiOutputSchemaFactory {
                 "required", List.of("supported", "unsupportedClaims", "uncertaintyNote")
         );
     }
+
+    /**
+     * Schema for the per-question practice tutor: a short explanation of one
+     * practice item, the common mistake pattern, a memory tip and related
+     * words, with optional grounded citations.
+     */
+    public Map<String, Object> questionTutorSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "properties", Map.of(
+                        "explanation", Map.of("type", "string"),
+                        "commonMistake", Map.of("type", "string"),
+                        "memoryTip", Map.of("type", "string"),
+                        "relatedWords", Map.of(
+                                "type", "array",
+                                "maxItems", 6,
+                                "items", Map.of("type", "string")
+                        ),
+                        "confidence", Map.of("type", "number", "minimum", 0, "maximum", 1),
+                        "citationIds", Map.of(
+                                "type", "array",
+                                "items", Map.of("type", "string")
+                        )
+                ),
+                "required", List.of(
+                        "explanation",
+                        "commonMistake",
+                        "memoryTip",
+                        "relatedWords",
+                        "confidence",
+                        "citationIds"
+                )
+        );
+    }
 }

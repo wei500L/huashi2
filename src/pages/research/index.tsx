@@ -88,11 +88,12 @@ const ResearchEntry: React.FC<{
 }> = ({ metadata, participationCode, verifying, qrEntering, qrRequested, errorMessage, onCodeChange, onVerify }) => {
   const title = metadata?.title || 'Language in transit';
   const description = metadata?.description || metadata?.instructionsText || '一项关于英语与法语之间词义迁移的公开研究。';
+  const versionToken = (metadata?.title || metadata?.releaseCode || '').match(/V\s?\d+/i)?.[0]?.replace(/\s/g, '').toUpperCase() ?? 'V1';
   return (
     <main className="research-entry min-w-0">
       <header className="research-nav min-w-0">
         <div className="research-wordmark min-w-0"><span className="research-wordmark-mark">EF</span><span className="min-w-0 truncate">TRANSFER / RESEARCH</span></div>
-        <div className="research-nav-meta"><span>PUBLIC STUDY</span><span className="research-nav-dot" /><span>2026 · V1</span></div>
+        <div className="research-nav-meta"><span>PUBLIC STUDY</span><span className="research-nav-dot" /><span>2026 · {versionToken}</span></div>
       </header>
 
       <section className="research-hero min-w-0" aria-labelledby="research-title">
@@ -288,7 +289,7 @@ const SpellingQuestion: React.FC<{
   );
 };
 
-const PublicQuestion: React.FC<{
+export const PublicQuestion: React.FC<{
   question: PublicAssessmentQuestionVO;
   responses: string[];
   justification: string;
@@ -452,18 +453,20 @@ const ResearchParticipantPage: React.FC = () => {
   const releaseGenerationRef = React.useRef(0);
   const serverOffsetMsRef = React.useRef(0);
   const spellingBusyRef = React.useRef(false);
+  const expiredAwaitingRef = React.useRef(false);
   const questionTitleRef = React.useRef<HTMLHeadingElement>(null);
   const questionContentRef = React.useRef<HTMLDivElement>(null);
   const materialRef = React.useRef<HTMLDivElement>(null);
   const [spellingBusy, setSpellingBusy] = React.useState(false);
   const [spellingHintMessage, setSpellingHintMessage] = React.useState<string | null>(null);
+  const [expiredNotice, setExpiredNotice] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!result || !['PENDING', 'PROCESSING'].includes(result.aiAnalysisStatus || '')) return;
     let active = true;
     let attempts = 0;
     const refresh = async () => {
-      if (!active || attempts >= 24) return;
+      if (!active || attempts >= 240) return;
       attempts += 1;
       try {
         const nextResult = await publicAssessmentService.getResult(normalizedReleaseCode);
@@ -497,6 +500,8 @@ const ResearchParticipantPage: React.FC = () => {
     qrEntryAttemptedRef.current = false;
     hydratedRef.current = false;
     saveInFlightRef.current = false;
+    expiredAwaitingRef.current = false;
+    setExpiredNotice(null);
     savedRevisionRef.current = 0;
     failedRevisionRef.current = 0;
     currentVersionRef.current = 1;
@@ -648,6 +653,39 @@ const ResearchParticipantPage: React.FC = () => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [attempt]);
+  const timeExpired = Boolean(
+    attempt && attempt.status === 'IN_PROGRESS'
+      && new Date(attempt.expiresAt).getTime() - (clockNow + serverOffsetMsRef.current) <= 0
+  );
+  React.useEffect(() => {
+    if (!timeExpired) return;
+    if (expiredAwaitingRef.current) return;
+    expiredAwaitingRef.current = true;
+    let active = true;
+    const poll = async (remaining: number) => {
+      if (!active) return;
+      if (remaining <= 0) {
+        setExpiredNotice('答题时间已到，请刷新页面查看结果。');
+        return;
+      }
+      try {
+        const nextAttempt = await publicAssessmentService.getAttempt(normalizedReleaseCode);
+        if (!active) return;
+        if (nextAttempt.status === 'SUBMITTED') {
+          const nextResult = await publicAssessmentService.getResult(normalizedReleaseCode);
+          if (!active) return;
+          applyAttempt(nextAttempt);
+          setResult(nextResult);
+          return;
+        }
+      } catch {
+        // Transient failure; the server-side timeout scheduler will still submit the attempt.
+      }
+      window.setTimeout(() => poll(remaining - 1), 5_000);
+    };
+    window.setTimeout(() => poll(60), 5_000);
+    return () => { active = false; };
+  }, [applyAttempt, normalizedReleaseCode, timeExpired]);
   const visibleQuestions = React.useMemo(() => {
     if (!attempt) return [];
     const questionOrderByItemCode = new Map<string | null | undefined, number>();
@@ -746,7 +784,35 @@ const ResearchParticipantPage: React.FC = () => {
       }
     }
   };
-  const submit = async () => { if (!attempt || submitting || saving || saveInFlightRef.current) return; setSubmitting(true); setErrorMessage(null); try { await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' }); setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '提交失败，请检查必答题后重试。')); } finally { setSubmitting(false); } };
+  const submit = async () => {
+    if (!attempt || submitting || saving || saveInFlightRef.current || timeExpired) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' });
+      setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      if (normalized.code === 'CONFLICT') {
+        try {
+          const refreshed = await publicAssessmentService.getAttempt(normalizedReleaseCode);
+          if (refreshed.status === 'SUBMITTED') {
+            setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
+          } else {
+            currentVersionRef.current = refreshed.version;
+            await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' });
+            setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
+          }
+        } catch (retryError) {
+          setErrorMessage(getApiErrorMessage(retryError, '提交失败，请检查必答题后重试。'));
+        }
+      } else {
+        setErrorMessage(getApiErrorMessage(error, '提交失败，请检查必答题后重试。'));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) return <div className="research-loading">正在加载研究入口…</div>;
   if (result) return <PublicResult result={result} />;
@@ -818,7 +884,7 @@ const ResearchParticipantPage: React.FC = () => {
           </div>
           <div className="research-progress-meta">
             <span>{currentIsFormal ? `已完成 ${stagedProgress.formalAnsweredCount}/${stagedProgress.formalQuestionCount}` : `资料 ${String(stagedProgress.profileAnsweredCount).padStart(2, '0')}/${String(stagedProgress.profileFieldCount).padStart(2, '0')}`}</span>
-            <span>正式题固定 60 道 · 限时 {attempt.durationMinutes} 分钟</span>
+            <span>正式题 {stagedProgress.formalQuestionCount} 道 · 限时 {attempt.durationMinutes} 分钟</span>
           </div>
         </div>
         <div className="research-assessment-layout min-w-0">
@@ -898,15 +964,21 @@ const ResearchParticipantPage: React.FC = () => {
               <button type="button" disabled={selectedIndex === 0} onClick={() => navigateToQuestion(selectedIndex - 1)} className="research-quiet-button">
                 <ChevronLeft size={17} />上一题
               </button>
-              <div className={`research-answer-feedback ${currentAnswered ? 'is-complete' : ''}`} aria-live="polite">
-                {currentQuestion.questionType === 'INSTRUCTION' ? '阅读完成后继续' : currentAnswered ? <><CheckCircle2 size={15} />本题回答已记录</> : currentQuestion.required ? '请选择或填写答案' : '本题可以暂时跳过'}
+              <div className={`research-answer-feedback ${timeExpired ? '' : currentAnswered ? 'is-complete' : ''}`} aria-live="polite">
+                {timeExpired
+                  ? (expiredNotice ?? '答题时间已到，正在自动提交答卷…')
+                  : currentQuestion.questionType === 'INSTRUCTION'
+                    ? '阅读完成后继续'
+                    : selectedIndex === visibleQuestions.length - 1 && currentIsFormal && stagedProgress.formalAnsweredCount === stagedProgress.formalQuestionCount
+                      ? <><CheckCircle2 size={15} />全部正式题已完成，请点击提交问卷</>
+                      : currentAnswered ? <><CheckCircle2 size={15} />本题回答已记录</> : currentQuestion.required ? '请选择或填写答案' : '本题可以暂时跳过'}
               </div>
               {selectedIndex < visibleQuestions.length - 1 ? (
                 <button type="button" onClick={() => navigateToQuestion(selectedIndex + 1)} className="research-primary-button w-full sm:w-auto">
                   {currentQuestion.questionType === 'INSTRUCTION' ? '开始作答' : currentAnswered ? '已记录，继续' : '暂不回答，下一题'}<ChevronRight size={17} className="shrink-0" />
                 </button>
               ) : (
-                <button type="button" disabled={submitting || saving} onClick={() => void submit()} className="research-primary-button w-full sm:w-auto">
+                <button type="button" disabled={submitting || saving || timeExpired} onClick={() => void submit()} className="research-primary-button w-full sm:w-auto">
                   {submitting ? '正在提交…' : saving ? '正在保存…' : `提交问卷 · ${stagedProgress.formalAnsweredCount}/${stagedProgress.formalQuestionCount}`}
                   <Send size={16} className="shrink-0" />
                 </button>

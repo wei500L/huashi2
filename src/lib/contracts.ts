@@ -2336,7 +2336,6 @@ export interface PublicAssessmentMetadataVO {
 
 export interface PublicAssessmentVerifyRequest {
   participationCode: string;
-  basicInfo?: Record<string, string | number | boolean | null>;
 }
 
 export interface PublicAssessmentQuestionVO {
@@ -2943,3 +2942,190 @@ export type {
   TeacherWorkspaceOverviewVO,
   TeacherWorkspaceSummaryVO,
 } from './contracts/teacherWorkspace';
+
+// ---- 学生自测练习 (self-practice) ----
+
+export type PracticeSessionStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+
+export interface PracticeSectionVO {
+  sectionCode: string;
+  title: string;
+  description: string;
+  questionCount: number;
+  constructCodes: string[];
+}
+
+export interface PracticeBankVO {
+  bankCode: string;
+  name: string;
+  description: string;
+  totalQuestionCount: number;
+  sections: PracticeSectionVO[];
+}
+
+export interface PracticeSessionCreatedVO {
+  sessionId: number;
+  bankCode: string;
+  sectionCode: string | null;
+  totalCount: number;
+}
+
+export interface PracticeOptionVO {
+  key: string;
+  label: string;
+}
+
+export interface PracticeQuestionVO {
+  questionOrder: number;
+  questionCode: string;
+  questionType: AssessmentQuestionType;
+  stemText: string | null;
+  promptText: string | null;
+  options: PracticeOptionVO[];
+  sectionCode: string | null;
+  constructCode: string | null;
+  transferCategory: string | null;
+  targetWord: string | null;
+  response: string[];
+  spellingHintShown: boolean | null;
+  spellingHintFirstLetter: string | null;
+  spellingWrongAttemptCount: number | null;
+  answered: boolean;
+}
+
+export interface PracticeSessionDetailVO {
+  sessionId: number;
+  bankCode: string;
+  sectionCode: string | null;
+  status: PracticeSessionStatus;
+  totalCount: number;
+  answeredCount: number;
+  correctCount: number | null;
+  startedAt: string;
+  completedAt: string | null;
+  questions: PracticeQuestionVO[];
+}
+
+export interface PracticeProgressVO {
+  sessionId: number;
+  status: PracticeSessionStatus;
+  totalCount: number;
+  answeredCount: number;
+  correctCount: number | null;
+}
+
+export interface PracticeSpellingCheckVO {
+  correct: boolean;
+  hintShown: boolean;
+  hintFirstLetter: string | null;
+  wrongAttemptCount: number;
+}
+
+export interface PracticeSectionMetricVO {
+  sectionCode: string;
+  title: string;
+  totalCount: number;
+  correctCount: number;
+  percentage: number;
+}
+
+export interface PracticeResultQuestionVO {
+  questionOrder: number;
+  questionCode: string;
+  questionType: AssessmentQuestionType;
+  sectionCode: string | null;
+  constructCode: string | null;
+  transferCategory: string | null;
+  targetWord: string | null;
+  stemText: string | null;
+  promptText: string | null;
+  options: PracticeOptionVO[];
+  correctAnswer: string[];
+  response: string[];
+  correct: boolean | null;
+  explanation: string | null;
+  optionExplanations: Record<string, string>;
+  spellingHintShown: boolean | null;
+  spellingWrongAttemptCount: number | null;
+  spellingErrorPattern: string | null;
+}
+
+export interface PracticeResultVO {
+  sessionId: number;
+  bankCode: string;
+  sectionCode: string | null;
+  status: PracticeSessionStatus;
+  totalCount: number;
+  answeredCount: number;
+  correctCount: number;
+  percentage: number;
+  startedAt: string;
+  completedAt: string | null;
+  tutoringStatus: string | null;
+  tutoringJson: string | null;
+  sectionMetrics: PracticeSectionMetricVO[];
+  questions: PracticeResultQuestionVO[];
+}
+
+export interface PracticeHistoryVO {
+  sessionId: number;
+  bankCode: string;
+  sectionCode: string | null;
+  status: PracticeSessionStatus;
+  totalCount: number;
+  answeredCount: number;
+  correctCount: number;
+  percentage: number;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface StartPracticeSessionRequest {
+  bankCode: string;
+  sectionCode?: string | null;
+  targetWords?: string[];
+}
+
+export interface PracticeAnswerItem {
+  questionOrder: number;
+  response: string[];
+}
+
+export interface SubmitPracticeRequest {
+  answers: PracticeAnswerItem[];
+}
+
+export interface SavePracticeDraftRequest {
+  answers: PracticeAnswerItem[];
+}
+
+export interface PracticeSpellingCheckRequest {
+  questionOrder: number;
+  candidate: string;
+}
+
+export interface PracticeSessionPageQuery {
+  pageNo: number;
+  pageSize: number;
+}
+
+export interface PracticeTutoringRequest {
+  practiceSessionId: number;
+}
+
+export interface PracticeQuestionTutorRequest {
+  practiceSessionId: number;
+  questionOrder: number;
+}
+
+export interface PracticeQuestionTutorVO {
+  practiceSessionId: number;
+  questionOrder: number;
+  generationSource: 'AI' | 'RULE_FALLBACK';
+  explanation: string;
+  commonMistake: string | null;
+  memoryTip: string | null;
+  relatedWords: string[];
+  fallbackReason: string | null;
+  fallbackDetail: string | null;
+}

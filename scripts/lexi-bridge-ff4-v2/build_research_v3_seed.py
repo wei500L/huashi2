@@ -5,8 +5,9 @@ V3 is a new questionnaire generated from the complete production-approved
 FF4 question bank. It
 contains four formal sections (word meaning, sentence selection, true/false,
 spelling) plus basic info. The generated content is APPROVED after the
-concept-level production rules and package audits have passed. Type 3 uses
-the all-F design required by the 0811 revision document.
+concept-level production rules and package audits have passed. Type 3 keeps
+the false-friend F items and interleaves ten client-requested Vrai cognate
+controls to reduce response-set bias.
 
 The seed mirrors the V1 seed schema so the backend seed initializer can load
 it without changes to the released V1 package. Content is production-approved
@@ -17,7 +18,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from production_semantic_rules import RULESET_VERSION  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "data" / "lexi-bridge-ff4-v2"
@@ -133,7 +139,7 @@ def build() -> dict:
         elif item_type == "T3":
             question_type = "TRUE_FALSE"
             options = [{"key": "V", "label": "正确"}, {"key": "F", "label": "错误"}]
-            correct = ["F"]
+            correct = bank_item["correctAnswers"]
             option_explanations = {}
         else:
             question_type = "SPELLING"
@@ -156,7 +162,7 @@ def build() -> dict:
             "scored": True,
             "score": 1,
             "weight": 1,
-            "transferCategory": "FALSE_FRIEND",
+            "transferCategory": bank_item.get("transferCategory") or "FALSE_FRIEND",
             "contextLevel": meta["contextLevel"],
             "constructCode": meta["construct"],
             "targetWord": word,
@@ -190,7 +196,8 @@ def build() -> dict:
             "analysisSha256": None,
             "generator": "scripts/lexi-bridge-ff4-v2/build_research_v3_seed.py",
             "bankPackage": BANK_PACKAGE_NAME,
-            "type3DesignDecision": "A_ALL_FALSE_REQUIRED_BY_0811_DOCUMENT",
+            "type3DesignDecision": "CLIENT_APPROVED_MIXED_FALSE_FRIEND_AND_COGNATE_CONTROLS",
+            "rulesetVersion": RULESET_VERSION,
         },
         "questionnaire": {
             "questionnaireCode": PACKAGE_CODE,

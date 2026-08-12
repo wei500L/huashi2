@@ -25,7 +25,7 @@ from build_question_bank import (  # noqa: E402
     find_t4_ambiguous,
 )
 from production_semantic_rules import (  # noqa: E402
-    APPROVED_SEMANTIC_WORDS, T2_OPTIONS, T2_SENTENCE, T2_TARGET_WORD,
+    APPROVED_SEMANTIC_WORDS, T2_RULES, T2_TARGET_WORDS, TRUE_COGNATE_CONTROLS,
 )
 
 OUT = ROOT / "docs" / "data" / "lexi-bridge-ff4-v2"
@@ -104,15 +104,18 @@ def write_semantic_review(records: list[dict]) -> list[dict]:
 def build_production_t2_item(record: dict) -> dict:
     """Follow the source document literally: one synonym, one French word
     matching the English-transfer meaning, and two same-form distractors."""
+    rule = T2_RULES[record["frenchWord"]]
     return {
         "itemType": "T2",
         "targetWord": record["frenchWord"],
-        "stemText": "请根据句子选择画线单词的同义解释\n" + T2_SENTENCE,
+        "stemText": "请根据句子选择画线单词的同义解释\n" + rule["sentence"],
         "options": [
             {"key": key, "label": label, "correct": correct, "role": role}
-            for key, label, correct, role in T2_OPTIONS
+            for key, label, correct, role in rule["options"]
         ],
         "correctAnswers": ["A"],
+        "evidenceLevel": rule.get("evidenceLevel", "TEM4_EXACT_SENTENCE"),
+        "sourceCollocation": rule.get("sourceCollocation"),
     }
 
 
@@ -121,11 +124,13 @@ def build_items(records: list[dict], evidence: dict[str, dict]) -> list[dict]:
     by_word = {record["frenchWord"]: record for record in records}
     semantic = [by_word[word] for word in sorted(APPROVED_SEMANTIC_WORDS)]
 
-    t2_record = by_word[T2_TARGET_WORD].copy()
-    t2_record.update(evidence[T2_TARGET_WORD])
-    t2_item = build_production_t2_item(t2_record)
+    t2_items = []
+    for word in T2_TARGET_WORDS:
+        record = by_word[word].copy()
+        record.update(evidence.get(word, {}))
+        t2_items.append(build_production_t2_item(record))
 
-    remaining = [record for record in semantic if record["frenchWord"] != T2_TARGET_WORD]
+    remaining = [record for record in semantic if record["frenchWord"] not in T2_TARGET_WORDS]
     # T1 needs two same-POS distractors. Use roughly half of the semantic pool
     # for T1 and reserve the rest for T3 so target words remain globally unique.
     t1_items = []
@@ -137,8 +142,35 @@ def build_items(records: list[dict], evidence: dict[str, dict]) -> list[dict]:
         else:
             t3_records.append(record)
     t3_items = [build_t3_item(record) for record in t3_records]
+    true_controls = []
+    for word, sense in TRUE_COGNATE_CONTROLS.items():
+        true_controls.append({
+            "itemType": "T3",
+            "targetWord": word,
+            "stemText": f"{word} = {sense}",
+            "options": [
+                {"key": "V", "label": "正确", "correct": True, "role": "CORRECT"},
+                {"key": "F", "label": "错误", "correct": False, "role": "DISTRACTOR"},
+            ],
+            "correctAnswers": ["V"],
+            "controlType": "COGNATE_CONTROL",
+        })
+    rng.shuffle(t3_items)
+    # Spread the Vrai controls across the complete false-friend list. Using
+    # n+1 gaps keeps the sequence deterministic and avoids a long F-only tail.
+    gap_count = len(true_controls) + 1
+    base_gap, extra = divmod(len(t3_items), gap_count)
+    gap_sizes = [base_gap + (1 if index < extra else 0) for index in range(gap_count)]
+    interleaved_t3 = []
+    offset = 0
+    for index, gap_size in enumerate(gap_sizes):
+        interleaved_t3.extend(t3_items[offset:offset + gap_size])
+        offset += gap_size
+        if index < len(true_controls):
+            interleaved_t3.append(true_controls[index])
+    t3_items = interleaved_t3
 
-    used = {item["targetWord"] for item in t1_items + [t2_item] + t3_items}
+    used = {item["targetWord"] for item in t1_items + t2_items + t3_items}
     ambiguous = find_t4_ambiguous(records)
     t4_records = [
         record for record in records
@@ -147,7 +179,7 @@ def build_items(records: list[dict], evidence: dict[str, dict]) -> list[dict]:
         and record["frenchWord"] not in ambiguous
     ]
     t4_items = [build_t4_item(record, rng) for record in t4_records]
-    return t1_items + [t2_item] + t3_items + t4_items
+    return t1_items + t2_items + t3_items + t4_items
 
 
 def to_import_package(items: list[dict], records: list[dict], evidence: dict[str, dict]) -> dict:
@@ -162,10 +194,14 @@ def to_import_package(items: list[dict], records: list[dict], evidence: dict[str
         section, question_type, construct, context = TYPE_META[item_type]
         record = by_word[item["targetWord"]]
         evidence_record = evidence.get(item["targetWord"], {})
+        is_control = item.get("controlType") == "COGNATE_CONTROL"
         review_line = {
             "T1": "生产审查：APPROVED（核心义完全不重合、词性、选项角色与答案一致性已复核）。",
-            "T2": "生产审查：APPROVED（TEM4 原句、近义词、英语迁移义对应词与答案一致性已复核）。",
-            "T3": "生产审查：APPROVED（严格使用英语迁移义命题，标准答案为 F）。",
+            "T2": ("生产审查：APPROVED（TEM4 完整原句可定位；近义词、英语迁移义对应词及平行语法已逐项复核）。"
+                   if item.get("evidenceLevel") == "TEM4_EXACT_SENTENCE"
+                   else "生产审查：APPROVED（基于可定位 TEM4 原搭配补充最小语境；近义词、迁移词和句法已逐项复核）。"),
+            "T3": ("生产审查：APPROVED（英法同形同义 Vrai 控制题；用于降低全 F 反应定势）。"
+                   if is_control else "生产审查：APPROVED（假朋友英语迁移义命题，标准答案为 F）。"),
             "T4": "生产审查：APPROVED（仅按拼写距离 1–4、形态型排除与答案唯一性复核；本题型不采用语义筛选）。",
         }[item_type]
         explanation = (
@@ -175,6 +211,8 @@ def to_import_package(items: list[dict], records: list[dict], evidence: dict[str
             f"来源：TEM4 p.{record['tem4PdfPage']}；假朋友词典 p.{record['falseFriendsPdfPage']}。\n"
             + review_line
         )
+        if item_type == "T2" and item.get("evidenceLevel") == "TEM4_COLLOCATION_CONTEXTUALIZED":
+            explanation += f"\n证据等级：基于 TEM4 原搭配“{item['sourceCollocation']}”补充最小语境，并非逐字原句。"
         rows.append({
             "itemCode": item_code,
             "sectionCode": section,
@@ -186,14 +224,15 @@ def to_import_package(items: list[dict], records: list[dict], evidence: dict[str
             "requiredAnswer": True,
             "scored": True,
             "weight": 1,
-            "transferCategory": "FALSE_FRIEND",
+            "transferCategory": "COGNATE" if is_control else "FALSE_FRIEND",
             "contextLevel": context,
             "constructCode": construct,
             "targetWord": item["targetWord"],
             "displayConditionJson": None,
             "tem4PdfPage": record["tem4PdfPage"],
             "falseFriendsPdfPage": record["falseFriendsPdfPage"],
-            "exampleSentenceStatus": evidence_record.get("exampleSentenceStatus") if item_type == "T2" else record.get("exampleSentenceStatus"),
+            "exampleSentenceStatus": (item.get("evidenceLevel") if item_type == "T2"
+                                      else record.get("exampleSentenceStatus")),
             "spellingRawEditDistance": record["rawEditDistance"] if item_type == "T4" else None,
             "spellingAccentFoldedEditDistance": record["accentFoldedEditDistance"] if item_type == "T4" else None,
             "morphologyOnly": record["morphologyOnly"] if item_type == "T4" else False,
@@ -251,7 +290,7 @@ def write_workbook(package: dict, records: list[dict]) -> None:
     spelling_eligible = {record["frenchWord"] for record in records
                          if "T4" in record.get("eligibleTypes", [])
                          and record["frenchWord"] not in ambiguous}
-    maximum_eligible = set(APPROVED_SEMANTIC_WORDS) | spelling_eligible
+    maximum_eligible = set(APPROVED_SEMANTIC_WORDS) | spelling_eligible | set(TRUE_COGNATE_CONTROLS)
     overview.append(["法语专四假朋友题库｜生产版", None])
     overview.merge_cells("A1:B1")
     overview.append(["字段", "内容"])

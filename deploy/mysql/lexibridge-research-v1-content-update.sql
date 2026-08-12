@@ -2,6 +2,16 @@
 -- Scope: the questionnaire exactly mapped by releaseCode RES-AFC02D0823F2
 -- (assessment_questionnaire_version id resolved below); no publish/release/version changes.
 -- Idempotent: safe to re-run.
+--
+-- !! SUPERSEDED since 2026-08-12 — DO NOT RUN !!
+-- This one-time migration was applied for the 2026-08-11 content update and assumed the
+-- pre-restore field set (no BASIC-NAME / BASIC-CONTACT). The production V1 questionnaire
+-- is now synchronized automatically on app-server startup by
+-- LexiBridgeResearchSeedInitializer.updateResearchPackageContent(...) (restores the name /
+-- contact fields, reorders profile items, applies the 60-minute duration and refreshes the
+-- paper + publish snapshots). Re-running this script against the current database will fail:
+-- the INSERT of BASIC-ENGLISH-MAJOR (below) collides with the existing row via
+-- uk_assessment_questionnaire_item_code. Keep it only as a historical record.
 
 START TRANSACTION;
 

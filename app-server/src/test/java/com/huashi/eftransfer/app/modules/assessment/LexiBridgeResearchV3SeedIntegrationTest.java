@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.app.modules.assessment;
 
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
-import com.huashi.eftransfer.app.modules.assessment.service.LexiBridgeResearchV3SeedInitializer;
+import com.huashi.eftransfer.app.modules.assessment.service.LexiBridgePracticeBankSeedInitializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -10,48 +10,49 @@ import org.springframework.test.context.TestPropertySource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies the V3 seed initializer creates an APPROVED questionnaire
- * with the four FF4 sections when its flag is enabled, and that the released
- * V1 package is left untouched by the V3 seed run.
+ * Verifies the practice-bank seed initializer creates only the FF4 V2 question
+ * bank (no questionnaire / paper rows) when its flag is enabled, and that the
+ * released V1 research package is left untouched by the seed run.
  */
 @TestPropertySource(properties = "app.assessment.seed.lexibridge-v3-enabled=true")
-class LexiBridgeResearchV3SeedIntegrationTest extends AbstractWebIntegrationTest {
+class LexiBridgePracticeBankSeedIntegrationTest extends AbstractWebIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private LexiBridgeResearchV3SeedInitializer initializer;
+    private LexiBridgePracticeBankSeedInitializer initializer;
 
     @Test
-    void v3SeedCreatesFourSectionQuestionnaireInApprovedState() {
+    void seedCreatesQuestionBankWithoutAnyQuestionnaireRows() {
+        Integer bankCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM assessment_question_bank WHERE bank_code = 'LEXIBRIDGE_FF4_V2' AND deleted = FALSE",
+                Integer.class);
+        assertThat(bankCount).isEqualTo(1);
+        Integer versionCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM assessment_question_version v
+                JOIN assessment_question_bank b ON b.id = v.question_bank_id
+                WHERE b.bank_code = 'LEXIBRIDGE_FF4_V2' AND v.deleted = FALSE
+                """, Integer.class);
+        assertThat(versionCount).isEqualTo(251);
+        Integer spellingItems = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM assessment_question_version v
+                JOIN assessment_question_bank b ON b.id = v.question_bank_id
+                WHERE b.bank_code = 'LEXIBRIDGE_FF4_V2' AND v.question_type = 'SPELLING' AND v.deleted = FALSE
+                """, Integer.class);
+        assertThat(spellingItems).isGreaterThanOrEqualTo(170);
         Integer questionnaireCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM assessment_questionnaire WHERE questionnaire_code = 'LEXIBRIDGE_RESEARCH_V3' AND deleted = FALSE",
                 Integer.class);
-        assertThat(questionnaireCount).isEqualTo(1);
-        Integer versionCount = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM assessment_questionnaire_version
-                WHERE source_package_code = 'LEXIBRIDGE_RESEARCH_V3' AND status = 'APPROVED' AND deleted = FALSE
-                """, Integer.class);
-        assertThat(versionCount).isEqualTo(1);
-        Integer sectionCount = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM assessment_questionnaire_section s
-                JOIN assessment_questionnaire_version v ON v.id = s.questionnaire_version_id
-                WHERE v.source_package_code = 'LEXIBRIDGE_RESEARCH_V3'
-                  AND s.formal_section = TRUE AND s.deleted = FALSE
-                """, Integer.class);
-        assertThat(sectionCount).isEqualTo(4);
-        Integer spellingItems = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM assessment_question q
-                JOIN assessment_questionnaire_version v ON v.paper_id = q.paper_id
-                WHERE v.source_package_code = 'LEXIBRIDGE_RESEARCH_V3'
-                  AND q.question_type = 'SPELLING' AND q.deleted = FALSE
-                """, Integer.class);
-        assertThat(spellingItems).isGreaterThanOrEqualTo(1);
+        assertThat(questionnaireCount).isZero();
+        Integer paperCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM assessment_paper WHERE paper_code = 'LEXIBRIDGE_RESEARCH_V3' AND deleted = FALSE",
+                Integer.class);
+        assertThat(paperCount).isZero();
     }
 
     @Test
-    void v3SeedDoesNotTouchTheReleasedV1Package() {
+    void seedDoesNotTouchTheReleasedV1Package() {
         Integer v1Count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM assessment_questionnaire WHERE questionnaire_code = 'LEXIBRIDGE_RESEARCH_V1' AND deleted = FALSE",
                 Integer.class);
@@ -63,21 +64,43 @@ class LexiBridgeResearchV3SeedIntegrationTest extends AbstractWebIntegrationTest
     }
 
     @Test
-    void rerunDoesNotRewriteAnApprovedOrPublishedSnapshot() throws Exception {
-        Long paperId = jdbcTemplate.queryForObject("""
-                SELECT paper_id FROM assessment_questionnaire_version
-                WHERE source_package_code = 'LEXIBRIDGE_RESEARCH_V3' AND deleted = FALSE
-                """, Long.class);
-        Long questionId = jdbcTemplate.queryForObject(
-                "SELECT id FROM assessment_question WHERE paper_id = ? AND deleted = FALSE ORDER BY sort_order LIMIT 1",
-                Long.class, paperId);
-        jdbcTemplate.update("UPDATE assessment_question SET stem_text = 'MANUAL_REVIEWED_SNAPSHOT' WHERE id = ?", questionId);
-        jdbcTemplate.update("UPDATE assessment_paper SET status = 'PUBLISHED' WHERE id = ?", paperId);
+    void rerunIsIdempotent() throws Exception {
+        initializer.run(null);
+        Integer versionCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM assessment_question_version v
+                JOIN assessment_question_bank b ON b.id = v.question_bank_id
+                WHERE b.bank_code = 'LEXIBRIDGE_FF4_V2' AND v.deleted = FALSE
+                """, Integer.class);
+        assertThat(versionCount).isEqualTo(251);
+    }
+
+    @Test
+    void rerunSoftDeletesVersionsRemovedFromTheSeedPackage() throws Exception {
+        Long bankId = jdbcTemplate.queryForObject(
+                "SELECT id FROM assessment_question_bank WHERE bank_code = 'LEXIBRIDGE_FF4_V2'",
+                Long.class);
+        jdbcTemplate.update("""
+                INSERT INTO assessment_question_version
+                    (question_bank_id,question_code,version_no,question_type,stem_text,prompt_text,options_json,
+                     correct_answer_json,explanation_text,option_explanations_json,required_answer,weight,
+                     transfer_category,context_level,construct_code,target_word,display_condition_json,source_reference,
+                     content_hash,created_by,updated_by)
+                VALUES (?, 'STALE-REMOVED-CODE', 1, 'SINGLE_CHOICE', 'stale', NULL, '[]', '["A"]', NULL, '{}',
+                        TRUE, 1.0, NULL, NULL, 'FF4_WORD_MEANING', NULL, NULL, NULL,
+                        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 0, 0)
+                """, bankId);
 
         initializer.run(null);
 
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT stem_text FROM assessment_question WHERE id = ?", String.class, questionId))
-                .isEqualTo("MANUAL_REVIEWED_SNAPSHOT");
+        Integer staleActive = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM assessment_question_version
+                WHERE question_bank_id = ? AND question_code = 'STALE-REMOVED-CODE' AND deleted = FALSE
+                """, Integer.class, bankId);
+        assertThat(staleActive).isZero();
+        Integer staleDeleted = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM assessment_question_version
+                WHERE question_bank_id = ? AND question_code = 'STALE-REMOVED-CODE' AND deleted = TRUE
+                """, Integer.class, bankId);
+        assertThat(staleDeleted).isEqualTo(1);
     }
 }

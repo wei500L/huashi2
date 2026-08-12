@@ -130,7 +130,8 @@ def item(
 
 
 def basic_items(source: list[str]) -> list[dict]:
-    def basic(code: str, order: int, question_type: str, stem: str, options=None, required=False):
+    def basic(code: str, order: int, question_type: str, stem: str, options=None, required=False,
+              display_condition=None, source_reference=None):
         return with_content_hash({
             "itemCode": code,
             "sectionCode": "BASIC_INFO",
@@ -150,30 +151,31 @@ def basic_items(source: list[str]) -> list[dict]:
             "contextLevel": None,
             "constructCode": None,
             "targetWord": None,
-            "displayCondition": None,
-            "sourceReference": f"questionnaire:paragraph-{58 + order}",
+            "displayCondition": display_condition,
+            "sourceReference": source_reference or f"questionnaire:paragraph-{58 + order}",
         })
 
     consent = "\n".join(value for value in source[55:58] if value)
+    english_major_condition = {
+        "fieldCode": "BASIC-ENGLISH-MAJOR",
+        "operator": "EQ",
+        "value": "ENGLISH_MAJOR",
+    }
     return [
         basic("BASIC-INSTRUCTION", 1, "INSTRUCTION", consent),
-        basic("BASIC-NAME", 2, "SHORT_TEXT", source[59], required=True),
-        basic("BASIC-CONTACT", 3, "SHORT_TEXT", source[60]),
-        basic("BASIC-STATUS", 4, "SINGLE_CHOICE", source[61], [
-            {"key": "FRENCH_MAJOR", "label": clean_stem(source[62].removeprefix("□").strip())},
-            {"key": "FRENCH_SECOND_LANGUAGE", "label": clean_stem(source[63].removeprefix("□").strip())},
-            {"key": "NON_MAJOR", "label": clean_stem(source[64].removeprefix("□").strip())},
-        ]),
-        basic("BASIC-GAOKAO-ENGLISH", 5, "NUMBER", source[66]),
-        basic("BASIC-CET4", 6, "NUMBER", source[68]),
-        basic("BASIC-CET6", 7, "NUMBER", source[69]),
-        basic("BASIC-TEM4", 8, "NUMBER", source[73]),
-        basic("BASIC-TEM8", 9, "NUMBER", source[74]),
-        basic("BASIC-FRENCH-DURATION", 10, "SINGLE_CHOICE", source[75], [
-            {"key": f"DURATION_{index + 1}", "label": source[paragraph_index].removeprefix("□").strip()}
-            for index, paragraph_index in enumerate(range(76, 81))
-        ]),
-        basic("BASIC-OTHER-LANGUAGE", 11, "SHORT_TEXT", source[81]),
+        basic("BASIC-NAME", 2, "SHORT_TEXT", source[59], required=True, source_reference="questionnaire:paragraph-60"),
+        basic("BASIC-CONTACT", 3, "SHORT_TEXT", source[60], source_reference="questionnaire:paragraph-61"),
+        basic("BASIC-GAOKAO-ENGLISH", 4, "NUMBER", source[66], source_reference="questionnaire:paragraph-63"),
+        basic("BASIC-ENGLISH-MAJOR", 5, "SINGLE_CHOICE", "您是否为英语专业学生：", [
+            {"key": "ENGLISH_MAJOR", "label": "英语专业"},
+            {"key": "NON_ENGLISH_MAJOR", "label": "非英语专业"},
+        ], required=True, source_reference="questionnaire:fix-2026-08-basic-english-major"),
+        basic("BASIC-CET4", 6, "NUMBER", source[68], source_reference="questionnaire:paragraph-64"),
+        basic("BASIC-CET6", 7, "NUMBER", source[69], source_reference="questionnaire:paragraph-65"),
+        basic("BASIC-TEM4", 8, "NUMBER", source[73], display_condition=english_major_condition,
+              source_reference="questionnaire:paragraph-66"),
+        basic("BASIC-TEM8", 9, "NUMBER", source[74], display_condition=english_major_condition,
+              source_reference="questionnaire:paragraph-67"),
     ]
 
 
@@ -295,7 +297,7 @@ def build(questionnaire_path: Path, analysis_path: Path) -> dict:
             "questionnaireCode": PACKAGE_CODE,
             "title": "Lexi-bridge 英法词汇认知迁移研究问卷",
             "description": source[0],
-            "durationMinutes": 40,
+            "durationMinutes": 60,
             "resultReleasePolicy": "IMMEDIATE",
             "scoringVersion": "SCORING_V1",
             "aiPromptVersion": "assessment-analysis/v2",

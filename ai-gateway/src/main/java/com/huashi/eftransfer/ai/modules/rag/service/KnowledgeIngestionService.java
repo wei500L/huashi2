@@ -23,6 +23,8 @@ import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExampleItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportItem;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeSenseItem;
+import com.huashi.eftransfer.shared.ai.PracticeWordKnowledgeExportItem;
+import com.huashi.eftransfer.shared.ai.PracticeWordKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexJobResponse;
 import com.huashi.eftransfer.shared.ai.RagReindexRequest;
 import com.huashi.eftransfer.shared.ai.RagReindexResponse;
@@ -174,6 +176,17 @@ public class KnowledgeIngestionService {
                         embeddingRuntime
                 );
             }
+            if (!java.util.Collections.disjoint(job.requestedSourceTypes(), KnowledgeSourceTypes.PRACTICE_WORD_SOURCE_TYPES)) {
+                syncPracticeWords(
+                        job.jobId(),
+                        job.mode(),
+                        job.requestedSourceTypes(),
+                        job.requestedSourceIds(),
+                        job.forceReembed(),
+                        stats,
+                        embeddingRuntime
+                );
+            }
             if (!java.util.Collections.disjoint(job.requestedSourceTypes(), KnowledgeSourceTypes.SEED_SOURCE_TYPES)) {
                 syncSeedKnowledge(
                         job.jobId(),
@@ -287,6 +300,128 @@ public class KnowledgeIngestionService {
         return watermark;
     }
 
+    /**
+     * Syncs the practice-bank words (FF4 four-type bank) into the knowledge
+     * base. Each word becomes a single document whose chunk carries the bank
+     * explanation - the same TEM4 / false-friend dictionary evidence students
+     * practiced with - so the practice tutoring scenes can ground on it.
+     */
+    private void syncPracticeWords(
+            Long jobId,
+            ReindexMode mode,
+            Set<String> requestedSourceTypes,
+            Set<String> requestedSourceIds,
+            boolean forceReembed,
+            StatsAccumulator stats,
+            EmbeddingRuntimeSnapshot embeddingRuntime
+    ) {
+        if (!requestedSourceTypes.contains(KnowledgeSourceTypes.PRACTICE_WORD)) {
+            return;
+        }
+        OffsetDateTime updatedSince = mode == ReindexMode.FULL
+                ? null
+                : ingestionJobRepository.findLatestSuccessfulWatermark(JOB_TYPE, KnowledgeSourceTypes.PRACTICE_WORD);
+        Set<String> requestedWordCodes = requestedSourceIds == null || requestedSourceIds.isEmpty()
+                ? Set.of()
+                : requestedSourceIds.stream().collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<String> seenDocumentIds = new LinkedHashSet<>();
+        OffsetDateTime watermark = updatedSince;
+        String cursor = null;
+
+        do {
+            PracticeWordKnowledgeExportPageResponse response = appServerKnowledgeClient.exportPracticeWords(
+                    updatedSince,
+                    cursor,
+                    runtimeConfigService.current().config().rag().ingestion().exportPageSize()
+            );
+            List<PendingChunkEmbedding> pendingChunkEmbeddings = new ArrayList<>();
+            for (PracticeWordKnowledgeExportItem item : response.items()) {
+                if (!requestedWordCodes.isEmpty() && !requestedWordCodes.contains(item.wordCode())) {
+                    continue;
+                }
+                seenDocumentIds.add(item.wordCode());
+                KnowledgeDocumentPayload documentPayload = toPracticeWordDocument(item);
+                KnowledgeStoreRepository.UpsertDocumentResult result = knowledgeStoreRepository.upsertDocument(
+                        documentPayload,
+                        forceReembed,
+                        documentHash(documentPayload),
+                        Set.of(KnowledgeSourceTypes.PRACTICE_WORD),
+                        embeddingRuntime.model(),
+                        embeddingRuntime.dimension()
+                );
+                if (!result.applied()) {
+                    log.info("event=knowledge_document_stale_skipped sourceType={} sourceId={} sourceUpdatedAt={}",
+                            documentPayload.sourceType(), documentPayload.sourceId(), documentPayload.sourceUpdatedAt());
+                    continue;
+                }
+                pendingChunkEmbeddings.addAll(result.pendingChunkEmbeddings());
+                stats.documentsProcessed++;
+                stats.chunksProcessed += documentPayload.chunks().size();
+                if (item.sourceUpdatedAt() != null && (watermark == null || item.sourceUpdatedAt().isAfter(watermark))) {
+                    watermark = item.sourceUpdatedAt();
+                }
+            }
+
+            embedPendingChunks(pendingChunkEmbeddings, stats, embeddingRuntime);
+            cursor = response.nextCursor();
+            ingestionJobRepository.updateProgress(jobId, cursor, watermark, stats.toMap());
+        } while (cursor != null);
+
+        if (mode == ReindexMode.FULL) {
+            if (requestedWordCodes.isEmpty()) {
+                knowledgeStoreRepository.deactivateDocumentsNotIn(KnowledgeSourceTypes.PRACTICE_WORD, seenDocumentIds);
+            } else {
+                knowledgeStoreRepository.deactivateDocumentsBySourceIds(
+                        KnowledgeSourceTypes.PRACTICE_WORD,
+                        requestedWordCodes,
+                        seenDocumentIds
+                );
+            }
+        }
+    }
+
+    private KnowledgeDocumentPayload toPracticeWordDocument(PracticeWordKnowledgeExportItem item) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("wordCode", item.wordCode());
+        metadata.put("targetWord", item.targetWord());
+        metadata.put("questionType", item.questionType());
+        metadata.put("chunkKind", "PRACTICE_WORD");
+        String content = """
+                French word: %s
+                Chinese meaning: %s
+                Question type: %s
+                Bank explanation: %s
+                """.formatted(
+                blankToDash(item.targetWord()),
+                blankToDash(item.chineseMeaning()),
+                blankToDash(item.questionType()),
+                blankToDash(item.explanation())
+        );
+        KnowledgeChunkPayload chunk = new KnowledgeChunkPayload(
+                "word:%s".formatted(item.wordCode()),
+                0,
+                KnowledgeSourceTypes.PRACTICE_WORD,
+                item.wordCode(),
+                item.targetWord() == null || item.targetWord().isBlank() ? item.wordCode() : item.targetWord(),
+                content,
+                metadata,
+                true
+        );
+        return new KnowledgeDocumentPayload(
+                KnowledgeSourceTypes.PRACTICE_WORD,
+                item.wordCode(),
+                item.targetWord() == null || item.targetWord().isBlank() ? item.wordCode() : item.targetWord(),
+                item.sourceUpdatedAt(),
+                true,
+                metadata,
+                List.of(chunk)
+        );
+    }
+
+    private String blankToDash(String value) {
+        return value == null || value.isBlank() ? "-" : value;
+    }
+
     private void syncSeedKnowledge(
             Long jobId,
             ReindexMode mode,
@@ -295,8 +430,7 @@ public class KnowledgeIngestionService {
             boolean forceReembed,
             StatsAccumulator stats,
             EmbeddingRuntimeSnapshot embeddingRuntime
-    ) throws IOException {
-        List<SeedKnowledgeEntry> seedEntries = objectMapper.readValue(
+    ) throws IOException {        List<SeedKnowledgeEntry> seedEntries = objectMapper.readValue(
                 new ClassPathResource("rag/seed-knowledge.json").getInputStream(),
                 SEED_TYPE
         );

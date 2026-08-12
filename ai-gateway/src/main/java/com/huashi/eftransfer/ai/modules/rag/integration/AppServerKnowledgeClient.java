@@ -5,6 +5,7 @@ import com.huashi.eftransfer.ai.common.runtime.AiRuntimeConfigService;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncRequest;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncResponse;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
+import com.huashi.eftransfer.shared.ai.PracticeWordKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import org.slf4j.MDC;
 import org.springframework.core.ParameterizedTypeReference;
@@ -21,6 +22,9 @@ import java.util.List;
 public class AppServerKnowledgeClient {
 
     private static final ParameterizedTypeReference<ApiResponse<LexicalKnowledgeExportPageResponse>> EXPORT_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<ApiResponse<PracticeWordKnowledgeExportPageResponse>> PRACTICE_WORD_EXPORT_TYPE =
             new ParameterizedTypeReference<>() {
             };
     private static final ParameterizedTypeReference<ApiResponse<LexicalPairEmbeddingStatusSyncResponse>> EMBEDDING_STATUS_SYNC_TYPE =
@@ -48,6 +52,34 @@ public class AppServerKnowledgeClient {
 
         if (response == null || !response.success() || response.data() == null) {
             throw new IllegalStateException("Unexpected app-server lexical knowledge export response");
+        }
+        return response.data();
+    }
+
+    public PracticeWordKnowledgeExportPageResponse exportPracticeWords(
+            OffsetDateTime updatedSince,
+            String cursor,
+            int limit
+    ) {
+        AiRuntimeBundle bundle = runtimeConfigService.current();
+        ApiResponse<PracticeWordKnowledgeExportPageResponse> response = bundle.appServerRestClient().get()
+                .uri(uriBuilder -> {
+                    UriBuilder builder = uriBuilder.path("/internal/knowledge/practice-words/export")
+                            .queryParam("limit", limit);
+                    if (updatedSince != null) {
+                        builder.queryParam("updatedSince", updatedSince);
+                    }
+                    if (StringUtils.hasText(cursor)) {
+                        builder.queryParam("cursor", cursor);
+                    }
+                    return builder.build();
+                })
+                .headers(this::applyTraceHeader)
+                .retrieve()
+                .body(PRACTICE_WORD_EXPORT_TYPE);
+
+        if (response == null || !response.success() || response.data() == null) {
+            throw new IllegalStateException("Unexpected app-server practice word knowledge export response");
         }
         return response.data();
     }

@@ -22,7 +22,7 @@ from build_candidates import (  # noqa: E402
     levenshtein,
 )
 from build_question_bank import content_hash  # noqa: E402
-from production_semantic_rules import T2_OPTIONS, T2_SENTENCE, T2_TARGET_WORD  # noqa: E402
+from production_semantic_rules import T2_RULES, T2_TARGET_WORDS, TRUE_COGNATE_CONTROLS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "data" / "lexi-bridge-ff4-v2"
@@ -146,13 +146,13 @@ class PackageStructureTests(unittest.TestCase):
     def test_t2_matches_0811_document_rule(self):
         package = json.loads((OUT / "question-bank-package-v2.json").read_text(encoding="utf-8"))
         items = [item for item in package["items"] if item["constructCode"] == "FF4_SENTENCE_SYNONYM"]
-        self.assertEqual(len(items), 1)
-        item = items[0]
-        self.assertEqual(item["targetWord"], T2_TARGET_WORD)
-        self.assertEqual(item["stemText"], "请根据句子选择画线单词的同义解释\n" + T2_SENTENCE)
-        options = [option for option in package["options"] if option["itemCode"] == item["itemCode"]]
-        actual = [(o["optionCode"], o["optionText"], o["correct"], o["role"]) for o in options]
-        self.assertEqual(actual, list(T2_OPTIONS))
+        self.assertEqual({item["targetWord"] for item in items}, set(T2_TARGET_WORDS))
+        for item in items:
+            rule = T2_RULES[item["targetWord"]]
+            self.assertEqual(item["stemText"], "请根据句子选择画线单词的同义解释\n" + rule["sentence"])
+            options = [option for option in package["options"] if option["itemCode"] == item["itemCode"]]
+            actual = [(o["optionCode"], o["optionText"], o["correct"], o["role"]) for o in options]
+            self.assertEqual(actual, list(rule["options"]))
 
     def test_import_package_matches_dto_shape(self):
         package = json.loads((OUT / "question-bank-package-v2.json").read_text(encoding="utf-8"))
@@ -196,6 +196,15 @@ class PackageStructureTests(unittest.TestCase):
         self.assertEqual(len(scored), len(production["items"]))
         self.assertEqual({item["itemCode"] for item in scored},
                          {item["itemCode"] for item in production["items"]})
+
+    def test_production_true_false_has_ten_vrai_cognate_controls(self):
+        package = json.loads((OUT / "question-bank-package-production.json").read_text(encoding="utf-8"))
+        controls = [item for item in package["items"]
+                    if item["constructCode"] == "FF4_TRUE_FALSE_TRANSFER"
+                    and item.get("transferCategory") == "COGNATE"]
+        self.assertEqual(len(controls), 10)
+        self.assertEqual({item["targetWord"] for item in controls}, set(TRUE_COGNATE_CONTROLS))
+        self.assertTrue(all(item["correctAnswers"] == ["V"] for item in controls))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,71 @@
+{
+  "manifestVersion": 1,
+  "generatedAtUtc": "2026-08-12T07:19:42.944101+00:00",
+  "rulesetVersion": "FF4_0811_CLIENT_REV2_20260812",
+  "packageCode": "LEXIBRIDGE_FF4_PRODUCTION_20260812",
+  "v3QuestionnaireCode": "LEXIBRIDGE_RESEARCH_V3",
+  "itemCount": 239,
+  "uniqueTargetCount": 239,
+  "counts": {
+    "FF4_WORD_MEANING": 27,
+    "FF4_SENTENCE_SYNONYM": 16,
+    "FF4_TRUE_FALSE_TRANSFER": 22,
+    "FF4_SPELLING": 174
+  },
+  "trueCognateControlCount": 10,
+  "statuses": {
+    "content": "APPROVED",
+    "coverage": "MAXIMUM_RULE_COMPLIANT_COVERAGE",
+    "import": "READY_FOR_IMPORT_VALIDATION",
+    "preflight": "PASS",
+    "deployment": "NOT_DEPLOYED"
+  },
+  "artifacts": [
+    {
+      "path": "docs/data/lexi-bridge-ff4-v2/法语专四假朋友题库_生产版.xlsx",
+      "sizeBytes": 93917,
+      "sha256": "b0d0a1f8979275ab278957107e5190ace744d7b668be5ec3dbd0016714e65879"
+    },
+    {
+      "path": "docs/data/lexi-bridge-ff4-v2/法语专四假朋友题库_V3.xlsx",
+      "sizeBytes": 46273,
+      "sha256": "a5a3cb05b63388904c3f9a0adfb650988c06ef35b0b3e5299c99d6b774af6b11"
+    },
+    {
+      "path": "docs/data/lexi-bridge-ff4-v2/question-bank-package-production.json",
+      "sizeBytes": 324544,
+      "sha256": "8837470d2b3a172354995401f31eb56484bb8e18f4da6d3c817a035220279548"
+    },
+    {
+      "path": "app-server/src/main/resources/assessment-seeds/LEXIBRIDGE_RESEARCH_V3.json",
+      "sizeBytes": 406793,
+      "sha256": "61e0af9752e01b217b2342e8934b7959a046963b872ebee9ee77168756c12c26"
+    },
+    {
+      "path": "docs/data/lexi-bridge-ff4-v2/production-audit-report.md",
+      "sizeBytes": 777,
+      "sha256": "093a208960eedd94b5a411509afaa60b7d69cdde7d7f812649929dde95cd09f9"
+    },
+    {
+      "path": "docs/data/lexi-bridge-ff4-v2/seed-preflight-report.json",
+      "sizeBytes": 567,
+      "sha256": "64292b6ae80804db44740eac1709fdf63e876a99a1ec1913a6443171cd4d8854"
+    },
+    {
+      "path": "docs/data/lexi-bridge-ff4-v2/PRODUCTION_RULES.md",
+      "sizeBytes": 4144,
+      "sha256": "ff343fa952f95af29ad42653c3717721bfacc3daa661181e3b1d00ef50a4625c"
+    },
+    {
+      "path": "docs/data/lexi-bridge-ff4-v2/TYPE3_DESIGN_DECISION.md",
+      "sizeBytes": 1612,
+      "sha256": "9c06ec2ecef8b4ec5ac5220adab4fec4e099273a983246ef4353d0e87c734422"
+    }
+  ],
+  "deploymentNotes": [
+    "Manifest generation does not connect to or modify production.",
+    "Back up the production database and current seed files before import.",
+    "Run backend integration tests in a Java/Docker-enabled environment before creating a release.",
+    "Keep the released V1 package and rollback path intact."
+  ]
+}

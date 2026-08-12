@@ -6,6 +6,8 @@ public final class AiConstants {
     public static final String SCENE_EXPLAIN_DIAGNOSIS = "EXPLAIN_DIAGNOSIS";
     public static final String SCENE_TEACHER_INTERVENTION = "TEACHER_INTERVENTION";
     public static final String SCENE_LEXICAL_RAG_QUERY = "LEXICAL_RAG_QUERY";
+    public static final String SCENE_PRACTICE_TUTORING = "PRACTICE_TUTORING";
+    public static final String SCENE_PRACTICE_QUESTION_TUTOR = "PRACTICE_QUESTION_TUTOR";
 
     public static final String GENERATION_SOURCE_AI = "AI";
     public static final String GENERATION_SOURCE_RULE_FALLBACK = "RULE_FALLBACK";

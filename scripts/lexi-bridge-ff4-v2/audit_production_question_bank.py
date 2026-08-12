@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_candidates import ROOT  # noqa: E402
 from build_question_bank import find_t4_ambiguous  # noqa: E402
 from production_semantic_rules import (  # noqa: E402
-    APPROVED_SEMANTIC_WORDS, T2_OPTIONS, T2_SENTENCE, T2_TARGET_WORD,
+    APPROVED_SEMANTIC_WORDS, MAX_CONSECUTIVE_FALSE_FRIEND_T3,
+    MINIMUM_T2_ITEM_COUNT, RULESET_VERSION, T2_RULES, T2_TARGET_WORDS,
+    TRUE_COGNATE_CONTROLS,
 )
 
 OUT = ROOT / "docs" / "data" / "lexi-bridge-ff4-v2"
@@ -38,7 +40,7 @@ def main() -> int:
         row["frenchWord"] for row in records
         if "T4" in row.get("eligibleTypes", []) and row["frenchWord"] not in ambiguous
     }
-    maximum_eligible_pool = semantic_eligible | spelling_eligible
+    maximum_eligible_pool = semantic_eligible | spelling_eligible | set(TRUE_COGNATE_CONTROLS)
     options_by_item: dict[str, list[dict]] = {}
     for option in package["options"]:
         options_by_item.setdefault(option["itemCode"], []).append(option)
@@ -46,6 +48,9 @@ def main() -> int:
     issues: list[str] = []
     target_words: set[str] = set()
     counts: dict[str, int] = {}
+    true_control_count = 0
+    consecutive_false_friend_t3 = 0
+    maximum_false_friend_t3_run = 0
     for item in package["items"]:
         code = item["itemCode"]
         construct = item["constructCode"]
@@ -87,22 +92,40 @@ def main() -> int:
                            for source in sources):
                     issues.append(f"{code}: distractor POS mismatch: {option['optionText']}")
         elif construct == "FF4_SENTENCE_SYNONYM":
-            if item.get("exampleSentenceStatus") != "SOURCE_VERIFIED":
-                issues.append(f"{code}: T2 sentence is not source verified")
-            if word != T2_TARGET_WORD:
+            if word not in T2_TARGET_WORDS:
                 issues.append(f"{code}: unexpected T2 target")
-            if item.get("stemText") != "请根据句子选择画线单词的同义解释\n" + T2_SENTENCE:
+            rule = T2_RULES.get(word)
+            expected_evidence = rule.get("evidenceLevel", "TEM4_EXACT_SENTENCE") if rule else None
+            if item.get("exampleSentenceStatus") != expected_evidence:
+                issues.append(f"{code}: T2 evidence level differs from approved rule")
+            if expected_evidence == "TEM4_COLLOCATION_CONTEXTUALIZED" and not rule.get("sourceCollocation"):
+                issues.append(f"{code}: contextualized T2 missing source collocation")
+            if rule is None or item.get("stemText") != "请根据句子选择画线单词的同义解释\n" + rule["sentence"]:
                 issues.append(f"{code}: T2 source sentence/emphasis differs from approved text")
             actual = [(option["optionCode"], option["optionText"], option["correct"], option["role"])
                       for option in options]
-            if actual != list(T2_OPTIONS):
+            if rule is None or actual != list(rule["options"]):
                 issues.append(f"{code}: T2 options differ from approved synonym/transfer evidence")
         elif construct == "FF4_TRUE_FALSE_TRANSFER":
-            review = semantic_reviews.get(word)
-            if review is None or review["productionDecision"] != "APPROVED":
-                issues.append(f"{code}: T3 target not production-approved")
-            if item["correctAnswers"] != ["F"]:
-                issues.append(f"{code}: T3 must be F under the fixed template")
+            is_control = item.get("transferCategory") == "COGNATE"
+            if is_control:
+                true_control_count += 1
+                consecutive_false_friend_t3 = 0
+                if word not in TRUE_COGNATE_CONTROLS:
+                    issues.append(f"{code}: unapproved cognate control")
+                if item["correctAnswers"] != ["V"]:
+                    issues.append(f"{code}: cognate control answer must be V")
+                expected_stem = f"{word} = {TRUE_COGNATE_CONTROLS.get(word, '')}"
+                if item.get("stemText") != expected_stem:
+                    issues.append(f"{code}: cognate control stem differs from approved sense")
+            else:
+                consecutive_false_friend_t3 += 1
+                maximum_false_friend_t3_run = max(maximum_false_friend_t3_run, consecutive_false_friend_t3)
+                review = semantic_reviews.get(word)
+                if review is None or review["productionDecision"] != "APPROVED":
+                    issues.append(f"{code}: T3 target not production-approved")
+                if item["correctAnswers"] != ["F"]:
+                    issues.append(f"{code}: false-friend T3 answer must be F")
         elif construct == "FF4_SPELLING":
             distance = min(item["spellingRawEditDistance"], item["spellingAccentFoldedEditDistance"])
             if not 1 <= distance <= 4:
@@ -122,6 +145,14 @@ def main() -> int:
         issues.append("maximum coverage failure; eligible targets omitted: " + ", ".join(missing_eligible))
     if unexpected_targets:
         issues.append("targets outside approved semantic/spelling pools: " + ", ".join(unexpected_targets))
+    if true_control_count != len(TRUE_COGNATE_CONTROLS):
+        issues.append(f"expected {len(TRUE_COGNATE_CONTROLS)} Vrai cognate controls, got {true_control_count}")
+    t2_count = counts.get("FF4_SENTENCE_SYNONYM", 0)
+    if t2_count < MINIMUM_T2_ITEM_COUNT:
+        issues.append(f"T2 regression: expected at least {MINIMUM_T2_ITEM_COUNT} items, got {t2_count}")
+    if maximum_false_friend_t3_run > MAX_CONSECUTIVE_FALSE_FRIEND_T3:
+        issues.append("T3 interleaving regression: maximum consecutive false-friend run "
+                      f"is {maximum_false_friend_t3_run}, limit is {MAX_CONSECUTIVE_FALSE_FRIEND_T3}")
 
     workbook = load_workbook(WORKBOOK, read_only=True, data_only=True)
     expected_rows = {
@@ -167,8 +198,10 @@ def main() -> int:
         f"- 总题量：{len(package['items'])}",
         f"- 全局唯一目标词：{len(target_words)}",
         f"- 语义题合格目标词：{len(semantic_eligible)}",
+        f"- 判断题 Vrai 同源词控制题：{len(TRUE_COGNATE_CONTROLS)}",
+        f"- 判断题最大连续 F：{maximum_false_friend_t3_run}（门限 ≤ {MAX_CONSECUTIVE_FALSE_FRIEND_T3}）",
         f"- 拼写题合格目标词：{len(spelling_eligible)}",
-        f"- 两类规则合并后的最大可用目标词：{len(maximum_eligible_pool)}",
+        f"- 语义池、拼写池与同源控制池合并后的最大可用目标词：{len(maximum_eligible_pool)}",
         f"- 最大覆盖率：{len(target_words)}/{len(maximum_eligible_pool)}（{'100%' if target_words == maximum_eligible_pool else '未达标'}）",
         "- 各题型：" + "；".join(f"{key}={value}" for key, value in counts.items()),
         f"- 结构与内容问题：{len(issues)}",
@@ -176,6 +209,7 @@ def main() -> int:
         "- 覆盖状态：MAXIMUM_RULE_COMPLIANT_COVERAGE",
         "- 导入状态：READY_FOR_IMPORT_VALIDATION",
         "- 发布状态：NOT_DEPLOYED（尚未连接生产库、未创建 release）",
+        f"- 规则版本：{RULESET_VERSION}",
         "",
         "## 问题清单",
     ]

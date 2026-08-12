@@ -6,7 +6,7 @@ Verifies (deterministically, from the seed + bank package):
   - global target-word uniqueness across the four FF4 sections
   - option roles (1 CORRECT + 1 TRANSFER + 2 DISTRACTOR) for T1/T2
   - answer consistency between correctAnswers and CORRECT role
-  - T3 all-F design
+  - T3 false-friend F items plus exactly ten approved Vrai cognate controls
   - T4 spelling distance 1-4, no morphology-only, non-ambiguous stems
   - every scored item carries production APPROVED review status
   - content hash determinism (recompute and compare)
@@ -23,6 +23,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_candidates import fold_latin  # noqa: E402
+from production_semantic_rules import (  # noqa: E402
+    MAX_CONSECUTIVE_FALSE_FRIEND_T3, MINIMUM_T2_ITEM_COUNT, RULESET_VERSION,
+    TRUE_COGNATE_CONTROLS,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "data" / "lexi-bridge-ff4-v2"
@@ -71,6 +75,9 @@ def main() -> int:
         bank_options.setdefault(option["itemCode"], []).append(option)
     counts: dict[str, int] = {}
     words_by_section: dict[str, set[str]] = {}
+    true_control_count = 0
+    consecutive_false_friend_t3 = 0
+    maximum_false_friend_t3_run = 0
 
     for item in scored:
         section = item["sectionCode"]
@@ -100,8 +107,17 @@ def main() -> int:
                 if item["correctAnswers"] != [next(o["optionCode"] for o in options if o.get("role") == "CORRECT")]:
                     issues.append(f"{item['itemCode']}: correctAnswers mismatch with CORRECT role")
         elif section == "FF4_TRUE_FALSE":
-            if item["correctAnswers"] != ["F"]:
-                issues.append(f"{item['itemCode']}: T3 must be all-F")
+            if item.get("transferCategory") == "COGNATE":
+                true_control_count += 1
+                consecutive_false_friend_t3 = 0
+                if item["targetWord"] not in TRUE_COGNATE_CONTROLS or item["correctAnswers"] != ["V"]:
+                    issues.append(f"{item['itemCode']}: invalid Vrai cognate control")
+            elif item["correctAnswers"] != ["F"]:
+                issues.append(f"{item['itemCode']}: false-friend T3 answer must be F")
+            else:
+                consecutive_false_friend_t3 += 1
+                maximum_false_friend_t3_run = max(maximum_false_friend_t3_run,
+                                                   consecutive_false_friend_t3)
         else:
             word = resolve_word(item)
             record = adjudication.get(word, {})
@@ -130,6 +146,15 @@ def main() -> int:
             issues.append("V3 omits production item codes: " + ", ".join(missing))
         if extra:
             issues.append("V3 contains item codes outside production bank: " + ", ".join(extra))
+    if true_control_count != len(TRUE_COGNATE_CONTROLS):
+        issues.append(f"expected {len(TRUE_COGNATE_CONTROLS)} Vrai cognate controls, got {true_control_count}")
+    if counts.get("FF4_SENTENCE_SELECTION", 0) < MINIMUM_T2_ITEM_COUNT:
+        issues.append(f"T2 regression: expected at least {MINIMUM_T2_ITEM_COUNT} items")
+    if maximum_false_friend_t3_run > MAX_CONSECUTIVE_FALSE_FRIEND_T3:
+        issues.append("T3 interleaving regression: maximum consecutive false-friend run "
+                      f"is {maximum_false_friend_t3_run}")
+    if seed.get("source", {}).get("rulesetVersion") != RULESET_VERSION:
+        issues.append(f"seed rulesetVersion must be {RULESET_VERSION}")
 
     # determinism: recompute hashes
     for item in scored:
@@ -149,6 +174,9 @@ def main() -> int:
         "uniqueTargetWords": len(seen),
         "productionBankItems": len(bank_by_code),
         "completeProductionCoverage": seed_codes == bank_codes,
+        "trueCognateControls": true_control_count,
+        "maximumConsecutiveFalseFriendT3": maximum_false_friend_t3_run,
+        "rulesetVersion": RULESET_VERSION,
         "issueCount": len(issues),
         "issues": issues,
         "note": "结构、来源、选项、答案与生产审查状态均已通过自动预检。",

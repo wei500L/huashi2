@@ -186,6 +186,9 @@ public class TrainingSessionService {
         try {
             trainingSessionMapper.insert(session);
         } catch (DataIntegrityViolationException exception) {
+            if (!isActiveOwnerViolation(exception)) {
+                throw exception;
+            }
             throw new BusinessException(ResultCode.ACTIVE_SESSION_EXISTS, "Training session already in progress. Resume the active session before starting a new one.", 409);
         }
 
@@ -1652,6 +1655,12 @@ public class TrainingSessionService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean isActiveOwnerViolation(DataIntegrityViolationException exception) {
+        Throwable cause = exception.getMostSpecificCause();
+        String message = cause == null || cause.getMessage() == null ? "" : cause.getMessage().toLowerCase();
+        return message.contains("active_owner");
     }
 
     private record SessionPlanItem(

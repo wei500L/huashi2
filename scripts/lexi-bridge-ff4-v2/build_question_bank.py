@@ -44,7 +44,7 @@ from build_candidates import (  # noqa: E402
     normalize_cn,
 )
 from production_semantic_rules import (  # noqa: E402
-    APPROVED_SEMANTIC_WORDS, T2_OPTIONS, T2_SENTENCE, T2_TARGET_WORD,
+    APPROVED_SEMANTIC_WORDS, T2_RULES, T2_TARGET_WORDS,
 )
 
 OUT = ROOT / "docs" / "data" / "lexi-bridge-ff4-v2"
@@ -145,16 +145,17 @@ def gender_compatible(target_pos: str, candidate_pos: str) -> bool:
 
 
 def build_t2_item(record: dict, pool: list[dict], rng: random.Random) -> dict:
-    if record["frenchWord"] != T2_TARGET_WORD:
+    rule = T2_RULES.get(record["frenchWord"])
+    if rule is None:
         raise ValueError(f"unsupported production T2 target: {record['frenchWord']}")
     options = [
         {"key": key, "label": label, "correct": correct, "role": role}
-        for key, label, correct, role in T2_OPTIONS
+        for key, label, correct, role in rule["options"]
     ]
     return {
         "itemType": "T2",
         "targetWord": record["frenchWord"],
-        "stemText": "请根据句子选择画线单词的同义解释\n" + T2_SENTENCE,
+        "stemText": "请根据句子选择画线单词的同义解释\n" + rule["sentence"],
         "options": options,
         "correctAnswers": [next(o["key"] for o in options if o["correct"])],
     }
@@ -217,8 +218,7 @@ def build() -> dict:
 
     semantic_pool = [r for r in records if r["frenchWord"] in APPROVED_SEMANTIC_WORDS]
     t2_records = [r for r in semantic_pool
-                  if r["frenchWord"] == T2_TARGET_WORD
-                  and evidence.get(r["frenchWord"], {}).get("t2EvidenceStatus") == "EVIDENCE_READY"]
+                  if r["frenchWord"] in T2_TARGET_WORDS]
     t2_words = {r["frenchWord"] for r in t2_records}
     t1_pool = [r for r in semantic_pool if r["frenchWord"] not in t2_words]
     t4_pool = [r for r in records if "T4" in r["eligibleTypes"]]
@@ -297,7 +297,8 @@ def build() -> dict:
             "displayConditionJson": None,
             "tem4PdfPage": record.get("tem4PdfPage"),
             "falseFriendsPdfPage": record.get("falseFriendsPdfPage"),
-            "exampleSentenceStatus": evidence_record.get("exampleSentenceStatus") if item_type == "T2" else record.get("exampleSentenceStatus"),
+            "exampleSentenceStatus": (T2_RULES[item["targetWord"]].get("evidenceLevel", "TEM4_EXACT_SENTENCE")
+                                      if item_type == "T2" else record.get("exampleSentenceStatus")),
             "spellingRawEditDistance": record.get("rawEditDistance") if item_type == "T4" else None,
             "spellingAccentFoldedEditDistance": record.get("accentFoldedEditDistance") if item_type == "T4" else None,
             "morphologyOnly": record.get("morphologyOnly") if item_type == "T4" else False,

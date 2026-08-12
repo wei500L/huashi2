@@ -138,6 +138,7 @@ CREATE TABLE `ai_generation_record` (
   `diagnosis_summary_id` bigint DEFAULT NULL,
   `training_session_id` bigint DEFAULT NULL,
   `intervention_record_id` bigint DEFAULT NULL,
+  `practice_session_id` bigint DEFAULT NULL,
   `prompt_version` varchar(64) NOT NULL,
   `model` varchar(128) DEFAULT NULL,
   `provider_request_id` varchar(128) DEFAULT NULL,
@@ -160,6 +161,7 @@ CREATE TABLE `ai_generation_record` (
   KEY `fk_ai_generation_record_diagnosis_summary_id` (`diagnosis_summary_id`),
   KEY `fk_ai_generation_record_training_session_id` (`training_session_id`),
   KEY `fk_ai_generation_record_intervention_record_id` (`intervention_record_id`),
+  KEY `fk_ai_generation_record_practice_session_id` (`practice_session_id`),
   KEY `idx_ai_generation_record_scene_generated_at` (`scene`,`generated_at`),
   KEY `idx_ai_generation_record_student_scene` (`student_user_id`,`scene`,`generated_at`),
   KEY `idx_ai_generation_record_teacher_scene` (`teacher_user_id`,`scene`,`generated_at`),
@@ -168,7 +170,8 @@ CREATE TABLE `ai_generation_record` (
   CONSTRAINT `fk_ai_generation_record_intervention_record_id` FOREIGN KEY (`intervention_record_id`) REFERENCES `intervention_record` (`id`),
   CONSTRAINT `fk_ai_generation_record_student_user_id` FOREIGN KEY (`student_user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_ai_generation_record_teacher_user_id` FOREIGN KEY (`teacher_user_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_ai_generation_record_training_session_id` FOREIGN KEY (`training_session_id`) REFERENCES `training_session` (`id`)
+  CONSTRAINT `fk_ai_generation_record_training_session_id` FOREIGN KEY (`training_session_id`) REFERENCES `training_session` (`id`),
+  CONSTRAINT `fk_ai_generation_record_practice_session_id` FOREIGN KEY (`practice_session_id`) REFERENCES `practice_session` (`id`)
 );
 CREATE TABLE `analytics_daily_aggregate` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -1667,6 +1670,62 @@ CREATE TABLE `wrong_book` (
   CONSTRAINT `fk_wrong_book_owner_user_id` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_wrong_book_source_item_result_id` FOREIGN KEY (`source_item_result_id`) REFERENCES `training_item_result` (`id`),
   CONSTRAINT `fk_wrong_book_source_training_session_id` FOREIGN KEY (`source_training_session_id`) REFERENCES `training_session` (`id`)
+);
+CREATE TABLE `practice_session` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `owner_user_id` bigint NOT NULL,
+  `bank_code` varchar(64) NOT NULL,
+  `section_code` varchar(64) DEFAULT NULL,
+  `status` varchar(32) NOT NULL DEFAULT 'IN_PROGRESS',
+  `total_count` int NOT NULL DEFAULT '0',
+  `answered_count` int NOT NULL DEFAULT '0',
+  `correct_count` int NOT NULL DEFAULT '0',
+  `started_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `completed_at` timestamp NULL DEFAULT NULL,
+  `tutoring_status` varchar(16) DEFAULT NULL,
+  `tutoring_json` longtext,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` bigint DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_by` bigint DEFAULT NULL,
+  `deleted` tinyint(1) NOT NULL DEFAULT '0',
+  `active_owner_user_id` bigint GENERATED ALWAYS AS ((case when ((`deleted` = false) and (`status` = _utf8mb4'IN_PROGRESS')) then `owner_user_id` else NULL end)) VIRTUAL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_practice_session_active_owner` (`active_owner_user_id`),
+  KEY `idx_practice_session_owner_status` (`owner_user_id`,`status`,`started_at`),
+  CONSTRAINT `fk_practice_session_owner_user_id` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`)
+);
+CREATE TABLE `practice_session_answer` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `session_id` bigint NOT NULL,
+  `question_order` int NOT NULL,
+  `question_version_id` bigint NOT NULL,
+  `question_code` varchar(64) NOT NULL,
+  `question_type` varchar(32) NOT NULL,
+  `section_code` varchar(64) NOT NULL,
+  `construct_code` varchar(64) DEFAULT NULL,
+  `transfer_category` varchar(32) DEFAULT NULL,
+  `target_word` varchar(255) DEFAULT NULL,
+  `stem_text_snapshot` text,
+  `prompt_text_snapshot` text,
+  `options_json_snapshot` longtext,
+  `correct_answer_json` longtext NOT NULL,
+  `explanation_text_snapshot` text,
+  `option_explanations_json` longtext,
+  `response_json` longtext,
+  `is_correct` tinyint(1) DEFAULT NULL,
+  `wrong_attempt_count` int NOT NULL DEFAULT '0',
+  `spelling_hint_shown` tinyint(1) NOT NULL DEFAULT '0',
+  `answered_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` bigint DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_by` bigint DEFAULT NULL,
+  `deleted` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_practice_session_answer_order` (`session_id`,`question_order`),
+  KEY `idx_practice_session_answer_session` (`session_id`),
+  CONSTRAINT `fk_practice_session_answer_session_id` FOREIGN KEY (`session_id`) REFERENCES `practice_session` (`id`)
 );
 
 SET FOREIGN_KEY_CHECKS = 1;

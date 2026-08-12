@@ -49,6 +49,18 @@ import type {
   NotificationItemVO,
   NotificationUnreadCountVO,
   PageResult,
+  PracticeBankVO,
+  PracticeHistoryVO,
+  PracticeProgressVO,
+  PracticeQuestionTutorRequest,
+  PracticeQuestionTutorVO,
+  PracticeResultVO,
+  PracticeSessionCreatedVO,
+  PracticeSessionDetailVO,
+  PracticeSessionPageQuery,
+  PracticeSpellingCheckRequest,
+  PracticeSpellingCheckVO,
+  PracticeTutoringRequest,
   RecommendedTrainingPlanVO,
   ReorderLexicalListItemsRequest,
   ResolveStudentRegistrationContextRequest,
@@ -408,6 +420,25 @@ export const publicAssessmentService = {
     apiGet<PublicAssessmentResultVO>(`${publicAssessmentPath(releaseCode)}/result`, publicAssessmentOptions(options)),
 };
 
+export const practiceService = {
+  listBanks: (options?: RequestOptions) => apiGet<PracticeBankVO[]>('/student/practice/banks', options),
+  startSession: (payload: { bankCode: string; sectionCode?: string | null; targetWords?: string[] }) =>
+    apiPost<PracticeSessionCreatedVO>('/student/practice/sessions', payload),
+  getSession: (sessionId: number, options?: RequestOptions) =>
+    apiGet<PracticeSessionDetailVO>(`/student/practice/sessions/${sessionId}`, options),
+  saveDraft: (sessionId: number, payload: { answers: { questionOrder: number; response: string[] }[] }) =>
+    apiPost<PracticeProgressVO>(`/student/practice/sessions/${sessionId}/draft`, payload),
+  checkSpelling: (sessionId: number, payload: PracticeSpellingCheckRequest) =>
+    apiPost<PracticeSpellingCheckVO>(`/student/practice/sessions/${sessionId}/answers/spelling-check`, payload),
+  complete: (sessionId: number, payload: { answers: { questionOrder: number; response: string[] }[] }) =>
+    apiPost<PracticeProgressVO>(`/student/practice/sessions/${sessionId}/complete`, payload),
+  abandon: (sessionId: number) => apiPost<PracticeProgressVO>(`/student/practice/sessions/${sessionId}/abandon`),
+  getResult: (sessionId: number, options?: RequestOptions) =>
+    apiGet<PracticeResultVO>(`/student/practice/sessions/${sessionId}/result`, options),
+  listHistory: (params: PracticeSessionPageQuery, options?: RequestOptions) =>
+    apiGet<PageResult<PracticeHistoryVO>>('/student/practice/history', { ...options, params }),
+};
+
 async function pollAiJob<T>(
   jobId: string,
   options?: RequestOptions,
@@ -458,6 +489,13 @@ export const aiService = {
     const submitted = await apiPost<AiAsyncJobSubmitVO>('/ai/lexical-rag/query/async', payload, options);
     return pollAiJob<LexicalRagAnswerVO>(submitted.jobId, options);
   },
+  practiceTutoringAsync: async (practiceSessionId: number, options?: RequestOptions) => {
+    const payload: PracticeTutoringRequest = { practiceSessionId };
+    const submitted = await apiPost<AiAsyncJobSubmitVO>('/ai/practice-tutoring/async', payload, options);
+    return pollAiJob<AiGuidanceResponseVO>(submitted.jobId, options);
+  },
+  explainPracticeQuestion: (payload: PracticeQuestionTutorRequest, options?: RequestOptions) =>
+    apiPost<PracticeQuestionTutorVO>('/ai/practice-question-tutor', payload, options),
   listLexicalRagConversations: (params?: { pageNo?: number; pageSize?: number }, options?: RequestOptions) =>
     apiGet<PageResult<LexicalRagConversationSummaryVO>>('/ai/lexical-rag/conversations', { ...options, params }),
   getLexicalRagConversation: (conversationId: string, options?: RequestOptions) =>

@@ -72,10 +72,10 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         Long versionId = insertQuestionnaireVersion(questionnaireId, paperId, seed);
         Long importId = insertImport(bankId, seed);
         insertSectionsAndItems(bankId, paperId, versionId, importId, seed);
-        synchronizeCounts(paperId, seed.path("items").size());
+        synchronizeCounts(paperId, seed.path("items").size(), seedDurationMinutes(seed));
         insertReviewIssues(bankId, importId, seed);
-        log.info("event=lexibridge_seed_ready packageCode={} scoredItems=60 formalSections=7 status=REVIEW_REQUIRED",
-                PACKAGE_CODE);
+        log.info("event=lexibridge_seed_ready packageCode={} scoredItems={} formalSections={} basicItems={} status=REVIEW_REQUIRED",
+                PACKAGE_CODE, countScoredItems(seed), countFormalSections(seed), countBasicItems(seed));
     }
 
     private void backfillResearchPaperPurpose() {
@@ -103,6 +103,7 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
             desiredSectionCodes.add(section.path("sectionCode").asString());
         }
         softDeleteRemovedSections(versionId, desiredSectionCodes);
+        restoreSoftDeletedSections(versionId, desiredSectionCodes);
         jdbcTemplate.update("""
                 UPDATE assessment_questionnaire_section
                 SET sort_order = sort_order + 1000
@@ -147,9 +148,16 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                         SET sort_order = sort_order + 1
                         WHERE paper_id = ? AND sort_order >= ? AND deleted = FALSE
                         """, paperId, globalOrder);
-                Long questionId = insertAssessmentQuestion(paperId, questionVersionId, item, globalOrder);
-                insertQuestionnaireItem(versionId, sectionIds.get(item.path("sectionCode").asString()),
-                        questionId, questionVersionId, item);
+                RestoredItem restored = restoreSoftDeletedItem(versionId, paperId, itemCode);
+                if (restored != null) {
+                    updateAssessmentQuestion(restored.questionId(), questionVersionId, item, globalOrder);
+                    updateQuestionnaireItem(restored.itemId(),
+                            sectionIds.get(item.path("sectionCode").asString()), questionVersionId, item);
+                } else {
+                    Long questionId = insertAssessmentQuestion(paperId, questionVersionId, item, globalOrder);
+                    insertQuestionnaireItem(versionId, sectionIds.get(item.path("sectionCode").asString()),
+                            questionId, questionVersionId, item);
+                }
             } else {
                 Long questionId = jdbcTemplate.queryForObject("""
                         SELECT assessment_question_id FROM assessment_questionnaire_item
@@ -161,8 +169,36 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
             }
             globalOrder++;
         }
-        synchronizeCounts(paperId, seed.path("items").size());
-        log.info("event=lexibridge_seed_updated packageCode={} scoredItems=60 formalSections=7", PACKAGE_CODE);
+        synchronizeCounts(paperId, seed.path("items").size(), seedDurationMinutes(seed));
+        log.info("event=lexibridge_seed_updated packageCode={} scoredItems={} formalSections={} basicItems={}",
+                PACKAGE_CODE, countScoredItems(seed), countFormalSections(seed), countBasicItems(seed));
+    }
+
+    /**
+     * Re-activates a soft-deleted questionnaire item together with its paper question so a
+     * field removed in an earlier seed run can return without violating the unique keys the
+     * soft-deleted rows still occupy. Returns both restored row ids, or null when the item
+     * has never existed in this questionnaire version.
+     */
+    private RestoredItem restoreSoftDeletedItem(Long versionId, Long paperId, String itemCode) {
+        List<Long> deletedItemIds = jdbcTemplate.query("""
+                SELECT id FROM assessment_questionnaire_item
+                WHERE questionnaire_version_id = ? AND item_code = ? AND deleted = TRUE
+                ORDER BY id DESC LIMIT 1
+                """, (resultSet, rowNumber) -> resultSet.getLong(1), versionId, itemCode);
+        if (deletedItemIds.isEmpty()) {
+            return null;
+        }
+        Long itemId = deletedItemIds.getFirst();
+        Long questionId = jdbcTemplate.queryForObject("""
+                SELECT assessment_question_id FROM assessment_questionnaire_item WHERE id = ?
+                """, Long.class, itemId);
+        jdbcTemplate.update("UPDATE assessment_questionnaire_item SET deleted = FALSE WHERE id = ?", itemId);
+        jdbcTemplate.update("""
+                UPDATE assessment_question SET deleted = FALSE
+                WHERE id = ? AND paper_id = ? AND deleted = TRUE
+                """, questionId, paperId);
+        return new RestoredItem(itemId, questionId);
     }
 
     private void softDeleteRemovedSections(Long versionId, Set<String> desiredSectionCodes) {
@@ -175,6 +211,25 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                 .forEach(section -> jdbcTemplate.update("""
                         UPDATE assessment_questionnaire_section
                         SET sort_order = sort_order + 1000000, deleted = TRUE
+                        WHERE id = ?
+                        """, section.getKey()));
+    }
+
+    /**
+     * Re-activates a soft-deleted section so a section removed in an earlier seed run can return
+     * without leaving the update loop's deleted=FALSE lookups (and item section_id foreign keys)
+     * pointing at nothing. Sort order and metadata are re-applied by the update loop.
+     */
+    private void restoreSoftDeletedSections(Long versionId, Set<String> desiredSectionCodes) {
+        jdbcTemplate.query("""
+                        SELECT id, section_code FROM assessment_questionnaire_section
+                        WHERE questionnaire_version_id = ? AND deleted = TRUE
+                        """, (resultSet, rowNumber) -> Map.entry(resultSet.getLong(1), resultSet.getString(2)), versionId)
+                .stream()
+                .filter(section -> desiredSectionCodes.contains(section.getValue()))
+                .forEach(section -> jdbcTemplate.update("""
+                        UPDATE assessment_questionnaire_section
+                        SET deleted = FALSE
                         WHERE id = ?
                         """, section.getKey()));
     }
@@ -196,18 +251,19 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                 });
     }
 
-    private void synchronizeCounts(Long paperId, int itemCount) {
+    private void synchronizeCounts(Long paperId, int itemCount, int durationMinutes) {
         Integer totalScore = jdbcTemplate.queryForObject("""
                 SELECT COALESCE(SUM(score), 0) FROM assessment_question
                 WHERE paper_id = ? AND deleted = FALSE
                 """, Integer.class, paperId);
         jdbcTemplate.update("""
-                UPDATE assessment_paper SET question_count = ?, total_score = ? WHERE id = ? AND deleted = FALSE
-                """, itemCount, totalScore == null ? 0 : totalScore, paperId);
+                UPDATE assessment_paper SET question_count = ?, total_score = ?, duration_minutes = ?
+                WHERE id = ? AND deleted = FALSE
+                """, itemCount, totalScore == null ? 0 : totalScore, durationMinutes, paperId);
         jdbcTemplate.update("""
-                UPDATE assessment_publish SET question_count_snapshot = ?, total_score_snapshot = ?
+                UPDATE assessment_publish SET question_count_snapshot = ?, total_score_snapshot = ?, duration_minutes = ?
                 WHERE paper_id = ? AND deleted = FALSE
-                """, itemCount, totalScore == null ? 0 : totalScore, paperId);
+                """, itemCount, totalScore == null ? 0 : totalScore, durationMinutes, paperId);
     }
 
     private Long upsertQuestionVersion(Long bankId, JsonNode item) throws IOException {
@@ -223,8 +279,26 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
                 .filter(version -> contentHash.equals(version.contentHash()))
                 .findFirst().orElse(null);
         if (matchingVersion != null) return matchingVersion.id();
-        int nextVersion = existing.isEmpty() ? 1 : existing.getFirst().versionNo() + 1;
-        return insertQuestionVersion(bankId, item, nextVersion);
+        Long restoredVersionId = restoreSoftDeletedQuestionVersion(bankId, questionCode, contentHash);
+        if (restoredVersionId != null) return restoredVersionId;
+        Integer maxVersion = jdbcTemplate.queryForObject("""
+                SELECT COALESCE(MAX(version_no), 0) FROM assessment_question_version
+                WHERE question_bank_id = ? AND question_code = ?
+                """, Integer.class, bankId, questionCode);
+        return insertQuestionVersion(bankId, item, maxVersion + 1);
+    }
+
+    private Long restoreSoftDeletedQuestionVersion(Long bankId, String questionCode, String contentHash) {
+        List<Long> deletedIds = jdbcTemplate.query("""
+                SELECT id FROM assessment_question_version
+                WHERE question_bank_id = ? AND question_code = ? AND content_hash = ? AND deleted = TRUE
+                ORDER BY version_no DESC LIMIT 1
+                """, (resultSet, rowNumber) -> resultSet.getLong(1), bankId, questionCode, contentHash);
+        if (deletedIds.isEmpty()) {
+            return null;
+        }
+        jdbcTemplate.update("UPDATE assessment_question_version SET deleted = FALSE WHERE id = ?", deletedIds.getFirst());
+        return deletedIds.getFirst();
     }
 
     private void updateAssessmentQuestion(Long questionId, Long questionVersionId, JsonNode item, int sortOrder) throws IOException {
@@ -320,12 +394,14 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
 
     private Long insertPaper(Long ownerId, JsonNode seed) {
         JsonNode questionnaire = seed.path("questionnaire");
+        int scoredCount = countScoredItems(seed);
         jdbcTemplate.update("""
                 INSERT INTO assessment_paper
                     (paper_code,title,description,owner_user_id,paper_purpose,status,duration_minutes,question_count,total_score,created_by,updated_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?)
                 """, PACKAGE_CODE, questionnaire.path("title").asString(), questionnaire.path("description").asString(),
-                ownerId, AssessmentPaperPurpose.RESEARCH_SURVEY.name(), "DRAFT", questionnaire.path("durationMinutes").asInt(40), 60, 60, ownerId, ownerId);
+                ownerId, AssessmentPaperPurpose.RESEARCH_SURVEY.name(), "DRAFT",
+                seedDurationMinutes(seed), scoredCount, scoredCount, ownerId, ownerId);
         return id("assessment_paper", "paper_code", PACKAGE_CODE);
     }
 
@@ -358,9 +434,9 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         String sourcePayload = objectMapper.writeValueAsString(seed);
         String summary = objectMapper.writeValueAsString(java.util.Map.of(
                 "packageCode", PACKAGE_CODE,
-                "scoredItemCount", 60,
-                "formalSectionCount", 7,
-                "basicItemCount", 11));
+                "scoredItemCount", countScoredItems(seed),
+                "formalSectionCount", countFormalSections(seed),
+                "basicItemCount", countBasicItems(seed)));
         String differences = objectMapper.writeValueAsString(seed.path("reviewIssues"));
         jdbcTemplate.update("""
                 INSERT INTO assessment_question_bank_import
@@ -495,7 +571,38 @@ public class LexiBridgeResearchSeedInitializer implements ApplicationRunner {
         return value.isMissingNode() || value.isNull() ? defaultValue : value.decimalValue();
     }
 
+    private int seedDurationMinutes(JsonNode seed) {
+        return seed.path("questionnaire").path("durationMinutes").asInt(60);
+    }
+
+    private int countScoredItems(JsonNode seed) {
+        int count = 0;
+        for (JsonNode item : seed.path("items")) {
+            if (item.path("scored").asBoolean(false)) count++;
+        }
+        return count;
+    }
+
+    private int countFormalSections(JsonNode seed) {
+        int count = 0;
+        for (JsonNode section : seed.path("sections")) {
+            if (section.path("formalSection").asBoolean(false)) count++;
+        }
+        return count;
+    }
+
+    private int countBasicItems(JsonNode seed) {
+        int count = 0;
+        for (JsonNode item : seed.path("items")) {
+            if ("BASIC_INFO".equals(item.path("sectionCode").asString())) count++;
+        }
+        return count;
+    }
+
     private record RemovedItem(Long itemId, Long questionId, String itemCode) {
+    }
+
+    private record RestoredItem(Long itemId, Long questionId) {
     }
 
     private record QuestionVersionRef(Long id, int versionNo, String contentHash) {

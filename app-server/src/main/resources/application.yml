@@ -111,6 +111,8 @@ app:
       processing-timeout: ${APP_ASSESSMENT_AI_ANALYSIS_PROCESSING_TIMEOUT:PT5M}
     seed:
       lexibridge-enabled: ${APP_ASSESSMENT_LEXIBRIDGE_SEED_ENABLED:true}
+      # Seeds only the FF4 V2 practice question bank (no research questionnaire);
+      # the V3 package is consumed by the student self-practice module.
       lexibridge-v3-enabled: ${APP_ASSESSMENT_LEXIBRIDGE_V3_SEED_ENABLED:false}
     timeout:
       enabled: ${APP_ASSESSMENT_TIMEOUT_ENABLED:true}

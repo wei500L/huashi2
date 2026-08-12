@@ -8,17 +8,20 @@ public final class KnowledgeSourceTypes {
     public static final String LEXICAL_PAIR = "LEXICAL_PAIR";
     public static final String LEXICAL_SENSE = "LEXICAL_SENSE";
     public static final String LEXICAL_EXAMPLE = "LEXICAL_EXAMPLE";
+    public static final String PRACTICE_WORD = "PRACTICE_WORD";
     public static final String ERROR_TYPE = "ERROR_TYPE";
     public static final String INTERVENTION_TEMPLATE = "INTERVENTION_TEMPLATE";
     public static final String TRAINING_GUIDE = "TRAINING_GUIDE";
     public static final String COURSE_GUIDE = "COURSE_GUIDE";
 
     public static final Set<String> APP_SERVER_SOURCE_TYPES = Set.of(LEXICAL_PAIR, LEXICAL_SENSE, LEXICAL_EXAMPLE);
+    public static final Set<String> PRACTICE_WORD_SOURCE_TYPES = Set.of(PRACTICE_WORD);
     public static final Set<String> SEED_SOURCE_TYPES = Set.of(ERROR_TYPE, INTERVENTION_TEMPLATE, TRAINING_GUIDE, COURSE_GUIDE);
     public static final Set<String> ALL_SOURCE_TYPES = Set.of(
             LEXICAL_PAIR,
             LEXICAL_SENSE,
             LEXICAL_EXAMPLE,
+            PRACTICE_WORD,
             ERROR_TYPE,
             INTERVENTION_TEMPLATE,
             TRAINING_GUIDE,

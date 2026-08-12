@@ -519,7 +519,10 @@ public class LexicalPairService {
         }
 
         if (!changedPairIds.isEmpty()) {
-            publishKnowledgeChangedEvent(changedPairIds);
+            transactionTemplate.execute(status -> {
+                publishKnowledgeChangedEvent(changedPairIds);
+                return null;
+            });
         }
         log.info("event=lexical_pair_csv_import successCount={} failedCount={}", successCount, failures.size());
         return new CsvImportResultVO(successCount, failures.size(), failures);

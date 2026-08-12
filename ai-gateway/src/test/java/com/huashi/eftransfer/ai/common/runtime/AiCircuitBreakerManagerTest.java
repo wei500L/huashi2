@@ -63,6 +63,7 @@ class AiCircuitBreakerManagerTest {
                 null,
                 null,
                 null,
+                null,
                 new AiOpsResilienceConfig(1, "PT0.1S", 50.0f, 10, "PT5S"),
                 mock(RetryRegistry.class),
                 null

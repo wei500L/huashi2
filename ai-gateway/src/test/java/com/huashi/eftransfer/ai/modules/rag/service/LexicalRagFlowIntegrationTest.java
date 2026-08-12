@@ -110,7 +110,12 @@ class LexicalRagFlowIntegrationTest {
                 new ConcurrentTaskExecutor(Runnable::run),
                 objectMapper
         );
-        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(aiProviderRegistry, knowledgeStoreRepository, runtimeConfigService);
+        KnowledgeSearchService knowledgeSearchService = new KnowledgeSearchService(
+                aiProviderRegistry,
+                knowledgeStoreRepository,
+                runtimeConfigService,
+                new RetrievalQueryPlanner(aiProviderRegistry)
+        );
         ragService = new RagService(
                 runtimeConfigService,
                 aiProviderRegistry,

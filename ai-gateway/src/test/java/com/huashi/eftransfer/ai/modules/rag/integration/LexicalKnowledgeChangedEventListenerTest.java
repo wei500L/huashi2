@@ -136,6 +136,52 @@ class LexicalKnowledgeChangedEventListenerTest {
         verifyNoInteractions(knowledgeIngestionService, integrationConsumeRecordRepository);
     }
 
+    @Test
+    void shouldRejectEventWithEmptySourceIds() throws Exception {
+        byte[] payload = objectMapper.writeValueAsBytes(new LexicalKnowledgeChangedEvent(
+                "evt-empty-source-ids", 1, "LEXICAL_PAIR", List.of(),
+                OffsetDateTime.parse("2026-03-20T00:00:00Z"), "trace-knowledge-sync"
+        ));
+
+        AmqpRejectAndDontRequeueException exception = assertThrows(
+                AmqpRejectAndDontRequeueException.class,
+                () -> listener.onMessage(payload)
+        );
+
+        assertThat(exception.getMessage()).contains("rejected");
+        verifyNoInteractions(knowledgeIngestionService);
+        verify(integrationConsumeRecordRepository).markFailed(
+                "ai-gateway-lexical-knowledge-sync",
+                "evt-empty-source-ids",
+                "LEXICAL_PAIR",
+                "Lexical knowledge change event rejected: eventVersion=1 sourceIds=[]"
+        );
+        verify(integrationConsumeRecordRepository, never()).isSucceeded(any(), any());
+        verify(integrationConsumeRecordRepository, never()).markSucceeded(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectEventWithUnexpectedVersion() throws Exception {
+        byte[] payload = objectMapper.writeValueAsBytes(new LexicalKnowledgeChangedEvent(
+                "evt-bad-version", 2, "LEXICAL_PAIR", List.of("1001"),
+                OffsetDateTime.parse("2026-03-20T00:00:00Z"), "trace-knowledge-sync"
+        ));
+
+        AmqpRejectAndDontRequeueException exception = assertThrows(
+                AmqpRejectAndDontRequeueException.class,
+                () -> listener.onMessage(payload)
+        );
+
+        assertThat(exception.getMessage()).contains("eventVersion=2");
+        verifyNoInteractions(knowledgeIngestionService);
+        verify(integrationConsumeRecordRepository).markFailed(
+                "ai-gateway-lexical-knowledge-sync",
+                "evt-bad-version",
+                "LEXICAL_PAIR",
+                "Lexical knowledge change event rejected: eventVersion=2 sourceIds=[1001]"
+        );
+    }
+
     private byte[] eventPayload(String eventId) throws Exception {
         return objectMapper.writeValueAsBytes(new LexicalKnowledgeChangedEvent(
                 eventId,

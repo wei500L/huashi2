@@ -138,6 +138,10 @@ public class IngestionJobRepository {
         );
 
         for (IngestionJobRecord job : jobs) {
+            List<String> sourceIds = job.sourceIds();
+            if (sourceIds != null && !sourceIds.isEmpty()) {
+                continue;
+            }
             List<String> sourceTypes = job.sourceTypes();
             if (sourceTypes == null || sourceTypes.isEmpty() || sourceTypes.contains(sourceType)) {
                 return job.lastSourceUpdatedAt();

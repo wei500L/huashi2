@@ -4,6 +4,7 @@ import com.huashi.eftransfer.app.modules.internal.service.InternalKnowledgeServi
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncRequest;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncResponse;
 import com.huashi.eftransfer.shared.ai.LexicalKnowledgeExportPageResponse;
+import com.huashi.eftransfer.shared.ai.PracticeWordKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.api.ApiResponse;
 import jakarta.validation.constraints.Min;
 import org.slf4j.MDC;
@@ -38,6 +39,18 @@ public class InternalKnowledgeController {
     ) {
         return ApiResponse.success(
                 internalKnowledgeService.exportLexicalPairs(updatedSince, cursor, limit, ids),
+                MDC.get("traceId")
+        );
+    }
+
+    @GetMapping("/practice-words/export")
+    public ApiResponse<PracticeWordKnowledgeExportPageResponse> exportPracticeWords(
+            @RequestParam(name = "updatedSince", required = false) OffsetDateTime updatedSince,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) @Min(value = 1, message = "limit must be greater than 0") Integer limit
+    ) {
+        return ApiResponse.success(
+                internalKnowledgeService.exportPracticeWords(updatedSince, cursor, limit),
                 MDC.get("traceId")
         );
     }

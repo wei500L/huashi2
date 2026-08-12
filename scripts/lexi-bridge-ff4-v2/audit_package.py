@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_candidates import fold_latin  # noqa: E402
-from production_semantic_rules import T2_OPTIONS, T2_SENTENCE, T2_TARGET_WORD  # noqa: E402
+from production_semantic_rules import T2_RULES, T2_TARGET_WORDS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "data" / "lexi-bridge-ff4-v2"
@@ -132,12 +132,17 @@ def check_choice_item(item: dict, options: list[dict], issues: list[str]) -> Non
 
 
 def check_t2_document_rule(item: dict, options: list[dict], issues: list[str]) -> None:
-    if item.get("targetWord") != T2_TARGET_WORD:
-        issues.append(f"{item['itemCode']}: T2 target must be {T2_TARGET_WORD}")
-    if item.get("stemText") != "请根据句子选择画线单词的同义解释\n" + T2_SENTENCE:
+    word = item.get("targetWord")
+    rule = T2_RULES.get(word)
+    if word not in T2_TARGET_WORDS:
+        issues.append(f"{item['itemCode']}: unexpected T2 target {word}")
+    if rule is None or item.get("stemText") != "请根据句子选择画线单词的同义解释\n" + rule["sentence"]:
         issues.append(f"{item['itemCode']}: T2 source sentence/emphasis differs from approved text")
+    expected_evidence = rule.get("evidenceLevel", "TEM4_EXACT_SENTENCE") if rule else None
+    if item.get("exampleSentenceStatus") != expected_evidence:
+        issues.append(f"{item['itemCode']}: T2 evidence level differs from approved rule")
     actual = [(o["optionCode"], o["optionText"], o["correct"], o["role"]) for o in options]
-    if actual != list(T2_OPTIONS):
+    if rule is None or actual != list(rule["options"]):
         issues.append(f"{item['itemCode']}: T2 options differ from approved synonym/transfer evidence")
 
 

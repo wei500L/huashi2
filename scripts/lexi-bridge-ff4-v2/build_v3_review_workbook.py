@@ -25,7 +25,7 @@ WRAP = Alignment(wrap_text=True, vertical="top")
 SECTION_SHEETS = {
     "FF4_WORD_MEANING": ("单选", "题型一｜正确中文义 + 英文迁移义 + 两个同词性干扰项。"),
     "FF4_SENTENCE_SELECTION": ("选词填空", "题型二｜使用可定位 TEM4 原句，选择语境中的正确近义表达。"),
-    "FF4_TRUE_FALSE": ("判断", "题型三｜严格按 0811 文档使用英文迁移义，全部答案自然为 F。"),
+    "FF4_TRUE_FALSE": ("判断", "题型三｜假朋友题答案为 F，并穿插 10 道英法同形同义 Vrai 控制题。"),
     "FF4_SPELLING": ("拼写", "题型四｜根据中文释义拼写法语词；首次错误后仅提示首字母。"),
 }
 
@@ -111,7 +111,7 @@ def write_overview(workbook: Workbook, seed: dict) -> None:
         ("覆盖状态", "MAXIMUM_RULE_COMPLIANT_COVERAGE（与完整生产题库逐题一致）"),
         ("导入状态", "READY_FOR_IMPORT_VALIDATION"),
         ("发布状态", "NOT_DEPLOYED（未连接生产库、未创建 release）"),
-        ("题型三说明", "严格执行 0811 文档模板，答案全部为 F，不另造控制题。"),
+        ("题型三说明", "按客户反馈加入 10 道英法同形同义 Vrai 控制题，并在假朋友 F 题中确定性穿插。"),
     ]
     sheet.append(["法语专四假朋友题库 V3｜生成说明", None])
     sheet.merge_cells("A1:B1")

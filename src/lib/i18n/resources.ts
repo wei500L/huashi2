@@ -2,6 +2,7 @@ import { analyticsSlice } from './slices/analytics';
 import { commonSlice } from './slices/common';
 import { diagnosisSlice } from './slices/diagnosis';
 import { loginSlice } from './slices/login';
+import { practiceSlice } from './slices/practice';
 import { shellSlice } from './slices/shell';
 import { taskPagesSlice } from './slices/task-pages';
 import { teacherWorkspaceSlice } from './slices/teacher-workspace';
@@ -19,6 +20,7 @@ const slices: TranslationSlice[] = [
   teacherWorkspaceSlice,
   diagnosisSlice,
   trainingSlice,
+  practiceSlice,
   analyticsSlice,
   uiSlice,
 ];

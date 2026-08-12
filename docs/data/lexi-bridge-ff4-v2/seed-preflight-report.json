@@ -1,16 +1,19 @@
 {
   "packageCode": "LEXIBRIDGE_RESEARCH_V3",
   "status": "PASS",
-  "scoredItems": 229,
+  "scoredItems": 239,
   "counts": {
     "FF4_WORD_MEANING": 27,
-    "FF4_SENTENCE_SELECTION": 1,
-    "FF4_TRUE_FALSE": 27,
+    "FF4_SENTENCE_SELECTION": 16,
+    "FF4_TRUE_FALSE": 22,
     "FF4_SPELLING": 174
   },
-  "uniqueTargetWords": 229,
-  "productionBankItems": 229,
+  "uniqueTargetWords": 239,
+  "productionBankItems": 239,
   "completeProductionCoverage": true,
+  "trueCognateControls": 10,
+  "maximumConsecutiveFalseFriendT3": 2,
+  "rulesetVersion": "FF4_0811_CLIENT_REV2_20260812",
   "issueCount": 0,
   "issues": [],
   "note": "结构、来源、选项、答案与生产审查状态均已通过自动预检。"

@@ -11,6 +11,8 @@ import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairSenseMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalPairTagRelMapper;
 import com.huashi.eftransfer.app.modules.lexicon.mapper.LexicalTagMapper;
+import com.huashi.eftransfer.shared.ai.PracticeWordKnowledgeExportItem;
+import com.huashi.eftransfer.shared.ai.PracticeWordKnowledgeExportPageResponse;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncItem;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncRequest;
 import com.huashi.eftransfer.shared.ai.LexicalPairEmbeddingStatusSyncResponse;
@@ -21,6 +23,7 @@ import com.huashi.eftransfer.shared.ai.LexicalKnowledgeSenseItem;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.EmbeddingStatus;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -50,19 +53,22 @@ public class InternalKnowledgeService {
     private final LexicalPairExampleMapper lexicalPairExampleMapper;
     private final LexicalPairTagRelMapper lexicalPairTagRelMapper;
     private final LexicalTagMapper lexicalTagMapper;
+    private final JdbcTemplate jdbcTemplate;
 
     public InternalKnowledgeService(
             LexicalPairMapper lexicalPairMapper,
             LexicalPairSenseMapper lexicalPairSenseMapper,
             LexicalPairExampleMapper lexicalPairExampleMapper,
             LexicalPairTagRelMapper lexicalPairTagRelMapper,
-            LexicalTagMapper lexicalTagMapper
+            LexicalTagMapper lexicalTagMapper,
+            JdbcTemplate jdbcTemplate
     ) {
         this.lexicalPairMapper = lexicalPairMapper;
         this.lexicalPairSenseMapper = lexicalPairSenseMapper;
         this.lexicalPairExampleMapper = lexicalPairExampleMapper;
         this.lexicalPairTagRelMapper = lexicalPairTagRelMapper;
         this.lexicalTagMapper = lexicalTagMapper;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public LexicalKnowledgeExportPageResponse exportLexicalPairs(
@@ -108,6 +114,74 @@ public class InternalKnowledgeService {
 
         String nextCursor = pairs.isEmpty() ? null : encodeCursor(pairs.getLast().getUpdatedAt(), pairs.getLast().getId());
         return new LexicalKnowledgeExportPageResponse(items, nextCursor, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    /**
+     * Exports the latest version of every practice-bank word (the four FF4
+     * sections) for the ai-gateway knowledge base. Cursor pagination matches
+     * the lexical export so incremental watermarks work the same way.
+     */
+    public PracticeWordKnowledgeExportPageResponse exportPracticeWords(
+            OffsetDateTime updatedSince,
+            String cursor,
+            Integer limit
+    ) {
+        CursorState cursorState = parseCursor(cursor);
+        int pageSize = normalizeLimit(limit);
+        LocalDateTime updatedSinceLocal = updatedSince == null ? null : updatedSince.atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT v.question_code, v.target_word, v.question_type, v.stem_text, v.explanation_text, v.updated_at, v.id
+                FROM assessment_question_version v
+                JOIN assessment_question_bank b ON b.id = v.question_bank_id
+                WHERE b.bank_code = 'LEXIBRIDGE_FF4_V2'
+                  AND v.deleted = FALSE
+                  AND v.construct_code IN ('FF4_WORD_MEANING','FF4_SENTENCE_SYNONYM','FF4_TRUE_FALSE_TRANSFER','FF4_SPELLING')
+                  AND v.version_no = (
+                      SELECT MAX(latest.version_no)
+                      FROM assessment_question_version latest
+                      WHERE latest.question_bank_id = v.question_bank_id
+                        AND latest.question_code = v.question_code
+                        AND latest.deleted = FALSE
+                  )
+                """);
+        List<Object> args = new java.util.ArrayList<>();
+        if (cursorState != null) {
+            sql.append("AND (v.updated_at > ? OR (v.updated_at = ? AND v.id > ?)) ");
+            args.add(java.sql.Timestamp.valueOf(cursorState.updatedAt()));
+            args.add(java.sql.Timestamp.valueOf(cursorState.updatedAt()));
+            args.add(cursorState.id());
+        } else if (updatedSinceLocal != null) {
+            sql.append("AND v.updated_at >= ? ");
+            args.add(java.sql.Timestamp.valueOf(updatedSinceLocal));
+        }
+        sql.append("ORDER BY v.updated_at ASC, v.id ASC LIMIT ").append(pageSize);
+
+        List<PracticeWordRow> rows = jdbcTemplate.query(sql.toString(),
+                (resultSet, rowNumber) -> new PracticeWordRow(
+                        resultSet.getString(1),
+                        resultSet.getString(2),
+                        resultSet.getString(3),
+                        resultSet.getString(4),
+                        resultSet.getString(5),
+                        resultSet.getTimestamp(6).toLocalDateTime(),
+                        resultSet.getLong(7)
+                ),
+                args.toArray());
+
+        List<PracticeWordKnowledgeExportItem> items = rows.stream()
+                .map(row -> new PracticeWordKnowledgeExportItem(
+                        row.questionCode(),
+                        row.targetWord(),
+                        row.questionType(),
+                        row.chineseMeaning(),
+                        row.explanation(),
+                        row.updatedAt().atZone(ZoneOffset.UTC).toOffsetDateTime()
+                ))
+                .toList();
+
+        String nextCursor = rows.isEmpty() ? null : encodeCursor(rows.getLast().updatedAt(), rows.getLast().id());
+        return new PracticeWordKnowledgeExportPageResponse(items, nextCursor, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     public LexicalPairEmbeddingStatusSyncResponse syncLexicalPairEmbeddingStatuses(
@@ -286,5 +360,16 @@ public class InternalKnowledgeService {
     }
 
     private record CursorState(LocalDateTime updatedAt, Long id) {
+    }
+
+    private record PracticeWordRow(
+            String questionCode,
+            String targetWord,
+            String questionType,
+            String chineseMeaning,
+            String explanation,
+            LocalDateTime updatedAt,
+            Long id
+    ) {
     }
 }
