@@ -218,7 +218,8 @@ public class PracticeSessionService {
      * session. Only the submitted questions count as answered.
      */
     @Transactional
-    public PracticeProgressVO complete(Long sessionId, SubmitPracticeRequest request) {        PracticeSessionEntity session = requireOwnedSessionForUpdate(sessionId);
+    public PracticeProgressVO complete(Long sessionId, SubmitPracticeRequest request) {
+        PracticeSessionEntity session = requireOwnedSessionForUpdate(sessionId);
         requireInProgress(session);
         LocalDateTime now = LocalDateTime.now();
         Map<Integer, PracticeSessionAnswerEntity> answersByOrder = new LinkedHashMap<>();
@@ -226,6 +227,7 @@ public class PracticeSessionService {
             answersByOrder.put(answer.getQuestionOrder(), answer);
         }
         int correctCount = 0;
+        int answeredCount = 0;
         for (SubmitPracticeRequest.AnswerItem item : request.answers()) {
             PracticeSessionAnswerEntity answer = answersByOrder.get(item.questionOrder());
             if (answer == null) {
@@ -247,9 +249,15 @@ public class PracticeSessionService {
             if (correct) {
                 correctCount++;
             }
+            if (answered) {
+                answeredCount++;
+            }
         }
-        int answeredCount = request.answers().size();
-        practiceSessionMapper.complete(sessionId, answeredCount, correctCount, now);
+        int updated = practiceSessionMapper.complete(sessionId, answeredCount, correctCount, now);
+        if (updated != 1) {
+            throw new BusinessException(ResultCode.CONFLICT,
+                    "Practice session could not be completed because it is no longer in progress", 409);
+        }
         return new PracticeProgressVO(sessionId, STATUS_COMPLETED, session.getTotalCount(), answeredCount, correctCount);
     }
 

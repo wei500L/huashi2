@@ -149,7 +149,7 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                         .header("X-Forwarded-For", "not-an-ip")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"browserFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
 
         String fingerprint = "0123456789abcdef0123456789abcdef";
         MvcResult firstQr = mockMvc.perform(post("/api/public/assessments/{releaseCode}/qr-entry", releaseCode)

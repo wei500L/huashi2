@@ -1,6 +1,12 @@
 server:
   port: ${APP_SERVER_PORT:8080}
   shutdown: graceful
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+      protocol-header-https-value: https
 
 spring:
   application:
@@ -143,6 +149,14 @@ app:
     config:
       encryption-secret: ${APP_OPS_CONFIG_ENCRYPTION_SECRET:}
   security:
+    trusted-proxy:
+      cidrs:
+        - 127.0.0.0/8
+        - "::1/128"
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - fc00::/7
     cors:
       allowed-origins:
         - ${APP_CORS_ALLOWED_ORIGIN_LOCALHOST:http://localhost:3000}

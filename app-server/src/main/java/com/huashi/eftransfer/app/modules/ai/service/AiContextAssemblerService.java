@@ -225,7 +225,6 @@ public class AiContextAssemblerService {
                     payload.put("constructCode", entry.constructCode());
                     payload.put("targetWord", entry.targetWord());
                     payload.put("stemText", entry.stemText());
-                    payload.put("studentAnswer", entry.response());
                     payload.put("correctAnswer", entry.correctAnswer());
                     payload.put("bankExplanation", entry.explanationText());
                     payload.put("hintShown", entry.hintShown());
@@ -246,6 +245,17 @@ public class AiContextAssemblerService {
                 })
                 .toList();
 
+        List<Map<String, Object>> untrustedAnswers = wrongAnswers.stream()
+                .limit(40)
+                .map(entry -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("questionCode", entry.questionCode());
+                    payload.put("targetWord", entry.targetWord());
+                    payload.put("studentAnswer", entry.response());
+                    return payload;
+                })
+                .toList();
+
         Map<String, Object> promptPayload = new LinkedHashMap<>();
         promptPayload.put("studentProfile", buildStudentProfilePayload(studentProfile, student, null));
         Map<String, Object> practiceResult = new LinkedHashMap<>();
@@ -258,6 +268,7 @@ public class AiContextAssemblerService {
         practiceResult.put("sectionMetrics", result.sectionMetrics());
         promptPayload.put("practiceResult", practiceResult);
         promptPayload.put("wrongAnswers", wrongAnswerPayload);
+        promptPayload.put("untrustedStudentOutput", Map.of("wrongAnswers", untrustedAnswers));
         promptPayload.put("focusWords", focusPairs);
         promptPayload.put("recentWrongWords", recentWrongStats.stream()
                 .limit(15)

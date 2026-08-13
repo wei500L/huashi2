@@ -132,6 +132,85 @@ class LexicalImportBatchIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void shouldKeepSuccessfulRowsAndMarkDuplicateRowInvalidWithoutOrphanPairs() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        byte[] csvContent = """
+                english_word,french_word,chinese_gloss,lexical_pair_type,semantic_overlap_score,false_friend_risk,default_context_support,difficulty_level,notes,source,active,tags,knowledge_status,embedding_status,sense_english_definition,sense_french_definition,sense_chinese_definition,example_english,example_french,example_chinese,example_context_support
+                lexicaltxnalpha,lexicaltxnalpha,事务导入成功行,cognate,0.88,0.12,medium,3,Valid row,Integration Test,true,batch|txn,ready,pending,alpha definition,definition alpha,词义 alpha,Alpha example,Exemple alpha,例句 alpha,medium
+                lexicaltxnbeta,lexicaltxnbeta,事务导入失败行,cognate,0.45,0.66,high,4,Will collide,Integration Test,true,batch|txn,ready,pending,beta definition,definition beta,词义 beta,Beta example,Exemple beta,例句 beta,high
+                """.getBytes(StandardCharsets.UTF_8);
+
+        long batchId = createBatch(
+                teacherToken,
+                new MockMultipartFile("file", "lexical-import-txn.csv", "text/csv", csvContent)
+        );
+        JsonNode draftBatch = waitForBatchStatus(teacherToken, batchId, "DRAFT");
+        assertThat(draftBatch.path("readyRows").asInt()).isEqualTo(2);
+
+        mockMvc.perform(post("/api/lexical-pairs")
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "englishWord": "lexicaltxnbeta",
+                                  "frenchWord": "lexicaltxnbeta",
+                                  "chineseGloss": "预先存在的冲突词对",
+                                  "lexicalPairType": "cognate",
+                                  "semanticOverlapScore": 0.10,
+                                  "falseFriendRisk": 0.20,
+                                  "defaultContextSupport": "medium",
+                                  "difficultyLevel": 3,
+                                  "active": true,
+                                  "knowledgeStatus": "ready",
+                                  "embeddingStatus": "pending",
+                                  "tags": ["txn-collision"],
+                                  "senses": [
+                                    {
+                                      "sortOrder": 1,
+                                      "englishDefinition": "pre-existing",
+                                      "frenchDefinition": "pre-existing",
+                                      "chineseDefinition": "预先存在",
+                                      "examples": []
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/lexical-pairs/import-batches/{batchId}/commit", batchId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IMPORTING"));
+
+        JsonNode completedBatch = waitForBatchStatus(teacherToken, batchId, "COMPLETED");
+        assertThat(completedBatch.path("importedRows").asInt()).isEqualTo(1);
+        assertThat(completedBatch.path("invalidRows").asInt()).isEqualTo(1);
+
+        JsonNode rows = listRows(teacherToken, batchId);
+        JsonNode imported = findRowByStatus(rows, "IMPORTED");
+        JsonNode invalid = findRowByStatus(rows, "INVALID");
+        assertThat(imported.path("draft").path("englishWord").asText()).isEqualTo("lexicaltxnalpha");
+        assertThat(invalid.path("draft").path("englishWord").asText()).isEqualTo("lexicaltxnbeta");
+        assertThat(invalid.path("importedLexicalPairId").isNull()).isTrue();
+
+        mockMvc.perform(get("/api/lexical-pairs")
+                        .with(bearer(teacherToken))
+                        .param("pageNo", "1")
+                        .param("pageSize", "10")
+                        .param("keyword", "lexicaltxnalpha"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1));
+
+        mockMvc.perform(get("/api/lexical-pairs")
+                        .with(bearer(teacherToken))
+                        .param("pageNo", "1")
+                        .param("pageSize", "10")
+                        .param("keyword", "lexicaltxnbeta"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1));
+    }
+
+    @Test
     void shouldParseXlsxAndPreventTeacherFromReadingAdminBatch() throws Exception {
         String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");

@@ -4,33 +4,33 @@
 **Audit mode:** full
 **Date:** 2026-08-13
 **Reviewer:** Cursor Grok 4.6
-**Remediation update:** 2026-08-13 已落地第 4 节前五项 High，以及下一批五项 High（AI 配额/超时、问卷 Redis 限流、schema 文档与 ddl/restore、CI `npm test`、导出脱敏）。下文 Evidence 保留审计时快照；`Remediation: Fixed` 与 Fix note 反映当前代码。
+**Remediation update:** 2026-08-13 **已完成三批** High：前五项（问卷默认密钥、内部 token 熵、WS query token、actuator 角色、辅导 grounding 空 citation）；下一批五项（AI 配额/超时、问卷 Redis 限流、schema 文档与 ddl/restore、CI `npm test`、导出脱敏）；第三批五项（XFF 仅信代理 CIDR、练习 `answeredCount`、导入 `TransactionTemplate`、单题讲解 fail-closed、verifier 不信任学生作答）。下文 Evidence 保留审计时快照；`Remediation: Fixed` 与 Fix note 反映当前代码。
 
 ---
 
 ## 1. Executive Summary
 
-EF.Transfer 是一个已具备生产部署痕迹的英法词汇迁移学习平台：React 19 SPA、Spring Boot 4 业务后端、Spring Boot 3 AI/RAG 网关、MySQL + Redis + RabbitMQ + PostgreSQL/pgvector。安全基线明显做过一轮加固——JWT 密钥熵校验、内部接口 token、公开问卷 cookie 会话、敏感资料 AES-GCM、参与码 HMAC、outbox、单用户 `IN_PROGRESS` 唯一键、RAG grounding 二次校验、生产 overlay 收口端口。2026-08-13 又补上问卷密钥 fail-fast、内部 token `SecretPolicy`、WS 首条 AUTH、actuator ADMIN、辅导空 citation fail-closed；随后补上 AI 用户/IP 限流与 180s 超时对齐、问卷 Redis 限流、`docs/ddl`+restore、CI `npm test`、导出按开关脱敏。这不是从零开始的屎山。
+EF.Transfer 是一个已具备生产部署痕迹的英法词汇迁移学习平台：React 19 SPA、Spring Boot 4 业务后端、Spring Boot 3 AI/RAG 网关、MySQL + Redis + RabbitMQ + PostgreSQL/pgvector。安全基线明显做过一轮加固——JWT 密钥熵校验、内部接口 token、公开问卷 cookie 会话、敏感资料 AES-GCM、参与码 HMAC、outbox、单用户 `IN_PROGRESS` 唯一键、RAG grounding 二次校验、生产 overlay 收口端口。2026-08-13 又补上问卷密钥 fail-fast、内部 token `SecretPolicy`、WS 首条 AUTH、actuator ADMIN、辅导空 citation fail-closed；随后补上 AI 用户/IP 限流与 180s 超时对齐、问卷 Redis 限流、`docs/ddl`+restore、CI `npm test`、导出按开关脱敏；再补上 XFF 仅信代理、练习计分对齐、导入行级事务、单题讲解 fail-closed、verifier 隔离学生作答。这不是从零开始的屎山。
 
-**剩余**主要风险集中在**练习计分/并发缺口**、**XFF 可伪造**、**单题讲解仍不走 grounding**、**词库导入自调用事务**，以及 **compose 仍暴露 MySQL/8080**。练习 `complete()` 仍把请求条数当成作答数。这些仍是可落地的发布前问题。
+**剩余**主要风险集中在 **compose 仍暴露 MySQL/8080**、练习开局 409 映射、公开问卷 CSRF、以及超大文件可维护性。这些仍是可落地的发布前问题。
 
-亮点：模块边界清楚、公开问卷会话 token 不回 JSON、诊断/训练有 DuplicateKey→409、JWT 与问卷/内部密钥启动期拒绝弱值、辅导报告 UI 对 `RULE_FALLBACK` 有明确标记、生产 overlay 把数据面绑到 `127.0.0.1`。优先顺序：收口剩余数据面端口、修练习计分与导入事务、单题讲解 fail-closed、不信任客户端 XFF。综合评分 **6.9 / B**（审计当日 6.2；前五项修复后 6.6；本批五项后再上调）。
+亮点：模块边界清楚、公开问卷会话 token 不回 JSON、诊断/训练有 DuplicateKey→409、JWT 与问卷/内部密钥启动期拒绝弱值、辅导报告 UI 对 `RULE_FALLBACK` 有明确标记、生产 overlay 把数据面绑到 `127.0.0.1`。优先顺序：收口剩余数据面端口、CSRF 保护 cookie 会话、练习开局唯一键 409。综合评分 **7.2 / B**（审计当日 6.2；前两批 High 后 6.9；第三批五项后再上调）。
 
 ### Score Dashboard
 
 ```
-Security        ███████░░░  7.3  A   导出脱敏已按开关过滤；XFF 可伪造；compose 仍暴露 MySQL/8080
-Stability       ███████░░░  6.7  B   outbox 扎实；问卷限流已改 Redis；练习计分错误；导入批次自调用使事务失效
+Security        ███████░░░  7.6  A   导出脱敏与 XFF 代理校验已落地；compose 仍暴露 MySQL/8080
+Stability       ███████░░░  7.1  B   outbox 扎实；问卷 Redis 限流；练习计分与导入行事务已修
 Performance     ███████░░░  7.4  A   连接池与分页存在；AI 已有用户/IP 限流且超时对齐 nginx 180s
-Testing         ██████░░░░  6.5  B   后端集成测试扎实；CI 已跑前端测试；练习页仍零 Vitest
+Testing         ██████░░░░  6.6  B   后端集成测试扎实；CI 已跑前端测试；练习页仍零 Vitest
 Maintainability ██████░░░░  5.8  B   ConfigCenter 4211 行、contracts.ts 3481 行、AssessmentService 1940 行
-Design          ██████░░░░  6.6  B   辅导 grounding 已 fail-closed；单题讲解仍 fail-open；校验器把学生答案当可信事实
+Design          ███████░░░  7.1  B   辅导与单题讲解 grounding 已 fail-closed；verifier 不再信任学生作答
 Release         ██████░░░░  6.1  B   schema 快照仍无 Flyway；已有 docs/ddl 与 restore；MySQL/8080 仍全接口发布
 ─────────────────────────────────────
-Overall         ███████░░░  6.9  B
+Overall         ███████░░░  7.2  B
 ```
 
-Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mountain).** Scores are judgment-based, not formula-based. See `rubrics/scoring.md` for anchor descriptions. 维度分在 2026-08-13 两批 High 修复后微调；未重跑全仓审计。
+Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mountain).** Scores are judgment-based, not formula-based. See `rubrics/scoring.md` for anchor descriptions. 维度分在 2026-08-13 三批 High 修复后微调；未重跑全仓审计。
 
 权重推断：本仓库同时是研究问卷（PII）、教学系统和 LLM/RAG 网关，安全、隐私、数据完整性、AI 安全在判断中权重大于纯样式问题。覆盖以静态代码、配置、CI 与 schema 为主，未做渗透或生产运行时验证。
 
@@ -39,11 +39,11 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | Severity | Count | Confirmed | Suspected | Remediated |
 |----------|-------|-----------|-----------|------------|
 | Critical | 0 | 0 | 0 | 0 |
-| High | 15 | 15 | 0 | 10 已修 |
+| High | 15 | 15 | 0 | 15 已完成 |
 | Medium | 13 | 13 | 0 | 文档 Flyway/无前端测试/Testcontainers API 已补 |
 | Low | 1 | 1 | 0 | 0 |
 | Info | 0 | 0 | 0 | 0 |
-| **Total** | **29** | **29** | **0** | **10 Fixed** |
+| **Total** | **29** | **29** | **0** | **15 High 已完成** |
 
 ## 2. Project Map
 
@@ -61,7 +61,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 
 状态所有权：登录会话在 Redis + JWT；公开问卷会话在 DB digest + httpOnly cookie；诊断/训练/练习 `IN_PROGRESS` 由生成列唯一键约束；AI 异步 job 在 DB。
 
-持久化：MySQL `app-server/.../schema.sql`（1857 行）、PostgreSQL/pgvector `ai-gateway/.../schema.sql`。无 Flyway/Liquibase。备份脚本存在，未见还原演练脚本。
+持久化：MySQL `app-server/.../schema.sql`（1857 行）、PostgreSQL/pgvector `ai-gateway/.../schema.sql`。无 Flyway/Liquibase。备份与 `restore-mysql.sh` / `restore-postgres.sh` 已有；未见还原演练记录。
 
 隐私数据：研究问卷姓名/联系方式（AES-GCM）、参与码 HMAC、访问 IP 密文、上传附件、JWT 在 localStorage。
 
@@ -73,7 +73,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 
 ### Coverage Note
 
-已扫描约 1416 个清单文件（962 Java / 191 TS）。排除 `node_modules`、`target`、`dist`、`.git`、锁文件内容、题库 JSON 全文。未跑完整 `./mvnw test` / `npm test`（耗时与 Docker API 约束）；未做浏览器可达性实测；未扫描生产密钥仓库。命令：`project_inventory.py`、多组 ripgrep、行数统计、`git rev-parse`（HEAD `9f38351`）。后续对照专项审查补强了导出脱敏、练习计分、导入事务、XFF 与单题讲解 grounding。
+已扫描约 1416 个清单文件（962 Java / 191 TS）。排除 `node_modules`、`target`、`dist`、`.git`、锁文件内容、题库 JSON 全文。未跑完整 `./mvnw test` / `npm test`（耗时与 Docker API 约束）；未做浏览器可达性实测；未扫描生产密钥仓库。命令：`project_inventory.py`、多组 ripgrep、行数统计、`git rev-parse`（HEAD `9f38351`）。后续对照专项审查补强了导出脱敏、练习计分、导入事务、XFF、单题讲解 grounding 与 verifier 围栏；第三批五项已对照当前代码与定向集成测试回写 Fix note。
 
 ### Coverage Matrix
 
@@ -82,7 +82,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | Architecture | High | 模块目录、SecurityConfig、事件/outbox、shared-kernel 契约 | 未画运行时调用图 |
 | Security | High | SecurityConfig、JWT/内部 token、公开问卷、WS、actuator、上传扫描 | 未做动态攻击验证 |
 | Stability | High | outbox、唯一键、超时、熔断配置、异步线程池、限流实现 | 未做故障注入 |
-| Performance | Medium | 连接池、AI 超时、内存限流 map、RAG 线程池 | 无负载测试 |
+| Performance | Medium | 连接池、AI 超时、Redis 限流、RAG 线程池 | 无负载测试 |
 | Testing | High | CI workflow、46 个前端测试文件、后端集成测试样例 | 未实际跑完整测试套件 |
 | Maintainability | High | 最大文件行数、模块结构、过期文档 | 未做完整圈复杂度工具扫描 |
 | Design | High | SRP/文件大小、fail-fast、CQS、分层 | 原则检查针对高风险违规 |
@@ -94,9 +94,9 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | Privacy | High | 敏感资料加密、IP 密文、导出脱敏注释、retention 搜索 | 未做法务/DPIA 审查 |
 | Accessibility | Medium | Login 标签、部分 aria、无 axe CI | 未做键盘走查/屏幕阅读器 |
 | Supply-Chain | Medium | ci.yml、Dockerfile 基镜像、lockfile 存在、无 SBOM | 未跑 npm/mvn audit |
-| Cost | Medium | AI 超时、线程池、max-tokens、无用户配额 | 无账单数据 |
+| Cost | Medium | AI 超时、线程池、max-tokens、用户/IP 限流 | 无账单数据 |
 | AI-Safety | High | prompts、grounding、RAG untrusted 标记、内部 RAG 接口 | 无 prompt-injection eval 套件 |
-| Fallback | High | RULE_FALLBACK 标记、fallback provider 默认、辅导空 citation 已 fail-closed | 单题讲解与失败演练未覆盖 |
+| Fallback | High | RULE_FALLBACK 标记、fallback provider 默认、辅导与单题讲解空 citation 已 fail-closed | fallback 指向同一上游未覆盖 |
 | Testing-Authenticity | Medium | 集成测试与 WireMock 样例、前端测试是否进 CI | 未逐个判定全部测试真伪 |
 | Type-Safety | Medium | TS `as any` 搜索、session JSON.parse、Java 校验注解 | 未跑 tsc 输出 |
 | Frontend-State | Medium | 最大 TSX、useEffect 计数、api.ts 刷新 | 未做运行时渲染分析 |
@@ -111,11 +111,11 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 2. **公开问卷加密密钥走仓库默认值**（High，已修复）— 非 `local`/`test` 拒绝默认密钥；compose / `.env.example` 已注入 HMAC 与 profile key。
 3. **默认 compose 把数据面端口打到 0.0.0.0**（High，部分修复）— ai-gateway `8090` 已绑 loopback；MySQL/Rabbit/Postgres/app-server `8080` 仍映射全部网卡。
 4. **内部 API token 无熵校验**（High，已修复）— 非 `local`/`test` 走 `SecretPolicy`，prod 禁止 `enabled=false`。
-5. **X-Forwarded-For 无条件信任**（High）— 伪造 IP 可绕过公开问卷限流。
-6. **练习 complete() 计分错误**（High）— 把请求条数当成已答数，结果页与落库不一致。
-7. **词库批次导入事务是自调用空操作**（High）— `@Transactional` 不生效，失败批次可留下词对。
-8. **grounding / 单题讲解 fail-open**（High，部分修复）— 辅导/诊断/训练/干预空 citation 或 RAG 失败已降级 `RULE_FALLBACK`；单题讲解仍不走 grounding。
-9. **学生答案被校验器当成可信事实**（High）— 拼写自由文本可诱导 verifier。
+5. **X-Forwarded-For 无条件信任**（High，已修复）— 仅对可信代理 CIDR 解析转发头，否则用 socket IP。
+6. **练习 complete() 计分错误**（High，已修复）— `answeredCount` 只计非空作答，与结果页对齐。
+7. **词库批次导入事务是自调用空操作**（High，已修复）— 每行 `TransactionTemplate`，失败行回滚。
+8. **grounding / 单题讲解 fail-open**（High，已修复）— 辅导与单题讲解空 citation / RAG 失败均降级 `RULE_FALLBACK`。
+9. **学生答案被校验器当成可信事实**（High，已修复）— `studentAnswer` 进 untrusted 围栏，不得作为词义证据。
 10. **CI 不跑前端测试，练习页零覆盖**（High，部分修复）— CI 已跑 `npm test`；练习页仍无 Vitest。
 
 完整证据见第 4 节。
@@ -225,7 +225,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 确定性核对：每个事实句映射到 chunk，而不是再问一次模型“算不算支撑”。
 - Regression test suggestion: 构造无 citation 的 structured 输出，断言 generationSource 为 `RULE_FALLBACK` 且不把结果标成 AI。
 - Estimated effort: 4 小时
-- Fix note: `verifyGuidanceGrounding` 在 `grounding == null` 或空 `citationIds` 时失败并走 `RULE_FALLBACK`。单题讲解仍不走 grounding，属后续 Finding。
+- Fix note: `verifyGuidanceGrounding` 在 `grounding == null` 或空 `citationIds` 时失败并走 `RULE_FALLBACK`。单题讲解 grounding 见后续 Finding（已于同日修复）。
 
 ### Finding: AI 调用无用户配额，且网关超时与反向代理不一致
 
@@ -233,11 +233,11 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Performance
 - Status: Confirmed
-- Remediation: Fixed (2026-08-13)
+- Remediation: Fixed / 已完成 (2026-08-13)
 - Affected area: `/api/ai/**`、异步 job、ai-gateway
 - Evidence:
   - File: `app-server/src/main/resources/application.yml:209`
-  - Function / Module: `integration.ai.read-timeout` 默认 `PT10M`；`AiAsyncConfiguration.java:17-19` 核心 2 / 最大 4 / 队列 32，默认 AbortPolicy；`deploy/frontend/nginx.conf:36-44` 对 `/api/ai/` 读超时 180s。Auth 限流只覆盖登录注册，未见 AI 用户配额。
+  - Function / Module: **审计时** `integration.ai.read-timeout` 默认 `PT10M`；`AiAsyncConfiguration.java:17-19` 核心 2 / 最大 4 / 队列 32，默认 AbortPolicy；`deploy/frontend/nginx.conf:36-44` 对 `/api/ai/` 读超时 180s。当时 Auth 限流只覆盖登录注册，未见 AI 用户配额。
 - Problem: 登录学生可并发打昂贵 RAG/structured chat。nginx 180 秒断开后，app-server 仍可能把对网关的调用撑到 10 分钟，线程与 token 继续消耗。
 - Why it matters: 账单与线程池会在正常课堂并发下被打满，表现为全校 AI 功能失败，而不是单个用户 429。
 - Realistic failure scenario: 一个班同时点“AI 讲解”；队列 32 满后新 job 失败；部分请求 nginx 已 504，上游仍在计费。
@@ -253,12 +253,12 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Stability
 - Status: Confirmed
-- Remediation: Fixed (2026-08-13)
+- Remediation: Fixed / 已完成 (2026-08-13)
 - Affected area: `PublicAssessmentService.verify` / `enterByQr`
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/modules/assessment/service/PublicAssessmentService.java:120,1208-1218`
   - Function / Module: `verificationAttempts` / `enforceRateLimit`
-  - Relevant behavior: `ConcurrentHashMap<String, Deque<LocalDateTime>>` 按 IP 计数。窗口内会弹出过期时间戳，但空 deque **不会从 map 删除**。多实例不共享。进程重启限流归零。登录接口已用 Redis Bucket。
+  - Relevant behavior: **审计时** `ConcurrentHashMap<String, Deque<LocalDateTime>>` 按 IP 计数。窗口内会弹出过期时间戳，但空 deque **不会从 map 删除**。多实例不共享。进程重启限流归零。当时登录接口已用 Redis Bucket。
 - Problem: 公开入口的爆破防护弱于登录。水平扩展后每实例独立计数。扫描大量伪造 IP 会让 map 只增不减。
 - Why it matters: 研究问卷是未登录攻击面；限流失效等于参与码可被离线猜（即便空间大，仍失去减速），内存会随独立 IP 增长。
 - Realistic failure scenario: 两个 app-server 副本后，攻击速率翻倍；或爬虫用大量 IP，map 持续膨胀。
@@ -266,7 +266,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 与登录同一套 bucket 配置，并监控限流拒绝指标。
 - Regression test suggestion: 超限 429；验证过期后 map 不含该 IP；文档或测试说明 Redis 后端。
 - Estimated effort: 4 小时
-- Fix note: 删除进程内 map。verify/QR 走共享 `RateLimitBucketResolver`（Redis idle TTL，test 为本地 Bucket）。键 `assessment:rl:verify:ip:` 与 `assessment:rl:qr-entry:ip:`。XFF 伪造仍是后续 Finding。
+- Fix note: 删除进程内 map。verify/QR 走共享 `RateLimitBucketResolver`（Redis idle TTL，test 为本地 Bucket）。键 `assessment:rl:verify:ip:` 与 `assessment:rl:qr-entry:ip:`。XFF 伪造已于同日后续 Finding 修复。
 
 ### Finding: 生产库结构变更没有版本化迁移，存在毁库重建指引
 
@@ -274,7 +274,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Release
 - Status: Confirmed
-- Remediation: Fixed (2026-08-13) — 最小修复（文档 + ddl 约定 + restore）；未引入 Flyway
+- Remediation: Fixed / 已完成 (2026-08-13) — 最小修复（文档 + ddl 约定 + restore）；未引入 Flyway
 - Affected area: MySQL 与 pgvector schema
 - Evidence:
   - File: `app-server/src/main/resources/schema.sql:3`
@@ -294,7 +294,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Testing
 - Status: Confirmed
-- Remediation: Fixed (2026-08-13) — CI 已跑 `npm test`；练习页仍无专项 Vitest
+- Remediation: Fixed / 已完成 (2026-08-13) — CI 已跑 `npm test`；练习页仍无专项 Vitest
 - Affected area: `.github/workflows/ci.yml` 与前端质量门禁
 - Evidence:
   - File: `.github/workflows/ci.yml:10-27`
@@ -564,7 +564,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Security
 - Status: Confirmed
-- Remediation: Fixed (2026-08-13)
+- Remediation: Fixed / 已完成 (2026-08-13)
 - Affected area: 教师研究数据导出
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/modules/assessment/service/ResearchExportService.java:108-126,245-254`
@@ -585,11 +585,12 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Security
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13)
 - Affected area: 公开问卷限流与访问日志
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/common/security/ClientRequestContextResolver.java:22-28`
   - Function / Module: `resolveIpAddress`
-  - Relevant behavior: 只要存在 `X-Forwarded-For` 就取第一跳，不校验是否来自可信代理。`PublicAssessmentService.verify` 用该 IP 做内存限流。前端 nginx 也优先采用客户端 XFF。
+  - Relevant behavior: **审计时** 只要存在 `X-Forwarded-For` 就取第一跳，不校验是否来自可信代理。当时 `PublicAssessmentService.verify` 用该 IP 做内存限流。前端 nginx 也优先采用客户端 XFF。
 - Problem: 直连 app-server 或未正确覆盖 XFF 的反代时，攻击者可随意换 IP。
 - Why it matters: 公开问卷验证限流本来就弱；再叠加可伪造 IP 等于没有减速。
 - Realistic failure scenario: 对 `8080` 直接 POST verify，每次换 `X-Forwarded-For`，绕过 10 次/10 分钟限制。
@@ -597,6 +598,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: Spring ForwardedHeaderFilter + 明确 `server.forward-headers-strategy` 与可信代理列表。
 - Regression test suggestion: 无代理时带伪造 XFF 的请求，限流 key 必须是 socket 地址。
 - Estimated effort: 3 小时
+- Fix note: `ClientRequestContextResolver` 仅当 `remoteAddr` 落在 `app.security.trusted-proxy.cidrs`（默认 loopback + RFC1918/Docker）时解析 XFF/`X-Real-IP`，非法头回退 socket。前端 nginx 用 `set_real_ip_from` + `real_ip_header` 后以 `$remote_addr` 覆盖转发头。prod `forward-headers-strategy` 改为 `native`。测试：非代理 socket + 伪造 XFF 必须用 socket。LAN 直连 RFC1918 仍可伪造，取决于 compose 端口暴露。
 
 ### Finding: 练习 complete() 把请求条数当成已答数，结果页与落库口径不同
 
@@ -604,11 +606,12 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Stability
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13)
 - Affected area: 学生自测练习评分
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/modules/practice/service/PracticeSessionService.java:229-253,282-287`
   - Function / Module: `complete` / `getResult`
-  - Relevant behavior: 空作答会把 `isCorrect/answeredAt` 置空，但 `answeredCount = request.answers().size()` 仍计入空白项。`getResult()` 按 `answeredAt != null` 重算。未提交的题保留草稿。`complete()` 返回值未检查更新行数。
+  - Relevant behavior: **审计时** 空作答会把 `isCorrect/answeredAt` 置空，但 `answeredCount = request.answers().size()` 仍计入空白项。`getResult()` 按 `answeredAt != null` 重算。未提交的题保留草稿。`complete()` 返回值未检查更新行数。
 - Problem: 历史进度、辅导统计、RAG 上下文可能吃到虚高已答数；结果页刷新后又变一版数字。
 - Why it matters: 练习正确率是后续错词再练和辅导报告的输入。
 - Realistic failure scenario: 前端提交整卷含大量空字符串；库里 answered_count=239，结果页只算真正有内容的题。
@@ -616,6 +619,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 计数只从 answer 表派生，禁止双写摘要字段。
 - Regression test suggestion: 提交含空白项的整卷，断言 answered_count 等于非空题数，且 getResult 与之相同。
 - Estimated effort: 4 小时
+- Fix note: `complete()` 循环内只累计非空 `answered`；`mapper.complete` 更新行数必须为 1，否则 409。`PracticeSessionFlowIntegrationTest.completeCountsOnlyNonBlankAnswersAndMatchesResultPage` 覆盖空白提交与结果页一致。
 
 ### Finding: 练习开局未把唯一键冲突映射为 409
 
@@ -642,11 +646,12 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Stability
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13)
 - Affected area: `LexicalImportBatchService.importBatch`
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/modules/lexicon/imports/service/LexicalImportBatchService.java:394-438`
   - Function / Module: `importBatch` / `processReadyRow`
-  - Relevant behavior: `importBatch` 无事务，循环同对象调用带 `@Transactional` 的 `processReadyRow`。Spring 代理不会切入。`createFromImport` 可能已提交，行状态更新与批次 FAILED 标记不在同一事务。对比 `LexicalPairService.importCsv` 使用 `TransactionTemplate`。
+  - Relevant behavior: **审计时** `importBatch` 无事务，循环同对象调用带 `@Transactional` 的 `processReadyRow`。Spring 代理不会切入。`createFromImport` 可能已提交，行状态更新与批次 FAILED 标记不在同一事务。对比 `LexicalPairService.importCsv` 使用 `TransactionTemplate`。
 - Problem: 中途崩溃会留下已导入词对、行仍 READY、批次 FAILED，并可能漏发或错发知识变更事件。
 - Why it matters: 词库是 RAG 源。脏导入会让检索和教学数据不一致。
 - Realistic failure scenario: 第 80 行创建词对后进程被杀；重跑重复或跳过，RAG 只索引了部分词。
@@ -654,6 +659,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 行级幂等键 + outbox 与批次状态同一事务。
 - Regression test suggestion: mock 第 N 行失败，断言已成功行提交、失败行未提交、批次状态与事件与之一致。
 - Estimated effort: 1 天
+- Fix note: 去掉行上无效 `@Transactional`。每行 `TransactionTemplate` 包裹 `createFromImport` + 行状态；异常回滚该行后另开事务标 `INVALID`。全部成功后再 `publishKnowledgeChangedEvent`。`LexicalImportBatchIntegrationTest.shouldKeepSuccessfulRowsAndMarkDuplicateRowInvalidWithoutOrphanPairs` 覆盖第 N 行冲突。
 
 ### Finding: 练习单题讲解不走 grounding 校验仍标记为 AI
 
@@ -661,11 +667,12 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Security
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13)
 - Affected area: `explainPracticeQuestion`
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/modules/ai/service/AiInsightService.java:437-469`
   - Function / Module: `explainPracticeQuestion`
-  - Relevant behavior: 只要求 `explanation` 非空，过滤 citation 后直接 `GENERATION_SOURCE_AI`。不调用 `AiResponseValidator` / `verifyGuidanceGrounding`。整卷辅导走二次校验，单题路径没有。
+  - Relevant behavior: **审计时** 只要求 `explanation` 非空，过滤 citation 后直接 `GENERATION_SOURCE_AI`。不调用 `AiResponseValidator` / `verifyGuidanceGrounding`。整卷辅导走二次校验，单题路径没有。
 - Problem: 每题「AI 讲解」是高点击同步接口，也是幻觉出口。
 - Why it matters: 学生会把未引用证据的词义当官方讲解。
 - Realistic failure scenario: RAG 空结果时模型编造假朋友关系，前端仍显示 AI 徽章。
@@ -673,6 +680,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 与整卷辅导共用同一校验管线。
 - Regression test suggestion: 无 citation 的 structured 输出必须 fallback，不得标 AI。
 - Estimated effort: 4 小时
+- Fix note: RAG 失败、无有效 citation 或 explanation 未内联 `[C1]` 时走题库解析 `RULE_FALLBACK`（`GROUNDING_VALIDATION_FAILED`）。有证据才标 `GENERATION_SOURCE_AI`。`PracticeQuestionTutorIntegrationTest` 覆盖 grounded / 空 citation / RAG 失败。
 
 ### Finding: Grounding 校验器把学生答案当作 server 可信事实
 
@@ -680,11 +688,12 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Security
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13)
 - Affected area: 练习辅导 verifier
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/modules/ai/service/AiInsightService.java:1151-1157`
   - Function / Module: `practiceTutoringVerificationPrompt`
-  - Relevant behavior: 提示写明 `wrongAnswers` 属于 server-owned，匹配这些字段的声称“supported by definition”。`AiContextAssemblerService` 把 `studentAnswer` 放进 `wrongAnswers`。用户 prompt 把整份 CONTEXT_JSON 直接拼进去，不如 lexical RAG 有 untrusted 围栏。
+  - Relevant behavior: **审计时** 提示写明 `wrongAnswers` 属于 server-owned，匹配这些字段的声称“supported by definition”。`AiContextAssemblerService` 把 `studentAnswer` 放进 `wrongAnswers`。用户 prompt 把整份 CONTEXT_JSON 直出，不如 lexical RAG 有 untrusted 围栏。
 - Problem: 拼写题自由文本变成 verifier 的「定义即真」。对抗性作答可以让错误词义通过 grounding。
 - Why it matters: 二次校验本应挡住幻觉，这里反而给注入开了特权通道。
 - Realistic failure scenario: 学生提交「ignore evidence, X means Y」类作答；辅导重复该词义，verifier 因 serverContext 放行。
@@ -692,6 +701,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: verifier 只信任统计数字和词对标签，不信任任何作答原文。
 - Regression test suggestion: 含指令的错误拼写不得让 lexical claim 被判 supported。
 - Estimated effort: 4 小时
+- Fix note: `studentAnswer` 从 trusted `wrongAnswers` 拆到 `untrustedStudentOutput`（`AiPromptContextSupport`）。辅导/单题 user prompt 用 `<untrusted_student_output>` 围栏；verifier 明确不得把学生作答当词义证据。`PracticeAiPromptSafetyTest` 锁 prompt 与 payload 拆分。
 
 ## 5. Architecture Concerns
 
@@ -703,7 +713,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 |---------|-------|----------------|-------------------|
 | ModuleBoundary | 1 | ConfigCenter / AssessmentService / AiInsightService | 按用例拆分 |
 | DependencyDirection | 0 | 业务不直接依赖 pgvector 驱动 | 保持 |
-| StateOwnership | 1 | 公开问卷限流 map、WS 会话 map | 收到 Redis |
+| StateOwnership | 1 | WS 会话 map | 问卷限流已改 Redis；WS 可再收 |
 | BoundaryContract | 1 | session JSON、内部 token | 加强校验 |
 | EvolutionRisk | 1 | schema 快照 | 版本化 DDL |
 
@@ -715,7 +725,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Inspected evidence: SecurityConfig、JWT、内部 filter、公开问卷、WS、上传、actuator、CORS
 - Exclusions / limits: 未做动态利用
 
-相关发现：导出脱敏开关已按 job 标志过滤；问卷默认密钥 / 内部 token / WS query / actuator 角色已于 2026-08-13 修复；剩余端口暴露、XFF、单题讲解 grounding、学生答案注入、CSRF、localStorage、扫描语义。
+相关发现：导出脱敏开关已按 job 标志过滤；问卷默认密钥 / 内部 token / WS query / actuator 角色 / XFF / 单题讲解 grounding / 学生答案隔离已于 2026-08-13 修复；剩余端口暴露、CSRF、localStorage、扫描语义。
 
 已验证：公开问卷 token 不回 JSON；JWT 与问卷/内部密钥启动熵校验；内部接口缺 token 或 prod 关闭保护时启动失败；上传有扩展名/魔数白名单；WS 握手拒绝 query token，首条 AUTH 或 Bearer 验 JWT 与黑名单。
 
@@ -725,17 +735,17 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Inspected evidence: outbox、唯一键、超时、熔断、异步池、限流
 - Exclusions / limits: 未做混沌测试
 
-相关发现：练习 complete() 计分、导入批次自调用事务、练习开局 500、fallback 同上游。问卷 verify/QR 限流已改 Redis/Bucket4j；AI 超时已对齐 180s。
+相关发现：练习开局未映射 409、fallback 同上游。问卷 verify/QR 限流已改 Redis/Bucket4j；练习 `answeredCount` 与导入行事务已修；AI 超时已对齐 180s。
 
 已验证：Rabbit listener `default-requeue-rejected: false`；Resilience4j 配置存在；session 唯一键在 schema 中。
 
 ## 8. Performance Concerns
 
 - Coverage: Medium
-- Inspected evidence: Hikari 池、AI 超时、RAG 线程池、限流 map、nginx 超时
+- Inspected evidence: Hikari 池、AI 超时、RAG 线程池、Redis 限流、nginx 超时
 - Exclusions / limits: 无压测
 
-相关发现：F-06、F-07。
+相关发现：F-06（用户/IP 限流与 180s 超时已落地；日配额未做）。
 
 已验证：DB 池有上限；RAG executor 有队列；multipart 50MB 上限。
 
@@ -765,7 +775,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Inspected evidence: principles 对照、fail-fast、SRP、配置
 - Exclusions / limits: 只报告有真实风险的违规
 
-相关发现：F-05 单题讲解仍 fail-open；F-02 可关鉴权已在 prod 禁止；F-14 SRP。导出开关已按 `includeSensitiveFields` 过滤。
+相关发现：F-05 单题讲解已 fail-closed；F-02 可关鉴权已在 prod 禁止；F-14 SRP。导出开关已按 `includeSensitiveFields` 过滤。
 
 已验证：JWT、问卷密钥与内部 token 在非 local/test 拒绝弱值/占位符；公开问卷 cookie 路径收敛；辅导空 citation 走 `RULE_FALLBACK`。
 
@@ -838,7 +848,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | ConcurrencyConsistency | 0 | IN_PROGRESS 生成列唯一键 | 保持 |
 | MigrationSafety | 1 | 无版本迁移 | 见 F-08 |
 | InvariantValidation | 0 | 题库软删等有测试 | — |
-| BackupRestore | 1 | 有备份无还原脚本 | 补 restore |
+| BackupRestore | 0 | 已有 restore 脚本（需 `CONFIRM_RESTORE=YES`） | 演练还原 |
 | Reconciliation | 0 | analytics compensation 开关 | — |
 
 ## 17. Privacy / Data Governance Analysis
@@ -889,14 +899,14 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 ## 20. Cost / Resource Economics Analysis
 
 - Coverage: Medium
-- Inspected evidence: max-tokens、线程池、超时、无配额
+- Inspected evidence: max-tokens、线程池、超时、用户/IP 限流
 - Exclusions / limits: 无账单
 
 | Subtype | Count | Cost Driver | Recommended Action |
 |---------|-------|-------------|-------------------|
-| UnboundedWork | 1 | AI 并发 | F-06 |
-| ExternalApiCost | 1 | LLM | 配额 |
-| LLMCost | 1 | 10min 超时 | 对齐 nginx |
+| UnboundedWork | 0 | AI POST 已按用户/IP 限流 | 可补日配额 |
+| ExternalApiCost | 1 | LLM | 日配额/token 预算 |
+| LLMCost | 0 | 读超时已对齐 nginx 180s | 可取消已断开客户端的上游 |
 | InfrastructureSizing | 0 | 池大小有默认 | — |
 | ObservabilityCost | 0 | 采样 0.1 | — |
 | CostVisibility | 1 | 无 per-user 指标 | 加 |
@@ -909,13 +919,13 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 
 | Subtype | Count | Boundary Crossed | Recommended Action |
 |---------|-------|------------------|-------------------|
-| PromptInjection | 1 | 学生答案进 verifier 可信集 | 隔离 untrusted |
+| PromptInjection | 0 | 学生答案已拆到 untrusted 围栏 | 保持围栏 |
 | ToolAuthorization | 0 | 未见任意工具调用 | 保持禁用 |
 | RAGLeakage | 0 | 共享词库/题库语料 | 私有内容接入前加租户过滤 |
-| ModelFallback | 1 | 单题讲解仍 fail-open | fail-closed |
-| OutputValidation | 1 | 单题讲解弱于整卷辅导 | 共用校验管线 |
+| ModelFallback | 0 | 单题讲解空 citation 已 fail-closed | 保持 |
+| OutputValidation | 0 | 单题讲解要求有效 citation 与内联引用 | 可再抽共用校验管线 |
 | EvalGap | 1 | 无注入回归；空 citation 已有集成测试 | 加最小注入集 |
-| AbuseCost | 1 | 无配额 | 用户级限流 |
+| AbuseCost | 0 | 已有用户/IP 限流 | 可补日配额 |
 
 ## 22. Fallback / Defensive Code Analysis
 
@@ -931,7 +941,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | SilentCorrection | 0 | 0 | 0 | 0 |
 | DefensiveGuess | 1 | 0 | 1 | 0 |
 
-`RULE_FALLBACK` 作为显式来源是正确模式；辅导空 citation 已按失败降级。单题讲解仍可标成 AI，以及 fallback 指向同一上游，仍是缺口。
+`RULE_FALLBACK` 作为显式来源是正确模式；辅导与单题讲解空 citation 已按失败降级。fallback 指向同一上游仍是缺口。
 
 ## 23. Testing Authenticity Analysis
 
@@ -942,11 +952,11 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | Test Area | Real Confidence | Risk | Action |
 |-----------|---------------|------|--------|
 | app-server Web 集成测试 | High | 漏掉前端与真实 MySQL 约束（部分有 Testcontainers） | Keep |
-| ai-gateway Testcontainers | Medium | CI Docker API 可能未跑到 | Fix CI |
+| ai-gateway Testcontainers | Medium | CI 已加 `-Dapi.version=1.44`；未在日志断言容器启动 | 保持 |
 | 前端 Vitest | Medium | 已进 CI；练习页仍无专项测试 | 补练习页覆盖 |
 | Playwright | None | 依赖存在无测试 | Use or remove |
 
-有价值：`PublicAssessmentIntegrationTest`、`AiInsightIntegrationTest`、`ActuatorSecurityIntegrationTest`、契约 `check:contracts`。
+有价值：`PublicAssessmentIntegrationTest`、`AiInsightIntegrationTest`、`ActuatorSecurityIntegrationTest`、`PracticeQuestionTutorIntegrationTest`、`PracticeSessionFlowIntegrationTest`、契约 `check:contracts`。
 可疑：练习页仍无 Vitest。
 缺失：练习页自动化、AI 日配额。prod 缺密钥启动失败与 AI 限流已有测试。
 
@@ -1034,7 +1044,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 
 ## 30. Principles Compliance
 
-整体：JWT、问卷密钥与内部 token 已统一 fail-fast；辅导空 citation 已 fail-closed。剩余原则缺口主要是导出脱敏开关、单题讲解、XFF。大文件是最明显的结构债。
+整体：JWT、问卷密钥与内部 token 已统一 fail-fast；辅导与单题讲解空 citation 已 fail-closed；XFF 仅信代理。剩余原则缺口主要是超大文件结构债。
 
 ### Principles Violated
 
@@ -1042,21 +1052,23 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 |-----------|------------|----------|----------------|
 | Single Responsibility (1.1) | 3 | Medium | ConfigCenter、AssessmentService、AiInsightService |
 | File Size Limit (1.2) | 8+ | Medium | 见 F-14 |
-| Fail-Fast (4.4) | 2 | High | 导出开关；单题讲解 |
+| Fail-Fast (4.4) | 0 | — | 导出开关与单题讲解已 fail-closed |
 | Don't Swallow Errors (6.1) | 0 | — | 未发现空 catch 作为主路径 |
 | Configuration Over Hardcoding (9.1) | 0 | — | 问卷默认值仅 local/test |
 | Fail on Missing Configuration (9.2) | 0 | — | 内部 token / 问卷密钥已拒绝占位符 |
-| Timeout Every External Call (10.4) | 1 | Medium | 超时有，但链路不一致 |
-| Unbounded Resources (10.2) | 1 | High | verificationAttempts map |
-| Test Behavior (8.1) | 1 | Medium | 前端测试未进 CI |
-| Least Privilege (4.6) | 1 | High | XFF 信任客户端 |
+| Timeout Every External Call (10.4) | 0 | — | AI 读超时已对齐 nginx 180s；取消已断开客户端仍缺 |
+| Unbounded Resources (10.2) | 0 | — | verificationAttempts map 已改 Redis |
+| Test Behavior (8.1) | 1 | Medium | 练习页 Vitest 仍缺 |
+| Least Privilege (4.6) | 0 | — | XFF 仅信代理 CIDR |
 
 ### Principles Respected
 
 - 内部接口空 token 拒绝启动
 - JWT / 问卷 HMAC / 内部 token 弱密钥或占位符拒绝启动（非 local/test）
 - 诊断/训练/练习单用户 IN_PROGRESS 用数据库约束而不是“尽力而为”
-- RAG 提示词把检索内容标为 untrusted；辅导空 citation 走 RULE_FALLBACK
+- RAG 提示词把检索内容标为 untrusted；辅导与单题讲解空 citation 走 RULE_FALLBACK
+- 学生作答进 untrusted 围栏，不得作为 grounding 词义证据
+- XFF 仅对可信代理 CIDR 解析
 - 公开问卷会话 token 不返回给 JS
 - 生产 schema init 为 never，避免启动时误建表覆盖心智（尽管迁移仍缺）
 - `/actuator/**` 除 health 外要求 ADMIN
@@ -1069,23 +1081,23 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 
 ### Fix Immediately
 
-- ~~导出 `includeSensitiveFields=false` 时剥离资料题/姓名/联系方式~~ 已修复
+- ~~导出 `includeSensitiveFields=false` 时剥离资料题/姓名/联系方式~~ 已完成
 - ~~问卷 HMAC / 敏感资料密钥：prod 无显式配置则拒绝启动；写入 compose 与 `.env.example`~~ 已修复
 - 默认 compose 把数据面端口绑到 `127.0.0.1`（8090 已绑 loopback；其余数据面端口未收口）
 - ~~内部 token 熵/占位符校验~~ 已修复
-- 不信任客户端 X-Forwarded-For
+- ~~不信任客户端 X-Forwarded-For~~ 已修复（仅信代理 CIDR + nginx 覆盖）
 - ~~WebSocket 停止使用 `access_token` query~~ 已修复（首条 AUTH 消息）
 - ~~Actuator metrics/prometheus 限 ADMIN 或独立端口~~ 已修复（角色限制；未拆端口）
-- 修复练习 `answeredCount`；导入批次改 `TransactionTemplate`
-- grounding / 单题讲解 fail-closed；verifier 不信任学生作答原文（辅导空 citation 已 fail-closed；单题讲解与 verifier 未改）
+- ~~修复练习 `answeredCount`；导入批次改 `TransactionTemplate`~~ 已修复
+- ~~grounding / 单题讲解 fail-closed；verifier 不信任学生作答原文~~ 已修复
 
 ### Fix Before Stable Release
 
 - ~~grounding 空 citation 失败并降级规则~~ 已修复
-- ~~AI 用户级限流 + 对齐 nginx/后端超时~~ 已修复
-- ~~公开问卷限流改 Redis~~ 已修复
-- ~~CI 跑 `npm test`，backend 加 Testcontainers API 版本~~ 已修复
-- ~~文档去掉 Flyway / “无前端测试”，对齐 schema 变更 runbook~~ 已修复
+- ~~AI 用户级限流 + 对齐 nginx/后端超时~~ 已完成
+- ~~公开问卷限流改 Redis~~ 已完成
+- ~~CI 跑 `npm test`，backend 加 Testcontainers API 版本~~ 已完成
+- ~~文档去掉 Flyway / “无前端测试”，对齐 schema 变更 runbook（含 `docs/ddl/` 与 restore 脚本）~~ 已完成
 - CSRF 保护 cookie 会话端点
 
 ### Schedule Later
@@ -1108,12 +1120,16 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 ## 33. Quick Wins
 
 - ~~`.env.example` 增加问卷密钥项，compose 传递它们（1 小时）~~ 已修复
-- ~~CI `npm test` + `permissions: contents: read`（1 小时）~~ `npm test` 已修复；permissions 仍属后续
-- ~~`src/CLAUDE.md` / README Flyway 行（15 分钟）~~ 已修复
+- ~~CI `npm test` + `permissions: contents: read`（1 小时）~~ `npm test` 已完成；permissions 仍属后续
+- ~~`src/CLAUDE.md` / README Flyway 行（15 分钟）~~ 已完成
 - ~~`verifyGuidanceGrounding` 空列表/RAG null 返回 false（1 小时含测试）~~ 已修复
-- 练习 `answeredCount` 只计非空（2 小时）
+- ~~练习 `answeredCount` 只计非空（2 小时）~~ 已修复
+- ~~导入批次每行 `TransactionTemplate`（1 天）~~ 已修复
+- ~~单题讲解空 citation / RAG 失败走 RULE_FALLBACK~~ 已修复
+- ~~verifier 拆 trusted / untrusted 学生作答~~ 已修复
+- ~~XFF 仅信代理 CIDR + nginx 覆盖~~ 已修复
 - 练习开局捕获唯一键 → 409（1 小时）
-- ~~导出 false 时不写资料汇总原文（3 小时）~~ 已修复
+- ~~导出 false 时不写资料汇总原文（3 小时）~~ 已完成
 - ~~actuator 角色限制（1 小时含测试）~~ 已修复
 - ~~WS 去掉 query token（2 小时）~~ 已修复
 

@@ -42,9 +42,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
@@ -80,6 +82,7 @@ public class LexicalImportBatchService {
     private final LexicalPairService lexicalPairService;
     private final TaskExecutor taskExecutor;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public LexicalImportBatchService(
             LexicalImportBatchMapper batchMapper,
@@ -91,7 +94,8 @@ public class LexicalImportBatchService {
             LexicalImportTemplateSupport templateSupport,
             LexicalPairService lexicalPairService,
             @Qualifier("lexicalImportTaskExecutor") TaskExecutor taskExecutor,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PlatformTransactionManager transactionManager
     ) {
         this.batchMapper = batchMapper;
         this.fileMapper = fileMapper;
@@ -103,6 +107,7 @@ public class LexicalImportBatchService {
         this.lexicalPairService = lexicalPairService;
         this.taskExecutor = taskExecutor;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Transactional
@@ -434,37 +439,49 @@ public class LexicalImportBatchService {
         }
     }
 
-    @Transactional
-    protected Long processReadyRow(Long batchId, LexicalImportRowEntity row) {
-        LexicalImportRowDraft draft = readDraft(row.getDraftJson());
+    private Long processReadyRow(Long batchId, LexicalImportRowEntity row) {
         try {
-            List<String> validationErrors = validateDraft(batchId, row.getId(), draft);
-            if (!validationErrors.isEmpty()) {
-                row.setRowStatus(LexicalImportRowStatus.INVALID.name());
-                row.setValidationErrorsJson(writeJson(validationErrors));
-                row.setImportMessage(validationErrors.getFirst());
-                row.setImportedLexicalPairId(null);
-                rowMapper.updateById(row);
-                return null;
-            }
+            return transactionTemplate.execute(status -> importReadyRow(batchId, row));
+        } catch (RuntimeException exception) {
+            markRowInvalid(row.getId(), resolveFailureMessage(exception));
+            return null;
+        }
+    }
 
-            LexicalPairUpsertRequest request = templateSupport.toUpsertRequest(draft);
-            Long lexicalPairId = lexicalPairService.createFromImport(request);
-            row.setRowStatus(LexicalImportRowStatus.IMPORTED.name());
-            row.setValidationErrorsJson(null);
-            row.setImportMessage(null);
-            row.setImportedLexicalPairId(lexicalPairId);
-            rowMapper.updateById(row);
-            return lexicalPairId;
-        } catch (Exception exception) {
-            List<String> errors = List.of(resolveFailureMessage(exception));
+    private Long importReadyRow(Long batchId, LexicalImportRowEntity row) {
+        LexicalImportRowDraft draft = readDraft(row.getDraftJson());
+        List<String> validationErrors = validateDraft(batchId, row.getId(), draft);
+        if (!validationErrors.isEmpty()) {
             row.setRowStatus(LexicalImportRowStatus.INVALID.name());
-            row.setValidationErrorsJson(writeJson(errors));
-            row.setImportMessage(errors.getFirst());
+            row.setValidationErrorsJson(writeJson(validationErrors));
+            row.setImportMessage(validationErrors.getFirst());
             row.setImportedLexicalPairId(null);
             rowMapper.updateById(row);
             return null;
         }
+
+        LexicalPairUpsertRequest request = templateSupport.toUpsertRequest(draft);
+        Long lexicalPairId = lexicalPairService.createFromImport(request);
+        row.setRowStatus(LexicalImportRowStatus.IMPORTED.name());
+        row.setValidationErrorsJson(null);
+        row.setImportMessage(null);
+        row.setImportedLexicalPairId(lexicalPairId);
+        rowMapper.updateById(row);
+        return lexicalPairId;
+    }
+
+    private void markRowInvalid(Long rowId, String message) {
+        transactionTemplate.executeWithoutResult(status -> {
+            LexicalImportRowEntity latest = rowMapper.selectById(rowId);
+            if (latest == null) {
+                return;
+            }
+            latest.setRowStatus(LexicalImportRowStatus.INVALID.name());
+            latest.setValidationErrorsJson(writeJson(List.of(message)));
+            latest.setImportMessage(message);
+            latest.setImportedLexicalPairId(null);
+            rowMapper.updateById(latest);
+        });
     }
 
     private LexicalImportBatchEntity refreshBatchCounts(

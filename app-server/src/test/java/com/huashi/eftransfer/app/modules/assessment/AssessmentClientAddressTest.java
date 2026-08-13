@@ -2,12 +2,26 @@ package com.huashi.eftransfer.app.modules.assessment;
 
 import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentClientIpNormalizer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AssessmentClientAddressTest {
+
+    @BeforeEach
+    void restoreDefaultTrustedProxies() {
+        ClientRequestContextResolver.configureTrustedProxies(
+                ClientRequestContextResolver.DEFAULT_TRUSTED_PROXY_CIDRS);
+    }
+
+    @AfterEach
+    void resetTrustedProxies() {
+        ClientRequestContextResolver.configureTrustedProxies(
+                ClientRequestContextResolver.DEFAULT_TRUSTED_PROXY_CIDRS);
+    }
 
     @Test
     void shouldResolveTheFirstTrustedProxyAddress() {
@@ -17,6 +31,25 @@ class AssessmentClientAddressTest {
         request.setRemoteAddr("127.0.0.1");
 
         assertThat(ClientRequestContextResolver.resolveIpAddress(request)).isEqualTo("203.0.113.9");
+    }
+
+    @Test
+    void shouldIgnoreForgedForwardedForWhenSocketIsNotATrustedProxy() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-Forwarded-For", "198.51.100.10");
+        request.addHeader("X-Real-IP", "198.51.100.10");
+        request.setRemoteAddr("203.0.113.50");
+
+        assertThat(ClientRequestContextResolver.resolveIpAddress(request)).isEqualTo("203.0.113.50");
+    }
+
+    @Test
+    void shouldFallBackToSocketWhenTrustedProxySendsAnInvalidForwardedAddress() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-Forwarded-For", "not-an-ip");
+        request.setRemoteAddr("127.0.0.1");
+
+        assertThat(ClientRequestContextResolver.resolveIpAddress(request)).isEqualTo("127.0.0.1");
     }
 
     @Test

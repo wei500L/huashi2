@@ -760,6 +760,8 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                     "unsupportedClaims", List.of(),
                     "uncertaintyNote", ""
             )
+                    : "PracticeQuestionTutorGuidance".equals(request.schemaName())
+                    ? questionTutorPayload()
                     : successStructuredPayload(request);
             return AiGatewayCallResult.success(
                     new StructuredChatResponse(
@@ -914,6 +916,19 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                     5L,
                     "/internal/ai/rag/explain-risk"
             );
+        }
+
+        private Map<String, Object> questionTutorPayload() {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("explanation", ragRetrieveMode == RagRetrieveMode.GROUNDED
+                    ? "正确答案对应题库解析中的义项 [C1]，不要只看词形。"
+                    : "正确答案对应题库解析中的义项，不要只看词形。");
+            payload.put("commonMistake", "容易把同形词的英语义项套到法语上。");
+            payload.put("memoryTip", "用最小语义对比记住英法语差。");
+            payload.put("relatedWords", List.of("coin"));
+            payload.put("confidence", 0.88d);
+            payload.put("citationIds", ragRetrieveMode == RagRetrieveMode.GROUNDED ? List.of("C1") : List.of());
+            return payload;
         }
 
         private Map<String, Object> successStructuredPayload(StructuredChatRequest request) {

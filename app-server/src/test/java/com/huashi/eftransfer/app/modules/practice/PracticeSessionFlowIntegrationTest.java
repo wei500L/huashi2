@@ -133,6 +133,55 @@ class PracticeSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void completeCountsOnlyNonBlankAnswersAndMatchesResultPage() throws Exception {
+        String token = loginAndGetAccessToken("student.li", "Student@123456");
+        JsonNode created = readJson(mockMvc.perform(post("/api/student/practice/sessions").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "bankCode": "LEXIBRIDGE_FF4_V2",
+                                  "sectionCode": "FF4_WORD_MEANING"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn()).path("data");
+        long sessionId = created.path("sessionId").asLong();
+
+        String correctAnswer = jdbcTemplate.queryForList(
+                        "SELECT correct_answer_json FROM practice_session_answer WHERE session_id = ? AND question_order = 1",
+                        String.class, sessionId)
+                .getFirst()
+                .replaceAll("[\\[\\]\"]", "");
+
+        mockMvc.perform(post("/api/student/practice/sessions/" + sessionId + "/complete").with(bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "answers": [
+                                    {"questionOrder": 1, "response": ["%s"]},
+                                    {"questionOrder": 2, "response": ["  "]},
+                                    {"questionOrder": 3, "response": []}
+                                  ]
+                                }
+                                """.formatted(correctAnswer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.answeredCount").value(1))
+                .andExpect(jsonPath("$.data.correctCount").value(1));
+
+        Integer storedAnsweredCount = jdbcTemplate.queryForObject(
+                "SELECT answered_count FROM practice_session WHERE id = ?", Integer.class, sessionId);
+        assertThat(storedAnsweredCount).isEqualTo(1);
+
+        JsonNode result = readJson(mockMvc.perform(get("/api/student/practice/sessions/" + sessionId + "/result")
+                        .with(bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn()).path("data");
+        assertThat(result.path("answeredCount").asInt()).isEqualTo(1);
+        assertThat(result.path("correctCount").asInt()).isEqualTo(1);
+    }
+
+    @Test
     void spellingCheckRevealsFirstLetterAfterWrongAttempt() throws Exception {
         String token = loginAndGetAccessToken("student.li", "Student@123456");
         JsonNode created = readJson(mockMvc.perform(post("/api/student/practice/sessions").with(bearer(token))
