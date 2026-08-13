@@ -129,7 +129,7 @@ const ThreadMap: React.FC = () => (
   </svg>
 );
 
-const ResearchEntry: React.FC<{
+export const ResearchEntry: React.FC<{
   metadata: PublicAssessmentMetadataVO | null;
   participationCode: string;
   verifying: boolean;
@@ -186,8 +186,17 @@ const ResearchEntry: React.FC<{
           <p>{qrRequested ? '二维码会尝试自动进入；如识别失败，仍可输入参与码继续。' : '没有公开注册。你的回答会以匿名方式保存，仅用于本次研究。'}</p>
           <form onSubmit={onVerify} className="research-code-form min-w-0">
             <label htmlFor="participation-code">参与码 / ACCESS CODE</label>
-            <input id="participation-code" value={participationCode} onChange={(event) => onCodeChange(event.target.value.toUpperCase())} placeholder="XXXX-XXXX-XXXX" autoComplete="one-time-code" className="min-w-0" />
-            {errorMessage ? <p className="research-form-error" role="alert">{errorMessage}</p> : null}
+            <input
+              id="participation-code"
+              value={participationCode}
+              onChange={(event) => onCodeChange(event.target.value.toUpperCase())}
+              placeholder="XXXX-XXXX-XXXX"
+              autoComplete="one-time-code"
+              className="min-w-0"
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? 'participation-code-error' : undefined}
+            />
+            {errorMessage ? <p id="participation-code-error" className="research-form-error" role="alert">{errorMessage}</p> : null}
             <button type="submit" disabled={verifying || qrEntering || !participationCode.trim()} className="research-primary-button w-full sm:w-auto">{verifying ? '正在验证…' : qrEntering ? '二维码进入中…' : '验证并开始'}<ArrowUpRight size={18} className="shrink-0" /></button>
           </form>
           <div className="research-access-foot"><Check size={14} className="shrink-0" /> 可中途离开，进度会自动保存</div>
@@ -727,12 +736,15 @@ const ResearchParticipantPage: React.FC = () => {
     return () => { active = false; };
   }, [applyAttempt, attempt, loading, metadata?.qrEntryEnabled, normalizedReleaseCode, qrRequested, result]);
 
-  const buildResponses = React.useCallback(() => (attempt?.questions || []).map((question) => ({
-    questionOrder: question.questionOrder,
-    responses: responsesByOrder[question.questionOrder] || [],
-    justificationText: justificationsByOrder[question.questionOrder] || null,
-    attachmentTokens: attachmentsByOrder[question.questionOrder] || [],
-  })), [attempt?.questions, attachmentsByOrder, justificationsByOrder, responsesByOrder]);
+  const buildResponses = React.useCallback(() => (attempt?.questions || []).map((question) => {
+    const attachmentTokens = attachmentsByOrder[question.questionOrder] || [];
+    return {
+      questionOrder: question.questionOrder,
+      responses: responsesByOrder[question.questionOrder] || [],
+      justificationText: justificationsByOrder[question.questionOrder] || null,
+      ...(attachmentTokens.length > 0 ? { attachmentTokens } : {}),
+    };
+  }), [attempt?.questions, attachmentsByOrder, justificationsByOrder, responsesByOrder]);
   const attemptId = attempt?.attemptId; const attemptStatus = attempt?.status;
   React.useEffect(() => {
     if (!attemptId || attemptStatus !== 'IN_PROGRESS' || !hydratedRef.current || submitting

@@ -652,6 +652,39 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
     }
 
+    @Test
+    void emptyAttachmentTokensOnNonFileQuestionsDoNotBlockSaveOrSubmit() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/responses", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"baseVersion":1,"responses":[{"questionOrder":1,"responses":["T"],"attachmentTokens":[]}]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.answeredCount").value(1));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/submit", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"baseVersion":2,"reason":"MANUAL","responses":[{"questionOrder":1,"responses":["T"],"attachmentTokens":[]}]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
+    }
+
     private long createSpellingPaper(String teacherToken) throws Exception {
         return createPaper(teacherToken, 40, """
                                 {

@@ -170,7 +170,7 @@ public class ResearchFileService {
         Map<Integer, AssessmentAttemptAnswerEntity> byOrder = answers.stream()
                 .collect(java.util.stream.Collectors.toMap(AssessmentAttemptAnswerEntity::getQuestionOrder, item -> item, (left, right) -> left));
         for (AssessmentAttemptResponseRequest request : requests) {
-            if (request.attachmentTokens() == null) {
+            if (request.attachmentTokens() == null || request.attachmentTokens().isEmpty()) {
                 continue;
             }
             AssessmentAttemptAnswerEntity answer = byOrder.get(request.questionOrder());
