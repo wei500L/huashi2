@@ -120,42 +120,8 @@ const RegisterPage: React.FC = () => {
   }, [activeResolvedContext?.registrationTokenExpiresAt, i18n.language]);
 
   const triggerRegistrationContextRefresh = React.useCallback(() => {
-    React.startTransition(() => {
-      setContextRefreshNonce((current) => current + 1);
-    });
+    setContextRefreshNonce((current) => current + 1);
   }, []);
-
-  const resolveRegistrationContext = React.useEffectEvent(async (classCode: string, signal: AbortSignal) => {
-    setIsResolvingContext(true);
-    try {
-      const payload = await authService.resolveRegistrationContext({ classCode }, { signal });
-      if (signal.aborted) {
-        return;
-      }
-      clearErrors('classCode');
-      setResolvedContext({ requestedClassCode: classCode, payload });
-      setContextErrorMessage(null);
-    } catch (error) {
-      if (signal.aborted) {
-        return;
-      }
-      const normalizedError = normalizeApiError(error);
-      setResolvedContext(null);
-      if (normalizedError.code === 'VALIDATION_ERROR') {
-        setContextErrorMessage(t('register.contextState.invalid'));
-        return;
-      }
-      if (normalizedError.code === 'RATE_LIMITED') {
-        setContextErrorMessage(t('register.contextState.rateLimited'));
-        return;
-      }
-      setContextErrorMessage(getApiErrorMessage(error, t('register.contextState.unavailable')));
-    } finally {
-      if (!signal.aborted) {
-        setIsResolvingContext(false);
-      }
-    }
-  });
 
   React.useEffect(() => {
     setSubmitErrorState(null);
@@ -163,27 +129,62 @@ const RegisterPage: React.FC = () => {
 
   React.useEffect(() => {
     if (!deferredClassCode) {
-      clearErrors('classCode');
       setResolvedContext(null);
       setContextErrorMessage(null);
       setIsResolvingContext(false);
       return;
     }
 
-    clearErrors('classCode');
+    const abortController = new AbortController();
+    let cancelled = false;
     setResolvedContext((current) => current?.requestedClassCode === deferredClassCode ? current : null);
     setContextErrorMessage(null);
+    setIsResolvingContext(true);
 
-    const abortController = new AbortController();
     const timer = window.setTimeout(() => {
-      void resolveRegistrationContext(deferredClassCode, abortController.signal);
+      void (async () => {
+        try {
+          const payload = await authService.resolveRegistrationContext(
+            { classCode: deferredClassCode },
+            { signal: abortController.signal },
+          );
+          if (cancelled || abortController.signal.aborted) {
+            return;
+          }
+          clearErrors('classCode');
+          setResolvedContext({ requestedClassCode: deferredClassCode, payload });
+          setContextErrorMessage(null);
+        } catch (error) {
+          if (cancelled || abortController.signal.aborted) {
+            return;
+          }
+          setResolvedContext(null);
+          const normalizedError = normalizeApiError(error);
+          if (normalizedError.code === 'VALIDATION_ERROR') {
+            setContextErrorMessage(t('register.contextState.invalid'));
+            return;
+          }
+          if (normalizedError.code === 'RATE_LIMITED') {
+            setContextErrorMessage(t('register.contextState.rateLimited'));
+            return;
+          }
+          setContextErrorMessage(getApiErrorMessage(error, t('register.contextState.unavailable')));
+        } finally {
+          if (!cancelled && !abortController.signal.aborted) {
+            setIsResolvingContext(false);
+          }
+        }
+      })();
     }, REGISTRATION_CONTEXT_RESOLVE_DELAY_MS);
 
     return () => {
+      cancelled = true;
       abortController.abort();
       window.clearTimeout(timer);
     };
-  }, [deferredClassCode, contextRefreshNonce, resolveRegistrationContext]);
+    // `t` is only used for error copy; listing it retriggers the effect and cancels the request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearErrors, deferredClassCode, contextRefreshNonce]);
 
   const onSubmit = async (values: RegisterFormData) => {
     clearError();
