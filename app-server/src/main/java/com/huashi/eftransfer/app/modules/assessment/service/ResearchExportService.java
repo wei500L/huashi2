@@ -49,8 +49,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -155,7 +153,7 @@ public class ResearchExportService {
     }
 
     @Transactional(readOnly = true)
-    public ResponseEntity<StreamingResponseBody> download(Long jobId) {
+    public ResponseEntity<byte[]> download(Long jobId) {
         ResearchExportJobEntity job = jobMapper.selectById(jobId);
         if (job == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "Export job was not found", 404);
@@ -164,15 +162,17 @@ public class ResearchExportService {
         if (!ResearchExportJobStatus.COMPLETED.name().equalsIgnoreCase(job.getStatus()) || job.getObjectKey() == null) {
             throw new BusinessException(ResultCode.CONFLICT, "Export is not ready", 409);
         }
-        StreamingResponseBody body = output -> {
-            try (var input = objectStorageService.open(job.getObjectKey())) {
-                input.transferTo(output);
-            }
-        };
+        byte[] bytes;
+        try (var input = objectStorageService.open(job.getObjectKey())) {
+            bytes = input.readAllBytes();
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("Failed to read research export", exception);
+        }
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ResearchExportWorkbook.contentDisposition(job.getFileName()))
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(bytes.length))
                 .contentType(MediaType.parseMediaType(job.getMimeType()))
-                .body(body);
+                .body(bytes);
     }
 
     @Scheduled(fixedDelayString = "PT20S")

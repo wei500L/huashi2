@@ -32,7 +32,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.List;
 
@@ -206,7 +205,7 @@ public class TeacherResearchController {
     }
 
     @GetMapping("/exports/{jobId}/download")
-    public ResponseEntity<StreamingResponseBody> downloadExport(@PathVariable Long jobId) {
+    public ResponseEntity<byte[]> downloadExport(@PathVariable Long jobId) {
         return exportService.download(jobId);
     }
 
@@ -216,12 +215,12 @@ public class TeacherResearchController {
     }
 
     @GetMapping("/files/{fileId}/download")
-    public ResponseEntity<StreamingResponseBody> downloadFile(@PathVariable Long fileId) {
+    public ResponseEntity<byte[]> downloadFile(@PathVariable Long fileId) {
         return fileService.download(fileId, false);
     }
 
     @GetMapping("/files/{fileId}/preview")
-    public ResponseEntity<StreamingResponseBody> previewFile(@PathVariable Long fileId) {
+    public ResponseEntity<byte[]> previewFile(@PathVariable Long fileId) {
         return fileService.download(fileId, true);
     }
 

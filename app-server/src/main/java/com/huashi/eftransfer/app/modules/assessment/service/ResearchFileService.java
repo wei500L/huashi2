@@ -26,8 +26,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -194,7 +192,7 @@ public class ResearchFileService {
     }
 
     @Transactional(readOnly = true)
-    public ResponseEntity<StreamingResponseBody> download(Long fileId, boolean preview) {
+    public ResponseEntity<byte[]> download(Long fileId, boolean preview) {
         ResearchAccessService.ResearchFileAccess access = accessService.requireAccessibleResearchFile(fileId);
         AssessmentSubmissionFileEntity file = access.file();
         if (!AssessmentFileScanStatus.CLEAN.name().equalsIgnoreCase(file.getScanStatus())) {
@@ -205,20 +203,20 @@ public class ResearchFileService {
         }
         auditLogService.record("RESEARCH_ATTACHMENT_DOWNLOADED", "ASSESSMENT_SUBMISSION_FILE", String.valueOf(file.getId()),
                 Map.of("preview", preview, "publishId", access.attemptAccess().attempt().getPublishId()), "SUCCESS");
-        StreamingResponseBody body = output -> {
-            try (InputStream input = objectStorageService.open(file.getObjectKey())) {
-                input.transferTo(output);
-            } catch (IOException exception) {
-                throw new IllegalStateException("Failed to stream research attachment", exception);
-            }
-        };
+        byte[] bytes;
+        try (InputStream input = objectStorageService.open(file.getObjectKey())) {
+            bytes = input.readAllBytes();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to stream research attachment", exception);
+        }
         String disposition = (preview ? "inline" : "attachment")
                 + "; filename=\"" + sanitizeFileName(file.getOriginalFileName()).replace("\"", "") + "\"";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
                 .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(bytes.length))
                 .contentType(MediaType.parseMediaType(file.getMimeType()))
-                .body(body);
+                .body(bytes);
     }
 
     @Scheduled(fixedDelayString = "PT30M")
