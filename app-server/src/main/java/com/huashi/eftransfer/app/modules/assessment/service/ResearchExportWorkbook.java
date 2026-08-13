@@ -1,10 +1,15 @@
 package com.huashi.eftransfer.app.modules.assessment.service;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -207,31 +212,47 @@ final class ResearchExportWorkbook {
         List<AttachmentRow> attachments() { return attachments; }
     }
 
+    private static final class Styles {
+        final CellStyle header;
+        final CellStyle text;
+        final CellStyle textAlt;
+        final CellStyle number;
+        final CellStyle numberAlt;
+
+        Styles(CellStyle header, CellStyle text, CellStyle textAlt, CellStyle number, CellStyle numberAlt) {
+            this.header = header;
+            this.text = text;
+            this.textAlt = textAlt;
+            this.number = number;
+            this.numberAlt = numberAlt;
+        }
+    }
+
     static byte[] write(WorkbookData data) throws Exception {
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            CellStyle headerStyle = headerStyle(workbook);
-            writeReadme(workbook, headerStyle, data);
-            writeSummary(workbook, headerStyle, data.summary);
-            writeQuestionStats(workbook, headerStyle, data.questionStats);
-            writeHardQuestions(workbook, headerStyle, data.hardQuestions);
-            writeOptionStats(workbook, headerStyle, data.optionStats);
-            writeDimensions(workbook, headerStyle, data.dimensions);
-            writeReactionTimes(workbook, headerStyle, data.reactionTimes);
-            writeQualityFlags(workbook, headerStyle, data.qualityFlags);
-            writeProfileSummary(workbook, headerStyle, data);
-            writeGroupAi(workbook, headerStyle, data);
-            writeAttemptAi(workbook, headerStyle, data.attemptAi);
-            writeAttempts(workbook, headerStyle, data.attempts());
-            writeWideAnswers(workbook, headerStyle, data);
-            writeAnswerDetails(workbook, headerStyle, data.answers());
-            writeCodebook(workbook, headerStyle, data.questions());
-            writeAttachments(workbook, headerStyle, data.attachments());
+            Styles styles = styles(workbook);
+            writeReadme(workbook, styles, data);
+            writeSummary(workbook, styles, data.summary);
+            writeQuestionStats(workbook, styles, data.questionStats);
+            writeHardQuestions(workbook, styles, data.hardQuestions);
+            writeOptionStats(workbook, styles, data.optionStats);
+            writeDimensions(workbook, styles, data.dimensions);
+            writeReactionTimes(workbook, styles, data.reactionTimes);
+            writeQualityFlags(workbook, styles, data.qualityFlags);
+            writeProfileSummary(workbook, styles, data);
+            writeGroupAi(workbook, styles, data);
+            writeAttemptAi(workbook, styles, data.attemptAi);
+            writeAttempts(workbook, styles, data.attempts());
+            writeWideAnswers(workbook, styles, data);
+            writeAnswerDetails(workbook, styles, data.answers());
+            writeCodebook(workbook, styles, data.questions());
+            writeAttachments(workbook, styles, data.attachments());
             workbook.write(output);
             return output.toByteArray();
         }
     }
 
-    private static void writeReadme(XSSFWorkbook workbook, CellStyle headerStyle, WorkbookData data) {
+    private static void writeReadme(XSSFWorkbook workbook, Styles styles, WorkbookData data) {
         Sheet sheet = workbook.createSheet("导出说明");
         String[][] rows = {
                 {"问卷标题", nullToEmpty(data.paperTitle())},
@@ -256,35 +277,36 @@ final class ResearchExportWorkbook {
                 {"附件清单", "附件元数据。文件需在系统内单独下载。"},
                 {"匿名编号", "P-xxxxxx。姓名、联系方式见资料汇总或资料题作答列。"},
         };
-        writeHeader(sheet, headerStyle, "项目", "说明");
+        writeHeader(sheet, styles, "项目", "说明");
         int rowIndex = 1;
         for (String[] row : rows) {
-            writeRow(sheet, rowIndex++, row[0], row[1]);
+            writeRow(sheet, styles, rowIndex++, row[0], row[1]);
         }
-        autosize(sheet, 2);
+        sheet.setColumnWidth(0, 22 * 256);
+        sheet.setColumnWidth(1, 80 * 256);
         sheet.createFreezePane(0, 1);
     }
 
-    private static void writeSummary(XSSFWorkbook workbook, CellStyle headerStyle, List<KvRow> rows) {
+    private static void writeSummary(XSSFWorkbook workbook, Styles styles, List<KvRow> rows) {
         Sheet sheet = workbook.createSheet("总体统计");
-        writeHeader(sheet, headerStyle, "分组", "指标", "数值", "口径");
+        writeHeader(sheet, styles, "分组", "指标", "数值", "口径");
         int rowIndex = 1;
         for (KvRow row : rows) {
-            writeRow(sheet, rowIndex++, row.group(), row.item(), row.value(), row.note());
+            writeRow(sheet, styles, rowIndex++, row.group(), row.item(), row.value(), row.note());
         }
         if (rows.isEmpty()) {
-            writeRow(sheet, rowIndex, "总体", "暂无统计", "", "这份发布还没有可汇总的答卷。");
+            writeRow(sheet, styles, rowIndex, "总体", "暂无统计", "", "这份发布还没有可汇总的答卷。");
         }
+        setWidths(sheet, 18, 24, 24, 40);
         sheet.createFreezePane(0, 1);
-        autosize(sheet, 4);
     }
 
-    private static void writeQuestionStats(XSSFWorkbook workbook, CellStyle headerStyle, List<QuestionStatRow> rows) {
+    private static void writeQuestionStats(XSSFWorkbook workbook, Styles styles, List<QuestionStatRow> rows) {
         Sheet sheet = workbook.createSheet("题目统计");
-        writeHeader(sheet, headerStyle, "题号", "题码", "部分", "题型", "题干", "作答数", "跳过数", "正确率", "跳过率", "中位用时秒", "质量提醒");
+        writeHeader(sheet, styles, "题号", "题码", "部分", "题型", "题干", "作答数", "跳过数", "正确率", "跳过率", "中位用时秒", "质量提醒");
         int rowIndex = 1;
         for (QuestionStatRow row : rows) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.questionOrder(),
                     row.questionCode(),
                     row.section(),
@@ -301,16 +323,16 @@ final class ResearchExportWorkbook {
         if (!rows.isEmpty()) {
             sheet.setAutoFilter(new CellRangeAddress(0, rows.size(), 0, 10));
         }
-        sheet.setColumnWidth(4, 40 * 256);
+        sheet.setColumnWidth(4, 46 * 256);
     }
 
-    private static void writeHardQuestions(XSSFWorkbook workbook, CellStyle headerStyle, List<QuestionStatRow> rows) {
+    private static void writeHardQuestions(XSSFWorkbook workbook, Styles styles, List<QuestionStatRow> rows) {
         Sheet sheet = workbook.createSheet("错题排行");
-        writeHeader(sheet, headerStyle, "排名", "题号", "题码", "部分", "题干", "正确率", "作答数", "跳过数");
+        writeHeader(sheet, styles, "排名", "题号", "题码", "部分", "题干", "正确率", "作答数", "跳过数");
         int rowIndex = 1;
         int rank = 1;
         for (QuestionStatRow row : rows) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     rank++,
                     row.questionOrder(),
                     row.questionCode(),
@@ -321,18 +343,18 @@ final class ResearchExportWorkbook {
                     row.skippedCount());
         }
         if (rows.isEmpty()) {
-            writeRow(sheet, 1, "", "", "", "", "有效作答不足，暂不排名", "", "", "");
+            writeRow(sheet, styles, 1, "", "", "", "", "有效作答不足，暂不排名", "", "", "");
         }
         sheet.createFreezePane(0, 1);
-        sheet.setColumnWidth(4, 40 * 256);
+        sheet.setColumnWidth(4, 46 * 256);
     }
 
-    private static void writeOptionStats(XSSFWorkbook workbook, CellStyle headerStyle, List<OptionStatRow> rows) {
+    private static void writeOptionStats(XSSFWorkbook workbook, Styles styles, List<OptionStatRow> rows) {
         Sheet sheet = workbook.createSheet("选项分布");
-        writeHeader(sheet, headerStyle, "题号", "题码", "题干", "选项", "选项内容", "是否正确答案", "选择人数", "占作答", "占总提交");
+        writeHeader(sheet, styles, "题号", "题码", "题干", "选项", "选项内容", "是否正确答案", "选择人数", "占作答", "占总提交");
         int rowIndex = 1;
         for (OptionStatRow row : rows) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.questionOrder(),
                     row.questionCode(),
                     row.stemText(),
@@ -347,27 +369,27 @@ final class ResearchExportWorkbook {
         if (!rows.isEmpty()) {
             sheet.setAutoFilter(new CellRangeAddress(0, rows.size(), 0, 8));
         }
-        sheet.setColumnWidth(2, 36 * 256);
-        sheet.setColumnWidth(4, 24 * 256);
+        sheet.setColumnWidth(2, 40 * 256);
+        sheet.setColumnWidth(4, 26 * 256);
     }
 
-    private static void writeDimensions(XSSFWorkbook workbook, CellStyle headerStyle, List<DimensionStatRow> rows) {
+    private static void writeDimensions(XSSFWorkbook workbook, Styles styles, List<DimensionStatRow> rows) {
         Sheet sheet = workbook.createSheet("维度统计");
-        writeHeader(sheet, headerStyle, "维度", "有效作答", "答对", "正确率");
+        writeHeader(sheet, styles, "维度", "有效作答", "答对", "正确率");
         int rowIndex = 1;
         for (DimensionStatRow row : rows) {
-            writeRow(sheet, rowIndex++, row.dimension(), row.answeredCount(), row.correctCount(), percent(row.correctRate()));
+            writeRow(sheet, styles, rowIndex++, row.dimension(), row.answeredCount(), row.correctCount(), percent(row.correctRate()));
         }
+        setWidths(sheet, 30, 14, 14, 14);
         sheet.createFreezePane(0, 1);
-        autosize(sheet, 4);
     }
 
-    private static void writeReactionTimes(XSSFWorkbook workbook, CellStyle headerStyle, List<ReactionStatRow> rows) {
+    private static void writeReactionTimes(XSSFWorkbook workbook, Styles styles, List<ReactionStatRow> rows) {
         Sheet sheet = workbook.createSheet("作答用时");
-        writeHeader(sheet, headerStyle, "题号", "题码", "样本", "中位秒", "P25秒", "P75秒", "P90秒");
+        writeHeader(sheet, styles, "题号", "题码", "样本", "中位秒", "P25秒", "P75秒", "P90秒");
         int rowIndex = 1;
         for (ReactionStatRow row : rows) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.questionOrder(),
                     row.questionCode(),
                     row.sampleCount(),
@@ -376,27 +398,28 @@ final class ResearchExportWorkbook {
                     toSeconds(row.q3Ms()),
                     toSeconds(row.p90Ms()));
         }
+        setWidths(sheet, 10, 14, 12, 12, 12, 12, 12);
         sheet.createFreezePane(0, 1);
         if (!rows.isEmpty()) {
             sheet.setAutoFilter(new CellRangeAddress(0, rows.size(), 0, 6));
         }
     }
 
-    private static void writeQualityFlags(XSSFWorkbook workbook, CellStyle headerStyle, List<QualityFlagRow> rows) {
+    private static void writeQualityFlags(XSSFWorkbook workbook, Styles styles, List<QualityFlagRow> rows) {
         Sheet sheet = workbook.createSheet("质量标记");
-        writeHeader(sheet, headerStyle, "标记", "人数", "占已提交");
+        writeHeader(sheet, styles, "标记", "人数", "占已提交");
         int rowIndex = 1;
         for (QualityFlagRow row : rows) {
-            writeRow(sheet, rowIndex++, qualityFlagText(row.flag()), row.count(), percent(row.share()));
+            writeRow(sheet, styles, rowIndex++, qualityFlagText(row.flag()), row.count(), percent(row.share()));
         }
         if (rows.isEmpty()) {
-            writeRow(sheet, 1, "无质量标记", 0, "");
+            writeRow(sheet, styles, 1, "无质量标记", 0, "");
         }
+        setWidths(sheet, 26, 12, 14);
         sheet.createFreezePane(0, 1);
-        autosize(sheet, 3);
     }
 
-    private static void writeProfileSummary(XSSFWorkbook workbook, CellStyle headerStyle, WorkbookData data) {
+    private static void writeProfileSummary(XSSFWorkbook workbook, Styles styles, WorkbookData data) {
         Sheet sheet = workbook.createSheet("资料汇总");
         List<AnswerRow> profileAnswers = data.answers().stream()
                 .filter(answer -> !answer.formalSection() && !"INSTRUCTION".equalsIgnoreCase(answer.questionType()))
@@ -419,7 +442,7 @@ final class ResearchExportWorkbook {
         for (Integer order : orders) {
             headers.add(headersByOrder.getOrDefault(order, "Q" + order));
         }
-        writeHeader(sheet, headerStyle, headers.toArray(String[]::new));
+        writeHeader(sheet, styles, headers.toArray(String[]::new));
         Map<String, Map<Integer, String>> byParticipant = new LinkedHashMap<>();
         for (AnswerRow answer : profileAnswers) {
             byParticipant.computeIfAbsent(answer.participantCode(), key -> new LinkedHashMap<>())
@@ -435,42 +458,47 @@ final class ResearchExportWorkbook {
             for (int i = 0; i < orders.size(); i++) {
                 values[i + 1] = entry.getValue().getOrDefault(orders.get(i), "");
             }
-            writeRow(sheet, rowIndex++, values);
+            writeRow(sheet, styles, rowIndex++, values);
         }
         if (orders.isEmpty()) {
-            writeRow(sheet, 1, "本问卷没有资料题，或当前筛选下没有作答。");
+            writeRow(sheet, styles, 1, "本问卷没有资料题，或当前筛选下没有作答。");
+        }
+        sheet.setColumnWidth(0, 14 * 256);
+        for (int i = 1; i < headers.size(); i++) {
+            sheet.setColumnWidth(i, 22 * 256);
         }
         sheet.createFreezePane(1, 1);
     }
 
-    private static void writeGroupAi(XSSFWorkbook workbook, CellStyle headerStyle, WorkbookData data) {
+    private static void writeGroupAi(XSSFWorkbook workbook, Styles styles, WorkbookData data) {
         Sheet sheet = workbook.createSheet("群体AI报告");
-        writeHeader(sheet, headerStyle, "区块", "序号", "内容");
+        writeHeader(sheet, styles, "区块", "序号", "内容");
         int rowIndex = 1;
         if (data.groupAiMeta.isEmpty() && data.groupAiFindings.isEmpty()) {
-            writeRow(sheet, rowIndex, "说明", "", "尚未生成群体报告。可在数据页点击「生成 / 刷新报告」，样本不足时只会保留规则统计。");
-            autosize(sheet, 3);
+            writeRow(sheet, styles, rowIndex, "说明", "", "尚未生成群体报告。可在数据页点击「生成 / 刷新报告」，样本不足时只会保留规则统计。");
+            sheet.setColumnWidth(0, 16 * 256);
+            sheet.setColumnWidth(2, 80 * 256);
             return;
         }
         for (KvRow row : data.groupAiMeta) {
-            writeRow(sheet, rowIndex++, "报告信息", row.item(), joinNonBlank(row.value(), row.note()));
+            writeRow(sheet, styles, rowIndex++, "报告信息", row.item(), joinNonBlank(row.value(), row.note()));
         }
         for (GroupAiFindingRow row : data.groupAiFindings) {
-            writeRow(sheet, rowIndex++, row.section(), row.order(), row.text());
+            writeRow(sheet, styles, rowIndex++, row.section(), row.order(), row.text());
         }
         sheet.createFreezePane(0, 1);
         sheet.setColumnWidth(0, 16 * 256);
-        sheet.setColumnWidth(2, 64 * 256);
+        sheet.setColumnWidth(2, 80 * 256);
     }
 
-    private static void writeAttemptAi(XSSFWorkbook workbook, CellStyle headerStyle, List<AttemptAiRow> rows) {
+    private static void writeAttemptAi(XSSFWorkbook workbook, Styles styles, List<AttemptAiRow> rows) {
         Sheet sheet = workbook.createSheet("单份AI摘要");
-        writeHeader(sheet, headerStyle,
+        writeHeader(sheet, styles,
                 "匿名编号", "状态", "来源", "模型", "完成时间", "总览", "优势", "风险",
                 "语境解读", "反应时解读", "建议", "置信度", "质量提醒", "降级原因");
         int rowIndex = 1;
         for (AttemptAiRow row : rows) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.participantCode(),
                     aiStatusLabel(row.status()),
                     row.source(),
@@ -487,23 +515,27 @@ final class ResearchExportWorkbook {
                     row.fallbackReason());
         }
         if (rows.isEmpty()) {
-            writeRow(sheet, 1, "", "未生成", "", "", "", "当前筛选下还没有单份解读。", "", "", "", "", "", "", "");
+            writeRow(sheet, styles, 1, "", "未生成", "", "", "", "当前筛选下还没有单份解读。", "", "", "", "", "", "", "");
         }
         sheet.createFreezePane(1, 1);
         if (!rows.isEmpty()) {
             sheet.setAutoFilter(new CellRangeAddress(0, rows.size(), 0, 13));
         }
-        sheet.setColumnWidth(5, 40 * 256);
+        sheet.setColumnWidth(0, 14 * 256);
+        sheet.setColumnWidth(4, 20 * 256);
+        for (int i = 5; i <= 13; i++) {
+            sheet.setColumnWidth(i, 34 * 256);
+        }
     }
 
-    private static void writeAttempts(XSSFWorkbook workbook, CellStyle headerStyle, List<AttemptRow> attempts) {
+    private static void writeAttempts(XSSFWorkbook workbook, Styles styles, List<AttemptRow> attempts) {
         Sheet sheet = workbook.createSheet("答卷总览");
-        writeHeader(sheet, headerStyle,
+        writeHeader(sheet, styles,
                 "匿名编号", "进入方式", "状态", "提交方式", "已答", "总题数", "参考分",
                 "用时秒", "质量标记", "附件数", "解读状态", "开始时间", "最后保存", "提交时间");
         int rowIndex = 1;
         for (AttemptRow row : attempts) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.participantCode(),
                     participantTypeLabel(row.participantType()),
                     statusLabel(row.status()),
@@ -519,14 +551,14 @@ final class ResearchExportWorkbook {
                     formatDateTime(row.lastSavedAt()),
                     formatDateTime(row.submittedAt()));
         }
-        autosize(sheet, 14);
+        setWidths(sheet, 14, 12, 12, 12, 8, 8, 10, 10, 20, 8, 12, 20, 20, 20);
         sheet.createFreezePane(1, 1);
         if (!attempts.isEmpty()) {
             sheet.setAutoFilter(new CellRangeAddress(0, attempts.size(), 0, 13));
         }
     }
 
-    private static void writeWideAnswers(XSSFWorkbook workbook, CellStyle headerStyle, WorkbookData data) {
+    private static void writeWideAnswers(XSSFWorkbook workbook, Styles styles, WorkbookData data) {
         Sheet sheet = workbook.createSheet("作答宽表");
         List<Integer> orders = data.questions().stream()
                 .map(QuestionRow::questionOrder)
@@ -547,7 +579,7 @@ final class ResearchExportWorkbook {
         for (Integer order : orders) {
             headers.add("Q" + String.format(Locale.ROOT, "%02d", order));
         }
-        writeHeader(sheet, headerStyle, headers.toArray(String[]::new));
+        writeHeader(sheet, styles, headers.toArray(String[]::new));
 
         Map<String, Map<Integer, String>> byParticipant = new LinkedHashMap<>();
         for (AnswerRow answer : data.answers()) {
@@ -565,7 +597,7 @@ final class ResearchExportWorkbook {
             for (int i = 0; i < orders.size(); i++) {
                 values[i + 1] = entry.getValue().getOrDefault(orders.get(i), "");
             }
-            writeRow(sheet, rowIndex++, values);
+            writeRow(sheet, styles, rowIndex++, values);
         }
         sheet.createFreezePane(1, 1);
         if (rowIndex > 1) {
@@ -577,9 +609,9 @@ final class ResearchExportWorkbook {
         }
     }
 
-    private static void writeAnswerDetails(XSSFWorkbook workbook, CellStyle headerStyle, List<AnswerRow> answers) {
+    private static void writeAnswerDetails(XSSFWorkbook workbook, Styles styles, List<AnswerRow> answers) {
         Sheet sheet = workbook.createSheet("逐题明细");
-        writeHeader(sheet, headerStyle,
+        writeHeader(sheet, styles,
                 "匿名编号", "题号", "部分", "题型", "题干", "选项", "作答", "补充说明",
                 "是否正确", "得分", "满分", "用时秒", "修改次数");
         List<AnswerRow> sorted = new ArrayList<>(answers);
@@ -587,7 +619,7 @@ final class ResearchExportWorkbook {
                 .thenComparing(row -> row.questionOrder() == null ? 0 : row.questionOrder()));
         int rowIndex = 1;
         for (AnswerRow row : sorted) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.participantCode(),
                     row.questionOrder(),
                     sectionLabel(row.sectionCode(), row.formalSection()),
@@ -604,20 +636,21 @@ final class ResearchExportWorkbook {
         }
         sheet.createFreezePane(2, 1);
         sheet.setColumnWidth(0, 14 * 256);
-        sheet.setColumnWidth(4, 40 * 256);
-        sheet.setColumnWidth(5, 28 * 256);
-        sheet.setColumnWidth(6, 24 * 256);
+        sheet.setColumnWidth(4, 42 * 256);
+        sheet.setColumnWidth(5, 26 * 256);
+        sheet.setColumnWidth(6, 22 * 256);
+        sheet.setColumnWidth(7, 22 * 256);
         if (!sorted.isEmpty()) {
             sheet.setAutoFilter(new CellRangeAddress(0, sorted.size(), 0, 12));
         }
     }
 
-    private static void writeCodebook(XSSFWorkbook workbook, CellStyle headerStyle, List<QuestionRow> questions) {
+    private static void writeCodebook(XSSFWorkbook workbook, Styles styles, List<QuestionRow> questions) {
         Sheet sheet = workbook.createSheet("题目说明");
-        writeHeader(sheet, headerStyle, "题号", "宽表列", "部分", "题型", "题干", "选项", "参考答案");
+        writeHeader(sheet, styles, "题号", "宽表列", "部分", "题型", "题干", "选项", "参考答案");
         int rowIndex = 1;
         for (QuestionRow row : questions) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.questionOrder(),
                     row.questionOrder() == null ? "" : "Q" + String.format(Locale.ROOT, "%02d", row.questionOrder()),
                     sectionLabel(row.sectionCode(), row.formalSection()),
@@ -627,18 +660,18 @@ final class ResearchExportWorkbook {
                     row.correctAnswers());
         }
         sheet.createFreezePane(0, 1);
-        autosize(sheet, 7);
+        setWidths(sheet, 8, 10, 10, 14, 42, 30, 20);
         if (!questions.isEmpty()) {
             sheet.setAutoFilter(new CellRangeAddress(0, questions.size(), 0, 6));
         }
     }
 
-    private static void writeAttachments(XSSFWorkbook workbook, CellStyle headerStyle, List<AttachmentRow> attachments) {
+    private static void writeAttachments(XSSFWorkbook workbook, Styles styles, List<AttachmentRow> attachments) {
         Sheet sheet = workbook.createSheet("附件清单");
-        writeHeader(sheet, headerStyle, "匿名编号", "题号", "文件ID", "文件名", "类型", "大小字节", "扫描状态");
+        writeHeader(sheet, styles, "匿名编号", "题号", "文件ID", "文件名", "类型", "大小字节", "扫描状态");
         int rowIndex = 1;
         for (AttachmentRow row : attachments) {
-            writeRow(sheet, rowIndex++,
+            writeRow(sheet, styles, rowIndex++,
                     row.participantCode(),
                     row.questionOrder(),
                     row.fileId(),
@@ -648,30 +681,74 @@ final class ResearchExportWorkbook {
                     scanStatusLabel(row.scanStatus()));
         }
         sheet.createFreezePane(0, 1);
-        autosize(sheet, 7);
+        setWidths(sheet, 14, 8, 10, 40, 22, 12, 14);
     }
 
-    private static CellStyle headerStyle(XSSFWorkbook workbook) {
+    private static Styles styles(XSSFWorkbook workbook) {
+        CellStyle header = workbook.createCellStyle();
+        header.setFillForegroundColor(IndexedColors.PALE_BLUE.getIndex());
+        header.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        header.setAlignment(HorizontalAlignment.CENTER);
+        header.setVerticalAlignment(VerticalAlignment.CENTER);
+        header.setWrapText(true);
+        setBorders(header);
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerFont.setColor(IndexedColors.DARK_BLUE.getIndex());
+        header.setFont(headerFont);
+
+        CellStyle text = bodyStyle(workbook, false);
+        CellStyle textAlt = bodyStyle(workbook, true);
+        CellStyle number = bodyStyle(workbook, false);
+        number.setAlignment(HorizontalAlignment.RIGHT);
+        CellStyle numberAlt = bodyStyle(workbook, true);
+        numberAlt.setAlignment(HorizontalAlignment.RIGHT);
+
+        return new Styles(header, text, textAlt, number, numberAlt);
+    }
+
+    private static CellStyle bodyStyle(XSSFWorkbook workbook, boolean alt) {
         CellStyle style = workbook.createCellStyle();
-        Font font = workbook.createFont();
-        font.setBold(true);
-        style.setFont(font);
+        style.setVerticalAlignment(VerticalAlignment.TOP);
+        style.setWrapText(true);
+        if (alt) {
+            style.setFillForegroundColor(IndexedColors.PALE_BLUE.getIndex());
+            style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        }
+        setBorders(style);
         return style;
     }
 
-    private static void writeHeader(Sheet sheet, CellStyle headerStyle, String... headers) {
+    private static void setBorders(CellStyle style) {
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+    }
+
+    private static void writeHeader(Sheet sheet, Styles styles, String... headers) {
         Row row = sheet.createRow(0);
+        row.setHeightInPoints(24);
         for (int i = 0; i < headers.length; i++) {
             Cell cell = row.createCell(i);
             cell.setCellValue(headers[i]);
-            cell.setCellStyle(headerStyle);
+            cell.setCellStyle(styles.header);
         }
     }
 
-    private static void writeRow(Sheet sheet, int rowIndex, Object... values) {
+    private static void writeRow(Sheet sheet, Styles styles, int rowIndex, Object... values) {
         Row row = sheet.createRow(rowIndex);
+        boolean alt = rowIndex % 2 == 0;
         for (int i = 0; i < values.length; i++) {
-            setCell(row.createCell(i), values[i]);
+            Object value = values[i];
+            boolean numeric = value instanceof Number;
+            Cell cell = row.createCell(i);
+            setCell(cell, value);
+            cell.setCellStyle(numeric ? (alt ? styles.numberAlt : styles.number) : (alt ? styles.textAlt : styles.text));
         }
     }
 
@@ -691,11 +768,9 @@ final class ResearchExportWorkbook {
         cell.setCellValue(truncate(String.valueOf(value)));
     }
 
-    private static void autosize(Sheet sheet, int columns) {
-        int[] widths = {18, 24, 28, 36, 40, 20, 18};
-        for (int i = 0; i < columns; i++) {
-            int width = widths[Math.min(i, widths.length - 1)];
-            sheet.setColumnWidth(i, Math.min(Math.max(width * 256, 12 * 256), 48 * 256));
+    private static void setWidths(Sheet sheet, int... widths) {
+        for (int i = 0; i < widths.length; i++) {
+            sheet.setColumnWidth(i, Math.min(Math.max(widths[i] * 256, 8 * 256), 64 * 256));
         }
     }
 
