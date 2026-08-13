@@ -14,7 +14,7 @@
 
 ### 业务链路
 
-`登录 -> JWT / refresh token / Redis session -> diagnosis session -> diagnosis summary -> analytics snapshot -> training plan -> training session -> wrong book / review schedule -> AI context assembly -> ai-gateway`
+`登录 -> access token（内存）+ httpOnly EF_REFRESH cookie / Redis session -> diagnosis session -> diagnosis summary -> analytics snapshot -> training plan -> training session -> wrong book / review schedule -> AI context assembly -> ai-gateway`
 
 ### 知识链路
 
@@ -38,7 +38,10 @@
 - `APP_JWT_LEGACY_SECRET` 仅用于旧 token 兼容验签窗口
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 与 JWT 密钥职责分离，非 `local/test` 缺失时 `app-server` 不会启动
 - demo 用户初始化仅在 `local/test` profile 且 `APP_DEMO_DATA_ENABLED=true` 时启用
-- 公开研究问卷的 POST/DELETE 要求自定义头 `X-Requested-With: XMLHttpRequest`；JWT API 不启用全局 CSRF
+- 登录 refresh 走 httpOnly `EF_REFRESH`（`Path=/api/auth`，SameSite=Lax）；JSON 只返回 `accessToken`，前端不把 token 写入 localStorage
+- `POST /api/auth/login|register|refresh|logout` 与公开问卷的 POST/DELETE 要求 `X-Requested-With: XMLHttpRequest`；Bearer 业务 API 不启用全局 CSRF
+- `APP_CORS_ALLOW_CREDENTIALS` 默认 `true`，以便浏览器带上 refresh cookie（Vite / nginx 同源代理不受影响）
+- 研究 PII 保留期默认 `P730D`（`APP_ASSESSMENT_RESEARCH_RETENTION`）；到期清空资料密文、访问 IP 与已绑定附件，答卷保留。见 [研究数据运维](docs/research-data-operations.md)
 
 ## 本地启动
 
@@ -61,6 +64,7 @@ cp .env.example .env
 - `PLATFORM_INTERNAL_API_TOKEN`
 - `APP_ASSESSMENT_CODE_HMAC_SECRET`
 - `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY`
+- `APP_ASSESSMENT_RESEARCH_RETENTION`（可选，默认 `P730D`）
 - `REDIS_PASSWORD`
 - AI 供应商相关变量：`AI_CHAT_PROTOCOL`、`AI_CHAT_BASE_URL`、`AI_CHAT_API_KEY`、`AI_CHAT_MODEL`、`AI_EMBEDDING_BASE_URL`、`AI_EMBEDDING_MODEL`、`AI_MULTIMODAL_EMBEDDING_MODEL`、`AI_RERANK_PROTOCOL`、`AI_RERANK_BASE_URL`、`AI_RERANK_MODEL`、`AI_MULTIMODAL_RERANK_MODEL`
 - 如需真实 fallback：`AI_FALLBACK_CHAT_*`、`AI_FALLBACK_EMBEDDING_*`、`AI_FALLBACK_RERANK_*` 这三组变量都应显式填写
@@ -75,6 +79,8 @@ AI fallback 说明：
 
 生产环境额外建议：
 
+- 唯一生产入口为 `https://huashi.mnari.cn`；`deploy/.env` 必须设置 `PUBLIC_DOMAIN=huashi.mnari.cn`
+- 主机 Nginx 配置以 `deploy/nginx/huashi.mnari.cn.conf` 为准；部署或验收前运行 `npm run check:production-domain`
 - `APP_DB_SSL_MODE=REQUIRED`
 - `APP_AUTH_LOCKOUT_ENABLED=true`
 - `APP_AUTH_LOCKOUT_THRESHOLD=5`
@@ -115,6 +121,8 @@ python3 scripts/ensure_qa_admin.py
 
 - [数据导入与使用指南](docs/data-import-and-usage.md)
 - [数据库迁移执行手册](docs/db-migration-runbook.md)
+- [研究问卷数据运维](docs/research-data-operations.md)
+- [事故手册](docs/incident-runbook.md)
 
 ## 验证命令
 
@@ -162,7 +170,9 @@ Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健�
 - diagnosis/training 完成事件默认只在 `app-server` 进程内驱动 analytics 聚合
 - RabbitMQ 当前正式职责是跨服务知识同步，不承担本地 analytics 投影
 - diagnosis / training / practice 都限制为单用户单活跃 `IN_PROGRESS` session；唯一键冲突映射为 409，并支持历史查询与进度保存
-- 公开研究问卷的 POST/DELETE 要求 `X-Requested-With: XMLHttpRequest`（自定义头 CSRF，JWT 路由仍不启用全局 CSRF）
+- 公开问卷与 `/api/auth/login|register|refresh|logout` 要求 `X-Requested-With: XMLHttpRequest`；JWT 业务路由仍不启用全局 CSRF
+- Dockerfile / compose 基镜像钉 digest；CI frontend 跑非阻塞 `npm audit --omit=dev`
+- Prometheus 规则见 `deploy/observability/prometheus-alerts.yml`，处理步骤见 [事故手册](docs/incident-runbook.md)
 - 前端采用路由级懒加载、`echarts/core` 按需注册和手动分包，减少图表运行时膨胀
 - RAG 使用 Qwen3-Embedding-8B 单一 1024 维向量空间，并结合精确/模糊词汇召回、RRF、rerank 与生成后证据审查
 

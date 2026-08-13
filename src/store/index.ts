@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CurrentUserVO, LoginRequest, LoginResponse, RegisterStudentRequest } from '@/lib/contracts';
-import { getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage, restoreSessionFromCookie } from '@/lib/api';
 import type { SupportedLocale } from '@/lib/locale';
 import { readStoredLocale, writeStoredLocale } from '@/lib/locale';
 import { authService } from '@/lib/services';
@@ -39,15 +39,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
 
     initializePromise = (async () => {
-      const stored = readStoredSession();
-      if (!stored) {
-        set({ status: 'anonymous', session: null, user: null, error: null });
-        return;
-      }
-      set({ status: 'loading', session: stored, user: stored.userInfo, error: null });
+      set({ status: 'loading', error: null });
       try {
+        const restored = readStoredSession() ?? await restoreSessionFromCookie();
+        if (!restored?.accessToken) {
+          clearStoredSession();
+          set({ status: 'anonymous', session: null, user: null, error: null });
+          return;
+        }
+        writeStoredSession(restored);
+        set({ status: 'loading', session: restored, user: restored.userInfo, error: null });
         const user = await authService.me();
-        const nextSession = { ...stored, userInfo: user };
+        const nextSession = { ...restored, userInfo: user };
         writeStoredSession(nextSession);
         set({ status: 'authenticated', session: nextSession, user, error: null });
       } catch (error) {
@@ -71,7 +74,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const session = await authService.login(payload);
       writeStoredSession(session);
-      set({ status: 'authenticated', session, user: session.userInfo, error: null });
+      const stored = readStoredSession();
+      if (!stored) {
+        throw new Error('Login returned an invalid session');
+      }
+      set({ status: 'authenticated', session: stored, user: stored.userInfo, error: null });
     } catch (error) {
       clearStoredSession();
       set({
@@ -89,7 +96,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const session = await authService.registerStudent(payload);
       writeStoredSession(session);
-      set({ status: 'authenticated', session, user: session.userInfo, error: null });
+      const stored = readStoredSession();
+      if (!stored) {
+        throw new Error('Registration returned an invalid session');
+      }
+      set({ status: 'authenticated', session: stored, user: stored.userInfo, error: null });
     } catch (error) {
       clearStoredSession();
       set({

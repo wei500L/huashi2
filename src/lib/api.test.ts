@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AxiosAdapter, AxiosResponse } from 'axios';
 import type { ApiResponse, LoginResponse } from './contracts';
-import { ApiError, apiGet, apiPost, apiPostKeepalive, getApiErrorMessage } from './api';
+import { ApiError, apiGet, apiPost, apiPostKeepalive, getApiErrorMessage, restoreSessionFromCookie } from './api';
 import {
   clearPendingAuthExpired,
   clearStoredSession,
@@ -13,7 +13,6 @@ import {
 const mockSession: LoginResponse = {
   accessToken: 'access-token',
   accessTokenExpiresAt: '2030-01-01T00:00:10.000Z',
-  refreshToken: 'refresh-token',
   refreshTokenExpiresAt: '2030-01-01T00:00:00.000Z',
   userInfo: {
     id: 1,
@@ -86,6 +85,22 @@ describe('public questionnaire errors', () => {
       'PARTICIPATION_CODE_INVALID'
     ))).toBe('参与码无效或已失效，请检查后重试。');
   });
+
+  it('surfaces the unanswered required question number', () => {
+    expect(getApiErrorMessage(new ApiError(
+      'Required question 12 has not been answered',
+      400,
+      'VALIDATION_ERROR'
+    ))).toBe('第 12 题尚未作答，请完成后再提交。');
+  });
+
+  it('surfaces a missing true/false justification', () => {
+    expect(getApiErrorMessage(new ApiError(
+      'A justification is required when a true/false answer is F',
+      400,
+      'VALIDATION_ERROR'
+    ))).toBe('判断为错误时需要填写理由。');
+  });
 });
 
 describe('apiPostKeepalive', () => {
@@ -127,5 +142,12 @@ describe('apiPostKeepalive', () => {
     );
     expect(readStoredSession()?.accessToken).toBe('access-token');
     expect(hasPendingAuthExpired()).toBe(false);
+  });
+
+  it('does not treat a failed cookie restore as an expired login', async () => {
+    const result = await restoreSessionFromCookie();
+    expect(result).toBeNull();
+    expect(hasPendingAuthExpired()).toBe(false);
+    expect(readStoredSession()).toBeNull();
   });
 });

@@ -141,6 +141,7 @@ app:
       storage-provider: ${APP_ASSESSMENT_RESEARCH_STORAGE_PROVIDER:LOCAL}
       local-root: ${APP_ASSESSMENT_RESEARCH_LOCAL_ROOT:${java.io.tmpdir}/huashi-research-files}
       orphan-after: ${APP_ASSESSMENT_RESEARCH_ORPHAN_AFTER:PT24H}
+      retention: ${APP_ASSESSMENT_RESEARCH_RETENTION:P730D}
   notification:
     health-monitor:
       enabled: ${APP_NOTIFICATION_HEALTH_MONITOR_ENABLED:true}
@@ -164,7 +165,7 @@ app:
       allowed-methods: ${APP_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
       allowed-headers: ${APP_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Requested-With}
       exposed-headers: ${APP_CORS_EXPOSED_HEADERS:X-Trace-Id}
-      allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:false}
+      allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:true}
       max-age: ${APP_CORS_MAX_AGE:PT1H}
     jwt:
       legacy-secret: ${APP_JWT_LEGACY_SECRET:${APP_JWT_SECRET:}}

@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   revokeParticipationCode: vi.fn(),
   revokeParticipationCodeBatch: vi.fn(),
   updatePublicRelease: vi.fn(),
+  closePublicRelease: vi.fn(),
   toDataURL: vi.fn(),
 }));
 
@@ -25,6 +26,7 @@ vi.mock('@/lib/services', () => ({
     revokeParticipationCode: mocks.revokeParticipationCode,
     revokeParticipationCodeBatch: mocks.revokeParticipationCodeBatch,
     updatePublicRelease: mocks.updatePublicRelease,
+    closePublicRelease: mocks.closePublicRelease,
   },
 }));
 
@@ -41,6 +43,7 @@ const release: PublicAssessmentReleaseSummaryVO = {
   status: 'OPEN',
   publishedAt: '2026-08-09T00:00:00',
   qrEntryEnabled: false,
+  maxAttempts: 1,
   codeCount: 1,
   unusedCount: 1,
   inProgressCount: 0,
@@ -84,6 +87,12 @@ describe('research release participation management', () => {
     });
     mocks.updatePublicRelease.mockResolvedValue({ ...release, qrEntryEnabled: true });
     mocks.revokeParticipationCode.mockResolvedValue({ revokedCount: 1 });
+    mocks.closePublicRelease.mockResolvedValue({
+      ...release,
+      status: 'CLOSED',
+      unusedCount: 0,
+      revokedCount: 1,
+    });
     mocks.toDataURL.mockResolvedValue('data:image/png;base64,qr');
     const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     const user = userEvent.setup();
@@ -112,10 +121,19 @@ describe('research release participation management', () => {
 
     await user.click(screen.getByRole('button', { name: '开启免码' }));
     await user.click(screen.getByRole('button', { name: '确认开启' }));
-    await waitFor(() => expect(mocks.updatePublicRelease).toHaveBeenCalledWith(5, true));
+    await waitFor(() => expect(mocks.updatePublicRelease).toHaveBeenCalledWith(5, { qrEntryEnabled: true, maxAttempts: 1 }));
+
+    mocks.updatePublicRelease.mockResolvedValue({ ...release, maxAttempts: 10 });
+    await user.click(screen.getByRole('button', { name: '允许多次作答' }));
+    await user.click(screen.getByRole('button', { name: '确认保存' }));
+    await waitFor(() => expect(mocks.updatePublicRelease).toHaveBeenCalledWith(5, { qrEntryEnabled: false, maxAttempts: 10 }));
 
     await user.click(await screen.findByRole('button', { name: '停用' }));
     await user.click(screen.getByRole('button', { name: '确认停用' }));
     await waitFor(() => expect(mocks.revokeParticipationCode).toHaveBeenCalledWith(5, 11));
+
+    await user.click(screen.getByRole('button', { name: '结束发布' }));
+    await user.click(screen.getByRole('button', { name: '确认结束发布' }));
+    await waitFor(() => expect(mocks.closePublicRelease).toHaveBeenCalledWith(5));
   });
 });

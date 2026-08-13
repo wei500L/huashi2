@@ -18,6 +18,7 @@ public class AssessmentParticipantEntity extends BaseAuditEntity {
     @TableField("sensitive_profile_iv") private String sensitiveProfileIv;
     @TableField("sensitive_profile_key_version") private String sensitiveProfileKeyVersion;
     @TableField("consented_at") private LocalDateTime consentedAt;
+    @TableField("anonymized_at") private LocalDateTime anonymizedAt;
 
     public Long getPublishId() { return publishId; }
     public void setPublishId(Long value) { publishId = value; }
@@ -39,4 +40,6 @@ public class AssessmentParticipantEntity extends BaseAuditEntity {
     public void setSensitiveProfileKeyVersion(String value) { sensitiveProfileKeyVersion = value; }
     public LocalDateTime getConsentedAt() { return consentedAt; }
     public void setConsentedAt(LocalDateTime value) { consentedAt = value; }
+    public LocalDateTime getAnonymizedAt() { return anonymizedAt; }
+    public void setAnonymizedAt(LocalDateTime value) { anonymizedAt = value; }
 }

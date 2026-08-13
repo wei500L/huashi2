@@ -21,6 +21,7 @@ class ResearchExportWorkbookTest {
                 "全部答卷",
                 List.of(new ResearchExportWorkbook.AttemptRow(
                         "P-000018",
+                        1,
                         "PUBLIC_CODE",
                         "SUBMITTED",
                         "MANUAL",
@@ -92,9 +93,10 @@ class ResearchExportWorkbookTest {
 
             Sheet overview = workbook.getSheet("答卷总览");
             assertThat(overview.getRow(1).getCell(0).getStringCellValue()).isEqualTo("P-000018");
-            assertThat(overview.getRow(1).getCell(1).getStringCellValue()).isEqualTo("参与码");
-            assertThat(overview.getRow(1).getCell(8).getStringCellValue()).isEqualTo("过快作答");
-            assertThat(overview.getRow(1).getCell(13).getStringCellValue()).isEqualTo("2026-08-12 13:40:08");
+            assertThat(overview.getRow(1).getCell(1).getNumericCellValue()).isEqualTo(1d);
+            assertThat(overview.getRow(1).getCell(2).getStringCellValue()).isEqualTo("参与码");
+            assertThat(overview.getRow(1).getCell(9).getStringCellValue()).isEqualTo("过快作答");
+            assertThat(overview.getRow(1).getCell(14).getStringCellValue()).isEqualTo("2026-08-12 13:40:08");
 
             Sheet wide = workbook.getSheet("作答宽表");
             assertThat(wide.getRow(0).getCell(1).getStringCellValue()).isEqualTo("Q01");
@@ -111,6 +113,7 @@ class ResearchExportWorkbookTest {
     void omitsProfileAnswersWhenIncludeSensitiveFieldsIsFalse() throws Exception {
         ResearchExportWorkbook.AttemptRow attempt = new ResearchExportWorkbook.AttemptRow(
                 "P-000018",
+                1,
                 "PUBLIC_CODE",
                 "SUBMITTED",
                 "MANUAL",

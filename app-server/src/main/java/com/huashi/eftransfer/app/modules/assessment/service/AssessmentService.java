@@ -1817,6 +1817,7 @@ public class AssessmentService {
         release.setCodeCount(codeCount);
         release.setSessionTtlHours(12);
         release.setQrEntryEnabled(false);
+        release.setMaxAttempts(1);
         release.setStatus(AssessmentPublishStatus.PUBLISHED.name());
         assessmentPublicReleaseMapper.insert(release);
 

@@ -11,14 +11,17 @@ import com.huashi.eftransfer.app.modules.user.entity.UserRoleEntity;
 import com.huashi.eftransfer.app.modules.user.mapper.StudentProfileMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserMapper;
 import com.huashi.eftransfer.app.modules.user.mapper.UserRoleMapper;
+import com.huashi.eftransfer.app.modules.auth.support.AuthRefreshCookie;
 import com.huashi.eftransfer.app.support.MockMvcTestSupport;
 import com.huashi.eftransfer.app.support.TestAuthTokenStoreConfiguration;
 import com.huashi.eftransfer.app.common.security.JwtTokenProvider;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -113,11 +116,14 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.userInfo.primaryRole").value("ADMIN"))
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString(AuthRefreshCookie.NAME + "=")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
                 .andReturn();
 
         JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
         String accessToken = loginJson.path("data").path("accessToken").asText();
-        String refreshToken = loginJson.path("data").path("refreshToken").asText();
+        Cookie refreshCookie = refreshCookie(loginResult);
 
         mockMvc.perform(get("/api/auth/me")
                         .header("Authorization", "Bearer " + accessToken))
@@ -130,24 +136,21 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.capabilities[2]").value("STUDENT_WORKSPACE"));
 
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "refreshToken": "%s"
-                                }
-                                """.formatted(refreshToken)))
+                        .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userInfo.username").value("admin"))
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andReturn();
 
         JsonNode refreshJson = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
         String rotatedAccessToken = refreshJson.path("data").path("accessToken").asText();
-        String rotatedRefreshToken = refreshJson.path("data").path("refreshToken").asText();
+        Cookie rotatedRefreshCookie = refreshCookie(refreshResult);
 
         assertNotNull(rotatedAccessToken);
-        assertNotNull(rotatedRefreshToken);
         assertNotEquals(accessToken, rotatedAccessToken);
-        assertNotEquals(refreshToken, rotatedRefreshToken);
+        assertNotEquals(refreshCookie.getValue(), rotatedRefreshCookie.getValue());
 
         mockMvc.perform(get("/api/auth/me")
                         .header("Authorization", "Bearer " + accessToken))
@@ -157,12 +160,93 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post("/api/auth/logout")
                         .header("Authorization", "Bearer " + rotatedAccessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Logout succeeded"));
+                .andExpect(jsonPath("$.message").value("Logout succeeded"))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString(AuthRefreshCookie.NAME + "=")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=0")));
 
         mockMvc.perform(get("/api/auth/me")
                         .header("Authorization", "Bearer " + rotatedAccessToken))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+    }
+
+    @Test
+    void shouldRestoreAnonymousSessionWithoutReturningUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").doesNotExist())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString(AuthRefreshCookie.NAME + "=")))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=0")));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie(AuthRefreshCookie.NAME, "invalid-refresh-token"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+    }
+
+    @Test
+    void shouldRejectAuthMutationsWithoutCsrfHeader() throws Exception {
+        MockMvc unguardedMvc = MockMvcTestSupport.buildWithoutDefaultHeaders(webApplicationContext);
+        unguardedMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "admin",
+                                  "password": "Admin@123456"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "usernameOrEmail": "admin",
+                                  "password": "Admin@123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie refreshCookie = refreshCookie(loginResult);
+        String accessToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
+                .path("data")
+                .path("accessToken")
+                .asText();
+
+        unguardedMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        unguardedMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void shouldRefreshWithLegacyBodyTokenOnce() throws Exception {
+        Cookie refreshCookie = loginAndGetRefreshCookie();
+
+        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(refreshCookie.getValue())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andReturn();
+
+        assertNotEquals(refreshCookie.getValue(), refreshCookie(refreshResult).getValue());
     }
 
     @Test
@@ -671,17 +755,14 @@ class AuthControllerIntegrationTest {
 
     @Test
     void shouldRateLimitRefreshAttemptsPerSessionOwner() throws Exception {
-        String refreshToken = loginAndGetRefreshToken();
-        String rotatedRefreshToken = refreshAndGetRotatedRefreshToken(refreshToken);
-        String nextRefreshToken = refreshAndGetRotatedRefreshToken(rotatedRefreshToken);
+        Cookie refreshCookie = loginAndGetRefreshCookie();
+        Cookie rotatedRefreshCookie = refreshAndGetRotatedRefreshCookie(refreshCookie);
+        Cookie nextRefreshCookie = refreshAndGetRotatedRefreshCookie(rotatedRefreshCookie);
 
         mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(nextRefreshCookie)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "refreshToken": "%s"
-                                }
-                                """.formatted(nextRefreshToken)))
+                        .content("{}"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.code").value("RATE_LIMITED"))
                 .andExpect(jsonPath("$.message").value("Too many refresh attempts"));
@@ -702,20 +783,14 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        String refreshToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data")
-                .path("refreshToken")
-                .asText();
+        Cookie refreshCookie = refreshCookie(loginResult);
 
         mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
                         .with(remoteAddress("10.0.0.12"))
                         .header("User-Agent", "curl/8.7.1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "refreshToken": "%s"
-                                }
-                                """.formatted(refreshToken)))
+                        .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("TOKEN_INVALID"))
                 .andExpect(jsonPath("$.message").value("Refresh token is invalid"));
@@ -736,20 +811,14 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        String refreshToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data")
-                .path("refreshToken")
-                .asText();
+        Cookie refreshCookie = refreshCookie(loginResult);
 
         mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
                         .with(remoteAddress("10.0.0.99"))
                         .header("User-Agent", DEFAULT_USER_AGENT)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "refreshToken": "%s"
-                                }
-                                """.formatted(refreshToken)))
+                        .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userInfo.username").value("admin"));
     }
@@ -772,7 +841,7 @@ class AuthControllerIntegrationTest {
 
         JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
         String oldAccessToken = loginJson.path("data").path("accessToken").asText();
-        String oldRefreshToken = loginJson.path("data").path("refreshToken").asText();
+        Cookie oldRefreshCookie = refreshCookie(loginResult);
 
         MvcResult resetLinkResult = mockMvc.perform(post("/api/admin/users/{userId}/password-reset-link", teacher.getId())
                         .header("Authorization", "Bearer " + adminToken))
@@ -801,12 +870,9 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
 
         mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(oldRefreshCookie)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "refreshToken": "%s"
-                                }
-                                """.formatted(oldRefreshToken)))
+                        .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
 
@@ -837,7 +903,7 @@ class AuthControllerIntegrationTest {
 
         JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
         String oldAccessToken = loginJson.path("data").path("accessToken").asText();
-        String oldRefreshToken = loginJson.path("data").path("refreshToken").asText();
+        Cookie oldRefreshCookie = refreshCookie(loginResult);
         String newPassword = "TeacherChanged@123456";
 
         mockMvc.perform(post("/api/auth/change-password")
@@ -858,12 +924,9 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
 
         mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(oldRefreshCookie)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "refreshToken": "%s"
-                                }
-                                """.formatted(oldRefreshToken)))
+                        .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
 
@@ -976,6 +1039,7 @@ class AuthControllerIntegrationTest {
                         .header("Access-Control-Request-Headers", "Authorization,Content-Type"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
                 .andExpect(header().string("Access-Control-Allow-Methods", containsString("POST")))
                 .andExpect(header().string("Access-Control-Allow-Headers", containsString("Authorization")));
     }
@@ -998,7 +1062,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 
-    private String loginAndGetRefreshToken() throws Exception {
+    private Cookie loginAndGetRefreshCookie() throws Exception {
         MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -1009,9 +1073,7 @@ class AuthControllerIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andReturn();
-
-        JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
-        return loginJson.path("data").path("refreshToken").asText();
+        return refreshCookie(loginResult);
     }
 
     private String loginAndGetAccessToken(String usernameOrEmail, String password) throws Exception {
@@ -1030,19 +1092,26 @@ class AuthControllerIntegrationTest {
         return loginJson.path("data").path("accessToken").asText();
     }
 
-    private String refreshAndGetRotatedRefreshToken(String refreshToken) throws Exception {
+    private Cookie refreshAndGetRotatedRefreshCookie(Cookie refreshCookie) throws Exception {
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "refreshToken": "%s"
-                                }
-                                """.formatted(refreshToken)))
+                        .content("{}"))
                 .andExpect(status().isOk())
                 .andReturn();
+        return refreshCookie(refreshResult);
+    }
 
-        JsonNode refreshJson = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
-        return refreshJson.path("data").path("refreshToken").asText();
+    private Cookie refreshCookie(MvcResult result) {
+        String setCookie = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertNotNull(setCookie);
+        String prefix = AuthRefreshCookie.NAME + "=";
+        int start = setCookie.indexOf(prefix);
+        assertNotEquals(-1, start);
+        int valueStart = start + prefix.length();
+        int valueEnd = setCookie.indexOf(';', valueStart);
+        String value = valueEnd >= 0 ? setCookie.substring(valueStart, valueEnd) : setCookie.substring(valueStart);
+        return new Cookie(AuthRefreshCookie.NAME, value);
     }
 
     private String resolveRegistrationToken(String classCode) throws Exception {

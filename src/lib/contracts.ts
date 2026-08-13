@@ -88,7 +88,6 @@ export interface CurrentUserVO {
 export interface LoginResponse {
   accessToken: string;
   accessTokenExpiresAt: string;
-  refreshToken: string;
   refreshTokenExpiresAt: string;
   userInfo: CurrentUserVO;
 }
@@ -99,7 +98,7 @@ export interface LoginRequest {
 }
 
 export interface RefreshTokenRequest {
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 export interface RegisterStudentRequest {
@@ -2328,6 +2327,7 @@ export interface PublicAssessmentMetadataVO {
   startsAt?: string | null;
   dueAt?: string | null;
   qrEntryEnabled: boolean;
+  maxAttempts: number;
 }
 
 export interface PublicAssessmentVerifyRequest {
@@ -2368,10 +2368,14 @@ export interface PublicAssessmentAttemptVO {
   questionCount: number;
   answeredCount: number;
   startedAt: string;
+  answeringStartedAt?: string | null;
   expiresAt: string;
   lastSavedAt?: string | null;
   version: number;
   serverTime: string;
+  attemptNo?: number | null;
+  maxAttempts?: number | null;
+  canStartNewAttempt?: boolean;
   questions: PublicAssessmentQuestionVO[];
 }
 
@@ -2455,6 +2459,7 @@ export interface PublicAssessmentReleaseSummaryVO {
   status: string;
   publishedAt: string;
   qrEntryEnabled: boolean;
+  maxAttempts: number;
   codeCount: number;
   unusedCount: number;
   inProgressCount: number;
@@ -2836,6 +2841,9 @@ export interface PublicAssessmentResultVO {
   aiAnalysisStatus?: AssessmentAiAnalysisStatus | null;
   aiAnalysis?: AssessmentAiAnalysisVO | null;
   questions: AssessmentAttemptResultQuestionVO[];
+  attemptNo?: number | null;
+  maxAttempts?: number | null;
+  canStartNewAttempt?: boolean;
 }
 
 export interface AssessmentPublishRosterItemVO {
@@ -2976,6 +2984,7 @@ export interface ResearchAttachmentVO {
 
 export interface ResearchAttemptSummaryVO {
   attemptId: number;
+  attemptNo?: number | null;
   participantCode: string;
   participantType?: ResearchParticipantType | string | null;
   status: string;
@@ -2999,6 +3008,7 @@ export interface TeacherResearchAttemptDetailVO {
   };
   attempt: {
     attemptId: number;
+    attemptNo?: number | null;
     publishId: number;
     paperId: number;
     paperTitle: string;

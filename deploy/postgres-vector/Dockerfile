@@ -1,4 +1,4 @@
-FROM postgres:16-bookworm
+FROM postgres:16-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8
 
 ARG PGVECTOR_VERSION=0.8.2
 

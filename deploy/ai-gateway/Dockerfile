@@ -1,4 +1,4 @@
-FROM eclipse-temurin:25-jdk AS builder
+FROM eclipse-temurin:25-jdk@sha256:c42fecf62f32725c65cfea284c012526d6fb31cc78123c740ebdc1cfd2dced12 AS builder
 WORKDIR /workspace
 
 COPY .mvn .mvn
@@ -13,7 +13,7 @@ COPY shared-kernel/src shared-kernel/src
 COPY ai-gateway/src ai-gateway/src
 RUN ./mvnw -pl ai-gateway -am -q clean package -Dmaven.test.skip=true
 
-FROM eclipse-temurin:25-jdk
+FROM eclipse-temurin:25-jdk@sha256:c42fecf62f32725c65cfea284c012526d6fb31cc78123c740ebdc1cfd2dced12
 WORKDIR /app
 RUN useradd --system --create-home --shell /usr/sbin/nologin appuser \
     && mkdir -p /app/logs \

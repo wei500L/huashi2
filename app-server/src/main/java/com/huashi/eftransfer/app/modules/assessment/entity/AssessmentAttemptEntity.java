@@ -26,6 +26,9 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
     @TableField("started_at")
     private LocalDateTime startedAt;
 
+    @TableField("answering_started_at")
+    private LocalDateTime answeringStartedAt;
+
     @TableField("expires_at")
     private LocalDateTime expiresAt;
 
@@ -48,6 +51,9 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
 
     @TableField("submit_reason")
     private String submitReason;
+
+    @TableField("attempt_no")
+    private Integer attemptNo;
 
     public Long getPublishId() {
         return publishId;
@@ -95,6 +101,14 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
 
     public void setStartedAt(LocalDateTime startedAt) {
         this.startedAt = startedAt;
+    }
+
+    public LocalDateTime getAnsweringStartedAt() {
+        return answeringStartedAt;
+    }
+
+    public void setAnsweringStartedAt(LocalDateTime answeringStartedAt) {
+        this.answeringStartedAt = answeringStartedAt;
     }
 
     public LocalDateTime getExpiresAt() {
@@ -159,5 +173,13 @@ public class AssessmentAttemptEntity extends BaseAuditEntity {
 
     public void setSubmitReason(String submitReason) {
         this.submitReason = submitReason;
+    }
+
+    public Integer getAttemptNo() {
+        return attemptNo;
+    }
+
+    public void setAttemptNo(Integer attemptNo) {
+        this.attemptNo = attemptNo;
     }
 }

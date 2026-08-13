@@ -71,7 +71,7 @@ class LexiBridgeResearchV1SeedIntegrationTest extends AbstractWebIntegrationTest
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT stem_text FROM assessment_question
                 WHERE paper_id = ? AND section_code = 'BASIC_INFO' AND question_type = 'INSTRUCTION' AND deleted = FALSE
-                """, String.class, paperId)).contains("约 40 分钟");
+                """, String.class, paperId)).contains("约 60 分钟");
     }
 
     @Test

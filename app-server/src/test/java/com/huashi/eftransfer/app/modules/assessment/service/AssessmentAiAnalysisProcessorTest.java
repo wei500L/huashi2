@@ -3,6 +3,7 @@ package com.huashi.eftransfer.app.modules.assessment.service;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayCallResult;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayClient;
 import com.huashi.eftransfer.app.integration.ai.client.AiGatewayFailureReason;
+import com.huashi.eftransfer.app.modules.ai.entity.AiGenerationRecordEntity;
 import com.huashi.eftransfer.app.modules.ai.service.AiGenerationRecordService;
 import com.huashi.eftransfer.app.modules.ai.service.AiOutputSchemaFactory;
 import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentAiAnalysisEntity;
@@ -18,6 +19,7 @@ import com.huashi.eftransfer.shared.ai.TokenUsage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DuplicateKeyException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -127,6 +129,44 @@ class AssessmentAiAnalysisProcessorTest {
     }
 
     @Test
+    void retriesUnexpectedPersistenceFailureInsteadOfLeavingProcessingForever() {
+        AssessmentAiAnalysisEntity analysis = analysis(0);
+        AssessmentAiAnalysisVO output = validOutput();
+        when(analysisMapper.selectById(13L)).thenReturn(analysis);
+        when(metricMapper.selectById(28L)).thenReturn(metric());
+        when(objectMapper.convertValue(any(Map.class), eq(AssessmentAiAnalysisVO.class))).thenReturn(output);
+        when(aiGatewayClient.structuredChat(any())).thenReturn(successfulResponse());
+        org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
+                .when(generationRecordService).save(any());
+
+        processor.processClaimed(13L);
+
+        assertThat(analysis.getStatus()).isEqualTo("PENDING");
+        assertThat(analysis.getRetryCount()).isEqualTo(1);
+        assertThat(analysis.getFallbackReason()).isEqualTo("UNHANDLED_IllegalStateException");
+    }
+
+    @Test
+    void reusesGenerationRecordWhenAStaleClaimRepeatsCompletion() {
+        AssessmentAiAnalysisEntity analysis = analysis(0);
+        AiGenerationRecordEntity existing = new AiGenerationRecordEntity();
+        existing.setId(99L);
+        existing.setRequestId("assessment-analysis-13");
+        when(analysisMapper.selectById(13L)).thenReturn(analysis);
+        when(metricMapper.selectById(28L)).thenReturn(metric());
+        when(objectMapper.convertValue(any(Map.class), eq(AssessmentAiAnalysisVO.class))).thenReturn(validOutput());
+        when(aiGatewayClient.structuredChat(any())).thenReturn(successfulResponse());
+        when(generationRecordService.findByRequestId("assessment-analysis-13")).thenReturn(null, existing);
+        org.mockito.Mockito.doThrow(new DuplicateKeyException("duplicate request id"))
+                .when(generationRecordService).save(any());
+
+        processor.processClaimed(13L);
+
+        assertThat(analysis.getStatus()).isEqualTo("COMPLETED");
+        assertThat(analysis.getGenerationRecordId()).isEqualTo(99L);
+    }
+
+    @Test
     void sendsEvidenceCalibratedPrivacySafeSystemPrompt() {
         AssessmentAiAnalysisEntity analysis = analysis(0);
         when(analysisMapper.selectById(13L)).thenReturn(analysis);
@@ -156,6 +196,21 @@ class AssessmentAiAnalysisProcessorTest {
         analysis.setStatus("PROCESSING");
         analysis.setRetryCount(retryCount);
         return analysis;
+    }
+
+    private AssessmentAiAnalysisVO validOutput() {
+        return new AssessmentAiAnalysisVO(
+                "overview", List.of("strength one", "strength two"), List.of("risk one", "risk two"), "context", "reaction",
+                List.of("one", "two", "three"), 0.8, "notice"
+        );
+    }
+
+    private AiGatewayCallResult<StructuredChatResponse> successfulResponse() {
+        return AiGatewayCallResult.success(
+                new StructuredChatResponse("deepseek", "deepseek-v4-flash", "raw", Map.of("ok", true),
+                        "stop", "provider-request", new TokenUsage(10, 20, 30)),
+                1, 321, "/internal/ai/chat/structured"
+        );
     }
 
     private AssessmentMetricSnapshotEntity metric() {

@@ -5,6 +5,7 @@ import java.util.List;
 
 public record ResearchAttemptSummaryVO(
         Long attemptId,
+        Integer attemptNo,
         String participantCode,
         String participantType,
         String status,

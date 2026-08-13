@@ -7,6 +7,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -81,6 +82,46 @@ class AdminUserManagementIntegrationTest extends AbstractWebIntegrationTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void shouldRevokeActiveSessionWhenAdminChangesUserAccess() throws Exception {
+        String adminToken = loginAndGetAccessToken("admin", "Admin@123456");
+        MvcResult createResult = mockMvc.perform(post("/api/admin/users")
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "cleanup.student",
+                                  "email": "cleanup.student@example.com",
+                                  "displayName": "Cleanup Student",
+                                  "credentialMode": "MANUAL_PASSWORD",
+                                  "initialPassword": "Student@123456",
+                                  "enabled": true,
+                                  "roles": ["STUDENT"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        long userId = readJson(createResult).path("data").path("user").path("id").asLong();
+        String studentToken = loginAndGetAccessToken("cleanup.student", "Student@123456");
+
+        mockMvc.perform(put("/api/admin/users/{userId}/access", userId)
+                        .with(bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled": false,
+                                  "roles": ["STUDENT"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enabled").value(false));
+
+        mockMvc.perform(get("/api/auth/me")
+                        .with(bearer(studentToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
     }
 
     @Test

@@ -75,3 +75,4 @@ npm test
 | 2026-08-13 | 审计下一批五项 High | AI 用户/IP 限流并对齐 180s 超时；问卷 verify/QR 改 Bucket4j；`docs/ddl` 与 restore 脚本；CI 跑 `npm test`；研究导出按 `includeSensitiveFields` 脱敏 |
 | 2026-08-13 | 审计第三批五项 High | XFF 仅信代理 CIDR；练习 `answeredCount` 只计非空；导入批次行级 `TransactionTemplate`；单题讲解 grounding fail-closed；verifier 不把学生作答当词义证据 |
 | 2026-08-13 | 审计第四批 | compose 数据面 loopback；练习开局 UK→409；公开问卷 `X-Requested-With` CSRF；附件扫描文案改为类型校验；AI 同上游禁用 failover；CI `permissions: contents: read`；练习页 a11y/Vitest |
+| 2026-08-13 | 审计第五批 | 登录 refresh 改 httpOnly cookie、access 仅内存；登录/refresh 响应 zod；研究 PII 可配置保留并匿名；问卷参与码 a11y；incident-runbook + Prometheus 规则；镜像钉 digest；CI 非阻塞 `npm audit` |

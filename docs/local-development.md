@@ -16,7 +16,7 @@ root
 
 ### 登录与权限
 
-`登录 -> JWT access token + refresh token -> Redis refresh token / blacklist -> /api/auth/me -> CurrentUserVO.capabilities -> 前端路由与菜单`
+`登录 -> JSON access token（仅内存）+ Set-Cookie EF_REFRESH（httpOnly，Path=/api/auth）-> Redis refresh session / blacklist -> 刷新页 POST /api/auth/refresh（cookie）-> /api/auth/me -> CurrentUserVO.capabilities -> 前端路由与菜单`
 
 ### 学生学习链路
 
@@ -76,6 +76,8 @@ cp .env.example .env
 - `PLATFORM_INTERNAL_API_TOKEN`
 - `APP_ASSESSMENT_CODE_HMAC_SECRET`
 - `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY`
+- `APP_ASSESSMENT_RESEARCH_RETENTION`（可选，默认 `P730D`）
+- `APP_CORS_ALLOW_CREDENTIALS`（cookie 会话下保持 `true`）
 - `REDIS_PASSWORD`
 - `APP_DEMO_DATA_ENABLED`
 - `AI_OPENAI_API_KEY`
@@ -131,7 +133,11 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 - `/actuator/health` 可匿名探测；`/actuator/metrics` 与 `/actuator/prometheus` 需要管理员 JWT
 - `AI_FALLBACK_*` 需要显式提供且与 active 不同；解析到同一上游时运行时禁用 failover（`prod`/`dev` 配置中心为 error）
 - `diagnosis` / `training` / `practice` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；唯一键冲突返回 409；刷新后前端优先恢复该 session
-- 公开研究问卷的 POST/DELETE 须带 `X-Requested-With: XMLHttpRequest`
+- 登录 JSON **不返回** `refreshToken`。Access 只在前端内存；refresh 在 httpOnly `EF_REFRESH` cookie。旧 `localStorage` 里的 refresh 可随 `/auth/refresh` body 一次性迁移后清除
+- `APP_CORS_ALLOW_CREDENTIALS` 默认 `true`。跨源调试必须写进 `APP_CORS_ALLOWED_ORIGIN_*`，不要用 `*`
+- 公开研究问卷的 POST/DELETE、以及 `/api/auth/login|register|refresh|logout` 须带 `X-Requested-With: XMLHttpRequest`
+- 研究 PII 保留期见 [research-data-operations.md](research-data-operations.md)；事故告警见 [incident-runbook.md](incident-runbook.md) 与 `deploy/observability/prometheus-alerts.yml`
+- 基镜像在 Dockerfile / compose 中钉 digest；升级 tag 后需重新 `imagetools inspect` 再改 digest
 - 生产环境建议显式设置 `APP_DB_SSL_MODE=REQUIRED`
 - 默认登录锁定策略由 `APP_AUTH_LOCKOUT_*` 控制，默认值是 5 次失败锁定 15 分钟
 - `app-server` / `ai-gateway` 在 `local` / `dev` 会执行各自的 `schema.sql` 建表；`prod` 不自动初始化
@@ -141,6 +147,8 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 如果你想直接跑通“导入词对 -> 继续接到模板 / 词表 / RAG”的完整流程，优先看：
 
 - [数据导入与使用指南](data-import-and-usage.md)
+- [研究问卷数据运维](research-data-operations.md)
+- [事故手册](incident-runbook.md)
 
 ## 6. Docker 本地联调
 
@@ -242,7 +250,7 @@ cron 示例：
 
 ## 10. 当前已实现内容
 
-- 登录、刷新、注销、当前用户、Redis refresh token 与 access token blacklist
+- 登录、刷新、注销、当前用户；refresh 在 httpOnly cookie + Redis，access 在内存，blacklist 仍在 Redis
 - access token `kid` 轮换与 legacy 无 `kid` token 兼容验签
 - 基于角色并集生成 `capabilities`，前后端权限矩阵已对齐到能力模型
 - 诊断模板发布、diagnosis session、summary、结果页、进度保存与恢复
@@ -303,6 +311,7 @@ python3 scripts/ensure_qa_admin.py
 npm run lint
 npm run typecheck
 npm run build
+npm test
 ./mvnw test
 npm run build:analyze
 ```

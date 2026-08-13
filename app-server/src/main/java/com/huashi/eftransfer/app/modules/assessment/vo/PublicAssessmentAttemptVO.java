@@ -14,10 +14,14 @@ public record PublicAssessmentAttemptVO(
         Integer questionCount,
         Integer answeredCount,
         LocalDateTime startedAt,
+        LocalDateTime answeringStartedAt,
         LocalDateTime expiresAt,
         LocalDateTime lastSavedAt,
         Long version,
         LocalDateTime serverTime,
+        Integer attemptNo,
+        Integer maxAttempts,
+        boolean canStartNewAttempt,
         List<PublicAssessmentQuestionVO> questions
 ) {
 }

@@ -190,7 +190,7 @@ import type {
   ResearchFileInitiateVO,
 } from './contracts';
 
-type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout'>;
+type RequestOptions = Pick<AxiosRequestConfig, 'signal' | 'timeout' | 'headers'>;
 
 export const authService = {
   login: (payload: LoginRequest) => apiPost<LoginResponse>('/auth/login', payload),
@@ -198,8 +198,8 @@ export const authService = {
     apiPost<LoginResponse>('/auth/register', payload),
   resolveRegistrationContext: (payload: ResolveStudentRegistrationContextRequest, options?: RequestOptions) =>
     apiPost<StudentRegistrationContextVO>('/auth/register/context', payload, options),
-  refresh: (refreshToken: string) => {
-    const payload: RefreshTokenRequest = { refreshToken };
+  refresh: (refreshToken?: string) => {
+    const payload: RefreshTokenRequest = refreshToken ? { refreshToken } : {};
     return apiPost<LoginResponse>('/auth/refresh', payload);
   },
   logout: () => apiPost<void>('/auth/logout'),
@@ -378,10 +378,14 @@ export const assessmentService = {
     apiPost<ParticipationCodeRevokeResultVO>(
       `/teacher/assessments/publishes/${publishId}/participation-code-batches/${encodeURIComponent(batchId)}/revoke-unused`
     ),
-  updatePublicRelease: (publishId: number, qrEntryEnabled: boolean) =>
+  updatePublicRelease: (publishId: number, payload: { qrEntryEnabled: boolean; maxAttempts?: number }) =>
     apiPatch<PublicAssessmentReleaseSummaryVO>(
       `/teacher/assessments/publishes/${publishId}/public-release`,
-      { qrEntryEnabled }
+      payload
+    ),
+  closePublicRelease: (publishId: number) =>
+    apiPost<PublicAssessmentReleaseSummaryVO>(
+      `/teacher/assessments/publishes/${publishId}/public-release/close`
     ),
   getTeacherAttemptResult: (attemptId: number, options?: RequestOptions) =>
     apiGet<TeacherAssessmentAttemptResultVO>(`/teacher/assessments/attempts/${attemptId}/result`, options),
@@ -520,6 +524,8 @@ export const publicAssessmentService = {
     apiPost<PublicAssessmentSessionVO>(`${publicAssessmentPath(releaseCode)}/qr-entry`, payload, publicAssessmentOptions()),
   getAttempt: (releaseCode: string, options?: RequestOptions) =>
     apiGet<PublicAssessmentAttemptVO>(`${publicAssessmentPath(releaseCode)}/attempt`, publicAssessmentOptions(options)),
+  beginAnswering: (releaseCode: string) =>
+    apiPost<PublicAssessmentAttemptVO>(`${publicAssessmentPath(releaseCode)}/begin`, {}, publicAssessmentOptions()),
   saveResponses: (releaseCode: string, payload: PublicAssessmentSaveRequest) =>
     apiPost<PublicAssessmentProgressVO>(`${publicAssessmentPath(releaseCode)}/responses`, payload, publicAssessmentOptions()),
   recordTiming: (releaseCode: string, payload: PublicAssessmentTimingRequest) =>
@@ -528,6 +534,10 @@ export const publicAssessmentService = {
     apiPost<SpellingAttemptVO>(`${publicAssessmentPath(releaseCode)}/spelling-attempt`, payload, publicAssessmentOptions()),
   submit: (releaseCode: string, payload: PublicAssessmentSubmitRequest) =>
     apiPost<PublicAssessmentSubmitVO>(`${publicAssessmentPath(releaseCode)}/submit`, payload, publicAssessmentOptions()),
+  startNewAttempt: (releaseCode: string) =>
+    apiPost<PublicAssessmentAttemptVO>(`${publicAssessmentPath(releaseCode)}/new-attempt`, {}, publicAssessmentOptions()),
+  clearSession: (releaseCode: string) =>
+    apiPost<void>(`${publicAssessmentPath(releaseCode)}/session/clear`, {}, publicAssessmentOptions()),
   getResult: (releaseCode: string, options?: RequestOptions) =>
     apiGet<PublicAssessmentResultVO>(`${publicAssessmentPath(releaseCode)}/result`, publicAssessmentOptions(options)),
   initiateFile: (releaseCode: string, payload: { questionOrder: number; fileName: string; contentType?: string; sizeBytes: number }) =>

@@ -103,7 +103,7 @@ UPDATE assessment_question q
 JOIN assessment_questionnaire_item i ON i.assessment_question_id = q.id
 SET q.question_type = 'INSTRUCTION',
     q.stem_text = '【亲爱的同学：
-您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 40 分钟，请合理安排时间。
+您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 60 分钟，请合理安排时间。
 感谢您的配合与支持！】',
     q.prompt_text = '',
     q.options_json = '[]',
@@ -132,7 +132,7 @@ WHERE questionnaire_version_id = @version_id AND item_code = 'BASIC-INSTRUCTION'
 UPDATE assessment_question_version
 SET question_type = 'INSTRUCTION',
     stem_text = '【亲爱的同学：
-您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 40 分钟，请合理安排时间。
+您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 60 分钟，请合理安排时间。
 感谢您的配合与支持！】',
     prompt_text = '',
     options_json = '[]',

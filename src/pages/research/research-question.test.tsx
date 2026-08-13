@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { PublicAssessmentQuestionVO } from '@/lib/contracts';
-import { PublicQuestion } from './index';
+import { PublicQuestion, ResearchQuestionMap } from './index';
 
 const baseQuestion = (overrides: Partial<PublicAssessmentQuestionVO>): PublicAssessmentQuestionVO => ({
   questionId: 1,
@@ -58,5 +58,61 @@ describe('PublicQuestion profile field accessibility', () => {
     const input = container.querySelector('input[type="text"]');
     expect(input).not.toBeNull();
     expect(input).toHaveClass('research-text-input');
+  });
+});
+
+describe('ResearchQuestionMap navigation semantics', () => {
+  it('exposes the current question and keeps every jump target named', () => {
+    const onSelect = vi.fn();
+    const profileQuestion = baseQuestion({ questionId: 2, questionOrder: 2, formalSection: false });
+    const formalQuestion = baseQuestion({
+      questionId: 10,
+      questionOrder: 10,
+      formalSection: true,
+      sectionCode: 'P1A',
+      sectionTitle: '正式题',
+      itemCode: 'P1A-01',
+      questionType: 'SINGLE_CHOICE',
+      options: [{ key: 'A', label: '选项甲' }],
+    });
+
+    render(
+      <ResearchQuestionMap
+        questions={[profileQuestion, formalQuestion]}
+        selectedOrder={10}
+        responsesByOrder={{ 2: ['张三'] }}
+        justificationsByOrder={{}}
+        attachmentsByOrder={{}}
+        onSelect={onSelect}
+      />,
+    );
+
+    const navigation = screen.getByRole('navigation', { name: '题目跳转' });
+    expect(navigation).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '资料1，已作答' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('button', { name: '正式题1，未作答' })).toHaveAttribute('aria-current', 'step');
+
+    fireEvent.click(screen.getByRole('button', { name: '正式题1，未作答' }));
+    expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it('locks question jumps until the participant starts the timed section', () => {
+    const onSelect = vi.fn();
+    render(
+      <ResearchQuestionMap
+        questions={[baseQuestion({ questionId: 2, questionOrder: 2 })]}
+        selectedOrder={2}
+        responsesByOrder={{}}
+        justificationsByOrder={{}}
+        attachmentsByOrder={{}}
+        navigationLocked
+        onSelect={onSelect}
+      />,
+    );
+
+    const jump = screen.getByRole('button', { name: '资料1，未作答' });
+    expect(jump).toBeDisabled();
+    fireEvent.click(jump);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

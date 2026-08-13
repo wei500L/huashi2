@@ -1,0 +1,73 @@
+# Import into an existing Prometheus. Does not deploy Alertmanager/Grafana.
+# Metric names follow Micrometer Prometheus export (dots → underscores).
+# Scrapes: app-server and ai-gateway /actuator/prometheus (ADMIN JWT).
+
+groups:
+  - name: ef-transfer.availability
+    rules:
+      - alert: InstanceDown
+        expr: up{job=~"app-server|ai-gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} scrape target is down"
+          runbook: docs/incident-runbook.md#instancedown
+
+  - name: ef-transfer.outbox
+    rules:
+      - alert: OutboxFailed
+        expr: app_outbox_failed_count > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Platform outbox has failed rows
+          runbook: docs/incident-runbook.md#outboxbacklog--outboxfailed--outboxstale
+
+      - alert: OutboxStale
+        expr: app_outbox_oldest_pending_age_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Oldest pending outbox row is older than 5 minutes
+          runbook: docs/incident-runbook.md#outboxbacklog--outboxfailed--outboxstale
+
+      - alert: OutboxBacklog
+        expr: app_outbox_pending_count > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Outbox pending count stayed above 50
+          runbook: docs/incident-runbook.md#outboxbacklog--outboxfailed--outboxstale
+
+  - name: ef-transfer.ai
+    rules:
+      - alert: AiProviderErrorRate
+        expr: |
+          (
+            sum(rate(ai_provider_calls_total{outcome!="success"}[5m]))
+            /
+            clamp_min(sum(rate(ai_provider_calls_total[5m])), 0.001)
+          ) > 0.20
+          and sum(rate(ai_provider_calls_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: AI provider non-success rate exceeded 20% over 5m
+          runbook: docs/incident-runbook.md#aiprovidererrorrate
+
+  - name: ef-transfer.assessment
+    rules:
+      - alert: AssessmentHttp5xx
+        expr: |
+          sum(rate(http_server_requests_seconds_count{uri=~"/api/public/assessments.*",status=~"5.."}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Public assessment API 5xx rate is elevated
+          runbook: docs/incident-runbook.md#assessmenthttp5xx

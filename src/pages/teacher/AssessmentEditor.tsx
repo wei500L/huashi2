@@ -245,6 +245,8 @@ function validatePaperDraft(draft: PaperDraft): string[] {
   return errors;
 }
 
+// Exported for validation regression tests; the page component remains this module's default export.
+// eslint-disable-next-line react-refresh/only-export-components
 export function validateEditorPaperDraft(draft: PaperDraft, isResearchContext: boolean): string[] {
   const isLegacyClassPaper = !isResearchContext && draft.questions.every((question) =>
     question.questionType === 'SINGLE_CHOICE'

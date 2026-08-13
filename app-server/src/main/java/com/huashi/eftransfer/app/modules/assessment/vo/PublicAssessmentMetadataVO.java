@@ -14,6 +14,7 @@ public record PublicAssessmentMetadataVO(
         String status,
         LocalDateTime startsAt,
         LocalDateTime dueAt,
-        boolean qrEntryEnabled
+        boolean qrEntryEnabled,
+        int maxAttempts
 ) {
 }

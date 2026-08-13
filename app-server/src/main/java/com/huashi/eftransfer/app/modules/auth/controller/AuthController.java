@@ -9,6 +9,8 @@ import com.huashi.eftransfer.app.modules.auth.dto.RegisterStudentRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.RefreshTokenRequest;
 import com.huashi.eftransfer.app.modules.auth.service.AuthService;
 import com.huashi.eftransfer.app.modules.auth.support.AuthClientContext;
+import com.huashi.eftransfer.app.modules.auth.support.AuthRefreshCookie;
+import com.huashi.eftransfer.app.modules.auth.vo.IssuedAuthSession;
 import com.huashi.eftransfer.app.modules.auth.vo.LoginResponse;
 import com.huashi.eftransfer.app.modules.auth.vo.StudentRegistrationContextVO;
 import com.huashi.eftransfer.app.modules.user.dto.CompleteAccountActionRequest;
@@ -20,7 +22,12 @@ import com.huashi.eftransfer.shared.api.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.MDC;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,21 +54,32 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(HttpServletRequest httpRequest, @Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> login(HttpServletRequest httpRequest, @Valid @RequestBody LoginRequest request) {
         authRequestRateLimiter.checkLogin(httpRequest, request);
-        return ApiResponse.success(authService.login(request, AuthClientContext.from(httpRequest)), MDC.get("traceId"));
+        return sessionResponse(httpRequest, authService.login(request, AuthClientContext.from(httpRequest)));
     }
 
     @PostMapping("/refresh")
-    public ApiResponse<LoginResponse> refresh(HttpServletRequest httpRequest, @Valid @RequestBody RefreshTokenRequest request) {
-        authRequestRateLimiter.checkRefresh(httpRequest, request);
-        return ApiResponse.success(authService.refresh(request, AuthClientContext.from(httpRequest)), MDC.get("traceId"));
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
+            HttpServletRequest httpRequest,
+            @CookieValue(value = AuthRefreshCookie.NAME, required = false) String refreshCookie,
+            @RequestBody(required = false) RefreshTokenRequest request
+    ) {
+        String refreshToken = firstNonBlank(refreshCookie, request == null ? null : request.refreshToken());
+        if (!StringUtils.hasText(refreshToken)) {
+            return anonymousSessionResponse(httpRequest);
+        }
+        authRequestRateLimiter.checkRefresh(httpRequest, refreshToken);
+        return sessionResponse(httpRequest, authService.refresh(refreshToken, AuthClientContext.from(httpRequest)));
     }
 
     @PostMapping("/register")
-    public ApiResponse<LoginResponse> registerStudent(HttpServletRequest httpRequest, @Valid @RequestBody RegisterStudentRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> registerStudent(
+            HttpServletRequest httpRequest,
+            @Valid @RequestBody RegisterStudentRequest request
+    ) {
         authRequestRateLimiter.checkRegister(httpRequest);
-        return ApiResponse.success(authService.registerStudent(request, AuthClientContext.from(httpRequest)), MDC.get("traceId"));
+        return sessionResponse(httpRequest, authService.registerStudent(request, AuthClientContext.from(httpRequest)));
     }
 
     @PostMapping("/register/context")
@@ -74,20 +92,27 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ApiResponse<Void> logout(@AuthenticationPrincipal JwtPrincipal principal) {
+    public ResponseEntity<ApiResponse<Void>> logout(
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal JwtPrincipal principal
+    ) {
         authService.logout(principal);
-        return ApiResponse.success("Logout succeeded", MDC.get("traceId"));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, AuthRefreshCookie.clear(httpRequest.isSecure()).toString())
+                .body(ApiResponse.success("Logout succeeded", MDC.get("traceId")));
     }
 
     @PostMapping("/change-password")
-    public ApiResponse<Void> changePassword(
+    public ResponseEntity<ApiResponse<Void>> changePassword(
             HttpServletRequest httpRequest,
             @AuthenticationPrincipal JwtPrincipal principal,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
         authRequestRateLimiter.checkChangePassword(httpRequest, principal);
         authService.changePassword(principal, request);
-        return ApiResponse.success("Password changed", MDC.get("traceId"));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, AuthRefreshCookie.clear(httpRequest.isSecure()).toString())
+                .body(ApiResponse.success("Password changed", MDC.get("traceId")));
     }
 
     @GetMapping("/me")
@@ -112,5 +137,35 @@ public class AuthController {
     ) {
         accountActionService.complete(token, request);
         return ApiResponse.success("Account action completed", MDC.get("traceId"));
+    }
+
+    private ResponseEntity<ApiResponse<LoginResponse>> sessionResponse(
+            HttpServletRequest httpRequest,
+            IssuedAuthSession issued
+    ) {
+        ResponseCookie cookie = AuthRefreshCookie.issue(
+                issued.refreshToken(),
+                issued.refreshTtl(),
+                httpRequest.isSecure()
+        );
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(ApiResponse.success(issued.response(), MDC.get("traceId")));
+    }
+
+    private ResponseEntity<ApiResponse<LoginResponse>> anonymousSessionResponse(HttpServletRequest httpRequest) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, AuthRefreshCookie.clear(httpRequest.isSecure()).toString())
+                .body(ApiResponse.success((LoginResponse) null, MDC.get("traceId")));
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        if (StringUtils.hasText(primary)) {
+            return primary.trim();
+        }
+        if (StringUtils.hasText(fallback)) {
+            return fallback.trim();
+        }
+        return null;
     }
 }

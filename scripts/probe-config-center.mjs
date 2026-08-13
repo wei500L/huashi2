@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 
-const BASE = process.env.BASE_URL || 'https://huashi.qsfw.eu.cc';
+const BASE = process.env.BASE_URL || 'https://huashi.mnari.cn';
 const USER = process.env.ADMIN_USER || 'admin';
 const PASS = process.env.ADMIN_PASS || 'Admin@123456';
 

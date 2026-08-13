@@ -20,8 +20,8 @@ import com.huashi.eftransfer.app.modules.achievement.service.AchievementService;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.ResolveStudentRegistrationContextRequest;
 import com.huashi.eftransfer.app.modules.auth.dto.RegisterStudentRequest;
-import com.huashi.eftransfer.app.modules.auth.dto.RefreshTokenRequest;
 import com.huashi.eftransfer.app.modules.auth.support.AuthClientContext;
+import com.huashi.eftransfer.app.modules.auth.vo.IssuedAuthSession;
 import com.huashi.eftransfer.app.modules.auth.vo.LoginResponse;
 import com.huashi.eftransfer.app.modules.auth.vo.StudentRegistrationContextVO;
 import com.huashi.eftransfer.app.modules.user.entity.StudentProfileEntity;
@@ -110,7 +110,7 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request, AuthClientContext clientContext) {
+    public IssuedAuthSession login(LoginRequest request, AuthClientContext clientContext) {
         try {
             String loginId = request.usernameOrEmail();
             UserEntity user = userQueryService.findByUsernameOrEmail(loginId)
@@ -141,7 +141,7 @@ public class AuthService {
             userMapper.updateById(user);
             achievementService.recordLogin(user.getId(), previousLastLoginAt, currentLoginAt);
 
-            LoginResponse response = issueTokens(user, roles, clientContext);
+            IssuedAuthSession response = issueTokens(user, roles, clientContext);
             appBusinessMetrics.recordLoginAttempt("success", "success");
             log.info("event=auth_login_success userId={} username={} roles={}", user.getId(), user.getUsername(), roles);
             return response;
@@ -152,8 +152,11 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse refresh(RefreshTokenRequest request, AuthClientContext clientContext) {
-        String refreshTokenHash = TokenGenerator.sha256(request.refreshToken());
+    public IssuedAuthSession refresh(String refreshToken, AuthClientContext clientContext) {
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new BusinessException(ResultCode.TOKEN_INVALID, "Refresh token is invalid", 401);
+        }
+        String refreshTokenHash = TokenGenerator.sha256(refreshToken.trim());
         RefreshTokenSession session = authTokenStore.findRefreshSession(refreshTokenHash)
                 .orElseThrow(() -> new BusinessException(ResultCode.TOKEN_INVALID, "Refresh token is invalid", 401));
 
@@ -175,7 +178,7 @@ public class AuthService {
 
         blacklistAccessToken(session.accessTokenId(), session.accessTokenExpiresAt());
         authTokenStore.revokeRefreshSession(refreshTokenHash);
-        LoginResponse response = issueTokens(user, userQueryService.getRoleCodes(user.getId()), clientContext);
+        IssuedAuthSession response = issueTokens(user, userQueryService.getRoleCodes(user.getId()), clientContext);
         log.info("event=auth_refresh_success userId={} username={}", user.getId(), user.getUsername());
         return response;
     }
@@ -213,7 +216,7 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse registerStudent(RegisterStudentRequest request, AuthClientContext clientContext) {
+    public IssuedAuthSession registerStudent(RegisterStudentRequest request, AuthClientContext clientContext) {
         RegistrationContextReservation registrationContextReservation = reserveRegistrationContext(request.registrationToken());
         String registrationTokenHash = registrationContextReservation.tokenHash();
         RegistrationContextSession registrationContext = registrationContextReservation.session();
@@ -263,7 +266,7 @@ public class AuthService {
             relation.setActive(Boolean.TRUE);
             teachingClassStudentMapper.insert(relation);
 
-            LoginResponse response = issueTokens(user, Set.of(UserRole.STUDENT.name()), clientContext);
+            IssuedAuthSession response = issueTokens(user, Set.of(UserRole.STUDENT.name()), clientContext);
             authTokenStore.revokeRegistrationContextSession(registrationTokenHash);
             log.info(
                     "event=student_self_register_success userId={} username={} classId={} classCode={}",
@@ -307,7 +310,7 @@ public class AuthService {
         return userQueryService.getCurrentUser(principal.userId());
     }
 
-    private LoginResponse issueTokens(UserEntity user, Set<String> roles, AuthClientContext clientContext) {
+    private IssuedAuthSession issueTokens(UserEntity user, Set<String> roles, AuthClientContext clientContext) {
         requireAssignedRoles(roles);
         String displayName = DisplayNameNormalizer.normalize(user.getDisplayName());
         AccessToken accessToken = jwtTokenProvider.generateAccessToken(
@@ -340,13 +343,13 @@ public class AuthService {
         );
 
         CurrentUserVO currentUserVO = userQueryService.getCurrentUser(user.getId());
-        return new LoginResponse(
+        LoginResponse response = new LoginResponse(
                 accessToken.token(),
                 OffsetDateTime.ofInstant(accessToken.expiresAt(), ZoneOffset.UTC),
-                refreshToken,
                 OffsetDateTime.ofInstant(refreshExpiresAt, ZoneOffset.UTC),
                 currentUserVO
         );
+        return new IssuedAuthSession(response, refreshToken, jwtProperties.getRefreshTokenTtl());
     }
 
     private BusinessException invalidCredentials() {

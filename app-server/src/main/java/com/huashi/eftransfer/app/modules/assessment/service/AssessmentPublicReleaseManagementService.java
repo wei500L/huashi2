@@ -16,6 +16,7 @@ import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublicRelea
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentPublishMapper;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantAccessCipher;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantCodeCodec;
+import com.huashi.eftransfer.app.modules.assessment.dto.PublicReleaseUpdateRequest;
 import com.huashi.eftransfer.app.modules.assessment.vo.ParticipationCodeBatchCreatedVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.ParticipationCodeBatchSummaryVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.ParticipationCodeItemVO;
@@ -45,6 +46,7 @@ import java.util.UUID;
 public class AssessmentPublicReleaseManagementService {
     private static final Set<String> CODE_STATUSES = Set.of("UNUSED", "IN_PROGRESS", "SUBMITTED", "REVOKED");
     private static final String LEGACY_BATCH = "legacy";
+    private static final String CLOSED_STATUS = "CLOSED";
     private static final int INSERT_BATCH_SIZE = 500;
 
     private final AssessmentPublicReleaseMapper publicReleaseMapper;
@@ -126,7 +128,8 @@ public class AssessmentPublicReleaseManagementService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR,
                     "Participation-code batch count must be between 1 and 5000", 400);
         }
-        ReleaseBundle bundle = requireRelease(publishId);
+        ReleaseBundle bundle = requireReleaseForUpdate(publishId);
+        requireOpenForManagement(bundle);
         String batchId = UUID.randomUUID().toString();
         LocalDateTime generatedAt = LocalDateTime.now();
         LinkedHashSet<String> plainCodes = new LinkedHashSet<>();
@@ -183,10 +186,38 @@ public class AssessmentPublicReleaseManagementService {
     }
 
     @Transactional
-    public PublicAssessmentReleaseSummaryVO updateQrEntry(Long publishId, boolean enabled) {
-        ReleaseBundle bundle = requireRelease(publishId);
-        bundle.release().setQrEntryEnabled(enabled);
+    public PublicAssessmentReleaseSummaryVO updateRelease(Long publishId, PublicReleaseUpdateRequest request) {
+        ReleaseBundle bundle = requireReleaseForUpdate(publishId);
+        requireOpenForManagement(bundle);
+        bundle.release().setQrEntryEnabled(Boolean.TRUE.equals(request.qrEntryEnabled()));
+        if (request.maxAttempts() != null) {
+            bundle.release().setMaxAttempts(request.maxAttempts());
+        }
         publicReleaseMapper.updateById(bundle.release());
+        return toSummary(bundle);
+    }
+
+    @Transactional
+    public PublicAssessmentReleaseSummaryVO closeRelease(Long publishId) {
+        ReleaseBundle bundle = requireReleaseForUpdate(publishId);
+        if (CLOSED_STATUS.equals(bundle.release().getStatus())) {
+            return toSummary(bundle);
+        }
+        LocalDateTime closedAt = LocalDateTime.now();
+        if (bundle.publish().getDueAt() == null || bundle.publish().getDueAt().isAfter(closedAt)) {
+            bundle.publish().setDueAt(closedAt);
+            publishMapper.updateById(bundle.publish());
+        }
+        bundle.release().setStatus(CLOSED_STATUS);
+        bundle.release().setQrEntryEnabled(Boolean.FALSE);
+        publicReleaseMapper.updateById(bundle.release());
+        participationCodeMapper.update(
+                null,
+                Wrappers.<AssessmentParticipationCodeEntity>lambdaUpdate()
+                        .set(AssessmentParticipationCodeEntity::getStatus, "REVOKED")
+                        .eq(AssessmentParticipationCodeEntity::getPublicReleaseId, bundle.release().getId())
+                        .eq(AssessmentParticipationCodeEntity::getStatus, "UNUSED")
+        );
         return toSummary(bundle);
     }
 
@@ -215,7 +246,9 @@ public class AssessmentPublicReleaseManagementService {
         return new PublicAssessmentReleaseSummaryVO(bundle.publish().getId(), bundle.paper().getId(),
                 bundle.paper().getPaperCode(), bundle.publish().getPaperTitleSnapshot(), bundle.release().getReleaseCode(),
                 bundle.release().getStatus(), bundle.publish().getPublishedAt(),
-                Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()), codes.size(),
+                Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()),
+                resolveMaxAttempts(bundle.release().getMaxAttempts()),
+                codes.size(),
                 countStatus(codes, "UNUSED"), countStatus(codes, "IN_PROGRESS"),
                 countStatus(codes, "SUBMITTED"), countStatus(codes, "REVOKED"), qrParticipants, batches);
     }
@@ -232,6 +265,13 @@ public class AssessmentPublicReleaseManagementService {
         return result;
     }
 
+    static int resolveMaxAttempts(Integer maxAttempts) {
+        if (maxAttempts == null || maxAttempts < 1) {
+            return 1;
+        }
+        return Math.min(20, maxAttempts);
+    }
+
     private long countStatus(List<AssessmentParticipationCodeEntity> codes, String status) {
         return codes.stream().filter(code -> status.equals(code.getStatus())).count();
     }
@@ -243,6 +283,12 @@ public class AssessmentPublicReleaseManagementService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Unsupported participation-code status", 400);
         }
         return normalized;
+    }
+
+    private void requireOpenForManagement(ReleaseBundle bundle) {
+        if (CLOSED_STATUS.equals(bundle.release().getStatus())) {
+            throw new BusinessException(ResultCode.CONFLICT, "Closed public releases cannot be changed", 409);
+        }
     }
 
     private ReleaseBundle requireRelease(Long publishId) {
@@ -264,6 +310,19 @@ public class AssessmentPublicReleaseManagementService {
             throw new BusinessException(ResultCode.NOT_FOUND, "Public assessment release was not found", 404);
         }
         return new ReleaseBundle(release, publish, paper);
+    }
+
+    private ReleaseBundle requireReleaseForUpdate(Long publishId) {
+        ReleaseBundle bundle = requireRelease(publishId);
+        AssessmentPublicReleaseEntity lockedRelease = publicReleaseMapper.selectOne(
+                Wrappers.<AssessmentPublicReleaseEntity>lambdaQuery()
+                        .eq(AssessmentPublicReleaseEntity::getPublishId, publishId)
+                        .last("LIMIT 1 FOR UPDATE")
+        );
+        if (lockedRelease == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "Public assessment release was not found", 404);
+        }
+        return new ReleaseBundle(lockedRelease, bundle.publish(), bundle.paper());
     }
 
     private ReleaseBundle loadBundle(AssessmentPublicReleaseEntity release, Long userId, boolean admin) {

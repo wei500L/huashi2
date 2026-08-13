@@ -20,8 +20,13 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Audit production npm dependencies
+        continue-on-error: true
+        run: npm audit --omit=dev
       - name: Check generated contracts
         run: npm run check:contracts
+      - name: Check production domain configuration
+        run: npm run check:production-domain
       - name: Lint frontend
         run: npm run lint
       - name: Typecheck frontend

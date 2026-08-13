@@ -7,7 +7,6 @@ import java.time.OffsetDateTime;
 public record LoginResponse(
         String accessToken,
         OffsetDateTime accessTokenExpiresAt,
-        String refreshToken,
         OffsetDateTime refreshTokenExpiresAt,
         CurrentUserVO userInfo
 ) {

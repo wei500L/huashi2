@@ -4,10 +4,10 @@
  *
  * Usage:
  *   node scripts/mobile-viewport-audit.mjs
- *   BASE_URL=https://huashi.qsfw.eu.cc node scripts/mobile-viewport-audit.mjs
+ *   BASE_URL=https://huashi.mnari.cn node scripts/mobile-viewport-audit.mjs
  *
  * Optional env:
- *   BASE_URL          default https://huashi.qsfw.eu.cc
+ *   BASE_URL          default https://huashi.mnari.cn
  *   OUT_DIR           default qa-output/mobile-responsive-<date>
  *   STUDENT_USER      default student.li
  *   STUDENT_PASS      default Student@123456
@@ -24,7 +24,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright';
 
-const BASE_URL = (process.env.BASE_URL || 'https://huashi.qsfw.eu.cc').replace(/\/$/, '');
+const BASE_URL = (process.env.BASE_URL || 'https://huashi.mnari.cn').replace(/\/$/, '');
 const dateStamp = new Date().toISOString().slice(0, 10);
 const OUT_DIR = process.env.OUT_DIR || path.join('qa-output', `mobile-responsive-${dateStamp}`);
 const HEADLESS = process.env.HEADLESS !== '0';
@@ -185,7 +185,6 @@ async function auditRole(browser, role, routes) {
         await login(page, ACCOUNTS[role]);
       }
       for (const route of routes) {
-        // eslint-disable-next-line no-await-in-loop
         const result = await captureRoute(page, role, route, viewport);
         results.push(result);
         const status = result.ok ? 'PASS' : 'FAIL';

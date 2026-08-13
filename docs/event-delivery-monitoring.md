@@ -1,5 +1,7 @@
 # Event Delivery Monitoring
 
+Prometheus 规则与处理步骤见 [`deploy/observability/prometheus-alerts.yml`](../deploy/observability/prometheus-alerts.yml) 与 [incident-runbook.md](incident-runbook.md)。
+
 Use these signals to detect routing or consumer failures for cross-service platform events:
 
 - Alert when `app.outbox.failed.count > 0` for 5 minutes.

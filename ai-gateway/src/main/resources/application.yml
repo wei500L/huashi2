@@ -79,7 +79,7 @@ ai:
           api-key: ${AI_CHAT_API_KEY:${AI_OPENAI_API_KEY:}}
           model: ${AI_CHAT_MODEL:qwen-max}
           connect-timeout: ${AI_CHAT_CONNECT_TIMEOUT:PT3S}
-          read-timeout: ${AI_CHAT_READ_TIMEOUT:PT30S}
+          read-timeout: ${AI_CHAT_READ_TIMEOUT:PT180S}
           temperature: ${AI_CHAT_TEMPERATURE:0.2}
           max-tokens: ${AI_CHAT_MAX_TOKENS:8192}
         embedding:
@@ -107,7 +107,7 @@ ai:
           api-key: ${AI_FALLBACK_CHAT_API_KEY:${AI_CHAT_API_KEY:${AI_OPENAI_API_KEY:}}}
           model: ${AI_FALLBACK_CHAT_MODEL:${AI_CHAT_MODEL:qwen-max}}
           connect-timeout: ${AI_FALLBACK_CHAT_CONNECT_TIMEOUT:${AI_CHAT_CONNECT_TIMEOUT:PT3S}}
-          read-timeout: ${AI_FALLBACK_CHAT_READ_TIMEOUT:${AI_CHAT_READ_TIMEOUT:PT30S}}
+          read-timeout: ${AI_FALLBACK_CHAT_READ_TIMEOUT:${AI_CHAT_READ_TIMEOUT:PT180S}}
           temperature: ${AI_FALLBACK_CHAT_TEMPERATURE:${AI_CHAT_TEMPERATURE:0.2}}
           max-tokens: ${AI_FALLBACK_CHAT_MAX_TOKENS:${AI_CHAT_MAX_TOKENS:8192}}
         embedding:

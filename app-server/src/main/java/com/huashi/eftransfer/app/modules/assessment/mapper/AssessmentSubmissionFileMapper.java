@@ -22,4 +22,15 @@ public interface AssessmentSubmissionFileMapper extends BaseMapper<AssessmentSub
             LIMIT #{limit}
             """)
     List<Long> selectOrphanCandidateIds(@Param("deadline") LocalDateTime deadline, @Param("limit") int limit);
+
+    @Select("""
+            SELECT id
+            FROM assessment_submission_file
+            WHERE deleted = FALSE
+              AND binding_status = 'BOUND'
+              AND COALESCE(bound_at, uploaded_at) <= #{deadline}
+            ORDER BY uploaded_at ASC, id ASC
+            LIMIT #{limit}
+            """)
+    List<Long> selectExpiredBoundIds(@Param("deadline") LocalDateTime deadline, @Param("limit") int limit);
 }

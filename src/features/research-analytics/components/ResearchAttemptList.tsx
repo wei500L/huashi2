@@ -16,6 +16,7 @@ export const ResearchAttemptList: React.FC<{
 }> = ({ rows, loading, error, onRetry, onOpen, exportAction }) => {
   const columns: Array<DataTableColumn<ResearchAttemptSummaryVO>> = [
     { id: 'participant', header: '参与者', render: (row) => <span className="font-bold">{row.participantCode}</span> },
+    { id: 'attemptNo', header: '次数', render: (row) => String(row.attemptNo || 1) },
     { id: 'status', header: '状态', render: (row) => <StatusBadge label={row.status === 'SUBMITTED' ? '已提交' : '作答中'} tone={row.status === 'SUBMITTED' ? 'success' : 'info'} /> },
     { id: 'progress', header: '进度', render: (row) => `${row.answeredCount}/${row.questionCount}` },
     { id: 'duration', header: '用时', render: (row) => formatDuration(row.effectiveDurationMs) },
@@ -60,7 +61,7 @@ export const ResearchAttemptList: React.FC<{
               <StatusBadge label={row.status === 'SUBMITTED' ? '已提交' : '作答中'} tone={row.status === 'SUBMITTED' ? 'success' : 'info'} />
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              {row.submittedAt ? formatDateTime(row.submittedAt) : '尚未提交'} · {row.answeredCount}/{row.questionCount} · 用时 {formatDuration(row.effectiveDurationMs)}
+              第 {row.attemptNo || 1} 次 · {row.submittedAt ? formatDateTime(row.submittedAt) : '尚未提交'} · {row.answeredCount}/{row.questionCount} · 用时 {formatDuration(row.effectiveDurationMs)}
             </p>
             <p className="mt-1 text-xs text-slate-400">
               {row.qualityFlags.length ? qualityFlagLabels(row.qualityFlags).join('、') : '质量正常'}

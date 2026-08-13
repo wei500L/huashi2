@@ -41,7 +41,6 @@ const mockUser: CurrentUserVO = {
 const mockSession: LoginResponse = {
   accessToken: 'access-token',
   accessTokenExpiresAt: '2030-01-01T00:00:00Z',
-  refreshToken: 'refresh-token',
   refreshTokenExpiresAt: '2030-01-02T00:00:00Z',
   userInfo: mockUser,
 };

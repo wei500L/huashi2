@@ -31,6 +31,7 @@ public interface AssessmentAttemptMapper extends BaseMapper<AssessmentAttemptEnt
             WHERE deleted = FALSE
               AND status = 'IN_PROGRESS'
               AND participant_id IS NOT NULL
+              AND answering_started_at IS NOT NULL
               AND expires_at <= #{deadline}
             ORDER BY expires_at ASC, id ASC
             LIMIT #{limit}
@@ -38,15 +39,34 @@ public interface AssessmentAttemptMapper extends BaseMapper<AssessmentAttemptEnt
     List<Long> selectExpiredPublicAttemptIds(@Param("deadline") LocalDateTime deadline, @Param("limit") int limit);
 
     @Select("""
-            SELECT id, publish_id, paper_id, student_user_id, participant_id, status, started_at, expires_at, submitted_at,
-                   last_saved_at, answered_count, objective_score, total_score, version, submit_reason, created_at, created_by,
-                   updated_at, updated_by, deleted
+            SELECT id, publish_id, paper_id, student_user_id, participant_id, status, started_at, answering_started_at,
+                   expires_at, submitted_at,
+                   last_saved_at, answered_count, objective_score, total_score, version, submit_reason, attempt_no,
+                   created_at, created_by, updated_at, updated_by, deleted
             FROM assessment_attempt
             WHERE id = #{attemptId}
               AND deleted = FALSE
             FOR UPDATE
             """)
     AssessmentAttemptEntity selectByIdForUpdate(@Param("attemptId") Long attemptId);
+
+    @Update("""
+            UPDATE assessment_attempt
+            SET started_at = #{startedAt},
+                answering_started_at = #{startedAt},
+                expires_at = #{expiresAt},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{attemptId}
+              AND deleted = FALSE
+              AND status = 'IN_PROGRESS'
+              AND participant_id IS NOT NULL
+              AND answering_started_at IS NULL
+            """)
+    int startPublicAnswering(
+            @Param("attemptId") Long attemptId,
+            @Param("startedAt") LocalDateTime startedAt,
+            @Param("expiresAt") LocalDateTime expiresAt
+    );
 
     @Update("""
             UPDATE assessment_attempt

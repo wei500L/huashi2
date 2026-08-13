@@ -11,6 +11,7 @@ public class AssessmentPublicReleaseEntity extends BaseAuditEntity {
     @TableField("code_count") private Integer codeCount;
     @TableField("session_ttl_hours") private Integer sessionTtlHours;
     @TableField("qr_entry_enabled") private Boolean qrEntryEnabled;
+    @TableField("max_attempts") private Integer maxAttempts;
     private String status;
 
     public Long getPublishId() { return publishId; }
@@ -23,6 +24,8 @@ public class AssessmentPublicReleaseEntity extends BaseAuditEntity {
     public void setSessionTtlHours(Integer sessionTtlHours) { this.sessionTtlHours = sessionTtlHours; }
     public Boolean getQrEntryEnabled() { return qrEntryEnabled; }
     public void setQrEntryEnabled(Boolean qrEntryEnabled) { this.qrEntryEnabled = qrEntryEnabled; }
+    public Integer getMaxAttempts() { return maxAttempts; }
+    public void setMaxAttempts(Integer maxAttempts) { this.maxAttempts = maxAttempts; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 }

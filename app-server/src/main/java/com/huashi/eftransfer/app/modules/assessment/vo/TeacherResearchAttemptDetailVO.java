@@ -19,6 +19,7 @@ public record TeacherResearchAttemptDetailVO(
 
     public record ResearchAttemptStateVO(
             Long attemptId,
+            Integer attemptNo,
             Long publishId,
             Long paperId,
             String paperTitle,

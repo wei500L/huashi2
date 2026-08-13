@@ -110,6 +110,41 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void shouldClosePublicReleaseAndRevokeEveryUnusedCode() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/public-release/close", publishId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CLOSED"))
+                .andExpect(jsonPath("$.data.qrEntryEnabled").value(false))
+                .andExpect(jsonPath("$.data.unusedCount").value(0))
+                .andExpect(jsonPath("$.data.revokedCount").value(2));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ASSESSMENT_CLOSED"));
+
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/participation-code-batches", publishId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\":1}"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(post("/api/teacher/assessments/publishes/{publishId}/public-release/close", publishId)
+                        .with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CLOSED"));
+    }
+
+    @Test
     void shouldAuditManualCodeIpAndResumeQrParticipantAcrossIpChanges() throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
         long paperId = createPaper(teacherToken);
@@ -300,6 +335,7 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                                 """.formatted(participationCode)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.resumed").value(false))
+                .andExpect(jsonPath("$.data.attempt.answeringStartedAt").isEmpty())
                 .andExpect(jsonPath("$.data.attempt.questions[0].formalSection").value(true))
                 .andReturn();
         Cookie cookie = sessionCookie(verified);
@@ -307,7 +343,14 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
 
         mockMvc.perform(get("/api/public/assessments/{releaseCode}/attempt", releaseCode).cookie(cookie))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.attemptId").value((int) attemptId));
+                .andExpect(jsonPath("$.data.attemptId").value((int) attemptId))
+                .andExpect(jsonPath("$.data.answeringStartedAt").isEmpty());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/begin", releaseCode).cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attemptId").value((int) attemptId))
+                .andExpect(jsonPath("$.data.answeringStartedAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.version").value(1));
 
         mockMvc.perform(post("/api/public/assessments/{releaseCode}/responses", releaseCode)
                         .cookie(cookie)
@@ -380,6 +423,147 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.attempt.attemptId").value((int) attemptId))
                 .andReturn();
         assertThat(sessionCookie(resumed).getValue()).isNotBlank();
+    }
+
+    @Test
+    void shouldReturnMaximumScoreAsResultDenominator() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/submit", releaseCode)
+                        .cookie(sessionCookie(verified))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "baseVersion":1,
+                                  "reason":"MANUAL",
+                                  "responses":[{
+                                    "questionOrder":1,
+                                    "responses":["F"],
+                                    "justificationText":"integration test"
+                                  }]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/public/assessments/{releaseCode}/result", releaseCode)
+                        .cookie(sessionCookie(verified)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.objectiveScore").value(0))
+                .andExpect(jsonPath("$.data.totalScore").value(1));
+    }
+
+    @Test
+    void shouldAllowExplicitRetakeWhenMaxAttemptsIsRaised() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempt.canStartNewAttempt").value(false))
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+        long firstAttemptId = readJson(verified).path("data").path("attempt").path("attemptId").asLong();
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/submit", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"baseVersion":1,"reason":"MANUAL","responses":[{"questionOrder":1,"responses":["T"]}]}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/new-attempt", releaseCode).cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attemptId").value((int) firstAttemptId))
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data.canStartNewAttempt").value(false));
+
+        mockMvc.perform(patch("/api/teacher/assessments/publishes/{publishId}/public-release", publishId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"qrEntryEnabled\":false,\"maxAttempts\":2}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.maxAttempts").value(2));
+
+        MvcResult second = mockMvc.perform(post("/api/public/assessments/{releaseCode}/new-attempt", releaseCode).cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.attemptNo").value(2))
+                .andExpect(jsonPath("$.data.canStartNewAttempt").value(false))
+                .andReturn();
+        long secondAttemptId = readJson(second).path("data").path("attemptId").asLong();
+        assertThat(secondAttemptId).isNotEqualTo(firstAttemptId);
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(participationCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resumed").value(true))
+                .andExpect(jsonPath("$.data.attempt.attemptId").value((int) secondAttemptId));
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/submit", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"baseVersion":1,"reason":"MANUAL","responses":[{"questionOrder":1,"responses":["T"]}]}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/new-attempt", releaseCode).cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attemptId").value((int) secondAttemptId))
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data.canStartNewAttempt").value(false));
+
+        mockMvc.perform(get("/api/public/assessments/{releaseCode}/result", releaseCode).cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attemptId").value((int) secondAttemptId))
+                .andExpect(jsonPath("$.data.attemptNo").value(2))
+                .andExpect(jsonPath("$.data.canStartNewAttempt").value(false));
+    }
+
+    @Test
+    void shouldClearPublicSessionCookieSoAnotherCodeCanEnter() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String firstCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+        String secondCode = readJson(published).path("data").path("participationCodes").get(1).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(firstCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/session/clear", releaseCode).cookie(cookie))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/public/assessments/{releaseCode}/attempt", releaseCode).cookie(cookie))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"%s\"}".formatted(secondCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resumed").value(false));
     }
 
     @Test
@@ -491,6 +675,8 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
                 .andReturn();
         Cookie cookie = sessionCookie(verified);
 
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/begin", releaseCode).cookie(cookie))
+                .andExpect(status().isOk());
         JsonNode baseline = attemptData(releaseCode, cookie);
         assertThat(baseline.path("durationMinutes").asInt()).isEqualTo(40);
         assertThat(baseline.path("questions").size()).isEqualTo(1);

@@ -19,6 +19,9 @@ public record PublicAssessmentResultVO(
         List<String> qualityFlags,
         String aiAnalysisStatus,
         AssessmentAiAnalysisVO aiAnalysis,
-        List<AssessmentAttemptResultQuestionVO> questions
+        List<AssessmentAttemptResultQuestionVO> questions,
+        Integer attemptNo,
+        Integer maxAttempts,
+        boolean canStartNewAttempt
 ) {
 }

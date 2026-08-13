@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$Base = 'https://huashi.qsfw.eu.cc'
+$Base = 'https://huashi.mnari.cn'
 $OutDir = 'qa-output/e2e-2026-08-06/api-postdeploy'
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 

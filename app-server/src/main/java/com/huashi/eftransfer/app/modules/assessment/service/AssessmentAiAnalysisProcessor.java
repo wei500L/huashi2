@@ -19,6 +19,7 @@ import com.huashi.eftransfer.shared.ai.StructuredChatRequest;
 import com.huashi.eftransfer.shared.ai.StructuredChatResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -114,42 +115,55 @@ public class AssessmentAiAnalysisProcessor {
     void processClaimed(Long analysisId) {
         AssessmentAiAnalysisEntity analysis = aiAnalysisMapper.selectById(analysisId);
         if (analysis == null || !"PROCESSING".equals(analysis.getStatus())) return;
-        AssessmentMetricSnapshotEntity metric = metricSnapshotMapper.selectById(analysis.getMetricSnapshotId());
-        if (metric == null) {
-            completeFallback(analysis, null, "METRIC_SNAPSHOT_MISSING", 0L, null);
-            return;
-        }
-        List<AssessmentAttemptAnswerEntity> scoredAnswers = answerMapper.selectList(
-                Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
-                        .eq(AssessmentAttemptAnswerEntity::getAttemptId, analysis.getAttemptId())
-                        .gt(AssessmentAttemptAnswerEntity::getQuestionScore, 0)
-                        .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder)
-        );
-        Map<String, Object> payload = buildSafePayload(metric, scoredAnswers);
-        StructuredChatRequest request = new StructuredChatRequest(
-                List.of(
-                        new ChatMessage("system", SYSTEM_PROMPT),
-                        new ChatMessage("user", "请分析以下匿名研究结果 JSON：\n" + jsonCodec.write(payload))
-                ),
-                null,
-                0.2d,
-                "assessment_analysis",
-                Boolean.TRUE,
-                schemaFactory.assessmentAnalysisSchema(),
-                "medium",
-                Boolean.FALSE
-        );
-        AiGatewayCallResult<StructuredChatResponse> result = aiGatewayClient.structuredChat(request);
-        if (!result.success() || result.data() == null) {
-            handleFailure(analysis, metric, result.failureReason() == null ? "UNKNOWN" : result.failureReason().name(),
-                    result.latencyMs(), payload);
-            return;
-        }
         try {
-            AssessmentAiAnalysisVO output = validateOutput(result.data().structuredData());
+            AssessmentMetricSnapshotEntity metric = metricSnapshotMapper.selectById(analysis.getMetricSnapshotId());
+            if (metric == null) {
+                completeFallback(analysis, null, "METRIC_SNAPSHOT_MISSING", 0L, null);
+                return;
+            }
+            List<AssessmentAttemptAnswerEntity> scoredAnswers = answerMapper.selectList(
+                    Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
+                            .eq(AssessmentAttemptAnswerEntity::getAttemptId, analysis.getAttemptId())
+                            .gt(AssessmentAttemptAnswerEntity::getQuestionScore, 0)
+                            .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder)
+            );
+            Map<String, Object> payload = buildSafePayload(metric, scoredAnswers);
+            StructuredChatRequest request = new StructuredChatRequest(
+                    List.of(
+                            new ChatMessage("system", SYSTEM_PROMPT),
+                            new ChatMessage("user", "请分析以下匿名研究结果 JSON：\n" + jsonCodec.write(payload))
+                    ),
+                    null,
+                    0.2d,
+                    "assessment_analysis",
+                    Boolean.TRUE,
+                    schemaFactory.assessmentAnalysisSchema(),
+                    "medium",
+                    Boolean.FALSE
+            );
+            AiGatewayCallResult<StructuredChatResponse> result = aiGatewayClient.structuredChat(request);
+            if (!result.success() || result.data() == null) {
+                handleFailure(analysis, metric, result.failureReason() == null ? "UNKNOWN" : result.failureReason().name(),
+                        result.latencyMs(), payload);
+                return;
+            }
+            AssessmentAiAnalysisVO output;
+            try {
+                output = validateOutput(result.data().structuredData());
+            } catch (RuntimeException exception) {
+                handleFailure(analysis, metric, "INVALID_MODEL_OUTPUT", result.latencyMs(), payload);
+                return;
+            }
             completeAi(analysis, result.data(), output, payload, result.latencyMs());
         } catch (RuntimeException exception) {
-            handleFailure(analysis, metric, "INVALID_MODEL_OUTPUT", result.latencyMs(), payload);
+            log.error("event=assessment_ai_analysis_unhandled analysisId={} attemptId={}",
+                    analysisId, analysis.getAttemptId(), exception);
+            AssessmentAiAnalysisEntity current = aiAnalysisMapper.selectById(analysisId);
+            if (current == null || !"PROCESSING".equals(current.getStatus())) {
+                return;
+            }
+            AssessmentMetricSnapshotEntity metric = metricSnapshotMapper.selectById(current.getMetricSnapshotId());
+            handleFailure(current, metric, "UNHANDLED_" + exception.getClass().getSimpleName(), 0L, null);
         }
     }
 
@@ -211,7 +225,7 @@ public class AssessmentAiAnalysisProcessor {
                 Map.of("rawContent", response.rawContent(), "structuredData", response.structuredData()),
                 output, GENERATION_SOURCE_AI, null, response.usage()
         );
-        generationRecordService.save(generation);
+        persistGenerationRecord(generation);
         analysis.setStatus("COMPLETED");
         analysis.setModelName(response.model());
         if (response.usage() != null) {
@@ -261,7 +275,7 @@ public class AssessmentAiAnalysisProcessor {
                 analysis, null, null, latencyMs, safePayload, Map.of("failureReason", reason), fallback,
                 GENERATION_SOURCE_FALLBACK, reason, null
         );
-        generationRecordService.save(generation);
+        persistGenerationRecord(generation);
         analysis.setStatus("FALLBACK");
         analysis.setRuleFallbackJson(jsonCodec.write(fallback));
         analysis.setFallbackReason(limit(reason, 1000));
@@ -323,6 +337,23 @@ public class AssessmentAiAnalysisProcessor {
         entity.setFallbackReason(limit(fallbackReason, 128));
         entity.setGeneratedAt(LocalDateTime.now());
         return entity;
+    }
+
+    private void persistGenerationRecord(AiGenerationRecordEntity generation) {
+        AiGenerationRecordEntity existing = generationRecordService.findByRequestId(generation.getRequestId());
+        if (existing != null) {
+            generation.setId(existing.getId());
+            return;
+        }
+        try {
+            generationRecordService.save(generation);
+        } catch (DuplicateKeyException duplicate) {
+            existing = generationRecordService.findByRequestId(generation.getRequestId());
+            if (existing == null) {
+                throw duplicate;
+            }
+            generation.setId(existing.getId());
+        }
     }
 
     private boolean blank(String value) { return value == null || value.isBlank(); }

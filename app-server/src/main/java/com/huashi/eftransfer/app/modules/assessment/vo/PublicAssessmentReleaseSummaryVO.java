@@ -12,6 +12,7 @@ public record PublicAssessmentReleaseSummaryVO(
         String status,
         LocalDateTime publishedAt,
         boolean qrEntryEnabled,
+        int maxAttempts,
         int codeCount,
         long unusedCount,
         long inProgressCount,

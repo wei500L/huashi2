@@ -1,17 +1,24 @@
 package com.huashi.eftransfer.app.modules.assessment;
 
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipantAccessEntity;
+import com.huashi.eftransfer.app.modules.assessment.entity.AssessmentParticipantEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.ResearchAiReportEntity;
 import com.huashi.eftransfer.app.modules.assessment.entity.ResearchExportJobEntity;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipantAccessMapper;
+import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipantMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.ResearchAiReportMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.ResearchExportJobMapper;
 import com.huashi.eftransfer.app.modules.assessment.service.ObjectStorageService;
 import com.huashi.eftransfer.app.modules.assessment.service.ResearchAiReportProcessor;
+import com.huashi.eftransfer.app.modules.assessment.service.ResearchRetentionService;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
@@ -36,6 +43,10 @@ class ResearchAnalyticsIntegrationTest extends AbstractWebIntegrationTest {
     @Autowired private ResearchAiReportProcessor reportProcessor;
     @Autowired private ResearchExportJobMapper exportJobMapper;
     @Autowired private ObjectStorageService objectStorageService;
+    @Autowired private ResearchRetentionService researchRetentionService;
+    @Autowired private AssessmentParticipantMapper participantMapper;
+    @Autowired private AssessmentParticipantAccessMapper accessMapper;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     @Test
     void teacherCanInspectPublicAttemptsWithoutTeachingClassAndOthersAreForbidden() throws Exception {
@@ -101,6 +112,66 @@ class ResearchAnalyticsIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/teacher/assessments/attempts/{attemptId}/result", attemptId).with(bearer(teacherToken)))
                 .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void overviewCountsLatestSubmittedAttemptWhenRetakesAreEnabled() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createChoicePaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        mockMvc.perform(patch("/api/teacher/assessments/publishes/{publishId}/public-release", publishId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"qrEntryEnabled\":false,\"maxAttempts\":2}"))
+                .andExpect(status().isOk());
+
+        Cookie cookie = enterByCode(releaseCode, participationCode);
+        JsonNode first = attemptData(releaseCode, cookie);
+        long firstAttemptId = first.path("attemptId").asLong();
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/submit", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"baseVersion":%d,"reason":"MANUAL","responses":[{"questionOrder":1,"responses":["A"]}]}
+                                """.formatted(first.path("version").asLong())))
+                .andExpect(status().isOk());
+
+        MvcResult retake = mockMvc.perform(post("/api/public/assessments/{releaseCode}/new-attempt", releaseCode).cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attemptNo").value(2))
+                .andReturn();
+        long secondAttemptId = readJson(retake).path("data").path("attemptId").asLong();
+        mockMvc.perform(post("/api/public/assessments/{releaseCode}/submit", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"baseVersion":1,"reason":"MANUAL","responses":[{"questionOrder":1,"responses":["B"]}]}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/teacher/research/publishes/{publishId}/overview", publishId).with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.funnel.submitted").value(1))
+                .andExpect(jsonPath("$.data.rates.completionRate.numerator").value(1))
+                .andExpect(jsonPath("$.data.rates.completionRate.denominator").value(1));
+
+        mockMvc.perform(get("/api/teacher/research/publishes/{publishId}/statistics/questions", publishId).with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.meta.sampleCount").value(1))
+                .andExpect(jsonPath("$.data.questions[0].answeredCount").value(1))
+                .andExpect(jsonPath("$.data.questions[0].correctRate").value(0.0));
+
+        mockMvc.perform(get("/api/teacher/research/publishes/{publishId}/attempts", publishId).with(bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.records[0].attemptId").value((int) secondAttemptId))
+                .andExpect(jsonPath("$.data.records[0].attemptNo").value(2))
+                .andExpect(jsonPath("$.data.records[1].attemptId").value((int) firstAttemptId))
+                .andExpect(jsonPath("$.data.records[1].attemptNo").value(1));
     }
 
     @Test
@@ -339,6 +410,67 @@ class ResearchAnalyticsIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("FALLBACK"))
                 .andExpect(jsonPath("$.data.source").value("RULE_FALLBACK"))
                 .andExpect(jsonPath("$.data.ruleFallback.researchCautions[0]").exists());
+    }
+
+    @Test
+    void expiredResearchPiiIsAnonymizedWhileRecentRecordsStay() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String expiredCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+        String recentCode = readJson(published).path("data").path("participationCodes").get(1).asText();
+
+        enterByCode(releaseCode, expiredCode);
+        enterByCode(releaseCode, recentCode);
+
+        var participants = participantMapper.selectList(Wrappers.<AssessmentParticipantEntity>lambdaQuery()
+                .eq(AssessmentParticipantEntity::getPublishId, publishId)
+                .orderByAsc(AssessmentParticipantEntity::getId));
+        assertThat(participants).hasSize(2);
+        AssessmentParticipantEntity expired = participants.get(0);
+        AssessmentParticipantEntity recent = participants.get(1);
+
+        expired.setSensitiveProfileCiphertext("cipher-expired");
+        expired.setSensitiveProfileIv("iv-expired");
+        expired.setSensitiveProfileKeyVersion("v1");
+        participantMapper.updateById(expired);
+        recent.setSensitiveProfileCiphertext("cipher-recent");
+        recent.setSensitiveProfileIv("iv-recent");
+        recent.setSensitiveProfileKeyVersion("v1");
+        participantMapper.updateById(recent);
+
+        LocalDateTime expiredAt = LocalDateTime.now().minusDays(800);
+        jdbcTemplate.update(
+                "UPDATE assessment_participant SET created_at = ?, consented_at = ? WHERE id = ?",
+                expiredAt,
+                expiredAt,
+                expired.getId()
+        );
+        jdbcTemplate.update(
+                "UPDATE assessment_participant_access SET accessed_at = ? WHERE participant_id = ?",
+                expiredAt,
+                expired.getId()
+        );
+
+        researchRetentionService.purgeExpired();
+
+        AssessmentParticipantEntity expiredAfter = participantMapper.selectById(expired.getId());
+        AssessmentParticipantEntity recentAfter = participantMapper.selectById(recent.getId());
+        assertThat(expiredAfter.getSensitiveProfileCiphertext()).isNull();
+        assertThat(expiredAfter.getSensitiveProfileIv()).isNull();
+        assertThat(expiredAfter.getSensitiveProfileKeyVersion()).isNull();
+        assertThat(expiredAfter.getAnonymizedAt()).isNotNull();
+        assertThat(recentAfter.getSensitiveProfileCiphertext()).isEqualTo("cipher-recent");
+        assertThat(recentAfter.getAnonymizedAt()).isNull();
+
+        Long expiredAccessCount = accessMapper.selectCount(Wrappers.<AssessmentParticipantAccessEntity>lambdaQuery()
+                .eq(AssessmentParticipantAccessEntity::getParticipantId, expired.getId()));
+        Long recentAccessCount = accessMapper.selectCount(Wrappers.<AssessmentParticipantAccessEntity>lambdaQuery()
+                .eq(AssessmentParticipantAccessEntity::getParticipantId, recent.getId()));
+        assertThat(expiredAccessCount).isZero();
+        assertThat(recentAccessCount).isGreaterThan(0);
     }
 
     private void submitChoice(String releaseCode, String participationCode, String option) throws Exception {

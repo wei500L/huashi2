@@ -49,14 +49,15 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   FILE_UPLOAD: '文件上传',
 };
 
-const ResearchQuestionMap: React.FC<{
+export const ResearchQuestionMap: React.FC<{
   questions: PublicAssessmentQuestionVO[];
   selectedOrder: number;
   responsesByOrder: ResponsesByOrder;
   justificationsByOrder: JustificationsByOrder;
   attachmentsByOrder: AttachmentsByOrder;
+  navigationLocked?: boolean;
   onSelect: (index: number) => void;
-}> = ({ questions, selectedOrder, responsesByOrder, justificationsByOrder, attachmentsByOrder, onSelect }) => {
+}> = ({ questions, selectedOrder, responsesByOrder, justificationsByOrder, attachmentsByOrder, navigationLocked, onSelect }) => {
   const profile = questions.filter((question) => question.formalSection === false && question.questionType !== 'INSTRUCTION');
   const formal = questions.filter((question) => question.formalSection === true);
   const renderGroup = (items: PublicAssessmentQuestionVO[], prefix: string) => items.map((question, index) => {
@@ -75,6 +76,7 @@ const ResearchQuestionMap: React.FC<{
         className={`research-map-dot ${current ? 'is-current' : ''} ${answered ? 'is-answered' : ''}`}
         aria-current={current ? 'step' : undefined}
         aria-label={`${prefix}${index + 1}${answered ? '，已作答' : '，未作答'}`}
+        disabled={navigationLocked}
         onClick={() => onSelect(globalIndex)}
       >
         {prefix === '正式题' ? index + 1 : `资${index + 1}`}
@@ -82,10 +84,10 @@ const ResearchQuestionMap: React.FC<{
     );
   });
   return (
-    <div className="research-question-map" aria-label="题目跳转">
+    <nav className="research-question-map" aria-label="题目跳转">
       {profile.length ? <div className="research-map-group"><span>资料</span><div>{renderGroup(profile, '资料')}</div></div> : null}
       {formal.length ? <div className="research-map-group"><span>正式题</span><div>{renderGroup(formal, '正式题')}</div></div> : null}
-    </div>
+    </nav>
   );
 };
 
@@ -503,24 +505,56 @@ export const PublicQuestion: React.FC<{
   return <div><label htmlFor={`text-answer-${question.questionOrder}`} className="sr-only">文字答案</label><input id={`text-answer-${question.questionOrder}`} type="text" value={responses[0] || ''} disabled={disabled} onChange={(event) => onResponsesChange(event.target.value ? [event.target.value] : [])} className="research-text-input" placeholder="请输入答案" aria-labelledby={labelledBy} /></div>;
 };
 
-const PublicResult: React.FC<{ result: PublicAssessmentResultVO }> = ({ result }) => {
+export const PublicResult: React.FC<{
+  result: PublicAssessmentResultVO;
+  startingNewAttempt?: boolean;
+  onStartNewAttempt?: () => void;
+  onUseAnotherCode?: () => void;
+}> = ({ result, startingNewAttempt, onStartNewAttempt, onUseAnotherCode }) => {
   const fallback = result.aiAnalysisStatus === 'FALLBACK';
   const waiting = result.aiAnalysisStatus === 'PENDING' || result.aiAnalysisStatus === 'PROCESSING';
   const confidence = result.aiAnalysis ? Math.round(result.aiAnalysis.confidence * 100) : null;
+  const hasSummary = result.scoreVisible || Boolean(result.qualityFlags?.length);
+  const canRetake = Boolean(result.canStartNewAttempt && onStartNewAttempt);
+  const lede = canRetake
+    ? `感谢参与「${result.paperTitle}」。这份结果已保存；如果需要，你可以再答一次或换一个参与码进入。`
+    : `感谢参与「${result.paperTitle}」。重复打开此链接，会返回同一份研究结果。`;
   return (
   <main className="research-result min-w-0">
     <div className="research-result-inner min-w-0">
-      <div className="research-result-mark"><CheckCircle2 size={24} /></div>
-      <p className="research-kicker">LEXI-BRIDGE / SUBMISSION COMPLETE</p>
-      <h1>你的迁移路径，<br /><em>已经被记录。</em></h1>
-      <p className="research-result-lede break-words">感谢参与「{result.paperTitle}」。重复打开此链接，会返回同一份研究结果。</p>
-      {result.scoreVisible ? (
-        <div className="research-score min-w-0 gap-3">
-          <span>规则评分</span>
-          <strong className="min-w-0 break-words">{result.objectiveScore ?? '—'}<small>{result.totalScore != null ? ` / ${result.totalScore}` : ''}</small></strong>
+      <section className="research-result-hero min-w-0" aria-labelledby="research-result-title">
+        <div className="research-result-hero-copy min-w-0">
+          <div className="research-result-mark" aria-hidden="true"><CheckCircle2 size={24} /></div>
+          <p className="research-kicker">LEXI-BRIDGE / SUBMISSION COMPLETE</p>
+          <h1 id="research-result-title"><span>你的迁移路径，</span><em>已经被记录。</em></h1>
+          <p className="research-result-lede break-words">{lede}</p>
+          {onStartNewAttempt || onUseAnotherCode ? (
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              {canRetake ? (
+                <button type="button" disabled={startingNewAttempt} onClick={onStartNewAttempt} className="research-primary-button w-full sm:w-auto">
+                  {startingNewAttempt ? '正在开始新答卷…' : '再答一次'}
+                </button>
+              ) : null}
+              {onUseAnotherCode ? (
+                <button type="button" disabled={startingNewAttempt} onClick={onUseAnotherCode} className="research-quiet-button w-full sm:w-auto">
+                  用其他参与码进入
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      {result.qualityFlags?.length ? <div className="research-quality break-words">数据质量提醒：{result.qualityFlags.map((flag) => QUALITY_FLAG_LABELS[flag] || flag).join('、')}</div> : null}
+        {hasSummary ? <section className="research-result-summary min-w-0" aria-label="提交结果摘要">
+          {result.scoreVisible ? (
+            <div className="research-score min-w-0">
+              <span>规则评分</span>
+              <strong className="min-w-0 break-words" aria-label={`规则评分 ${result.objectiveScore ?? '未提供'}，总分 ${result.totalScore ?? '未提供'}`}>
+                {result.objectiveScore ?? '—'}<small>{result.totalScore != null ? ` / ${result.totalScore}` : ''}</small>
+              </strong>
+            </div>
+          ) : null}
+          {result.qualityFlags?.length ? <div className="research-quality break-words" role="note"><AlertCircle size={16} aria-hidden="true" /><span>数据质量提醒：{result.qualityFlags.map((flag) => QUALITY_FLAG_LABELS[flag] || flag).join('、')}</span></div> : null}
+        </section> : null}
+      </section>
       <div className="research-analysis min-w-0">
         <div className="research-analysis-heading">
           <div>
@@ -530,7 +564,7 @@ const PublicResult: React.FC<{ result: PublicAssessmentResultVO }> = ({ result }
           </div>
           <div className={`research-analysis-source ${fallback ? 'is-fallback' : waiting ? 'is-waiting' : 'is-ai'}`}>
             <span aria-hidden="true" />
-            {fallback ? '规则降级 · 非模型结论' : waiting ? '模型生成中 · 自动重试' : result.aiAnalysis ? '真实模型分析' : `分析状态 · ${result.aiAnalysisStatus || 'PENDING'}`}
+            {fallback ? '规则降级 · 非模型结论' : waiting ? '模型生成中 · 可稍后返回' : result.aiAnalysis ? '真实模型分析' : `分析状态 · ${result.aiAnalysisStatus || 'PENDING'}`}
           </div>
         </div>
         {result.aiAnalysis ? <div className="research-analysis-content min-w-0">
@@ -556,7 +590,7 @@ const PublicResult: React.FC<{ result: PublicAssessmentResultVO }> = ({ result }
             <ol>{result.aiAnalysis.recommendations.map((item, index) => <li key={item}><span>{String(index + 1).padStart(2, '0')}</span><p className="break-words">{item}</p></li>)}</ol>
           </section>
           {result.aiAnalysis.qualityNotice ? <div className="research-analysis-notice break-words"><ShieldCheck size={17} /><div><strong>如何理解这份分析</strong><p>{result.aiAnalysis.qualityNotice}</p></div></div> : null}
-        </div> : <div className={`research-analysis-empty ${waiting ? 'is-waiting' : ''}`}><span aria-hidden="true" />{waiting ? '正在生成与本次答题结果相关的分析；页面会自动更新，失败时系统将自动重试。' : '分析暂不可用，请稍后重新进入结果页。'}</div>}
+        </div> : <div className={`research-analysis-empty ${waiting ? 'is-waiting' : ''}`}><span aria-hidden="true" />{waiting ? '分析通常需要 1–3 分钟；页面会自动更新，也可以稍后重新打开结果页。失败时系统会自动重试或显示规则降级结果。' : '分析暂不可用，请稍后重新进入结果页。'}</div>}
       </div>
     </div>
   </main>
@@ -595,6 +629,8 @@ const ResearchParticipantPage: React.FC = () => {
   const failedRevisionRef = React.useRef(0);
   const saveInFlightRef = React.useRef(false);
   const releaseGenerationRef = React.useRef(0);
+  const submissionStartedRef = React.useRef(false);
+  const submissionCompletedRef = React.useRef(false);
   const serverOffsetMsRef = React.useRef(0);
   const spellingBusyRef = React.useRef(false);
   const expiredAwaitingRef = React.useRef(false);
@@ -604,9 +640,14 @@ const ResearchParticipantPage: React.FC = () => {
   const [spellingBusy, setSpellingBusy] = React.useState(false);
   const [spellingHintMessage, setSpellingHintMessage] = React.useState<string | null>(null);
   const [expiredNotice, setExpiredNotice] = React.useState<string | null>(null);
+  const [startingNewAttempt, setStartingNewAttempt] = React.useState(false);
+  const [startingAnswering, setStartingAnswering] = React.useState(false);
+  const skipQrEntryRef = React.useRef(false);
+  const resultAttemptId = result?.attemptId;
+  const resultAnalysisStatus = result?.aiAnalysisStatus;
 
   React.useEffect(() => {
-    if (!result || !['PENDING', 'PROCESSING'].includes(result.aiAnalysisStatus || '')) return;
+    if (!resultAttemptId || !['PENDING', 'PROCESSING'].includes(resultAnalysisStatus || '')) return;
     let active = true;
     let attempts = 0;
     const refresh = async () => {
@@ -623,13 +664,15 @@ const ResearchParticipantPage: React.FC = () => {
     };
     const timer = window.setTimeout(refresh, 1500);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [normalizedReleaseCode, result]);
+  }, [normalizedReleaseCode, resultAnalysisStatus, resultAttemptId]);
 
   const applyAttempt = React.useCallback((nextAttempt: PublicAssessmentAttemptVO) => {
     const hydrated = hydrateResponses(nextAttempt);
     currentVersionRef.current = nextAttempt.version;
     savedRevisionRef.current = 0;
     failedRevisionRef.current = 0;
+    submissionStartedRef.current = false;
+    submissionCompletedRef.current = nextAttempt.status === 'SUBMITTED';
     serverOffsetMsRef.current = new Date(nextAttempt.serverTime).getTime() - Date.now();
     setAttempt(nextAttempt);
     setResponsesByOrder(hydrated.responses);
@@ -643,8 +686,11 @@ const ResearchParticipantPage: React.FC = () => {
     if (!normalizedReleaseCode) { setErrorMessage('公开问卷链接无效。'); setLoading(false); return; }
     releaseGenerationRef.current += 1;
     qrEntryAttemptedRef.current = false;
+    skipQrEntryRef.current = false;
     hydratedRef.current = false;
     saveInFlightRef.current = false;
+    submissionStartedRef.current = false;
+    submissionCompletedRef.current = false;
     expiredAwaitingRef.current = false;
     setExpiredNotice(null);
     savedRevisionRef.current = 0;
@@ -662,6 +708,7 @@ const ResearchParticipantPage: React.FC = () => {
     setDirtyRevision(0);
     setSaving(false);
     setSubmitting(false);
+    setStartingAnswering(false);
     setSaveMessage(null);
     const controller = new AbortController();
     const load = async () => {
@@ -696,7 +743,7 @@ const ResearchParticipantPage: React.FC = () => {
   }, [applyAttempt, normalizedReleaseCode]);
 
   React.useEffect(() => {
-    if (!qrRequested || loading || attempt || result || qrEntryAttemptedRef.current) return;
+    if (!qrRequested || loading || attempt || result || qrEntryAttemptedRef.current || skipQrEntryRef.current) return;
     if (!metadata?.qrEntryEnabled) {
       setErrorMessage('此问卷暂未开启二维码免码参与，请输入参与码继续。');
       qrEntryAttemptedRef.current = true;
@@ -747,12 +794,15 @@ const ResearchParticipantPage: React.FC = () => {
   }), [attempt?.questions, attachmentsByOrder, justificationsByOrder, responsesByOrder]);
   const attemptId = attempt?.attemptId; const attemptStatus = attempt?.status;
   React.useEffect(() => {
-    if (!attemptId || attemptStatus !== 'IN_PROGRESS' || !hydratedRef.current || submitting
+    if (!attemptId || attemptStatus !== 'IN_PROGRESS' || result || !hydratedRef.current || submitting
+      || submissionStartedRef.current || submissionCompletedRef.current
       || dirtyRevision === 0 || dirtyRevision <= savedRevisionRef.current
       || dirtyRevision <= failedRevisionRef.current || saveInFlightRef.current) return;
     const revisionToSave = dirtyRevision;
     const generation = releaseGenerationRef.current;
     const timer = window.setTimeout(async () => {
+      if (submissionStartedRef.current || submissionCompletedRef.current
+        || releaseGenerationRef.current !== generation) return;
       saveInFlightRef.current = true;
       setSaving(true);
       setSaveMessage(null);
@@ -769,8 +819,19 @@ const ResearchParticipantPage: React.FC = () => {
         }
       } catch (error) {
         if (releaseGenerationRef.current === generation) {
-          failedRevisionRef.current = Math.max(failedRevisionRef.current, revisionToSave);
-          setSaveMessage(getApiErrorMessage(error, '自动保存失败，请修改后重试。'));
+          const normalized = normalizeApiError(error);
+          if (normalized.code === 'ATTEMPT_SUBMITTED') {
+            submissionCompletedRef.current = true;
+            savedRevisionRef.current = Math.max(savedRevisionRef.current, revisionToSave);
+            setAttempt((current) => current ? { ...current, status: 'SUBMITTED' } : current);
+            setSaveMessage(null);
+            void publicAssessmentService.getResult(normalizedReleaseCode)
+              .then(setResult)
+              .catch(() => undefined);
+          } else {
+            failedRevisionRef.current = Math.max(failedRevisionRef.current, revisionToSave);
+            setSaveMessage(getApiErrorMessage(normalized, '自动保存失败，请修改后重试。'));
+          }
         }
       } finally {
         if (releaseGenerationRef.current === generation) {
@@ -781,10 +842,10 @@ const ResearchParticipantPage: React.FC = () => {
       }
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [attemptId, attemptStatus, buildResponses, dirtyRevision, normalizedReleaseCode, saveCycle, submitting]);
-  React.useEffect(() => { if (!attempt || attempt.status !== 'IN_PROGRESS') return; const report = () => { if (document.hidden || !document.hasFocus()) return; const question = attempt.questions[selectedIndex]; if (!question || question.questionType === 'SPELLING') return; void publicAssessmentService.recordTiming(normalizedReleaseCode, { questionOrder: question.questionOrder, activeDurationMs: 15_000, eventId: crypto.randomUUID() }).catch(() => undefined); }; const timer = window.setInterval(report, 15_000); return () => window.clearInterval(timer); }, [attempt, normalizedReleaseCode, selectedIndex]);
+  }, [attemptId, attemptStatus, buildResponses, dirtyRevision, normalizedReleaseCode, result, saveCycle, submitting]);
+  React.useEffect(() => { if (!attempt || attempt.status !== 'IN_PROGRESS' || !attempt.answeringStartedAt) return; const report = () => { if (document.hidden || !document.hasFocus()) return; const question = attempt.questions[selectedIndex]; if (!question || question.questionType === 'SPELLING') return; void publicAssessmentService.recordTiming(normalizedReleaseCode, { questionOrder: question.questionOrder, activeDurationMs: 15_000, eventId: crypto.randomUUID() }).catch(() => undefined); }; const timer = window.setInterval(report, 15_000); return () => window.clearInterval(timer); }, [attempt, normalizedReleaseCode, selectedIndex]);
   React.useEffect(() => {
-    if (!attempt || attempt.status !== 'IN_PROGRESS') return;
+    if (!attempt || attempt.status !== 'IN_PROGRESS' || !attempt.answeringStartedAt) return;
     const question = attempt.questions[selectedIndex];
     if (!question || question.questionType !== 'SPELLING') return;
     const report = () => {
@@ -803,12 +864,13 @@ const ResearchParticipantPage: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [attempt, normalizedReleaseCode, selectedIndex]);
   React.useEffect(() => {
-    if (!attempt || attempt.status !== 'IN_PROGRESS') return;
+    if (!attempt || attempt.status !== 'IN_PROGRESS' || !attempt.answeringStartedAt) return;
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [attempt]);
   const timeExpired = Boolean(
     attempt && attempt.status === 'IN_PROGRESS'
+      && attempt.answeringStartedAt
       && new Date(attempt.expiresAt).getTime() - (clockNow + serverOffsetMsRef.current) <= 0
   );
   React.useEffect(() => {
@@ -895,6 +957,22 @@ const ResearchParticipantPage: React.FC = () => {
     };
   }, [focusedQuestion, previousFocusedQuestion?.sharedMaterial, reducedMotion, selectedIndex]);
   const verify = async (event: React.FormEvent) => { event.preventDefault(); setVerifying(true); setErrorMessage(null); try { const session = await publicAssessmentService.verifyCode(normalizedReleaseCode, { participationCode: participationCode.trim().toUpperCase() }); rememberPublicSession(normalizedReleaseCode); applyAttempt(session.attempt); if (session.attempt.status === 'SUBMITTED') setResult(await publicAssessmentService.getResult(normalizedReleaseCode)); } catch (error) { setErrorMessage(getApiErrorMessage(error, '参与码验证失败。')); } finally { setVerifying(false); } };
+  const beginAnswering = async () => {
+    if (!attempt || attempt.answeringStartedAt || startingAnswering) return;
+    setStartingAnswering(true);
+    setErrorMessage(null);
+    try {
+      const started = await publicAssessmentService.beginAnswering(normalizedReleaseCode);
+      applyAttempt(started);
+      setClockNow(Date.now());
+      setNavigationDirection(1);
+      setSelectedIndex(Math.min(1, Math.max(0, started.questions.length - 1)));
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, '无法开始计时，请稍后重试。'));
+    } finally {
+      setStartingAnswering(false);
+    }
+  };
   const attemptSpelling = async (questionOrder: number) => {
     if (!attempt || spellingBusyRef.current) return;
     const question = attempt.questions.find((q) => q.questionOrder === questionOrder);
@@ -939,22 +1017,36 @@ const ResearchParticipantPage: React.FC = () => {
     }
   };
   const submit = async () => {
-    if (!attempt || submitting || saving || saveInFlightRef.current || timeExpired) return;
+    if (!attempt || submitting || submissionStartedRef.current || submissionCompletedRef.current
+      || saving || saveInFlightRef.current || timeExpired) return;
+    submissionStartedRef.current = true;
     setSubmitting(true);
     setErrorMessage(null);
     try {
       await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' });
+      submissionCompletedRef.current = true;
+      savedRevisionRef.current = Math.max(savedRevisionRef.current, dirtyRevision);
+      failedRevisionRef.current = 0;
+      setAttempt((current) => current ? { ...current, status: 'SUBMITTED' } : current);
       setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
     } catch (error) {
       const normalized = normalizeApiError(error);
-      if (normalized.code === 'CONFLICT') {
+      if (normalized.status === 409) {
         try {
           const refreshed = await publicAssessmentService.getAttempt(normalizedReleaseCode);
           if (refreshed.status === 'SUBMITTED') {
+            submissionCompletedRef.current = true;
+            savedRevisionRef.current = Math.max(savedRevisionRef.current, dirtyRevision);
+            failedRevisionRef.current = 0;
+            setAttempt(refreshed);
             setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
           } else {
             currentVersionRef.current = refreshed.version;
             await publicAssessmentService.submit(normalizedReleaseCode, { responses: buildResponses(), baseVersion: currentVersionRef.current, reason: 'MANUAL' });
+            submissionCompletedRef.current = true;
+            savedRevisionRef.current = Math.max(savedRevisionRef.current, dirtyRevision);
+            failedRevisionRef.current = 0;
+            setAttempt((current) => current ? { ...current, status: 'SUBMITTED' } : current);
             setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
           }
         } catch (retryError) {
@@ -964,13 +1056,73 @@ const ResearchParticipantPage: React.FC = () => {
         setErrorMessage(getApiErrorMessage(error, '提交失败，请检查必答题后重试。'));
       }
     } finally {
+      submissionStartedRef.current = false;
       setSubmitting(false);
     }
   };
 
+  const startNewAttempt = async () => {
+    if (startingNewAttempt) return;
+    setStartingNewAttempt(true);
+    setErrorMessage(null);
+    try {
+      const nextAttempt = await publicAssessmentService.startNewAttempt(normalizedReleaseCode);
+      rememberPublicSession(normalizedReleaseCode);
+      if (nextAttempt.status === 'SUBMITTED') {
+        setResult(await publicAssessmentService.getResult(normalizedReleaseCode));
+      } else {
+        applyAttempt(nextAttempt);
+        setResult(null);
+        setSelectedIndex(0);
+      }
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, '无法开始新的答卷。'));
+    } finally {
+      setStartingNewAttempt(false);
+    }
+  };
+
+  const switchParticipationCode = async () => {
+    skipQrEntryRef.current = true;
+    qrEntryAttemptedRef.current = true;
+    try {
+      await publicAssessmentService.clearSession(normalizedReleaseCode);
+    } catch {
+      // Cookie clear is best-effort; local marker still needs to drop.
+    }
+    forgetPublicSession(normalizedReleaseCode);
+    setAttempt(null);
+    setResult(null);
+    setParticipationCode('');
+    setErrorMessage(null);
+  };
+
   if (loading) return <div className="research-loading">正在加载研究入口…</div>;
-  if (result) return <PublicResult result={result} />;
-  if (!attempt) return <ResearchEntry metadata={metadata} participationCode={participationCode} verifying={verifying} qrEntering={qrEntering} qrRequested={qrRequested} errorMessage={errorMessage} onCodeChange={setParticipationCode} onVerify={verify} />;
+  if (result) {
+    return (
+      <PublicResult
+        result={result}
+        startingNewAttempt={startingNewAttempt}
+        onStartNewAttempt={startNewAttempt}
+        onUseAnotherCode={() => { void switchParticipationCode(); }}
+      />
+    );
+  }
+  if (!attempt) return (
+    <ResearchEntry
+      metadata={metadata}
+      participationCode={participationCode}
+      verifying={verifying}
+      qrEntering={qrEntering}
+      qrRequested={qrRequested}
+      errorMessage={errorMessage}
+      onCodeChange={(value) => {
+        setParticipationCode(value);
+        setErrorMessage(null);
+      }}
+      onVerify={verify}
+    />
+  );
 
   const currentQuestion = visibleQuestions[Math.min(selectedIndex, Math.max(0, visibleQuestions.length - 1))];
   const stagedProgress = getStagedAnswerProgress(visibleQuestions, responsesByOrder);
@@ -986,7 +1138,10 @@ const ResearchParticipantPage: React.FC = () => {
   const stageAnsweredCount = currentIsFormal ? stagedProgress.formalAnsweredCount : stagedProgress.profileAnsweredCount;
   const stageQuestionCount = currentIsFormal ? stagedProgress.formalQuestionCount : stagedProgress.profileFieldCount;
   const progressPercent = Math.round((stageAnsweredCount / Math.max(1, stageQuestionCount)) * 100);
-  const remainingMs = Math.max(0, new Date(attempt.expiresAt).getTime() - (clockNow + serverOffsetMsRef.current));
+  const answeringStarted = Boolean(attempt.answeringStartedAt);
+  const remainingMs = answeringStarted
+    ? Math.max(0, new Date(attempt.expiresAt).getTime() - (clockNow + serverOffsetMsRef.current))
+    : attempt.durationMinutes * 60_000;
   const remainingMinutes = Math.floor(remainingMs / 60000);
   const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
   const hasPendingSave = dirtyRevision > savedRevisionRef.current;
@@ -1017,9 +1172,13 @@ const ResearchParticipantPage: React.FC = () => {
             <div className="research-progress-copy">LEXI-BRIDGE / 学生答卷</div>
           </div>
           <div className="research-header-status-group">
-            {attempt.status === 'IN_PROGRESS' ? (
+            {attempt.status === 'IN_PROGRESS' && answeringStarted ? (
               <div className="research-elapsed" role="timer" aria-label={`剩余 ${remainingMinutes} 分 ${remainingSeconds} 秒`}>
                 <Clock3 size={15} /><span>{String(remainingMinutes).padStart(2, '0')}:{String(remainingSeconds).padStart(2, '0')}</span>
+              </div>
+            ) : attempt.status === 'IN_PROGRESS' ? (
+              <div className="research-elapsed" role="status">
+                <Clock3 size={15} /><span>计时未开始</span>
               </div>
             ) : null}
             <div className={`research-save-status is-${saveState}`} role="status" aria-live="polite">
@@ -1046,6 +1205,7 @@ const ResearchParticipantPage: React.FC = () => {
             responsesByOrder={responsesByOrder}
             justificationsByOrder={justificationsByOrder}
             attachmentsByOrder={attachmentsByOrder}
+            navigationLocked={!answeringStarted}
             onSelect={navigateToQuestion}
           />
         </div>
@@ -1146,8 +1306,18 @@ const ResearchParticipantPage: React.FC = () => {
                       : currentAnswered ? <><CheckCircle2 size={15} />本题回答已记录</> : currentQuestion.required ? '请选择或填写答案' : '本题可以暂时跳过'}
               </div>
               {selectedIndex < visibleQuestions.length - 1 ? (
-                <button type="button" onClick={() => navigateToQuestion(selectedIndex + 1)} className="research-primary-button w-full sm:w-auto">
-                  {currentQuestion.questionType === 'INSTRUCTION' ? '开始作答' : currentAnswered ? '已记录，继续' : '暂不回答，下一题'}<ChevronRight size={17} className="shrink-0" />
+                <button
+                  type="button"
+                  disabled={startingAnswering}
+                  onClick={() => currentQuestion.questionType === 'INSTRUCTION' && !answeringStarted
+                    ? void beginAnswering()
+                    : navigateToQuestion(selectedIndex + 1)}
+                  className="research-primary-button w-full sm:w-auto"
+                >
+                  {currentQuestion.questionType === 'INSTRUCTION'
+                    ? startingAnswering ? '正在开始计时…' : '开始作答'
+                    : currentAnswered ? '已记录，继续' : '暂不回答，下一题'}
+                  <ChevronRight size={17} className="shrink-0" />
                 </button>
               ) : (
                 <button type="button" disabled={submitting || saving || timeExpired} onClick={() => void submit()} className="research-primary-button w-full sm:w-auto">

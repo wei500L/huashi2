@@ -65,8 +65,10 @@ const ResearchLandingPage: React.FC = () => {
               autoComplete="off"
               spellCheck={false}
               className="min-w-0"
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? 'release-code-error' : undefined}
             />
-            {errorMessage ? <p className="research-form-error" role="alert">{errorMessage}</p> : null}
+            {errorMessage ? <p id="release-code-error" className="research-form-error" role="alert">{errorMessage}</p> : null}
             <button type="submit" className="research-primary-button w-full sm:w-auto">
               进入研究问卷 <ArrowUpRight size={18} className="shrink-0" />
             </button>

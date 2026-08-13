@@ -278,9 +278,10 @@ public class ResearchExportService {
     private byte[] writeCsv(List<ResearchAttemptSummaryVO> rows, boolean includeManifest) {
         StringBuilder builder = new StringBuilder();
         builder.append('\uFEFF');
-        builder.append("participantCode,participantType,status,answeredCount,questionCount,percentageScore,effectiveDurationMs,qualityFlags,attachmentCount,aiAnalysisStatus,startedAt,lastSavedAt,submittedAt\n");
+        builder.append("participantCode,attemptNo,participantType,status,answeredCount,questionCount,percentageScore,effectiveDurationMs,qualityFlags,attachmentCount,aiAnalysisStatus,startedAt,lastSavedAt,submittedAt\n");
         for (ResearchAttemptSummaryVO row : rows) {
             builder.append(csv(row.participantCode())).append(',')
+                    .append(row.attemptNo() == null ? 1 : row.attemptNo()).append(',')
                     .append(csv(row.participantType())).append(',')
                     .append(csv(row.status())).append(',')
                     .append(row.answeredCount()).append(',')
@@ -319,6 +320,7 @@ public class ResearchExportService {
                     : Math.max(0, java.time.Duration.between(attempt.getStartedAt(), attempt.getSubmittedAt()).toMillis());
             attempts.add(new ResearchExportWorkbook.AttemptRow(
                     code,
+                    PublicAssessmentService.attemptNoOf(attempt),
                     participant == null ? null : participant.getParticipantType(),
                     attempt.getStatus(),
                     attempt.getSubmitReason(),

@@ -133,8 +133,12 @@ public class TeacherAssessmentController {
             @PathVariable Long publishId,
             @Valid @RequestBody PublicReleaseUpdateRequest request
     ) {
-        return ApiResponse.success(publicReleaseManagementService.updateQrEntry(
-                publishId, request.qrEntryEnabled()), MDC.get("traceId"));
+        return ApiResponse.success(publicReleaseManagementService.updateRelease(publishId, request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/publishes/{publishId}/public-release/close")
+    public ApiResponse<PublicAssessmentReleaseSummaryVO> closePublicRelease(@PathVariable Long publishId) {
+        return ApiResponse.success(publicReleaseManagementService.closeRelease(publishId), MDC.get("traceId"));
     }
 
     @GetMapping("/attempts/{attemptId}/result")

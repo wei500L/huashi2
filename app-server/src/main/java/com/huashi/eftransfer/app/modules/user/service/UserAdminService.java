@@ -2,6 +2,7 @@ package com.huashi.eftransfer.app.modules.user.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
+import com.huashi.eftransfer.app.common.security.store.RefreshTokenSession;
 import com.huashi.eftransfer.app.modules.user.dto.AdminUserAccessUpdateRequest;
 import com.huashi.eftransfer.app.modules.user.dto.AdminUserBatchCreateItemRequest;
 import com.huashi.eftransfer.app.modules.user.dto.AdminUserBatchRequest;
@@ -27,6 +28,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -110,6 +113,7 @@ public class UserAdminService {
         userMapper.updateById(user);
 
         replaceRoles(userId, normalizeRoles(request.roles()));
+        revokeActiveSession(userId);
         return toSummary(requireUser(userId));
     }
 
@@ -189,6 +193,20 @@ public class UserAdminService {
             userRole.setUserId(userId);
             userRole.setRoleCode(role.name());
             userRoleMapper.insert(userRole);
+        }
+    }
+
+    private void revokeActiveSession(Long userId) {
+        authTokenStore.findActiveRefreshTokenHash(userId)
+                .flatMap(authTokenStore::findRefreshSession)
+                .ifPresent(this::blacklistAccessToken);
+        authTokenStore.revokeAllUserSessions(userId);
+    }
+
+    private void blacklistAccessToken(RefreshTokenSession session) {
+        Duration ttl = Duration.between(Instant.now(), session.accessTokenExpiresAt());
+        if (!ttl.isNegative() && !ttl.isZero()) {
+            authTokenStore.blacklistAccessToken(session.accessTokenId(), ttl);
         }
     }
 

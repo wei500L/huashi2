@@ -98,7 +98,7 @@ const ResearchAttemptDetailPage: React.FC = () => {
       <PageHeader
         eyebrow="匿名答卷"
         title={detail.participant.participantCode}
-        subtitle={`${detail.attempt.paperTitle} · ${participantTypeLabel(detail.participant.participantType)}`}
+        subtitle={`${detail.attempt.paperTitle} · ${participantTypeLabel(detail.participant.participantType)}${detail.attempt.attemptNo ? ` · 第 ${detail.attempt.attemptNo} 次` : ''}`}
         actions={<button type="button" className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-white/10" onClick={backToData}>返回数据</button>}
       />
 

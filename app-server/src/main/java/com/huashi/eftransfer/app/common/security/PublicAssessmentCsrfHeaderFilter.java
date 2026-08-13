@@ -18,8 +18,9 @@ import java.io.IOException;
 
 /**
  * Cookie-backed public assessment mutations need a custom header so classic
- * cross-site form POST cannot reuse {@code LEXIBRIDGE_SESSION}. JWT APIs stay
- * CSRF-exempt.
+ * cross-site form POST cannot reuse {@code LEXIBRIDGE_SESSION}. Bearer JWT
+ * routes stay CSRF-exempt; login refresh cookies are covered by
+ * {@link AuthCookieCsrfHeaderFilter}.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 40)

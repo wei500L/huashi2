@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 
-const BASE = process.env.BASE_URL || 'https://huashi.qsfw.eu.cc';
+const BASE = process.env.BASE_URL || 'https://huashi.mnari.cn';
 
 async function main() {
   await mkdir('qa-output/config-center-probe', { recursive: true });

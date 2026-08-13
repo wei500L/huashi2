@@ -4,7 +4,7 @@
 **Audit mode:** full
 **Date:** 2026-08-13
 **Reviewer:** Cursor Grok 4.6
-**Remediation update:** 2026-08-13 **已完成四批**：前三批 15 项 High；第四批（compose 数据面 loopback、练习开局 UK→409、公开问卷 `X-Requested-With` CSRF、附件扫描文案、AI 同上游禁用 failover、CI `permissions: contents: read`、练习页 a11y/Vitest）。下文 Evidence 保留审计时快照；`Remediation: Fixed` 与 Fix note 反映当前代码。
+**Remediation update:** 2026-08-13 **已完成五批**：前三批 15 项 High；第四批（compose loopback、练习 409、问卷 CSRF、扫描文案、failover、CI permissions、练习 a11y）；第五批（refresh httpOnly cookie、会话 zod、研究 PII 保留、问卷参与码 a11y、runbook/Prometheus 规则、镜像 digest、CI `npm audit`）。下文 Evidence 保留审计时快照；`Remediation: Fixed` 与 Fix note 反映当前代码。
 
 ---
 
@@ -12,25 +12,25 @@
 
 EF.Transfer 是一个已具备生产部署痕迹的英法词汇迁移学习平台：React 19 SPA、Spring Boot 4 业务后端、Spring Boot 3 AI/RAG 网关、MySQL + Redis + RabbitMQ + PostgreSQL/pgvector。安全基线明显做过一轮加固——JWT 密钥熵校验、内部接口 token、公开问卷 cookie 会话、敏感资料 AES-GCM、参与码 HMAC、outbox、单用户 `IN_PROGRESS` 唯一键、RAG grounding 二次校验、生产 overlay 收口端口。2026-08-13 又补上问卷密钥 fail-fast、内部 token `SecretPolicy`、WS 首条 AUTH、actuator ADMIN、辅导空 citation fail-closed；随后补上 AI 用户/IP 限流与 180s 超时对齐、问卷 Redis 限流、`docs/ddl`+restore、CI `npm test`、导出按开关脱敏；再补上 XFF 仅信代理、练习计分对齐、导入行级事务、单题讲解 fail-closed、verifier 隔离学生作答。这不是从零开始的屎山。
 
-**剩余**主要风险集中在 JWT 仍在 localStorage、研究 PII 无保留期、超大文件可维护性、告警/runbook 与镜像 digest。这些可按发布后节奏处理。
+**剩余**主要风险集中在超大文件可维护性、无 Flyway、附件未接杀毒、SBOM/镜像签名。这些可按发布后节奏处理。
 
-亮点：模块边界清楚、公开问卷会话 token 不回 JSON、诊断/训练/练习有 DuplicateKey→409、JWT 与问卷/内部密钥启动期拒绝弱值、辅导报告 UI 对 `RULE_FALLBACK` 有明确标记、默认 compose 与生产 overlay 均把数据面绑到 `127.0.0.1`。综合评分 **7.5 / B**（审计当日 6.2；三批 High 后 7.2；第四批后再上调）。
+亮点：模块边界清楚、公开问卷与登录 refresh 均走 httpOnly cookie、诊断/训练/练习有 DuplicateKey→409、JWT 与问卷/内部密钥启动期拒绝弱值、辅导报告 UI 对 `RULE_FALLBACK` 有明确标记、默认 compose 与生产 overlay 均把数据面绑到 `127.0.0.1`。综合评分 **7.7 / B**（审计当日 6.2；三批 High 后 7.2；第四批 7.5；第五批后再上调）。
 
 ### Score Dashboard
 
 ```
-Security        ███████░░░  8.0  A   导出脱敏、XFF、compose loopback、问卷 CSRF 头已落地
+Security        ████████░░  8.3  A   refresh httpOnly；access 仅内存；问卷与登录 CSRF 头
 Stability       ███████░░░  7.4  B   练习 UK→409；同上游 failover 已禁用
 Performance     ███████░░░  7.4  A   连接池与分页存在；AI 已有用户/IP 限流且超时对齐 nginx 180s
-Testing         ███████░░░  7.0  B   CI 跑前端测试；练习页已有 a11y Vitest
+Testing         ███████░░░  7.2  B   CI 跑前端测试；练习/问卷入口已有 a11y Vitest；会话 zod
 Maintainability ██████░░░░  5.8  B   ConfigCenter 4211 行、contracts.ts 3481 行、AssessmentService 1940 行
 Design          ███████░░░  7.1  B   辅导与单题讲解 grounding 已 fail-closed；verifier 不再信任学生作答
-Release         ██████░░░░  6.6  B   schema 仍无 Flyway；compose 数据面已绑 loopback；CI permissions 已收口
+Release         ███████░░░  7.2  B   PII 保留任务、runbook、镜像 digest、npm audit；仍无 Flyway/SBOM
 ─────────────────────────────────────
-Overall         ███████░░░  7.5  B
+Overall         ███████░░░  7.7  B
 ```
 
-Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mountain).** Scores are judgment-based, not formula-based. See `rubrics/scoring.md` for anchor descriptions. 维度分在 2026-08-13 四批修复后微调；未重跑全仓审计。
+Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mountain).** Scores are judgment-based, not formula-based. See `rubrics/scoring.md` for anchor descriptions. 维度分在 2026-08-13 五批修复后微调；未重跑全仓审计。
 
 权重推断：本仓库同时是研究问卷（PII）、教学系统和 LLM/RAG 网关，安全、隐私、数据完整性、AI 安全在判断中权重大于纯样式问题。覆盖以静态代码、配置、CI 与 schema 为主，未做渗透或生产运行时验证。
 
@@ -40,10 +40,10 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 |----------|-------|-----------|-----------|------------|
 | Critical | 0 | 0 | 0 | 0 |
 | High | 15 | 15 | 0 | 15 已完成 |
-| Medium | 13 | 13 | 0 | 本批已补 CSRF / 409 / 扫描文案 / fallback / CI permissions / 练习 Vitest；文档 Flyway 此前已补 |
+| Medium | 13 | 13 | 0 | 第五批已补 cookie 会话 / zod / PII 保留 / runbook / digest / npm audit / 问卷 a11y；拆文件、杀毒、Flyway、SBOM 仍延后 |
 | Low | 1 | 1 | 0 | 0 |
 | Info | 0 | 0 | 0 | 0 |
-| **Total** | **29** | **29** | **0** | **15 High + 本批 Medium 尾巴已完成** |
+| **Total** | **29** | **29** | **0** | **15 High + 第四/五批 Medium 已完成；拆文件等仍延后** |
 
 ## 2. Project Map
 
@@ -63,7 +63,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 
 持久化：MySQL `app-server/.../schema.sql`（1857 行）、PostgreSQL/pgvector `ai-gateway/.../schema.sql`。无 Flyway/Liquibase。备份与 `restore-mysql.sh` / `restore-postgres.sh` 已有；未见还原演练记录。
 
-隐私数据：研究问卷姓名/联系方式（AES-GCM）、参与码 HMAC、访问 IP 密文、上传附件、JWT 在 localStorage。
+隐私数据：研究问卷姓名/联系方式（AES-GCM，到期匿名）、参与码 HMAC、访问 IP 密文（到期删除）、上传附件（到期删对象）、登录 access 仅内存、refresh 在 httpOnly cookie。
 
 外部接口：REST、`/ws/notifications`、对象存储（本地或配置的 provider）、LLM HTTP、RabbitMQ。
 
@@ -328,7 +328,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 双重提交或 `SameSite=Strict` + 显式 CSRF。
 - Regression test suggestion: 无 CSRF/自定义头的跨站形态 POST 应 403。
 - Estimated effort: 1 天
-- Fix note: `PublicAssessmentCsrfHeaderFilter` 对 `/api/public/assessments/**` 的 POST/DELETE 要求 `X-Requested-With: XMLHttpRequest`；JWT 路由仍关 CSRF。前端 `publicAssessmentOptions` 带该头。集成测试缺头返回 403。未上 Cookie CSRF token。
+- Fix note: `PublicAssessmentCsrfHeaderFilter` 对 `/api/public/assessments/**` 的 POST/DELETE 要求 `X-Requested-With: XMLHttpRequest`；登录 cookie 会话由 `AuthCookieCsrfHeaderFilter` 覆盖 `/api/auth/login|register|refresh|logout`。JWT 业务路由仍关 CSRF。未上 Cookie CSRF token。
 
 ### Finding: 登录 JWT 存在 localStorage，XSS 即可窃取会话
 
@@ -336,6 +336,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Security
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13) — refresh 改 `EF_REFRESH` httpOnly cookie；access 仅内存；JSON 不再返回 refreshToken
 - Affected area: 前端会话
 - Evidence:
   - File: `src/lib/session.ts:12-28`
@@ -348,6 +349,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: BFF 模式，浏览器不持有 refresh。
 - Regression test suggestion: 登录响应不把 refresh 放进可由 JS 读取的存储。
 - Estimated effort: 1 天
+- Fix note: 登录/注册/refresh 设置 `EF_REFRESH`（httpOnly、SameSite=Lax、Path=/api/auth）；JSON 仅 `accessToken`。前端 Zustand 内存持有 access，启动时 cookie refresh + `/auth/me`。`POST /api/auth/login|register|refresh|logout` 要求 `X-Requested-With`。旧 localStorage 可一次性 body 迁移后清除。未改 BFF。
 
 ### Finding: 研究附件“安全扫描通过”实际只是魔数与扩展名检查
 
@@ -376,6 +378,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Release
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13) — 可配置保留期默认 P730D；到期清空资料、删 IP 行与 BOUND 对象；答卷保留
 - Affected area: 研究问卷治理
 - Evidence:
   - File: `app-server/src/main/java/com/huashi/eftransfer/app/modules/assessment/support/AssessmentParticipantProfileCipher.java:28-41`
@@ -387,6 +390,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 参与者删除/导出 API，并清理 RAG/日志派生数据。
 - Regression test suggestion: 过期资料任务把 ciphertext 清空且文件对象删除。
 - Estimated effort: 2 天
+- Fix note: 映射 `anonymized_at`；`app.assessment.research.retention` 默认 `P730D`。`ResearchRetentionService` 到期将 `sensitive_profile_*` 置空并写 `anonymized_at`，删除到期 `assessment_participant_access` 与 BOUND 对象。答卷/分数保留。见 `docs/research-data-operations.md`。未做法务 DPIA 或参与者自助删除 API。
 
 ### Finding: 多个核心文件远超 1000 行，变更半径过大
 
@@ -433,6 +437,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Release
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13) — `docs/incident-runbook.md` + `deploy/observability/prometheus-alerts.yml`；未部署 Grafana/Alertmanager
 - Affected area: 可观测性 / 运维
 - Evidence:
   - File: `app-server/src/main/resources/application.yml:42-57`
@@ -445,6 +450,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: SLO + 追踪后端。
 - Regression test suggestion: 契约测试保证关键业务 metrics 名称稳定。
 - Estimated effort: 1 天
+- Fix note: 规则覆盖实例 down、outbox pending/failed/age、`ai.provider.calls` 非 success 占比、公开问卷 5xx。Runbook 对应处理步骤。需导入现有 Prometheus；仓库仍不自带 Alertmanager。
 
 ### Finding: CI 权限未收口，镜像未钉 digest，无 SBOM
 
@@ -452,7 +458,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Release
 - Status: Confirmed
-- Remediation: Fixed (2026-08-13) — `permissions: contents: read` 已加；镜像 digest / SBOM 未做
+- Remediation: Fixed (2026-08-13) — `permissions: contents: read`；Dockerfile/compose 钉 digest；CI 非阻塞 `npm audit --omit=dev`；SBOM/签名未做
 - Affected area: 供应链
 - Evidence:
   - File: `.github/workflows/ci.yml:1-39`
@@ -465,7 +471,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: SBOM + 镜像签名。
 - Regression test suggestion: workflow 文件断言包含 `permissions:`。
 - Estimated effort: 4 小时
-- Fix note: `.github/workflows/ci.yml` 已设 `permissions: contents: read`。镜像 digest、SBOM、`npm audit` 仍属后续。
+- Fix note: `.github/workflows/ci.yml` 已设 `permissions: contents: read`，frontend 增加 `npm audit --omit=dev`（`continue-on-error`）。`eclipse-temurin:25-jdk`、`node:22-bookworm`、`nginx:1.27-alpine`、`postgres:16-bookworm` 与 compose 中 mysql/redis/rabbitmq 已钉 manifest digest。SBOM 与镜像签名仍延后。
 
 ### Finding: AI fallback provider 默认回落到同一上游
 
@@ -515,6 +521,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Maintainability
 - Status: Confirmed
+- Remediation: Fixed (2026-08-13) — zod 校验登录/refresh 响应；缺字段不入 store；旧 localStorage token 启动时清除
 - Affected area: 前端 session 水合
 - Evidence:
   - File: `src/lib/session.ts:17`
@@ -527,6 +534,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 会话版本号。
 - Regression test suggestion: 缺字段的 localStorage 被清除且不崩溃。
 - Estimated effort: 2 小时
+- Fix note: `parseLoginResponse` 要求 `accessToken` 与 `userInfo`；失败返回 null 并清会话。不再把 token 写入 localStorage。`src/lib/session.test.ts` 覆盖缺字段与旧 key 清理。ConfigCenter 的 `as unknown as` 未改。
 
 ### Finding: 练习拼写输入没有可访问名称，选项也不是 radio 语义
 
@@ -534,7 +542,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Confidence: High
 - Category: Testing
 - Status: Confirmed
-- Remediation: Fixed (2026-08-13) — 练习拼写/选项 a11y 与 Vitest 已补；公开问卷 `aria-describedby` 与 axe CI 未做
+- Remediation: Fixed (2026-08-13) — 练习拼写/选项 a11y 与问卷参与码/发布编号 `aria-describedby` 已补；axe CI 未做
 - Affected area: `/practice` 与公开问卷表单
 - Evidence:
   - File: `src/pages/practice/index.tsx:760-768`
@@ -547,7 +555,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Better long-term fix: 统一 Field 组件；CI 对 Login/练习/问卷加 axe。
 - Regression test suggestion: 练习页每个拼写 input 有可访问名称；校验失败时 invalid 输入有描述 id。
 - Estimated effort: 1 天
-- Fix note: 拼写 input 加 `aria-label`；选择题 `radiogroup`/`radio`/`aria-checked`。`src/pages/practice/index.test.tsx` 覆盖可访问名称与选中态。问卷 `aria-describedby` 与 axe CI 未做。
+- Fix note: 拼写 input 加 `aria-label`；选择题 `radiogroup`/`radio`/`aria-checked`。问卷参与码与发布编号错误节点有稳定 id，输入绑定 `aria-describedby`/`aria-invalid`。`src/pages/practice/index.test.tsx` 与 `src/pages/research/research-access-a11y.test.tsx` 覆盖。axe CI 未做。
 
 ### Finding: Playwright 与双动画库增加依赖重量但未形成测试资产
 
@@ -737,7 +745,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - Inspected evidence: SecurityConfig、JWT、内部 filter、公开问卷、WS、上传、actuator、CORS
 - Exclusions / limits: 未做动态利用
 
-相关发现：导出脱敏开关已按 job 标志过滤；问卷默认密钥 / 内部 token / WS query / actuator 角色 / XFF / 单题讲解 grounding / 学生答案隔离 / compose loopback / 问卷 CSRF 头已于 2026-08-13 修复；剩余 localStorage JWT。
+相关发现：导出脱敏开关已按 job 标志过滤；问卷默认密钥 / 内部 token / WS query / actuator 角色 / XFF / 单题讲解 grounding / 学生答案隔离 / compose loopback / 问卷与登录 CSRF 头 / refresh httpOnly 已于 2026-08-13 修复。
 
 已验证：公开问卷 token 不回 JSON；JWT 与问卷/内部密钥启动熵校验；内部接口缺 token 或 prod 关闭保护时启动失败；上传有扩展名/魔数白名单；WS 握手拒绝 query token，首条 AUTH 或 Bearer 验 JWT 与黑名单。
 
@@ -810,7 +818,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | Subtype | Count | Affected Docs | Recommended Action |
 |---------|-------|---------------|-------------------|
 | UserDocs | 0 | 产品文案未深审 | — |
-| OperatorDocs | 1 | 缺告警 runbook | 补事故页 |
+| OperatorDocs | 1 | 缺告警 runbook | 已补 `docs/incident-runbook.md` |
 | DeveloperDocs | 0 | src/CLAUDE.md 已写 Vitest | 保持 |
 | ApiDocs | 0 | 契约有 generated 检查 | 保持 |
 | DecisionRecord | 0 | README Flyway 行已删 | 保持 |
@@ -890,7 +898,7 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 | SemanticStructure | 1 | 长页面大量 div | 关键流改 semantic |
 | KeyboardFocus | 1 | 未验证 | 问卷/登录走查 |
 | ResponsiveVisual | 0 | 有 viewport 脚本 | — |
-| ErrorState | 1 | 练习拼写无 label；参与码错误未绑定 | 补名称与 describedby |
+| ErrorState | 1 | 练习拼写无 label；参与码错误未绑定 | 练习与问卷入口 describedby 已补 |
 | LoadingState | 0 | FeedbackState/RouteSkeleton 存在 | — |
 | UXStateCorrectness | 0 | react-query 为主 | — |
 
@@ -902,10 +910,10 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 
 | Subtype | Count | Affected Surface | Recommended Action |
 |---------|-------|------------------|-------------------|
-| DependencyProvenance | 1 | 浮动基镜像 | 钉 digest |
+| DependencyProvenance | 1 | 浮动基镜像 | 已钉 digest |
 | Reproducibility | 0 | npm lock + mvnw | 保持 |
-| CIIntegrity | 1 | 无 permissions | F-17 |
-| ArtifactProvenance | 1 | 无 SBOM/签名 | 补 |
+| CIIntegrity | 1 | 无 permissions | 已设 contents: read；npm audit 非阻塞 |
+| ArtifactProvenance | 1 | 无 SBOM/签名 | 仍延后 |
 | RegistryHygiene | 0 | 私有应用 | — |
 
 ## 20. Cost / Resource Economics Analysis
@@ -1110,18 +1118,18 @@ Each dimension scored 0.0–10.0. **Higher = better (10 = clean, 0 = shit mounta
 - ~~公开问卷限流改 Redis~~ 已完成
 - ~~CI 跑 `npm test`，backend 加 Testcontainers API 版本~~ 已完成
 - ~~文档去掉 Flyway / “无前端测试”，对齐 schema 变更 runbook（含 `docs/ddl/` 与 restore 脚本）~~ 已完成
-- ~~CSRF 保护 cookie 会话端点~~ 已修复（公开问卷要求 `X-Requested-With`）
+- ~~CSRF 保护 cookie 会话端点~~ 已修复（公开问卷与 `/api/auth/*` cookie 端点要求 `X-Requested-With`）
 
 ### Schedule Later
 
-- 研究数据保留/删除
+- ~~研究数据保留/删除~~ 已完成（可配置 P730D；未做参与者自助删除 API）
 - 拆 ConfigCenter 与超大 service
-- 告警与事故 runbook
-- 镜像 digest、SBOM
-- refresh token 改 httpOnly
+- ~~告警与事故 runbook~~ 已完成（规则文件 + 一页手册；未部署 Grafana）
+- ~~镜像 digest~~ 已完成；SBOM / 镜像签名仍延后
+- ~~refresh token 改 httpOnly~~ 已完成
 - 附件真实杀毒扫描
 - 强制独立 `AI_FALLBACK_*`（当前相同上游已禁用 failover）
-- 会话 zod 校验
+- ~~会话 zod 校验~~ 已完成
 
 ### Ignore for Now
 

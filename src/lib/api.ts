@@ -5,7 +5,14 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 import type { ApiResponse, LoginResponse, ResultCode } from './contracts';
-import { clearStoredSession, dispatchAuthExpired, readStoredSession, writeStoredSession } from './session';
+import {
+  clearStoredSession,
+  consumeLegacyRefreshToken,
+  dispatchAuthExpired,
+  parseLoginResponse,
+  readStoredSession,
+  writeStoredSession,
+} from './session';
 
 export class ApiError extends Error {
   status: number;
@@ -22,20 +29,23 @@ export class ApiError extends Error {
 }
 
 const baseURL = import.meta.env.VITE_API_URL || '/api';
+const AUTH_CSRF_HEADERS = {
+  'Content-Type': 'application/json',
+  'X-Requested-With': 'XMLHttpRequest',
+} as const;
+
 const http = axios.create({
   baseURL,
   timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
+  headers: AUTH_CSRF_HEADERS,
 });
 
 const refreshClient = axios.create({
   baseURL,
   timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
+  headers: AUTH_CSRF_HEADERS,
 });
 
 let refreshPromise: Promise<LoginResponse | null> | null = null;
@@ -101,26 +111,35 @@ http.interceptors.response.use(
   }
 );
 
-async function refreshSession(): Promise<LoginResponse | null> {
-  const session = readStoredSession();
-  if (!session?.refreshToken) {
-    clearStoredSession();
-    dispatchAuthExpired();
-    return null;
-  }
+async function refreshSession(
+  legacyRefreshToken?: string | null,
+  options?: { announceExpiry?: boolean; allowAnonymous?: boolean },
+): Promise<LoginResponse | null> {
+  const announceExpiry = options?.announceExpiry !== false;
   if (!refreshPromise) {
+    const body = legacyRefreshToken ? { refreshToken: legacyRefreshToken } : {};
     refreshPromise = refreshClient
-      .post<ApiResponse<LoginResponse>>('/auth/refresh', { refreshToken: session.refreshToken })
+      .post<ApiResponse<LoginResponse | null>>('/auth/refresh', body)
       .then((response) => {
-        if (!response.data.success || !response.data.data) {
+        if (!response.data.success) {
           throw new ApiError(response.data.message || 'Refresh failed', 401, response.data.code, response.data.traceId);
         }
-        writeStoredSession(response.data.data);
-        return response.data.data;
+        if (!response.data.data && options?.allowAnonymous) {
+          clearStoredSession();
+          return null;
+        }
+        const parsed = parseLoginResponse(response.data.data);
+        if (!parsed) {
+          throw new ApiError('Refresh returned an invalid session', 401);
+        }
+        writeStoredSession(parsed);
+        return parsed;
       })
       .catch((refreshError) => {
         clearStoredSession();
-        dispatchAuthExpired();
+        if (announceExpiry) {
+          dispatchAuthExpired();
+        }
         throw normalizeApiError(refreshError);
       })
       .finally(() => {
@@ -128,6 +147,15 @@ async function refreshSession(): Promise<LoginResponse | null> {
       });
   }
   return refreshPromise;
+}
+
+export async function restoreSessionFromCookie(): Promise<LoginResponse | null> {
+  const legacyRefreshToken = consumeLegacyRefreshToken();
+  try {
+    return await refreshSession(legacyRefreshToken, { announceExpiry: false, allowAnonymous: true });
+  } catch {
+    return null;
+  }
 }
 
 function isTokenExpiringSoon(expiresAt?: string | null, windowMs = KEEPALIVE_TOKEN_FRESHNESS_WINDOW_MS): boolean {
@@ -153,25 +181,17 @@ async function ensureFreshSessionForKeepalive(): Promise<LoginResponse | null> {
   if (!isTokenExpiringSoon(session.accessTokenExpiresAt)) {
     return session;
   }
-  if (!session.refreshToken || isTokenExpired(session.refreshTokenExpiresAt)) {
-    if (!isTokenExpired(session.accessTokenExpiresAt)) {
-      return session;
-    }
-    clearStoredSession();
-    dispatchAuthExpired();
-    return null;
+  if (isTokenExpired(session.refreshTokenExpiresAt)) {
+    return isTokenExpired(session.accessTokenExpiresAt) ? null : session;
   }
   try {
     return await refreshSession();
   } catch {
-    const fallbackSession = readStoredSession();
-    if (fallbackSession?.accessToken && !isTokenExpired(fallbackSession.accessTokenExpiresAt)) {
-      return fallbackSession;
-    }
     if (!isTokenExpired(session.accessTokenExpiresAt)) {
+      writeStoredSession(session);
       return session;
     }
-    return fallbackSession;
+    return readStoredSession();
   }
 }
 
@@ -225,10 +245,29 @@ const API_ERROR_MESSAGES: Record<string, string> = {
 
 export function getApiErrorMessage(error: unknown, fallback = '请求失败'): string {
   const normalizedError = normalizeApiError(error);
+  const validationMessage = researchValidationMessage(normalizedError);
+  if (validationMessage) {
+    return validationMessage;
+  }
   if (normalizedError.code && API_ERROR_MESSAGES[normalizedError.code]) {
     return API_ERROR_MESSAGES[normalizedError.code];
   }
   return normalizedError.message || fallback;
+}
+
+function researchValidationMessage(error: ReturnType<typeof normalizeApiError>): string | null {
+  if (error.code !== 'VALIDATION_ERROR') {
+    return null;
+  }
+  const message = error.message || '';
+  const required = /Required question (\d+)/i.exec(message);
+  if (required) {
+    return `第 ${required[1]} 题尚未作答，请完成后再提交。`;
+  }
+  if (/justification is required/i.test(message)) {
+    return '判断为错误时需要填写理由。';
+  }
+  return null;
 }
 
 function resolveRequestUrl(url: string): string {
@@ -271,10 +310,11 @@ export async function apiPostKeepalive<T>(url: string, data?: unknown): Promise<
     response = await fetch(resolveRequestUrl(url), {
       method: 'POST',
       keepalive: true,
-      credentials: 'same-origin',
+      credentials: 'include',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
         ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
       },
       body: JSON.stringify(data ?? {}),

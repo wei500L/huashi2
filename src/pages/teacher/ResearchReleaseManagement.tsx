@@ -41,6 +41,7 @@ type RevokeTarget =
   | { type: 'batch'; batchId: string; label: string };
 
 type QrToggleTarget = { enabled: boolean };
+type RetakeTarget = { maxAttempts: number };
 
 const metricCards = (release: PublicAssessmentReleaseSummaryVO) => [
   ['参与码', release.codeCount],
@@ -64,6 +65,9 @@ export const ResearchReleaseManagement: React.FC = () => {
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = React.useState<RevokeTarget | null>(null);
   const [qrToggleTarget, setQrToggleTarget] = React.useState<QrToggleTarget | null>(null);
+  const [retakeTarget, setRetakeTarget] = React.useState<RetakeTarget | null>(null);
+  const [closeTargetOpen, setCloseTargetOpen] = React.useState(false);
+  const maxAttemptsInputRef = React.useRef<HTMLInputElement>(null);
   const [pendingSelectedPublishId, setPendingSelectedPublishId] = React.useState<number | null>(null);
   const [clearCreatedBatchOpen, setClearCreatedBatchOpen] = React.useState(false);
   const { exporting, exportError, lastFileName, exportExcel } = useResearchExcelExport();
@@ -93,6 +97,7 @@ export const ResearchReleaseManagement: React.FC = () => {
   }, [releases, selectedPublishId]);
 
   const selectedRelease = releases.find((release) => release.publishId === selectedPublishId) || null;
+  const releaseClosed = selectedRelease?.status === 'CLOSED';
   const qrUrl = selectedRelease
     ? `${window.location.origin}/research/${selectedRelease.releaseCode}?entry=qr`
     : '';
@@ -166,9 +171,28 @@ export const ResearchReleaseManagement: React.FC = () => {
     const next = qrToggleTarget?.enabled;
     if (next == null) return;
     void runAction('toggle-qr', async () => {
-      await assessmentService.updatePublicRelease(selectedRelease.publishId, next);
+      await assessmentService.updatePublicRelease(selectedRelease.publishId, {
+        qrEntryEnabled: next,
+        maxAttempts: selectedRelease.maxAttempts,
+      });
       setActionMessage(next ? '二维码免码参与已开启。' : '二维码免码参与已关闭，已有答卷会话不受影响。');
       setQrToggleTarget(null);
+      await refresh();
+    });
+  };
+
+  const confirmRetake = () => {
+    if (!selectedRelease || retakeTarget == null) return;
+    const next = Math.max(1, Math.min(20, retakeTarget.maxAttempts));
+    void runAction('toggle-retake', async () => {
+      await assessmentService.updatePublicRelease(selectedRelease.publishId, {
+        qrEntryEnabled: selectedRelease.qrEntryEnabled,
+        maxAttempts: next,
+      });
+      setActionMessage(next > 1
+        ? `已允许同一人最多作答 ${next} 次。身份按参与码或同一浏览器识别，不是登录账号。`
+        : '已恢复为每人一次作答。已有答卷不会删除。');
+      setRetakeTarget(null);
       await refresh();
     });
   };
@@ -202,6 +226,17 @@ export const ResearchReleaseManagement: React.FC = () => {
     });
   };
 
+  const confirmClose = () => {
+    if (!selectedRelease) return;
+    void runAction('close-release', async () => {
+      await assessmentService.closePublicRelease(selectedRelease.publishId);
+      setActionMessage('发布已结束：二维码入口已关闭，所有未使用参与码已停用。已有答卷和结果继续保留。');
+      setCloseTargetOpen(false);
+      setCreatedBatch(null);
+      await refresh();
+    });
+  };
+
   if (releasesQuery.isLoading) {
     return <div className="rounded-2xl liquid-glass-panel p-8 text-sm text-slate-500">正在加载研究发布记录…</div>;
   }
@@ -227,7 +262,10 @@ export const ResearchReleaseManagement: React.FC = () => {
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0"><SectionEyebrow>{release.paperCode}</SectionEyebrow><h2 className="mt-2 break-words text-lg font-black">{release.paperTitle}</h2></div>
-              <StatusBadge label={release.qrEntryEnabled ? '二维码已开启' : '仅参与码'} tone={release.qrEntryEnabled ? 'success' : 'warning'} />
+              <StatusBadge
+                label={release.status === 'CLOSED' ? '已结束' : release.qrEntryEnabled ? '二维码已开启' : '仅参与码'}
+                tone={release.status === 'CLOSED' ? 'danger' : release.qrEntryEnabled ? 'success' : 'warning'}
+              />
             </div>
             <p className="mt-3 text-xs text-slate-500">发布于 {formatDateTime(release.publishedAt)} · {release.releaseCode}</p>
             <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-white/55"><span>{release.unusedCount} 个未使用</span><span>·</span><span>{release.submittedCount} 份已提交</span><span>·</span><span>{release.qrParticipantCount} 份二维码参与</span></div>
@@ -248,6 +286,15 @@ export const ResearchReleaseManagement: React.FC = () => {
               >
                 导出 Excel
               </ResearchExcelExportButton>
+              <button
+                type="button"
+                disabled={releaseClosed || pendingAction != null}
+                onClick={() => setCloseTargetOpen(true)}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 px-4 py-2 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ShieldOff size={15} />
+                {releaseClosed ? '发布已结束' : '结束发布'}
+              </button>
               <a href={`/research/${selectedRelease.releaseCode}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-white/10">打开学生页 <ExternalLink size={15} /></a>
             </div>
           </div>
@@ -261,13 +308,13 @@ export const ResearchReleaseManagement: React.FC = () => {
           {actionError ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{actionError}</div> : null}
           {actionMessage ? <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{actionMessage}</div> : null}
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
+          <div className="grid gap-5 xl:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 p-5 dark:border-white/10">
               <div className="flex flex-wrap items-center justify-between gap-3"><div><SectionEyebrow>参与码批次</SectionEyebrow><h3 className="mt-2 font-black">批量新增参与码</h3></div><KeyRound className="text-primary" /></div>
               <p className="mt-3 text-sm leading-6 text-slate-500">每批可生成 1–5000 个。系统只保存摘要，明文仅在生成成功后显示一次。</p>
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                <input type="number" min={1} max={5000} value={batchCount} disabled={createdBatch != null || pendingAction != null} onChange={(event) => setBatchCount(Math.max(1, Math.min(5000, Number(event.target.value) || 1)))} className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 disabled:opacity-50 sm:w-40 dark:border-white/10 dark:bg-slate-900" />
-                <button type="button" disabled={createdBatch != null || pendingAction != null} onClick={createBatch} className="btn-liquid min-h-11 px-5 text-sm text-white disabled:opacity-50">{pendingAction === 'create-batch' ? '生成中…' : createdBatch ? '请先保存当前批次' : '生成新批次'}</button>
+                <input type="number" min={1} max={5000} value={batchCount} disabled={releaseClosed || createdBatch != null || pendingAction != null} onChange={(event) => setBatchCount(Math.max(1, Math.min(5000, Number(event.target.value) || 1)))} className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 disabled:opacity-50 sm:w-40 dark:border-white/10 dark:bg-slate-900" />
+                <button type="button" disabled={releaseClosed || createdBatch != null || pendingAction != null} onClick={createBatch} className="btn-liquid min-h-11 px-5 text-sm text-white disabled:opacity-50">{pendingAction === 'create-batch' ? '生成中…' : releaseClosed ? '发布已结束' : createdBatch ? '请先保存当前批次' : '生成新批次'}</button>
               </div>
               {createdBatch ? (
                 <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
@@ -288,9 +335,55 @@ export const ResearchReleaseManagement: React.FC = () => {
                   alt={`${selectedRelease.paperTitle}二维码`}
                   printTitle={selectedRelease.paperTitle}
                   extraActions={
-                    <button type="button" disabled={pendingAction != null} onClick={() => setQrToggleTarget({ enabled: !selectedRelease.qrEntryEnabled })} className={`min-h-10 rounded-xl px-3 text-xs font-bold text-white ${selectedRelease.qrEntryEnabled ? 'bg-rose-600' : 'bg-primary'}`}>{pendingAction === 'toggle-qr' ? '保存中…' : selectedRelease.qrEntryEnabled ? '关闭免码' : '开启免码'}</button>
+                    <button type="button" disabled={releaseClosed || pendingAction != null} onClick={() => setQrToggleTarget({ enabled: !selectedRelease.qrEntryEnabled })} className={`min-h-10 rounded-xl px-3 text-xs font-bold text-white disabled:opacity-50 ${selectedRelease.qrEntryEnabled ? 'bg-rose-600' : 'bg-primary'}`}>{pendingAction === 'toggle-qr' ? '保存中…' : releaseClosed ? '发布已结束' : selectedRelease.qrEntryEnabled ? '关闭免码' : '开启免码'}</button>
                   }
                 />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 p-5 dark:border-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <SectionEyebrow>作答次数</SectionEyebrow>
+                  <h3 className="mt-2 font-black">同一人多次作答</h3>
+                </div>
+                <StatusBadge label={(selectedRelease.maxAttempts || 1) > 1 ? `最多 ${selectedRelease.maxAttempts} 次` : '每人一次'} tone={(selectedRelease.maxAttempts || 1) > 1 ? 'success' : 'warning'} />
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-500">按参与码或同一浏览器识别，不是登录账号。开启后，已提交的人可以再答一份新卷；未提交的答卷仍会恢复。</p>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {(selectedRelease.maxAttempts || 1) > 1 ? (
+                  <>
+                    <input
+                      ref={maxAttemptsInputRef}
+                      type="number"
+                      min={2}
+                      max={20}
+                      defaultValue={selectedRelease.maxAttempts}
+                      key={`${selectedRelease.publishId}-${selectedRelease.maxAttempts}`}
+                      disabled={releaseClosed || pendingAction != null}
+                      className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 disabled:opacity-50 sm:w-28 dark:border-white/10 dark:bg-slate-900"
+                      aria-label="同一人最多作答次数"
+                    />
+                    <button
+                      type="button"
+                      disabled={releaseClosed || pendingAction != null}
+                      onClick={() => setRetakeTarget({
+                        maxAttempts: Math.max(2, Math.min(20, Number(maxAttemptsInputRef.current?.value) || selectedRelease.maxAttempts || 10)),
+                      })}
+                      className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold dark:border-white/10"
+                    >
+                      保存次数
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={releaseClosed || pendingAction != null}
+                  onClick={() => setRetakeTarget({ maxAttempts: (selectedRelease.maxAttempts || 1) > 1 ? 1 : 10 })}
+                  className={`min-h-11 rounded-xl px-4 text-sm font-bold text-white ${(selectedRelease.maxAttempts || 1) > 1 ? 'bg-rose-600' : 'bg-primary'}`}
+                >
+                  {pendingAction === 'toggle-retake' ? '保存中…' : (selectedRelease.maxAttempts || 1) > 1 ? '改回每人一次' : '允许多次作答'}
+                </button>
               </div>
             </div>
           </div>
@@ -313,6 +406,19 @@ export const ResearchReleaseManagement: React.FC = () => {
         </section>
       ) : null}
 
+      <ConfirmationDialog
+        open={closeTargetOpen}
+        title="结束公开发布"
+        description="结束后将立即关闭新的参与入口，并停用该发布下全部未使用参与码。"
+        safety="已经开始或已经提交的答卷不会删除；参与者仍可完成进行中的答卷并查看按规则开放的结果。发布结束后不能重新开启。"
+        nextStep="若只是临时关闭二维码，请取消并使用“关闭免码”。只有研究收集确认结束或清理验收数据时才执行。"
+        confirmLabel="确认结束发布"
+        cancelLabel="取消"
+        pending={pendingAction === 'close-release'}
+        pendingTitle="正在结束发布…"
+        onConfirm={confirmClose}
+        onCancel={() => setCloseTargetOpen(false)}
+      />
       <ConfirmationDialog
         open={clearCreatedBatchOpen}
         title="清除本批参与码明文"
@@ -356,6 +462,23 @@ export const ResearchReleaseManagement: React.FC = () => {
         pendingTitle="正在保存…"
         onConfirm={confirmToggleQr}
         onCancel={() => setQrToggleTarget(null)}
+      />
+      <ConfirmationDialog
+        open={retakeTarget != null}
+        title={(retakeTarget?.maxAttempts || 1) > 1 ? '允许同一人多次作答' : '改回每人一次作答'}
+        description={(retakeTarget?.maxAttempts || 1) > 1
+          ? `同一参与码或同一浏览器最多可以提交 ${retakeTarget?.maxAttempts} 份答卷。登录账号不会用来识别身份。`
+          : '关闭后，已经提交的人再次打开链接只会看到结果页，不能再开新答卷。'}
+        safety={(retakeTarget?.maxAttempts || 1) > 1
+          ? '每次再答都会保留历史答卷。研究统计默认只计每人最新一次已提交，避免同一人刷高样本。'
+          : '已有答卷不会删除，进行中的作答仍可继续。'}
+        nextStep="确认研究设计需要这个设置后再保存。"
+        confirmLabel="确认保存"
+        cancelLabel="取消"
+        pending={pendingAction === 'toggle-retake'}
+        pendingTitle="正在保存…"
+        onConfirm={confirmRetake}
+        onCancel={() => setRetakeTarget(null)}
       />
       <ConfirmationDialog
         open={pendingSelectedPublishId != null}

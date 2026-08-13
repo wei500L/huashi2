@@ -58,6 +58,9 @@ public class ResearchAnalyticsProperties {
     @NotNull
     private Duration orphanAfter = Duration.ofHours(24);
 
+    @NotNull
+    private Duration retention = Duration.ofDays(730);
+
     public int getMinSampleSize() { return minSampleSize; }
     public void setMinSampleSize(int minSampleSize) { this.minSampleSize = minSampleSize; }
     public String getStatisticsVersion() { return statisticsVersion; }
@@ -88,4 +91,6 @@ public class ResearchAnalyticsProperties {
     public void setLocalRoot(String localRoot) { this.localRoot = localRoot; }
     public Duration getOrphanAfter() { return orphanAfter; }
     public void setOrphanAfter(Duration orphanAfter) { this.orphanAfter = orphanAfter; }
+    public Duration getRetention() { return retention; }
+    public void setRetention(Duration retention) { this.retention = retention; }
 }

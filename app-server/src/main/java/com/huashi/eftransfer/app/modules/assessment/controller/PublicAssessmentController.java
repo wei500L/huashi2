@@ -110,6 +110,14 @@ public class PublicAssessmentController {
         return ApiResponse.success(publicAssessmentService.restore(releaseCode, sessionToken), MDC.get("traceId"));
     }
 
+    @PostMapping("/{releaseCode}/begin")
+    public ApiResponse<PublicAssessmentAttemptVO> beginAnswering(
+            @PathVariable String releaseCode,
+            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken
+    ) {
+        return ApiResponse.success(publicAssessmentService.beginAnswering(releaseCode, sessionToken), MDC.get("traceId"));
+    }
+
     @PostMapping("/{releaseCode}/responses")
     public ApiResponse<AssessmentAttemptProgressVO> saveResponses(
             @PathVariable String releaseCode,
@@ -145,6 +153,33 @@ public class PublicAssessmentController {
             @Valid @RequestBody SubmitAssessmentAttemptRequest request
     ) {
         return ApiResponse.success(publicAssessmentService.submit(releaseCode, sessionToken, request), MDC.get("traceId"));
+    }
+
+    @PostMapping("/{releaseCode}/new-attempt")
+    public ApiResponse<PublicAssessmentAttemptVO> startNewAttempt(
+            @PathVariable String releaseCode,
+            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken
+    ) {
+        return ApiResponse.success(publicAssessmentService.startNewAttempt(releaseCode, sessionToken), MDC.get("traceId"));
+    }
+
+    @PostMapping("/{releaseCode}/session/clear")
+    public ResponseEntity<ApiResponse<Void>> clearSession(
+            @PathVariable String releaseCode,
+            @CookieValue(value = SESSION_COOKIE, required = false) String sessionToken,
+            HttpServletRequest servletRequest
+    ) {
+        publicAssessmentService.clearSession(releaseCode, sessionToken);
+        ResponseCookie cookie = ResponseCookie.from(SESSION_COOKIE, "")
+                .httpOnly(true)
+                .secure(servletRequest.isSecure())
+                .sameSite("Lax")
+                .path("/api/public/assessments/" + releaseCode)
+                .maxAge(0)
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(ApiResponse.success(null, MDC.get("traceId")));
     }
 
     @PostMapping("/{releaseCode}/files/initiate")

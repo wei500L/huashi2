@@ -168,7 +168,8 @@ public class PublicAssessmentService {
                 bundle.publish().getDurationMinutes(), bundle.publish().getQuestionCountSnapshot(),
                 counts.formalQuestionCount(), counts.profileFieldCount(), bundle.release().getStatus(),
                 bundle.publish().getStartsAt(), bundle.publish().getDueAt(),
-                Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()));
+                Boolean.TRUE.equals(bundle.release().getQrEntryEnabled()),
+                resolveMaxAttempts(bundle.release().getMaxAttempts()));
     }
 
     @Transactional
@@ -273,13 +274,21 @@ public class PublicAssessmentService {
     }
 
     @Transactional
+    public PublicAssessmentAttemptVO beginAnswering(String releaseCode, String sessionToken) {
+        SessionBundle session = requireSessionForUpdate(releaseCode, sessionToken);
+        AssessmentAttemptEntity attempt = startAnsweringLocked(session);
+        touchSession(session.session());
+        return toAttempt(session.release(), attempt);
+    }
+
+    @Transactional
     public AssessmentAttemptProgressVO saveResponses(
             String releaseCode,
             String sessionToken,
             SaveAssessmentResponsesRequest request
     ) {
         SessionBundle session = requireSessionForUpdate(releaseCode, sessionToken);
-        AssessmentAttemptEntity attempt = session.attempt();
+        AssessmentAttemptEntity attempt = startAnsweringLocked(session);
         requireInProgress(attempt);
         requireVersion(attempt, request.baseVersion());
         List<AssessmentAttemptAnswerEntity> answers = loadAnswers(attempt.getId());
@@ -309,7 +318,7 @@ public class PublicAssessmentService {
             SpellingAttemptRequest request
     ) {
         SessionBundle session = requireSessionForUpdate(releaseCode, sessionToken);
-        AssessmentAttemptEntity attempt = session.attempt();
+        AssessmentAttemptEntity attempt = startAnsweringLocked(session);
         requireInProgress(attempt);
         AssessmentAttemptAnswerEntity answer = answerMapper.selectOne(
                 Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
@@ -397,6 +406,9 @@ public class PublicAssessmentService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR,
                     "Timing event type does not match the question type", 400);
         }
+        if (session.attempt().getAnsweringStartedAt() == null) {
+            return;
+        }
         LocalDateTime now = LocalDateTime.now();
         AssessmentTimingEventEntity event = new AssessmentTimingEventEntity();
         event.setAttemptId(session.attempt().getId());
@@ -428,6 +440,7 @@ public class PublicAssessmentService {
         if (AssessmentAttemptStatus.SUBMITTED.name().equals(attempt.getStatus())) {
             return toSubmit(attempt);
         }
+        attempt = startAnsweringLocked(session);
         requireInProgress(attempt);
         requireVersion(attempt, request.baseVersion());
         AssessmentSubmitReason reason = parseSubmitReason(request.reason());
@@ -488,12 +501,59 @@ public class PublicAssessmentService {
         List<AssessmentAttemptResultQuestionVO> resultQuestions = answers.stream()
                 .map(this::toResultQuestion)
                 .toList();
+        int maxScore = answers.stream()
+                .map(AssessmentAttemptAnswerEntity::getQuestionScore)
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .sum();
         touchSession(session.session());
+        RetakeState retake = retakeState(session.release(), session.participant(), attempt);
         return new PublicAssessmentResultVO(attempt.getId(), session.release().release().getReleaseCode(),
                 session.release().publish().getPaperTitleSnapshot(), attempt.getStatus(), answers.size(),
-                attempt.getAnsweredCount(), correctCount, attempt.getObjectiveScore(), attempt.getTotalScore(),
+                attempt.getAnsweredCount(), correctCount, attempt.getObjectiveScore(), maxScore,
                 attempt.getSubmittedAt(), true, metric, qualityFlags,
-                analysis == null ? null : analysis.getStatus(), analysisPayload, resultQuestions);
+                analysis == null ? null : analysis.getStatus(), analysisPayload, resultQuestions,
+                retake.attemptNo(), retake.maxAttempts(), retake.canStartNewAttempt());
+    }
+
+    @Transactional
+    public PublicAssessmentAttemptVO startNewAttempt(String releaseCode, String sessionToken) {
+        SessionBundle session = requireSessionForUpdate(releaseCode, sessionToken);
+        AssessmentAttemptEntity attempt = session.attempt();
+        if (AssessmentAttemptStatus.IN_PROGRESS.name().equals(attempt.getStatus())) {
+            requireInProgress(attempt);
+            return toAttempt(session.release(), attempt);
+        }
+        if (!AssessmentAttemptStatus.SUBMITTED.name().equals(attempt.getStatus())) {
+            throw new BusinessException(ResultCode.ATTEMPT_SUBMITTED, "Assessment attempt has already been submitted", 409);
+        }
+        RetakeState retake = retakeState(session.release(), session.participant(), attempt);
+        if (!retake.canStartNewAttempt()) {
+            return toAttempt(session.release(), attempt);
+        }
+        requireOpen(session.release().publish(), LocalDateTime.now());
+        AssessmentAttemptEntity next = createAttempt(session.release().publish(), session.participant());
+        session.participant().setAttemptId(next.getId());
+        participantMapper.updateById(session.participant());
+        reopenParticipationCode(session.participant());
+        touchSession(session.session());
+        return toAttempt(session.release(), next);
+    }
+
+    @Transactional
+    public void clearSession(String releaseCode, String sessionToken) {
+        if (sessionToken == null || sessionToken.isBlank()) {
+            return;
+        }
+        try {
+            SessionBundle session = requireSession(releaseCode, sessionToken);
+            session.session().setRevokedAt(LocalDateTime.now());
+            participantSessionMapper.updateById(session.session());
+        } catch (BusinessException exception) {
+            if (exception.getHttpStatus() != 401 && exception.getHttpStatus() != 403) {
+                throw exception;
+            }
+        }
     }
 
     private AssessmentAiAnalysisVO parseAnalysisPayload(AssessmentAiAnalysisEntity analysis) {
@@ -551,7 +611,9 @@ public class PublicAssessmentService {
         if (!AssessmentAttemptStatus.IN_PROGRESS.name().equals(attempt.getStatus())) {
             throw new BusinessException(ResultCode.ATTEMPT_SUBMITTED, "Assessment attempt has already been submitted", 409);
         }
-        if (attempt.getExpiresAt() != null && !LocalDateTime.now().isBefore(attempt.getExpiresAt())) {
+        if (attempt.getAnsweringStartedAt() != null
+                && attempt.getExpiresAt() != null
+                && !LocalDateTime.now().isBefore(attempt.getExpiresAt())) {
             throw new BusinessException(ResultCode.ASSESSMENT_CLOSED, "Assessment attempt has expired", 409);
         }
     }
@@ -935,9 +997,97 @@ public class PublicAssessmentService {
         }
     }
 
+    private void reopenParticipationCode(AssessmentParticipantEntity participant) {
+        if (participant.getParticipationCodeId() == null) return;
+        AssessmentParticipationCodeEntity code = participationCodeMapper.selectById(participant.getParticipationCodeId());
+        if (code != null && "SUBMITTED".equals(code.getStatus())) {
+            code.setStatus("IN_PROGRESS");
+            participationCodeMapper.updateById(code);
+        }
+    }
+
+    private AssessmentParticipantEntity participantOf(AssessmentAttemptEntity attempt) {
+        if (attempt.getParticipantId() == null) {
+            return null;
+        }
+        return participantMapper.selectById(attempt.getParticipantId());
+    }
+
+    private int nextAttemptNo(Long participantId) {
+        if (participantId == null) {
+            return 1;
+        }
+        AssessmentAttemptEntity latest = attemptMapper.selectOne(
+                Wrappers.<AssessmentAttemptEntity>lambdaQuery()
+                        .eq(AssessmentAttemptEntity::getParticipantId, participantId)
+                        .orderByDesc(AssessmentAttemptEntity::getAttemptNo)
+                        .orderByDesc(AssessmentAttemptEntity::getId)
+                        .last("LIMIT 1"));
+        if (latest == null) {
+            return 1;
+        }
+        return attemptNoOf(latest) + 1;
+    }
+
+    private long countAttempts(Long participantId) {
+        if (participantId == null) {
+            return 0;
+        }
+        return attemptMapper.selectCount(Wrappers.<AssessmentAttemptEntity>lambdaQuery()
+                .eq(AssessmentAttemptEntity::getParticipantId, participantId));
+    }
+
+    private RetakeState retakeState(
+            ReleaseBundle bundle,
+            AssessmentParticipantEntity participant,
+            AssessmentAttemptEntity attempt
+    ) {
+        int maxAttempts = resolveMaxAttempts(bundle.release().getMaxAttempts());
+        int attemptNo = attemptNoOf(attempt);
+        boolean submitted = AssessmentAttemptStatus.SUBMITTED.name().equals(attempt.getStatus());
+        long count = participant == null ? attemptNo : Math.max(attemptNo, countAttempts(participant.getId()));
+        boolean canStart = submitted && count < maxAttempts;
+        return new RetakeState(attemptNo, maxAttempts, canStart);
+    }
+
+    static int resolveMaxAttempts(Integer maxAttempts) {
+        return AssessmentPublicReleaseManagementService.resolveMaxAttempts(maxAttempts);
+    }
+
+    static int attemptNoOf(AssessmentAttemptEntity attempt) {
+        Integer attemptNo = attempt == null ? null : attempt.getAttemptNo();
+        return attemptNo == null || attemptNo < 1 ? 1 : attemptNo;
+    }
+
     private void touchSession(AssessmentParticipantSessionEntity session) {
         session.setLastSeenAt(LocalDateTime.now());
         participantSessionMapper.updateById(session);
+    }
+
+    private AssessmentAttemptEntity startAnsweringLocked(SessionBundle session) {
+        AssessmentAttemptEntity attempt = session.attempt();
+        requireInProgress(attempt);
+        if (attempt.getAnsweringStartedAt() != null) {
+            return attempt;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        requireOpen(session.release().publish(), now);
+        LocalDateTime durationExpiry = now.plusMinutes(session.release().publish().getDurationMinutes());
+        LocalDateTime expiresAt = session.release().publish().getDueAt() != null
+                && session.release().publish().getDueAt().isBefore(durationExpiry)
+                ? session.release().publish().getDueAt()
+                : durationExpiry;
+        if (attemptMapper.startPublicAnswering(attempt.getId(), now, expiresAt) == 0) {
+            AssessmentAttemptEntity current = attemptMapper.selectByIdForUpdate(attempt.getId());
+            if (current == null || current.getAnsweringStartedAt() == null) {
+                throw versionConflict();
+            }
+            return current;
+        }
+        attempt.setStartedAt(now);
+        attempt.setAnsweringStartedAt(now);
+        attempt.setExpiresAt(expiresAt);
+        return attempt;
     }
 
     private AssessmentAttemptEntity createAttempt(AssessmentPublishEntity publish, AssessmentParticipantEntity participant) {
@@ -954,6 +1104,7 @@ public class PublicAssessmentService {
         attempt.setObjectiveScore(0);
         attempt.setTotalScore(0);
         attempt.setVersion(1L);
+        attempt.setAttemptNo(nextAttemptNo(participant.getId()));
         attemptMapper.insert(attempt);
         int order = 1;
         for (AssessmentQuestionEntity question : loadQuestions(publish.getPaperId())) {
@@ -1010,11 +1161,14 @@ public class PublicAssessmentService {
                             listPublicAttachments(attempt.getId(), answer.getQuestionId()));
                 }).toList();
         AssessmentPublishEntity publish = bundle.publish();
+        RetakeState retake = retakeState(bundle, participantOf(attempt), attempt);
         return new PublicAssessmentAttemptVO(attempt.getId(), bundle.release().getReleaseCode(), publish.getPaperTitleSnapshot(),
                 publish.getPaperDescriptionSnapshot(), publish.getInstructionsText(), attempt.getStatus(),
                 resolveAttemptDurationMinutes(attempt, publish),
-                items.size(), attempt.getAnsweredCount(), attempt.getStartedAt(), attempt.getExpiresAt(), attempt.getLastSavedAt(),
-                attempt.getVersion(), LocalDateTime.now(), items);
+                items.size(), attempt.getAnsweredCount(), attempt.getStartedAt(), attempt.getAnsweringStartedAt(),
+                attempt.getExpiresAt(), attempt.getLastSavedAt(),
+                attempt.getVersion(), LocalDateTime.now(),
+                retake.attemptNo(), retake.maxAttempts(), retake.canStartNewAttempt(), items);
     }
 
     /**
@@ -1277,4 +1431,5 @@ public class PublicAssessmentService {
     private record ReleaseBundle(AssessmentPublicReleaseEntity release, AssessmentPublishEntity publish) { }
     private record SessionBundle(AssessmentParticipantSessionEntity session, AssessmentParticipantEntity participant,
                                  ReleaseBundle release, AssessmentAttemptEntity attempt) { }
+    private record RetakeState(int attemptNo, int maxAttempts, boolean canStartNewAttempt) { }
 }

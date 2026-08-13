@@ -7,7 +7,6 @@ import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.common.util.TokenGenerator;
 import com.huashi.eftransfer.app.modules.auth.dto.LoginRequest;
-import com.huashi.eftransfer.app.modules.auth.dto.RefreshTokenRequest;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,7 +58,7 @@ public class AuthRequestRateLimiter {
         );
     }
 
-    public void checkRefresh(HttpServletRequest request, RefreshTokenRequest refreshRequest) {
+    public void checkRefresh(HttpServletRequest request, String refreshToken) {
         if (!properties.isEnabled()) {
             return;
         }
@@ -72,7 +71,7 @@ public class AuthRequestRateLimiter {
                 "ip"
         );
         consume(
-                "auth:rl:refresh:session:" + refreshSessionKey(refreshRequest.refreshToken()),
+                "auth:rl:refresh:session:" + refreshSessionKey(refreshToken),
                 properties.getRefresh().getSession(),
                 "Too many refresh attempts",
                 request,
@@ -158,6 +157,9 @@ public class AuthRequestRateLimiter {
     }
 
     private String refreshSessionKey(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return "missing";
+        }
         String refreshTokenHash = TokenGenerator.sha256(refreshToken);
         return authTokenStore.findRefreshSession(refreshTokenHash)
                 .map(session -> String.valueOf(session.userId()))

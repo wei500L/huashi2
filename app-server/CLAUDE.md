@@ -61,8 +61,14 @@
 - Q: 练习开局撞唯一键时返回什么？
   A: `PracticeSessionService` 捕获 `DataIntegrityViolationException`（`active_owner`），映射为 `ACTIVE_SESSION_EXISTS` 409，与诊断/训练一致。
 
-- Q: 公开问卷如何防 CSRF？
-  A: 不对 JWT API 开全局 CSRF。`PublicAssessmentCsrfHeaderFilter` 要求 `/api/public/assessments/**` 的 POST/DELETE 带 `X-Requested-With: XMLHttpRequest`。
+- Q: 公开问卷和登录如何防 CSRF？
+  A: 不对 Bearer 业务 API 开全局 CSRF。`PublicAssessmentCsrfHeaderFilter` 覆盖 `/api/public/assessments/**` 的 POST/DELETE；`AuthCookieCsrfHeaderFilter` 覆盖 `POST /api/auth/login|register|refresh|logout`。两者都要求 `X-Requested-With: XMLHttpRequest`。
+
+- Q: refresh token 还在登录 JSON 里吗？
+  A: 不在。登录/注册/refresh 设置 httpOnly `EF_REFRESH`（`Path=/api/auth`，SameSite=Lax）。JSON 只返回 `accessToken`。登出吊销 Redis 会话并 `Max-Age=0` 清 cookie。
+
+- Q: 研究 PII 会一直留着吗？
+  A: 不会。`ResearchRetentionService` 每 30 分钟按 `app.assessment.research.retention`（默认 `P730D`）到期匿名：清空 `sensitive_profile_*`、写 `anonymized_at`、删除访问 IP 与 BOUND 附件。答卷与分数保留。见 `docs/research-data-operations.md`。
 
 - Q: 研究附件 `CLEAN` 是杀毒通过吗？
   A: 不是。表示魔数与扩展名类型校验通过；UI/导出文案为「类型校验通过」。
@@ -89,3 +95,4 @@ app-server/
 | 2026-08-13 | 审计下一批 High | AI 限流与 180s 超时、问卷 Redis 限流、导出脱敏、schema ddl 约定 |
 | 2026-08-13 | 审计第三批 High | XFF 可信代理、练习计分、导入行事务、单题讲解 grounding、verifier 隔离学生作答 |
 | 2026-08-13 | 审计第四批 | 练习开局 UK→409；公开问卷 `X-Requested-With` CSRF；附件 `CLEAN` 语义为类型校验 |
+| 2026-08-13 | 审计第五批 | refresh 改 `EF_REFRESH` httpOnly cookie；auth CSRF 头；研究 PII 可配置保留并匿名 |

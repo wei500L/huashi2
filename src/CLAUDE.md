@@ -23,7 +23,7 @@
 前端所有 API 调用统一走 `src/lib/services.ts`，底层使用 `src/lib/api.ts` 封装的 Axios 实例。
 
 主要服务层：
-- `authService` -- 登录、刷新、注销、获取当前用户
+- `authService` -- 登录、刷新、注销、获取当前用户（`withCredentials` + `X-Requested-With`；refresh 走 cookie）
 - `studentService` -- 学生分析（概览、趋势、热力图、散点图、高风险词对、错误分布）
 - `diagnosisTemplateService` -- 诊断模板 CRUD
 - `diagnosisSessionService` -- 诊断 session 生命周期（创建、答题、进度保存、完成、结果）
@@ -72,7 +72,7 @@
 
 ## 测试与质量
 
-- 前端自动化测试：Vitest + Testing Library，命令 `npm test`（含练习页 a11y：`src/pages/practice/index.test.tsx`）
+- 前端自动化测试：Vitest + Testing Library，命令 `npm test`（练习页 a11y：`src/pages/practice/index.test.tsx`；问卷入口 a11y：`src/pages/research/research-access-a11y.test.tsx`；会话边界：`src/lib/session.test.ts`）
 - 质量保障另含 `npm run lint` + `npm run typecheck`
 - 构建验证 `npm run build`
 - 包体积分析 `npm run build:analyze`
@@ -83,7 +83,10 @@
   A: `RequireAuth` 检查认证状态，`RequireCapability` 按 capability 校验访问权限。未认证跳转 `/login`，无权限跳转到用户默认首页。
 
 - **Q: Token 刷新机制？**
-  A: `src/lib/api.ts` 中 Axios 响应拦截器在遇到 401 时自动使用 refreshToken 刷新，支持并发请求共享同一个刷新 Promise。
+  A: Access token 只保存在 Zustand 内存，不写 localStorage。`initialize()` 先 `POST /auth/refresh`（cookie + `withCredentials`）再 `/auth/me`。401 时同样走 cookie refresh；旧 `ef-transfer-session` 里的 refresh 可随 body 一次性迁移。登录/refresh 响应用 zod 校验，缺 `accessToken`/`userInfo` 则清会话。冷启动 restore 失败不当成「登录过期」。
+
+- **Q: 登录请求要带什么头？**
+  A: `/api/auth/login|register|refresh|logout` 与公开问卷写操作都要 `X-Requested-With: XMLHttpRequest`。`src/lib/api.ts` 默认带该头且 `withCredentials: true`。
 
 - **Q: 如何添加新页面？**
   A: 在 `src/pages/` 下创建组件，在 `App.tsx` 中添加 `Route`（用 `React.lazy` 包裹），根据权限配置 `RequireCapability`。
@@ -99,7 +102,7 @@ src/
     api.ts                          # Axios 封装 + 401 自动刷新
     contracts.ts                    # 全部 TypeScript 类型定义
     services.ts                     # API 服务层
-    session.ts                      # 本地 session 存储
+    session.ts                      # 内存 session + zod 校验；不再把 token 写入 localStorage
     format.ts                       # 格式化工具
     echarts.ts                      # ECharts 按需注册
     cursor.ts                       # 自定义光标
@@ -117,6 +120,9 @@ src/
     training/index.tsx              # 个性化训练
     practice/index.tsx              # 自测练习（假朋友题库，无计时整卷作答 + LLM 辅导）
     practice/index.test.tsx         # 拼写可访问名称与选项 radio 语义
+    research/index.tsx              # 公开问卷作答（参与码 aria-describedby）
+    research/landing.tsx            # 发布编号入口
+    research/research-access-a11y.test.tsx
     analytics/index.tsx             # 学情分析
     student/Errors.tsx              # 错题与复习
     student/Settings.tsx            # 设置
@@ -139,3 +145,4 @@ src/
 |------|------|------|
 | 2026-08-13 | 文档 | 更正「无前端自动化测试」；CI 已跑 `npm test` |
 | 2026-08-13 | 审计第四批 | 公开问卷请求带 `X-Requested-With`；练习页 a11y Vitest；附件状态文案改为类型校验 |
+| 2026-08-13 | 审计第五批 | 登录 refresh 走 httpOnly cookie，access 仅内存；登录/refresh 响应 zod；问卷参与码/发布编号 `aria-describedby` |

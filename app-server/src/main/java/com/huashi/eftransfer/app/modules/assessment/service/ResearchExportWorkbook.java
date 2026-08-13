@@ -37,6 +37,7 @@ final class ResearchExportWorkbook {
 
     record AttemptRow(
             String participantCode,
+            Integer attemptNo,
             String participantType,
             String status,
             String submitReason,
@@ -560,12 +561,13 @@ final class ResearchExportWorkbook {
     private static void writeAttempts(XSSFWorkbook workbook, Styles styles, List<AttemptRow> attempts) {
         Sheet sheet = workbook.createSheet("答卷总览");
         writeHeader(sheet, styles,
-                "匿名编号", "进入方式", "状态", "提交方式", "已答", "总题数", "参考分",
+                "匿名编号", "作答次数", "进入方式", "状态", "提交方式", "已答", "总题数", "参考分",
                 "用时秒", "质量标记", "附件数", "解读状态", "开始时间", "最后保存", "提交时间");
         int rowIndex = 1;
         for (AttemptRow row : attempts) {
             writeRow(sheet, styles, rowIndex++,
                     row.participantCode(),
+                    row.attemptNo(),
                     participantTypeLabel(row.participantType()),
                     statusLabel(row.status()),
                     submitReasonLabel(row.submitReason()),
@@ -580,10 +582,10 @@ final class ResearchExportWorkbook {
                     formatDateTime(row.lastSavedAt()),
                     formatDateTime(row.submittedAt()));
         }
-        setWidths(sheet, 14, 12, 12, 12, 8, 8, 10, 10, 20, 8, 12, 20, 20, 20);
+        setWidths(sheet, 14, 10, 12, 12, 12, 8, 8, 10, 10, 20, 8, 12, 20, 20, 20);
         sheet.createFreezePane(1, 1);
         if (!attempts.isEmpty()) {
-            sheet.setAutoFilter(new CellRangeAddress(0, attempts.size(), 0, 13));
+            sheet.setAutoFilter(new CellRangeAddress(0, attempts.size(), 0, 14));
         }
     }
 

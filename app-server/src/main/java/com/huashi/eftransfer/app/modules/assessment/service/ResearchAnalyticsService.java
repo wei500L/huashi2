@@ -217,6 +217,13 @@ public class ResearchAnalyticsService {
         long inProgress = dataset.allAttempts.stream().filter(attempt -> !isSubmitted(attempt)).count();
         long submitted = dataset.allAttempts.stream().filter(this::isSubmitted).count();
         long expired = dataset.allAttempts.stream().filter(this::isExpired).count();
+        if (AssessmentPublicReleaseManagementService.resolveMaxAttempts(
+                access.release() == null ? null : access.release().getMaxAttempts()) > 1) {
+            attemptStarted = uniqueParticipantCount(dataset.allAttempts);
+            inProgress = uniqueParticipantCount(dataset.allAttempts.stream().filter(attempt -> !isSubmitted(attempt)).toList());
+            submitted = uniqueParticipantCount(dataset.allAttempts.stream().filter(this::isSubmitted).toList());
+            expired = uniqueParticipantCount(dataset.allAttempts.stream().filter(this::isExpired).toList());
+        }
         ResearchFunnelVO funnel = new ResearchFunnelVO(
                 codeGenerated, codeVerified, participantCreated, attemptStarted, inProgress, submitted, expired);
         ResearchRatesVO rates = new ResearchRatesVO(
@@ -224,13 +231,13 @@ public class ResearchAnalyticsService {
                 ResearchRateVO.of(codeVerified, codeGenerated),
                 ResearchRateVO.of(submitted, participantCreated)
         );
-        List<Long> completionMs = dataset.filteredAttempts.stream()
+        List<Long> completionMs = dataset.statsAttempts.stream()
                 .filter(this::isSubmitted)
                 .map(this::effectiveDuration)
                 .filter(Objects::nonNull)
                 .sorted()
                 .toList();
-        List<Double> scores = dataset.filteredAttempts.stream()
+        List<Double> scores = dataset.statsAttempts.stream()
                 .map(attempt -> dataset.metricsByAttempt.get(attempt.getId()))
                 .filter(Objects::nonNull)
                 .map(AssessmentMetricSnapshotEntity::getPercentageScore)
@@ -348,6 +355,7 @@ public class ResearchAnalyticsService {
                 ),
                 new TeacherResearchAttemptDetailVO.ResearchAttemptStateVO(
                         attempt.getId(),
+                        PublicAssessmentService.attemptNoOf(attempt),
                         attempt.getPublishId(),
                         attempt.getPaperId(),
                         access.publishAccess().paper().getTitle(),
@@ -536,11 +544,21 @@ public class ResearchAnalyticsService {
                         .orderByAsc(AssessmentAttemptAnswerEntity::getQuestionOrder)
                         .orderByAsc(AssessmentAttemptAnswerEntity::getId));
         String releaseCode = dataset.access.release() == null ? null : dataset.access.release().getReleaseCode();
+        Map<Long, AssessmentParticipantEntity> participantsByAttempt = new LinkedHashMap<>(dataset.participantsByAttempt);
+        for (AssessmentAttemptEntity attempt : dataset.filteredAttempts) {
+            if (attempt.getParticipantId() == null || participantsByAttempt.containsKey(attempt.getId())) {
+                continue;
+            }
+            AssessmentParticipantEntity participant = dataset.participantsById.get(attempt.getParticipantId());
+            if (participant != null) {
+                participantsByAttempt.put(attempt.getId(), participant);
+            }
+        }
         return new ResearchExportMaterial(
                 dataset.access.paper().getTitle(),
                 releaseCode,
                 dataset.filteredAttempts,
-                dataset.participantsByAttempt,
+                participantsByAttempt,
                 dataset.metricsByAttempt,
                 dataset.analysesByAttempt,
                 dataset.filesByAttempt,
@@ -597,21 +615,26 @@ public class ResearchAnalyticsService {
         Map<Long, List<AssessmentSubmissionFileEntity>> filesByAttempt = files.stream()
                 .collect(Collectors.groupingBy(AssessmentSubmissionFileEntity::getAttemptId));
         List<AssessmentAttemptEntity> filtered = attempts.stream()
-                .filter(attempt -> matchesFilter(attempt, participantsByAttempt.get(attempt.getId()),
+                .filter(attempt -> matchesFilter(attempt, participantOf(attempt, participantsById, participantsByAttempt),
                         metricsByAttempt.get(attempt.getId()), analysesByAttempt.get(attempt.getId()), filter))
                 .toList();
-        Set<Long> filteredIds = filtered.stream().map(AssessmentAttemptEntity::getId).collect(Collectors.toSet());
-        List<AssessmentAttemptAnswerEntity> answers = filteredIds.isEmpty() ? List.of() : answerMapper.selectList(
+        List<AssessmentAttemptEntity> statsAttempts = selectStatsAttempts(filtered, access.release());
+        Set<Long> submittedAttemptIds = statsAttempts.stream()
+                .filter(this::isSubmitted)
+                .map(AssessmentAttemptEntity::getId)
+                .collect(Collectors.toSet());
+        List<AssessmentAttemptAnswerEntity> answers = submittedAttemptIds.isEmpty() ? List.of() : answerMapper.selectList(
                 Wrappers.<AssessmentAttemptAnswerEntity>lambdaQuery()
-                        .in(AssessmentAttemptAnswerEntity::getAttemptId, filteredIds));
+                        .in(AssessmentAttemptAnswerEntity::getAttemptId, submittedAttemptIds));
         List<AssessmentQuestionEntity> questions = loadQuestionList(access.paper().getId());
-        Map<Long, QuestionAgg> questionAgg = aggregateQuestions(questions, answers, filtered, files);
+        Map<Long, QuestionAgg> questionAgg = aggregateQuestions(questions, answers, statsAttempts, files);
         return new Dataset(
                 access,
                 filter,
                 attempts,
                 filtered,
-                filtered.stream().filter(this::isSubmitted).map(AssessmentAttemptEntity::getId).collect(Collectors.toSet()),
+                statsAttempts,
+                submittedAttemptIds,
                 participants,
                 participantsById,
                 participantsByAttempt,
@@ -712,12 +735,13 @@ public class ResearchAnalyticsService {
     }
 
     private ResearchAttemptSummaryVO toAttemptSummary(AssessmentAttemptEntity attempt, Dataset dataset) {
-        AssessmentParticipantEntity participant = dataset.participantsByAttempt.get(attempt.getId());
+        AssessmentParticipantEntity participant = participantOf(attempt, dataset.participantsById, dataset.participantsByAttempt);
         AssessmentMetricSnapshotEntity metric = dataset.metricsByAttempt.get(attempt.getId());
         AssessmentAiAnalysisEntity analysis = dataset.analysesByAttempt.get(attempt.getId());
         List<AssessmentSubmissionFileEntity> files = dataset.filesByAttempt.getOrDefault(attempt.getId(), List.of());
         return new ResearchAttemptSummaryVO(
                 attempt.getId(),
+                PublicAssessmentService.attemptNoOf(attempt),
                 formatParticipantCode(attempt.getParticipantId()),
                 participant == null ? null : participant.getParticipantType(),
                 attempt.getStatus(),
@@ -755,7 +779,7 @@ public class ResearchAnalyticsService {
         long flagged = 0;
         Map<String, Long> flags = new LinkedHashMap<>();
         long considered = 0;
-        for (AssessmentAttemptEntity attempt : dataset.filteredAttempts) {
+        for (AssessmentAttemptEntity attempt : dataset.statsAttempts) {
             if (!isSubmitted(attempt)) {
                 continue;
             }
@@ -783,7 +807,7 @@ public class ResearchAnalyticsService {
         long completed = 0;
         long fallback = 0;
         long failed = 0;
-        for (AssessmentAttemptEntity attempt : dataset.filteredAttempts) {
+        for (AssessmentAttemptEntity attempt : dataset.statsAttempts) {
             AssessmentAiAnalysisEntity analysis = dataset.analysesByAttempt.get(attempt.getId());
             if (analysis == null) {
                 continue;
@@ -823,6 +847,66 @@ public class ResearchAnalyticsService {
             latest.putIfAbsent(report.getPublishId(), report.getStatus());
         }
         return latest;
+    }
+
+    private AssessmentParticipantEntity participantOf(
+            AssessmentAttemptEntity attempt,
+            Map<Long, AssessmentParticipantEntity> participantsById,
+            Map<Long, AssessmentParticipantEntity> participantsByAttempt
+    ) {
+        if (attempt.getParticipantId() != null) {
+            AssessmentParticipantEntity byId = participantsById.get(attempt.getParticipantId());
+            if (byId != null) {
+                return byId;
+            }
+        }
+        return participantsByAttempt.get(attempt.getId());
+    }
+
+    private List<AssessmentAttemptEntity> selectStatsAttempts(
+            List<AssessmentAttemptEntity> filtered,
+            AssessmentPublicReleaseEntity release
+    ) {
+        if (AssessmentPublicReleaseManagementService.resolveMaxAttempts(release == null ? null : release.getMaxAttempts()) <= 1) {
+            return filtered;
+        }
+        Map<Long, AssessmentAttemptEntity> latestSubmitted = new LinkedHashMap<>();
+        List<AssessmentAttemptEntity> remainder = new ArrayList<>();
+        for (AssessmentAttemptEntity attempt : filtered) {
+            Long participantId = attempt.getParticipantId();
+            if (participantId == null || !isSubmitted(attempt)) {
+                remainder.add(attempt);
+                continue;
+            }
+            AssessmentAttemptEntity current = latestSubmitted.get(participantId);
+            if (current == null || isLaterAttempt(attempt, current)) {
+                latestSubmitted.put(participantId, attempt);
+            }
+        }
+        List<AssessmentAttemptEntity> selected = new ArrayList<>(latestSubmitted.values());
+        selected.addAll(remainder);
+        return selected;
+    }
+
+    private boolean isLaterAttempt(AssessmentAttemptEntity left, AssessmentAttemptEntity right) {
+        int leftNo = PublicAssessmentService.attemptNoOf(left);
+        int rightNo = PublicAssessmentService.attemptNoOf(right);
+        if (leftNo != rightNo) {
+            return leftNo > rightNo;
+        }
+        if (left.getSubmittedAt() != null && right.getSubmittedAt() != null
+                && !left.getSubmittedAt().equals(right.getSubmittedAt())) {
+            return left.getSubmittedAt().isAfter(right.getSubmittedAt());
+        }
+        return left.getId() != null && right.getId() != null && left.getId() > right.getId();
+    }
+
+    private long uniqueParticipantCount(List<AssessmentAttemptEntity> attempts) {
+        return attempts.stream()
+                .map(AssessmentAttemptEntity::getParticipantId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
     }
 
     private List<AssessmentAttemptEntity> loadAttempts(Collection<Long> publishIds) {
@@ -1017,6 +1101,7 @@ public class ResearchAnalyticsService {
         final ResearchQueryFilter filter;
         final List<AssessmentAttemptEntity> allAttempts;
         final List<AssessmentAttemptEntity> filteredAttempts;
+        final List<AssessmentAttemptEntity> statsAttempts;
         final Set<Long> submittedAttemptIds;
         final List<AssessmentParticipantEntity> allParticipants;
         final Map<Long, AssessmentParticipantEntity> participantsById;
@@ -1032,6 +1117,7 @@ public class ResearchAnalyticsService {
                 ResearchQueryFilter filter,
                 List<AssessmentAttemptEntity> allAttempts,
                 List<AssessmentAttemptEntity> filteredAttempts,
+                List<AssessmentAttemptEntity> statsAttempts,
                 Set<Long> submittedAttemptIds,
                 List<AssessmentParticipantEntity> allParticipants,
                 Map<Long, AssessmentParticipantEntity> participantsById,
@@ -1046,6 +1132,7 @@ public class ResearchAnalyticsService {
             this.filter = filter;
             this.allAttempts = allAttempts;
             this.filteredAttempts = filteredAttempts;
+            this.statsAttempts = statsAttempts;
             this.submittedAttemptIds = submittedAttemptIds;
             this.allParticipants = allParticipants;
             this.participantsById = participantsById;

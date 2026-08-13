@@ -3,10 +3,37 @@ import { MemoryRouter, Outlet, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import type { CurrentUserVO, LoginResponse } from '@/lib/contracts';
-import { clearStoredSession, dispatchAuthExpired, hasPendingAuthExpired } from '@/lib/session';
+import {
+  clearPendingAuthExpired,
+  clearStoredSession,
+  dispatchAuthExpired,
+  hasPendingAuthExpired,
+  writeStoredSession,
+} from '@/lib/session';
 import { workspacePreferenceKey } from '@/lib/workspaces';
+import { authService } from '@/lib/services';
 import { useAuthStore, useUIStore } from '@/store';
 import App from './App';
+
+const initializeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
+vi.mock('@/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/store')>();
+  actual.useAuthStore.setState({ initialize: initializeMock });
+  return actual;
+});
+
+vi.mock('@/lib/services', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/services')>();
+  return {
+    ...actual,
+    authService: {
+      ...actual.authService,
+      me: vi.fn(),
+      logout: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+});
 
 vi.mock('./components/layout', () => ({
   AppLayout: () => (
@@ -70,7 +97,6 @@ const mockUser: CurrentUserVO = {
 const mockSession: LoginResponse = {
   accessToken: 'access-token',
   accessTokenExpiresAt: '2030-01-01T00:00:00Z',
-  refreshToken: 'refresh-token',
   refreshTokenExpiresAt: '2030-01-02T00:00:00Z',
   userInfo: mockUser,
 };
@@ -149,19 +175,26 @@ describe('App public research auth isolation', () => {
   });
 });
 
+function setAuthenticatedSession(session: LoginResponse) {
+  vi.mocked(authService.me).mockResolvedValue(session.userInfo);
+  writeStoredSession(session);
+  useAuthStore.setState({
+    ...useAuthStore.getState(),
+    status: 'authenticated',
+    session,
+    user: session.userInfo,
+    error: null,
+    initialize: initializeMock,
+    syncFromStorage: originalAuthState.syncFromStorage,
+    isAuthenticated: () => true,
+  });
+}
+
 describe('App auth-expired handling', () => {
   beforeEach(() => {
     window.localStorage.clear();
-    useAuthStore.setState({
-      ...useAuthStore.getState(),
-      status: 'authenticated',
-      session: mockSession,
-      user: mockUser,
-      error: null,
-      initialize: vi.fn().mockResolvedValue(undefined),
-      syncFromStorage: originalAuthState.syncFromStorage,
-      isAuthenticated: () => true,
-    });
+    clearPendingAuthExpired();
+    setAuthenticatedSession(mockSession);
     useUIStore.setState({
       ...useUIStore.getState(),
       locale: 'zh-CN',
@@ -174,6 +207,8 @@ describe('App auth-expired handling', () => {
   afterEach(() => {
     useAuthStore.setState(originalAuthState);
     useUIStore.setState(originalUiState);
+    clearPendingAuthExpired();
+    clearStoredSession();
     window.localStorage.clear();
     vi.clearAllMocks();
   });
@@ -224,8 +259,10 @@ describe('App auth-expired handling', () => {
       session: null,
       user: null,
       error: null,
-      initialize: vi.fn().mockResolvedValue(undefined),
+      initialize: initializeMock,
     });
+    clearStoredSession();
+    clearStoredSession();
 
     await act(async () => {
       render(
@@ -257,23 +294,14 @@ describe('App auth-expired handling', () => {
       },
     });
     const preferenceKey = workspacePreferenceKey(multiWorkspaceUser);
-
-    useAuthStore.setState({
-      ...useAuthStore.getState(),
-      status: 'authenticated',
-      session: {
-        ...multiWorkspaceSession,
-        userInfo: {
-          ...multiWorkspaceUser,
-          studentProfile: completeStudentProfile,
-        },
-      },
-      user: {
+    const session = {
+      ...multiWorkspaceSession,
+      userInfo: {
         ...multiWorkspaceUser,
         studentProfile: completeStudentProfile,
       },
-      error: null,
-    });
+    };
+    setAuthenticatedSession(session);
     useUIStore.setState({
       ...useUIStore.getState(),
       activeWorkspace: null,
@@ -303,13 +331,7 @@ describe('App auth-expired handling', () => {
       },
     });
 
-    useAuthStore.setState({
-      ...useAuthStore.getState(),
-      status: 'authenticated',
-      session: multiWorkspaceSession,
-      user: multiWorkspaceUser,
-      error: null,
-    });
+    setAuthenticatedSession(multiWorkspaceSession);
     useUIStore.setState({
       ...useUIStore.getState(),
       activeWorkspace: 'ADMIN_CONSOLE',
@@ -339,13 +361,7 @@ describe('App auth-expired handling', () => {
       },
     });
 
-    useAuthStore.setState({
-      ...useAuthStore.getState(),
-      status: 'authenticated',
-      session: teacherSession,
-      user: teacherUser,
-      error: null,
-    });
+    setAuthenticatedSession(teacherSession);
     useUIStore.setState({
       ...useUIStore.getState(),
       activeWorkspace: 'TEACHING_WORKSPACE',
@@ -375,11 +391,9 @@ describe('App auth-expired handling', () => {
       },
     });
 
-    useAuthStore.setState({
-      ...useAuthStore.getState(),
-      status: 'authenticated',
-      session: mockSession,
-      user: {
+    setAuthenticatedSession({
+      ...mockSession,
+      userInfo: {
         ...mockUser,
         studentProfile: {
           studentNo: 'S20260001',
@@ -391,7 +405,6 @@ describe('App auth-expired handling', () => {
           weeklyAccuracyTarget: null,
         },
       },
-      error: null,
     });
 
     await act(async () => {
@@ -416,13 +429,7 @@ describe('App auth-expired handling', () => {
       },
     });
 
-    useAuthStore.setState({
-      ...useAuthStore.getState(),
-      status: 'authenticated',
-      session: multiWorkspaceSession,
-      user: multiWorkspaceUser,
-      error: null,
-    });
+    setAuthenticatedSession(multiWorkspaceSession);
 
     await act(async () => {
       render(
@@ -447,21 +454,12 @@ describe('App auth-expired handling', () => {
       },
     });
 
-    useAuthStore.setState({
-      ...useAuthStore.getState(),
-      status: 'authenticated',
-      session: {
-        ...multiWorkspaceSession,
-        userInfo: {
-          ...multiWorkspaceUser,
-          studentProfile: completeStudentProfile,
-        },
-      },
-      user: {
+    setAuthenticatedSession({
+      ...multiWorkspaceSession,
+      userInfo: {
         ...multiWorkspaceUser,
         studentProfile: completeStudentProfile,
       },
-      error: null,
     });
     useUIStore.setState({
       ...useUIStore.getState(),
