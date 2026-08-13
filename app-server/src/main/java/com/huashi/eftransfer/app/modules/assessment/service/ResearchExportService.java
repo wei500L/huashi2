@@ -2,7 +2,9 @@ package com.huashi.eftransfer.app.modules.assessment.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.huashi.eftransfer.app.common.audit.service.AuditLogService;
+import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.util.SecurityUtils;
+import com.huashi.eftransfer.app.modules.user.service.UserQueryService;
 import com.huashi.eftransfer.app.modules.assessment.dto.ResearchExportRequest;
 import com.huashi.eftransfer.app.modules.assessment.entity.ResearchExportJobEntity;
 import com.huashi.eftransfer.app.modules.assessment.mapper.ResearchExportJobMapper;
@@ -38,6 +40,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +77,7 @@ public class ResearchExportService {
     private final AssessmentJsonCodec jsonCodec;
     private final ObjectStorageService objectStorageService;
     private final AuditLogService auditLogService;
+    private final UserQueryService userQueryService;
     private final TaskExecutor researchExportTaskExecutor;
     private final TransactionTemplate transactionTemplate;
 
@@ -81,6 +89,7 @@ public class ResearchExportService {
             AssessmentJsonCodec jsonCodec,
             ObjectStorageService objectStorageService,
             AuditLogService auditLogService,
+            UserQueryService userQueryService,
             @Qualifier("researchExportTaskExecutor") TaskExecutor researchExportTaskExecutor,
             PlatformTransactionManager transactionManager
     ) {
@@ -91,6 +100,7 @@ public class ResearchExportService {
         this.jsonCodec = jsonCodec;
         this.objectStorageService = objectStorageService;
         this.auditLogService = auditLogService;
+        this.userQueryService = userQueryService;
         this.researchExportTaskExecutor = researchExportTaskExecutor;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -129,7 +139,8 @@ public class ResearchExportService {
         if (jobId == null) {
             throw new BusinessException(ResultCode.INTERNAL_ERROR, "Failed to create export job", 500);
         }
-        researchExportTaskExecutor.execute(() -> claimAndProcess(jobId));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        researchExportTaskExecutor.execute(() -> claimAndProcess(jobId, authentication));
         return toVo(jobMapper.selectById(jobId));
     }
 
@@ -169,23 +180,62 @@ public class ResearchExportService {
         var staleBefore = LocalDateTime.now().minusSeconds(120);
         for (Long id : jobMapper.selectProcessableIds(5, staleBefore)) {
             if (jobMapper.claimForProcessing(id, staleBefore) == 1) {
-                processJob(id);
+                processJob(id, authenticationForJob(id));
             }
         }
     }
 
-    void claimAndProcess(Long jobId) {
+    void claimAndProcess(Long jobId, Authentication authentication) {
         LocalDateTime staleBefore = LocalDateTime.now().minusSeconds(120);
         if (jobMapper.claimForProcessing(jobId, staleBefore) == 1) {
-            processJob(jobId);
+            processJob(jobId, authentication);
         }
     }
 
-    void processJob(Long jobId) {
+    private Authentication authenticationForJob(Long jobId) {
+        ResearchExportJobEntity job = jobMapper.selectById(jobId);
+        if (job == null || job.getRequestedBy() == null) {
+            return null;
+        }
+        return userQueryService.findEnabledById(job.getRequestedBy())
+                .map(user -> {
+                    java.util.Set<String> roles = userQueryService.getRoleCodes(user.getId());
+                    var authorities = roles.stream()
+                            .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                            .collect(java.util.stream.Collectors.toSet());
+                    JwtPrincipal principal = new JwtPrincipal(
+                            user.getId(),
+                            user.getUsername(),
+                            user.getDisplayName(),
+                            roles,
+                            "research-export",
+                            java.time.Instant.now().plusSeconds(3600),
+                            authorities
+                    );
+                    return (Authentication) new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                })
+                .orElse(null);
+    }
+
+    void processJob(Long jobId, Authentication authentication) {
         ResearchExportJobEntity job = jobMapper.selectById(jobId);
         if (job == null) {
             return;
         }
+        SecurityContext previous = SecurityContextHolder.getContext();
+        try {
+            if (authentication != null) {
+                SecurityContext context = SecurityContextHolder.createEmptyContext();
+                context.setAuthentication(authentication);
+                SecurityContextHolder.setContext(context);
+            }
+            processJobInternal(job);
+        } finally {
+            SecurityContextHolder.setContext(previous);
+        }
+    }
+
+    private void processJobInternal(ResearchExportJobEntity job) {
         try {
             ResearchQueryFilter filter = jsonCodec.read(job.getFilterJson(), ResearchQueryFilter.class);
             byte[] bytes;
