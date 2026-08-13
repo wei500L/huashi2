@@ -921,7 +921,8 @@ public class AiInsightService {
             Map<String, Object> rawResponses
     ) {
         if (grounding == null || payload.citationIds().isEmpty()) {
-            return true;
+            rawResponses.put("groundingVerification", "Grounding evidence or citationIds were empty");
+            return false;
         }
         List<Object> evidence = grounding.contextChunks() == null
                 ? List.of()

@@ -32,7 +32,8 @@
 
 - `X-Internal-Token` 是内部接口统一鉴权头
 - `PLATFORM_INTERNAL_API_ENABLED=true` 时，`/internal/**` 一律 fail-close
-- `PLATFORM_INTERNAL_API_TOKEN` 由 `app-server` 与 `ai-gateway` 共享，缺失时两个服务都会显式拒绝启动
+- `PLATFORM_INTERNAL_API_TOKEN` 由 `app-server` 与 `ai-gateway` 共享；缺失、占位符或弱熵在非 `local`/`test` 会拒绝启动，且 prod/dev 禁止 `enabled=false`
+- `APP_ASSESSMENT_CODE_HMAC_SECRET` 与 `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY` 必须显式提供；非 `local`/`test` 拒绝仓库内默认值
 - `APP_JWT_ACTIVE_KID` 与 `APP_JWT_KEYS_*` 控制当前签名 key ring；新 access token 始终带 `kid`
 - `APP_JWT_LEGACY_SECRET` 仅用于旧 token 兼容验签窗口
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 与 JWT 密钥职责分离，非 `local/test` 缺失时 `app-server` 不会启动
@@ -57,11 +58,13 @@ cp .env.example .env
 - `APP_JWT_KEYS_1_SECRET`
 - `APP_JWT_LEGACY_SECRET`（仅在旧 token 兼容窗口需要时填写）
 - `PLATFORM_INTERNAL_API_TOKEN`
+- `APP_ASSESSMENT_CODE_HMAC_SECRET`
+- `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY`
 - `REDIS_PASSWORD`
 - AI 供应商相关变量：`AI_CHAT_PROTOCOL`、`AI_CHAT_BASE_URL`、`AI_CHAT_API_KEY`、`AI_CHAT_MODEL`、`AI_EMBEDDING_BASE_URL`、`AI_EMBEDDING_MODEL`、`AI_MULTIMODAL_EMBEDDING_MODEL`、`AI_RERANK_PROTOCOL`、`AI_RERANK_BASE_URL`、`AI_RERANK_MODEL`、`AI_MULTIMODAL_RERANK_MODEL`
 - 如需真实 fallback：`AI_FALLBACK_CHAT_*`、`AI_FALLBACK_EMBEDDING_*`、`AI_FALLBACK_RERANK_*` 这三组变量都应显式填写
 
-JWT key 需要使用随机高熵值，示例可用：`openssl rand -base64 48`
+JWT key 需要使用随机高熵值，示例可用：`openssl rand -base64 48`。问卷 HMAC / 敏感资料密钥与内部 token 同样不要保留 `.env.example` 里的 `replace-me-*` 占位符。
 
 AI fallback 说明：
 

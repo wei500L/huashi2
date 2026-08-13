@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import type { NotificationItemVO, NotificationSocketMessage, PageResult } from '@/lib/contracts';
 import { getProductizedErrorState } from '@/lib/async-state';
-import { buildNotificationWebSocketUrl } from '@/lib/notifications';
+import { buildNotificationAuthMessage, buildNotificationWebSocketUrl } from '@/lib/notifications';
 import { notificationService } from '@/lib/services';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useUIStore } from '@/store';
@@ -234,7 +234,7 @@ export const NotificationBell: React.FC = () => {
       return;
     }
     const accessToken = session?.accessToken;
-    const wsUrl = accessToken ? buildNotificationWebSocketUrl(accessToken) : null;
+    const wsUrl = accessToken ? buildNotificationWebSocketUrl() : null;
     if (!wsUrl) {
       return;
     }
@@ -248,6 +248,12 @@ export const NotificationBell: React.FC = () => {
         return;
       }
       socket = new WebSocket(wsUrl);
+      socket.onopen = () => {
+        if (closedByEffect || !accessToken) {
+          return;
+        }
+        socket?.send(buildNotificationAuthMessage(accessToken));
+      };
       socket.onmessage = handleSocketMessage;
       socket.onclose = () => {
         if (closedByEffect) {

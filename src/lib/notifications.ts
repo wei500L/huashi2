@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-export function buildNotificationWebSocketUrl(accessToken: string): string | null {
-  if (typeof window === 'undefined' || !accessToken) {
+export function buildNotificationWebSocketUrl(): string | null {
+  if (typeof window === 'undefined') {
     return null;
   }
 
@@ -13,6 +13,9 @@ export function buildNotificationWebSocketUrl(accessToken: string): string | nul
     : `${normalizedPath}/ws/notifications`;
 
   const wsUrl = new URL(`${wsProtocol}//${resolvedApiUrl.host}${wsPath.startsWith('/') ? wsPath : `/${wsPath}`}`);
-  wsUrl.searchParams.set('access_token', accessToken);
   return wsUrl.toString();
+}
+
+export function buildNotificationAuthMessage(accessToken: string): string {
+  return JSON.stringify({ type: 'AUTH', accessToken });
 }

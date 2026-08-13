@@ -50,7 +50,8 @@ root
 - `APP_JWT_ACTIVE_KID` 与 `APP_JWT_KEYS_*` 必须显式提供，新 access token 会写入 `kid`
 - `APP_JWT_LEGACY_SECRET` 仅用于旧 token 兼容验签窗口，不应作为长期主配置
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 必须与 JWT 密钥分离，非 `local/test` 缺失时应用拒绝启动
-- `PLATFORM_INTERNAL_API_TOKEN` 是 `app-server` 与 `ai-gateway` 的统一内部令牌
+- `PLATFORM_INTERNAL_API_TOKEN` 是 `app-server` 与 `ai-gateway` 的统一内部令牌；非 `local/test` 拒绝占位符与短 token，且禁止 `enabled=false`
+- `APP_ASSESSMENT_CODE_HMAC_SECRET` 与 `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY` 必须显式提供；非 `local/test` 拒绝仓库内默认值
 - `platform.internal-api.enabled=true` 时，所有 `/internal/**` 接口都要求 `X-Internal-Token`
 - `APP_DEMO_DATA_ENABLED=false` 是默认值；demo 用户初始化仅在 `local/test` profile 且显式打开时执行
 - `ai-gateway` 的 `/internal/ai/**`、`/internal/ai/rag/**` 与 `app-server` 的 `/internal/**` 都采用同一内部鉴权头
@@ -73,6 +74,8 @@ cp .env.example .env
 - `APP_JWT_KEYS_1_SECRET`
 - `APP_JWT_LEGACY_SECRET`（仅在旧 token 兼容窗口需要时填写）
 - `PLATFORM_INTERNAL_API_TOKEN`
+- `APP_ASSESSMENT_CODE_HMAC_SECRET`
+- `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY`
 - `REDIS_PASSWORD`
 - `APP_DEMO_DATA_ENABLED`
 - `AI_OPENAI_API_KEY`
@@ -121,7 +124,11 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 - `APP_DEMO_DATA_ENABLED=false` 时，登录账号需要自行准备；本地 Docker 验收可运行 `python3 scripts/ensure_qa_admin.py` 准备 `admin.qa`
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 建议使用独立 secret；只在本地临时调试时才允许回退到旧 JWT secret
 - `REDIS_PASSWORD` 不能为空；Compose 中的 Redis 现在启用密码认证并仅绑定到 `127.0.0.1`
-- `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`
+- `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`；占位符/弱熵在非 `local`/`test` 会拒绝启动
+- `APP_ASSESSMENT_CODE_HMAC_SECRET` 与 `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY` 同样不要保留 example 占位符
+- 默认 compose 将 ai-gateway `8090` 绑到 `127.0.0.1`；容器内仍通过 `ai-gateway:8090` 互访
+- 通知 WebSocket 不再把 access token 放进 URL；连上后发送首条 `{type:"AUTH",accessToken}`
+- `/actuator/health` 可匿名探测；`/actuator/metrics` 与 `/actuator/prometheus` 需要管理员 JWT
 - `AI_FALLBACK_*` 需要显式提供；如果留空，bootstrap fallback 可能仍与 active provider 指向同一上游
 - `diagnosis` 与 `training` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；刷新后前端优先恢复该 session
 - 生产环境建议显式设置 `APP_DB_SSL_MODE=REQUIRED`

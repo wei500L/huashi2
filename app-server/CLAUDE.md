@@ -77,3 +77,4 @@ app-server/
 |------|------|------|
 | 2026-03-22 | 初始创建 | 全量扫描生成 |
 | 2026-04-18 | 数据库初始化调整 | 移除版本化迁移体系，改为单文件 `schema.sql` |
+| 2026-08-13 | 审计前五项安全修复 | 问卷密钥启动校验、内部 token `SecretPolicy`、通知 WS 首条 AUTH、actuator 限 ADMIN、辅导 grounding fail-closed |

@@ -288,6 +288,48 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(interventionDraft.getNote()).isEqualTo(json.path("data").path("teacherNote").asText());
     }
 
+    @Test
+    void shouldFallbackWhenRetrievedGroundingHasNoCitations() throws Exception {
+        AiScenario scenario = prepareAiScenario(1, true);
+        stubAiGatewayClient.setRagRetrieveMode(StubAiGatewayClient.RagRetrieveMode.EMPTY);
+
+        MvcResult result = mockMvc.perform(post("/api/ai/recommend-training")
+                        .with(bearer(scenario.studentToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "diagnosisSummaryId": %d
+                                }
+                                """.formatted(scenario.latestDiagnosisSummaryId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.generationSource").value(AiConstants.GENERATION_SOURCE_RULE_FALLBACK))
+                .andExpect(jsonPath("$.data.fallbackReason").value(AiGatewayFailureReason.GROUNDING_VALIDATION_FAILED.name()))
+                .andReturn();
+
+        JsonNode json = readJson(result);
+        AiGenerationRecordEntity generationRecord = generationRecord(json.path("data").path("requestId").asText());
+        assertThat(generationRecord.getGenerationSource()).isEqualTo(AiConstants.GENERATION_SOURCE_RULE_FALLBACK);
+        assertThat(generationRecord.getFallbackReason()).isEqualTo(AiGatewayFailureReason.GROUNDING_VALIDATION_FAILED.name());
+    }
+
+    @Test
+    void shouldFallbackWhenRagRetrieveFails() throws Exception {
+        AiScenario scenario = prepareAiScenario(1, true);
+        stubAiGatewayClient.setRagRetrieveMode(StubAiGatewayClient.RagRetrieveMode.FAILURE);
+
+        mockMvc.perform(post("/api/ai/explain-diagnosis")
+                        .with(bearer(scenario.studentToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "diagnosisSummaryId": %d
+                                }
+                                """.formatted(scenario.latestDiagnosisSummaryId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.generationSource").value(AiConstants.GENERATION_SOURCE_RULE_FALLBACK))
+                .andExpect(jsonPath("$.data.fallbackReason").value(AiGatewayFailureReason.GROUNDING_VALIDATION_FAILED.name()));
+    }
+
     private AiScenario prepareAiScenario(int diagnosisRuns, boolean completeTraining) throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
         String studentToken = loginAndGetAccessToken("student.li", "Student@123456");
@@ -665,6 +707,7 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
         private static final String STRUCTURED_MODEL = "stub-structured-model";
         private static final String RERANK_MODEL = "stub-rerank-model";
         private StructuredMode structuredMode = StructuredMode.SUCCESS;
+        private RagRetrieveMode ragRetrieveMode = RagRetrieveMode.GROUNDED;
 
         StubAiGatewayClient(AiGatewayClientProperties properties) {
             super(RestClient.builder().baseUrl("http://localhost").build(), properties);
@@ -672,10 +715,15 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
 
         void reset() {
             this.structuredMode = StructuredMode.SUCCESS;
+            this.ragRetrieveMode = RagRetrieveMode.GROUNDED;
         }
 
         void setStructuredMode(StructuredMode structuredMode) {
             this.structuredMode = structuredMode;
+        }
+
+        void setRagRetrieveMode(RagRetrieveMode ragRetrieveMode) {
+            this.ragRetrieveMode = ragRetrieveMode;
         }
 
         @Override
@@ -747,13 +795,51 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
         public AiGatewayCallResult<com.huashi.eftransfer.shared.ai.RagRetrieveResponse> ragRetrieve(
                 com.huashi.eftransfer.shared.ai.RagRetrieveRequest request
         ) {
-            // Keep guidance tests free of citation obligations unless a future test needs grounding.
+            if (ragRetrieveMode == RagRetrieveMode.FAILURE) {
+                return AiGatewayCallResult.failure(
+                        AiGatewayFailureReason.PROVIDER_UNAVAILABLE,
+                        "stub rag retrieve unavailable",
+                        true,
+                        1,
+                        3L,
+                        "/internal/ai/rag/retrieve"
+                );
+            }
+            if (ragRetrieveMode == RagRetrieveMode.EMPTY) {
+                return AiGatewayCallResult.success(
+                        new com.huashi.eftransfer.shared.ai.RagRetrieveResponse(
+                                false,
+                                "No stub grounding",
+                                List.of(),
+                                List.of()
+                        ),
+                        1,
+                        3L,
+                        "/internal/ai/rag/retrieve"
+                );
+            }
             return AiGatewayCallResult.success(
                     new com.huashi.eftransfer.shared.ai.RagRetrieveResponse(
-                            false,
-                            "No stub grounding",
-                            List.of(),
-                            List.of()
+                            true,
+                            "",
+                            List.of(new RagCitation(
+                                    "C1",
+                                    "TRAINING_GUIDE",
+                                    "guide-01",
+                                    "Training guide",
+                                    "Focus on false-friend discrimination before transferring the judgment.",
+                                    0.92d
+                            )),
+                            List.of(new RagContextChunk(
+                                    "C1",
+                                    "TRAINING_GUIDE",
+                                    "guide-01",
+                                    "Training guide",
+                                    "Focus on false-friend discrimination before transferring the judgment.",
+                                    "Focus on false-friend discrimination before transferring the judgment.",
+                                    0.92d,
+                                    Map.of()
+                            ))
                     ),
                     1,
                     3L,
@@ -860,8 +946,12 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                     modeItem("COGNATE_BOOST", "强化：正迁移促进", "优先修复当前最突出的迁移风险。"),
                     modeItem("SPEED_CHALLENGE", "速度挑战", "在稳定准确率后提升反应速度。")
             ));
-            payload.put("explanation", "学生当前最需要先稳住高风险词对辨析，再把正确判断迁移到新语境中。");
-            payload.put("teacherNote", "教师可先讲清最小语义差异，再让学生口头复述判断路径，避免只凭词形作答。");
+            payload.put("explanation", ragRetrieveMode == RagRetrieveMode.GROUNDED
+                    ? "学生当前最需要先稳住高风险词对辨析 [C1]，再把正确判断迁移到新语境中。"
+                    : "学生当前最需要先稳住高风险词对辨析，再把正确判断迁移到新语境中。");
+            payload.put("teacherNote", ragRetrieveMode == RagRetrieveMode.GROUNDED
+                    ? "教师可先讲清最小语义差异 [C1]，再让学生口头复述判断路径，避免只凭词形作答。"
+                    : "教师可先讲清最小语义差异，再让学生口头复述判断路径，避免只凭词形作答。");
             payload.put("diagnosisInsight", Map.of(
                     "strengths", List.of(
                             "已经能够在部分题目中给出稳定判断。",
@@ -877,7 +967,7 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
                     )
             ));
             payload.put("confidence", 0.91d);
-            payload.put("citationIds", List.of());
+            payload.put("citationIds", ragRetrieveMode == RagRetrieveMode.GROUNDED ? List.of("C1") : List.of());
             payload.put("uncertaintyNote", "");
             return payload;
         }
@@ -942,6 +1032,12 @@ class AiInsightIntegrationTest extends AbstractWebIntegrationTest {
             SUCCESS,
             INVALID_JSON,
             PROVIDER_UNAVAILABLE
+        }
+
+        enum RagRetrieveMode {
+            GROUNDED,
+            EMPTY,
+            FAILURE
         }
     }
 

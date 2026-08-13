@@ -3,7 +3,9 @@ package com.huashi.eftransfer.ai.common.security;
 import com.huashi.eftransfer.ai.common.config.InternalApiProperties;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
+import com.huashi.eftransfer.shared.security.SecretPolicy;
 import jakarta.annotation.PostConstruct;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -14,15 +16,27 @@ import java.security.MessageDigest;
 public class InternalApiTokenAuthenticator {
 
     private final InternalApiProperties properties;
+    private final Environment environment;
 
-    public InternalApiTokenAuthenticator(InternalApiProperties properties) {
+    public InternalApiTokenAuthenticator(InternalApiProperties properties, Environment environment) {
         this.properties = properties;
+        this.environment = environment;
     }
 
     @PostConstruct
     void validateConfiguration() {
-        if (properties.isEnabled() && !StringUtils.hasText(properties.getToken())) {
+        boolean relaxed = SecretPolicy.allowsInsecureDefaults(environment.getActiveProfiles());
+        if (!properties.isEnabled()) {
+            if (!relaxed) {
+                throw new IllegalStateException("platform.internal-api.enabled must be true outside local/test profiles");
+            }
+            return;
+        }
+        if (!StringUtils.hasText(properties.getToken())) {
             throw new IllegalStateException("platform.internal-api.token must be configured when internal API protection is enabled");
+        }
+        if (!relaxed) {
+            SecretPolicy.validateHighEntropy(properties.getToken(), "platform.internal-api.token");
         }
     }
 

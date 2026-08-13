@@ -77,3 +77,4 @@ ai-gateway/
 |------|------|------|
 | 2026-03-22 | 初始创建 | 全量扫描生成 |
 | 2026-04-18 | 数据库初始化调整 | 移除版本化迁移体系，改为单文件 `schema.sql` |
+| 2026-08-13 | 内部 token 启动校验 | 非 local/test 走共享 `SecretPolicy`，prod 禁止 `enabled=false`；默认 compose 将 8090 绑 loopback |

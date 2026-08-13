@@ -1,22 +1,34 @@
 package com.huashi.eftransfer.app.modules.notification.ws;
 
+import com.huashi.eftransfer.app.common.security.JwtPrincipal;
+import com.huashi.eftransfer.app.common.security.JwtTokenProvider;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
 import com.huashi.eftransfer.app.modules.notification.vo.NotificationItemVO;
+import io.jsonwebtoken.JwtException;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class NotificationWebSocketHandler extends TextWebSocketHandler {
@@ -24,34 +36,84 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     public static final String USER_ID_ATTRIBUTE = "notification.userId";
     public static final String TOKEN_ID_ATTRIBUTE = "notification.tokenId";
     public static final String TOKEN_EXPIRES_AT_ATTRIBUTE = "notification.tokenExpiresAt";
+    public static final String AUTH_MESSAGE_TYPE = "AUTH";
+    static final String AUTH_TIMEOUT_ATTRIBUTE = "notification.authTimeout";
     private static final Logger log = LoggerFactory.getLogger(NotificationWebSocketHandler.class);
 
     private final ObjectMapper objectMapper;
     private final AuthTokenStore authTokenStore;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final Duration authTimeout;
+    private final ScheduledExecutorService authTimeouts;
     private final Map<Long, Set<WebSocketSession>> sessionsByUser = new ConcurrentHashMap<>();
 
-    public NotificationWebSocketHandler(ObjectMapper objectMapper, AuthTokenStore authTokenStore) {
+    @Autowired
+    public NotificationWebSocketHandler(
+            ObjectMapper objectMapper,
+            AuthTokenStore authTokenStore,
+            JwtTokenProvider jwtTokenProvider
+    ) {
+        this(objectMapper, authTokenStore, jwtTokenProvider, Duration.ofSeconds(5));
+    }
+
+    NotificationWebSocketHandler(
+            ObjectMapper objectMapper,
+            AuthTokenStore authTokenStore,
+            JwtTokenProvider jwtTokenProvider,
+            Duration authTimeout
+    ) {
         this.objectMapper = objectMapper;
         this.authTokenStore = authTokenStore;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.authTimeout = authTimeout == null ? Duration.ofSeconds(5) : authTimeout;
+        this.authTimeouts = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "notification-ws-auth-timeout");
+            thread.setDaemon(true);
+            return thread;
+        });
+    }
+
+    @PreDestroy
+    void shutdownAuthTimeouts() {
+        authTimeouts.shutdownNow();
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        Long userId = userId(session);
-        if (userId == null || tokenId(session) == null || tokenExpiresAt(session) == null) {
+        if (isAuthenticated(session)) {
+            register(session);
+            return;
+        }
+        ScheduledFuture<?> timeout = authTimeouts.schedule(() -> {
+            if (!isAuthenticated(session) && session.isOpen()) {
+                closeQuietly(session, CloseStatus.POLICY_VIOLATION);
+            }
+        }, Math.max(authTimeout.toMillis(), 1L), TimeUnit.MILLISECONDS);
+        session.getAttributes().put(AUTH_TIMEOUT_ATTRIBUTE, timeout);
+    }
+
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        if (isAuthenticated(session)) {
+            return;
+        }
+        if (!authenticateFromMessage(session, message.getPayload())) {
             session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
-        sessionsByUser.computeIfAbsent(userId, ignored -> ConcurrentHashMap.newKeySet()).add(session);
+        cancelAuthTimeout(session);
+        register(session);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        cancelAuthTimeout(session);
         unregister(session);
     }
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+        cancelAuthTimeout(session);
         unregister(session);
         if (session.isOpen()) {
             session.close(CloseStatus.SERVER_ERROR);
@@ -93,6 +155,49 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private boolean authenticateFromMessage(WebSocketSession session, String payload) {
+        JsonNode node;
+        try {
+            node = objectMapper.readTree(payload);
+        } catch (Exception exception) {
+            return false;
+        }
+        JsonNode typeNode = node.get("type");
+        JsonNode tokenNode = node.get("accessToken");
+        if (typeNode == null || !AUTH_MESSAGE_TYPE.equals(typeNode.textValue())) {
+            return false;
+        }
+        String accessToken = tokenNode == null ? null : tokenNode.textValue();
+        if (!StringUtils.hasText(accessToken)) {
+            return false;
+        }
+        try {
+            JwtPrincipal principal = jwtTokenProvider.parseAccessToken(accessToken);
+            if (authTokenStore.isAccessTokenBlacklisted(principal.tokenId())) {
+                return false;
+            }
+            session.getAttributes().put(USER_ID_ATTRIBUTE, principal.userId());
+            session.getAttributes().put(TOKEN_ID_ATTRIBUTE, principal.tokenId());
+            session.getAttributes().put(TOKEN_EXPIRES_AT_ATTRIBUTE, principal.expiresAt());
+            return true;
+        } catch (JwtException exception) {
+            return false;
+        }
+    }
+
+    private void register(WebSocketSession session) throws IOException {
+        Long userId = userId(session);
+        if (userId == null || tokenId(session) == null || tokenExpiresAt(session) == null) {
+            session.close(CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+        sessionsByUser.computeIfAbsent(userId, ignored -> ConcurrentHashMap.newKeySet()).add(session);
+    }
+
+    private boolean isAuthenticated(WebSocketSession session) {
+        return userId(session) != null && tokenId(session) != null && tokenExpiresAt(session) != null;
+    }
+
     private boolean shouldEvictSession(WebSocketSession session, Long expectedUserId) {
         if (!session.isOpen()) {
             return true;
@@ -124,6 +229,13 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         sessions.remove(session);
         if (sessions.isEmpty()) {
             sessionsByUser.remove(userId);
+        }
+    }
+
+    private void cancelAuthTimeout(WebSocketSession session) {
+        Object timeout = session.getAttributes().remove(AUTH_TIMEOUT_ATTRIBUTE);
+        if (timeout instanceof ScheduledFuture<?> future) {
+            future.cancel(false);
         }
     }
 

@@ -23,7 +23,7 @@ public class AssessmentParticipantAccessCipher {
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AssessmentParticipantAccessCipher(
-            @Value("${app.assessment.sensitive-profile-key:local-only-change-this-profile-key}") String secret,
+            @Value("${app.assessment.sensitive-profile-key}") String secret,
             @Value("${app.assessment.sensitive-profile-key-version:v1}") String keyVersion
     ) {
         try {

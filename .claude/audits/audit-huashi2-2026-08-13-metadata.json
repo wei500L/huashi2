@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-08-13T17:03:00+08:00",
+  "commit": "9f38351",
+  "project": "huashi2",
+  "selected_modes": ["full"],
+  "scope": "entire repository",
+  "report_language": "zh",
+  "output_format": "md",
+  "overall_score": 6.6,
+  "overall_grade": "B",
+  "dimension_scores": {
+    "Security": 7.0,
+    "Stability": 6.5,
+    "Performance": 7.0,
+    "Testing": 6.0,
+    "Maintainability": 5.8,
+    "Design": 6.6,
+    "Release": 5.9
+  },
+  "finding_counts": {
+    "Critical": { "total": 0, "confirmed": 0, "suspected": 0 },
+    "High": { "total": 15, "confirmed": 15, "suspected": 0 },
+    "Medium": { "total": 13, "confirmed": 12, "suspected": 1 },
+    "Low": { "total": 1, "confirmed": 1, "suspected": 0 },
+    "Info": { "total": 0, "confirmed": 0, "suspected": 0 },
+    "total": 29,
+    "confirmed": 28,
+    "suspected": 1,
+    "remediated_high": 5,
+    "remediated_medium_partial": 1
+  },
+  "report_path": "audit-report-huashi2-2026-08-13.md",
+  "follow_up": "2026-08-13 remediated first five High findings (assessment secrets, internal token entropy, WS first-message auth, actuator ADMIN, guidance grounding fail-closed). Scores adjusted; remaining High items unchanged."
+}

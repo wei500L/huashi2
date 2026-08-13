@@ -35,10 +35,13 @@ public class NotificationAuthHandshakeInterceptor implements HandshakeIntercepto
             WebSocketHandler wsHandler,
             Map<String, Object> attributes
     ) {
-        String token = resolveToken(request);
-        if (!StringUtils.hasText(token)) {
+        if (hasQueryAccessToken(request)) {
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             return false;
+        }
+        String token = resolveBearerToken(request);
+        if (!StringUtils.hasText(token)) {
+            return true;
         }
         try {
             JwtPrincipal principal = jwtTokenProvider.parseAccessToken(token);
@@ -66,21 +69,24 @@ public class NotificationAuthHandshakeInterceptor implements HandshakeIntercepto
         // no-op
     }
 
-    private String resolveToken(ServerHttpRequest request) {
+    private String resolveBearerToken(ServerHttpRequest request) {
         List<String> authorizationValues = request.getHeaders().get(HttpHeaders.AUTHORIZATION);
-        if (authorizationValues != null) {
-            for (String value : authorizationValues) {
-                if (value != null && value.startsWith("Bearer ")) {
-                    return value.substring(7);
-                }
-            }
+        if (authorizationValues == null) {
+            return null;
         }
-        if (request instanceof ServletServerHttpRequest servletRequest) {
-            String accessToken = servletRequest.getServletRequest().getParameter("access_token");
-            if (StringUtils.hasText(accessToken)) {
-                return accessToken;
+        for (String value : authorizationValues) {
+            if (value != null && value.startsWith("Bearer ")) {
+                return value.substring(7);
             }
         }
         return null;
+    }
+
+    private boolean hasQueryAccessToken(ServerHttpRequest request) {
+        if (!(request instanceof ServletServerHttpRequest servletRequest)) {
+            return false;
+        }
+        String accessToken = servletRequest.getServletRequest().getParameter("access_token");
+        return StringUtils.hasText(accessToken);
     }
 }
