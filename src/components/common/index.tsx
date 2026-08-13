@@ -300,3 +300,4 @@ export type { DataTableColumn } from './DataTable';
 export { WorkflowStepper } from './WorkflowStepper';
 export type { WorkflowStage, WorkflowStageStatus, WorkflowStepperProps } from './WorkflowStepper';
 export { DecisionCard } from './DecisionCard';
+export { RegistrationQrCode } from './RegistrationQrCode';

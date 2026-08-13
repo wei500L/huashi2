@@ -546,6 +546,13 @@ export const uiSlice: TranslationSlice = {
           subtitle: '集中处理易错词对和到期复习任务，优先把高风险内容转回训练链路。',
         },
       },
+      registrationQr: {
+        copyLink: '复制链接',
+        copied: '已复制',
+        downloadPng: '下载 PNG',
+        print: '打印',
+        generationError: '二维码生成失败，请刷新页面后重试。注册链接仍可正常复制使用。',
+      },
     },
   },
   'en-US': {
@@ -1093,6 +1100,13 @@ export const uiSlice: TranslationSlice = {
           title: 'Errors and review',
           subtitle: 'Focus on frequently missed pairs and due review tasks, then route high-risk content back into training.',
         },
+      },
+      registrationQr: {
+        copyLink: 'Copy link',
+        copied: 'Copied',
+        downloadPng: 'Download PNG',
+        print: 'Print',
+        generationError: 'Failed to generate the QR code. Refresh the page and try again; the registration link can still be copied.',
       },
     },
   },

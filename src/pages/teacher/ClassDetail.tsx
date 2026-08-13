@@ -1,12 +1,12 @@
 import React from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Download, Eye, EyeOff, FileText, PencilLine, RefreshCw, Search, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { AlertTriangle, Download, Eye, EyeOff, FileText, PencilLine, QrCode, RefreshCw, Search, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { flushSync } from 'react-dom';
 import { ClassAnalyticsPdfReport } from '@/components/analytics/AnalyticsPdfReport';
 import { ChartCard } from '@/components/common/ChartCard';
-import { PageHeader, SectionEyebrow, StatusBadge } from '@/components/common';
+import { PageHeader, RegistrationQrCode, SectionEyebrow, StatusBadge } from '@/components/common';
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { saveBlob } from '@/lib/api';
 import type { AppChartOption } from '@/lib/echarts';
@@ -360,6 +360,22 @@ const TeacherClassDetailPage: React.FC = () => {
         <div className="mt-3 text-xs leading-5 text-slate-500 dark:text-white/45">
           把邀请码发给学生即可。学生在 `/register` 完成注册后，会自动进入当前班级。
         </div>
+        {detailQuery.data?.classCode ? (
+          <div className="mt-4 border-t border-slate-200/70 pt-4 dark:border-white/10">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-white/70">
+              <QrCode size={14} />
+              注册二维码
+            </div>
+            <RegistrationQrCode
+              value={`${window.location.origin}/register?code=${detailQuery.data.classCode}`}
+              fileName={`class-${detailQuery.data.classId}-register-qr`}
+              alt={`${detailQuery.data.className} 注册二维码`}
+            />
+            <p className="mt-2 text-xs leading-5 text-slate-400 dark:text-white/35">
+              学生扫描后会自动填入邀请码，只需补齐姓名、账号和密码即可注册。
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <div className="stat-grid overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 !gap-0 dark:border-white/10 dark:bg-white/[0.03]">

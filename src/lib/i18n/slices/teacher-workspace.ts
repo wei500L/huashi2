@@ -59,6 +59,9 @@ export const teacherWorkspaceSlice: TranslationSlice = {
         open: '进入',
         edit: '编辑班级',
         editClass: '编辑班级 {{name}}',
+        qrCode: '注册二维码 {{name}}',
+        qrDialogEyebrow: '注册二维码',
+        qrDialogHint: '学生扫码后自动填入邀请码，只需补齐姓名、账号和密码即可注册。',
       },
       quickActions: {
         createDraft: '创建诊断草稿',
@@ -318,6 +321,9 @@ export const teacherWorkspaceSlice: TranslationSlice = {
         open: 'Open',
         edit: 'Edit class',
         editClass: 'Edit class {{name}}',
+        qrCode: 'Registration QR code for {{name}}',
+        qrDialogEyebrow: 'Registration QR code',
+        qrDialogHint: 'Students scan to auto-fill the invite code, then complete name, account, and password to register.',
       },
       quickActions: {
         createDraft: 'Create Diagnosis Draft',

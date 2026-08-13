@@ -14,9 +14,9 @@ vi.mock('@/lib/services', () => ({
   },
 }));
 
-function renderRegister() {
+function renderRegister(initialEntries: string[] = ['/register']) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <RegisterPage />
     </MemoryRouter>
   );
@@ -64,6 +64,23 @@ describe('Register invite code verification', () => {
 
     expect(await screen.findByText('大创成员内部测试')).toBeInTheDocument();
     expect(screen.getByText('邀请码验证通过')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '注册并进入学习空间' })).toBeEnabled();
+  });
+
+  it('auto-fills and verifies the invite code from the ?code= query param', async () => {
+    renderRegister(['/register?code=CLS-NJ3R68']);
+
+    const input = document.getElementById('register-class-code') as HTMLInputElement;
+    expect(input.value).toBe('CLS-NJ3R68');
+
+    await waitFor(() => {
+      expect(authService.resolveRegistrationContext).toHaveBeenCalledWith(
+        { classCode: 'CLS-NJ3R68' },
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+
+    expect(await screen.findByText('大创成员内部测试')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '注册并进入学习空间' })).toBeEnabled();
   });
 });

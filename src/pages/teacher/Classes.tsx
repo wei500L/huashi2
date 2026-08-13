@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, LayoutGrid, List, PencilLine, Plus, Search, Users } from 'lucide-react';
+import { ChevronRight, LayoutGrid, List, PencilLine, Plus, QrCode, Search, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { PageHeader } from '@/components/common';
+import { PageHeader, RegistrationQrCode } from '@/components/common';
 import type { TeachingClassSummaryVO } from '@/lib/contracts';
 import { teacherClassService } from '@/lib/services';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ const TeacherClassesPage: React.FC = () => {
   const [gradeFilter, setGradeFilter] = React.useState('all');
   const [sort, setSort] = React.useState<ClassSort>('name');
   const [view, setView] = React.useState<ClassView>('list');
+  const [qrClass, setQrClass] = React.useState<TeachingClassSummaryVO | null>(null);
 
   const classesQuery = useQuery({
     queryKey: ['teacher-classes-management'],
@@ -60,6 +61,15 @@ const TeacherClassesPage: React.FC = () => {
 
   const renderRowActions = (item: TeachingClassSummaryVO) => (
     <div className="flex items-center justify-end gap-1.5">
+      <button
+        type="button"
+        onClick={() => setQrClass(item)}
+        className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-white/45 dark:hover:bg-white/[0.06]"
+        aria-label={t('teacherWorkspace.classesPage.qrCode', { name: item.className })}
+        title={t('teacherWorkspace.classesPage.qrCode', { name: item.className })}
+      >
+        <QrCode size={15} />
+      </button>
       <button
         type="button"
         onClick={() => navigate(buildEditPath(item.classId))}
@@ -207,6 +217,37 @@ const TeacherClassesPage: React.FC = () => {
           </div>
         ) : null}
       </section>
+
+      {qrClass ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={t('teacherWorkspace.classesPage.qrCode', { name: qrClass.className })}>
+          <button type="button" aria-label={t('common.actions.close')} onClick={() => setQrClass(null)} className="absolute inset-0 bg-slate-900/40" />
+          <div className="relative w-full max-w-md rounded-[2rem] border border-slate-200/80 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-slate-900 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-white/30">{t('teacherWorkspace.classesPage.qrDialogEyebrow')}</div>
+                <h2 className="mt-1 truncate text-lg font-black text-slate-900 dark:text-white">{qrClass.className}</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-white/45">{qrClass.classCode} · {qrClass.gradeName}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQrClass(null)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.06] dark:hover:text-white"
+                aria-label={t('common.actions.close')}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="mt-4">
+              <RegistrationQrCode
+                value={`${window.location.origin}/register?code=${qrClass.classCode}`}
+                fileName={`class-${qrClass.classId}-register-qr`}
+                alt={`${qrClass.className} 注册二维码`}
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-400 dark:text-white/35">{t('teacherWorkspace.classesPage.qrDialogHint')}</p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

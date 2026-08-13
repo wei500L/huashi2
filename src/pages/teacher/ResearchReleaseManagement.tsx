@@ -5,12 +5,9 @@ import {
   Download,
   ExternalLink,
   KeyRound,
-  Printer,
-  QrCode,
   ShieldOff,
 } from 'lucide-react';
-import QRCode from 'qrcode';
-import { SectionEyebrow, StatusBadge } from '@/components/common';
+import { RegistrationQrCode, SectionEyebrow, StatusBadge } from '@/components/common';
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { Pagination } from '@/components/common/Pagination';
 import { useLeaveProtection } from '@/features/session-runtime/useLeaveProtection';
@@ -62,7 +59,6 @@ export const ResearchReleaseManagement: React.FC = () => {
   const [page, setPage] = React.useState(1);
   const [batchCount, setBatchCount] = React.useState(20);
   const [createdBatch, setCreatedBatch] = React.useState<ParticipationCodeBatchCreatedVO | null>(null);
-  const [qrDataUrl, setQrDataUrl] = React.useState('');
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [actionMessage, setActionMessage] = React.useState<string | null>(null);
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
@@ -70,7 +66,6 @@ export const ResearchReleaseManagement: React.FC = () => {
   const [qrToggleTarget, setQrToggleTarget] = React.useState<QrToggleTarget | null>(null);
   const [pendingSelectedPublishId, setPendingSelectedPublishId] = React.useState<number | null>(null);
   const [clearCreatedBatchOpen, setClearCreatedBatchOpen] = React.useState(false);
-  const [qrGenerationError, setQrGenerationError] = React.useState<string | null>(null);
   const { exporting, exportError, lastFileName, exportExcel } = useResearchExcelExport();
 
   useLeaveProtection({
@@ -101,25 +96,6 @@ export const ResearchReleaseManagement: React.FC = () => {
   const qrUrl = selectedRelease
     ? `${window.location.origin}/research/${selectedRelease.releaseCode}?entry=qr`
     : '';
-
-  React.useEffect(() => {
-    let active = true;
-    if (!qrUrl) {
-      setQrDataUrl('');
-      setQrGenerationError(null);
-      return () => { active = false; };
-    }
-    setQrGenerationError(null);
-    void QRCode.toDataURL(qrUrl, { width: 360, margin: 2, errorCorrectionLevel: 'M' })
-      .then((value) => { if (active) setQrDataUrl(value); })
-      .catch(() => {
-        if (active) {
-          setQrDataUrl('');
-          setQrGenerationError('二维码生成失败，请刷新页面后重试。问卷链接仍可正常复制使用。');
-        }
-      });
-    return () => { active = false; };
-  }, [qrUrl]);
 
   const codesQuery = useQuery({
     queryKey: ['teacher-participation-codes', selectedPublishId, status, batchId, page],
@@ -195,46 +171,6 @@ export const ResearchReleaseManagement: React.FC = () => {
       setQrToggleTarget(null);
       await refresh();
     });
-  };
-
-  const copyQrUrl = async () => {
-    await runAction('copy-qr-url', async () => {
-      await navigator.clipboard.writeText(qrUrl);
-      setActionMessage('二维码问卷链接已复制。');
-    });
-  };
-
-  const downloadQr = () => {
-    if (!qrDataUrl || !selectedRelease) return;
-    const anchor = document.createElement('a');
-    anchor.href = qrDataUrl;
-    anchor.download = `${selectedRelease.releaseCode}-qr.png`;
-    anchor.click();
-  };
-
-  const printQr = () => {
-    if (!qrDataUrl || !selectedRelease) return;
-    const popup = window.open('', '_blank', 'width=720,height=820');
-    if (!popup) {
-      setActionError('浏览器阻止了打印窗口，请允许弹窗后重试。');
-      return;
-    }
-    popup.opener = null;
-    const document = popup.document;
-    document.title = selectedRelease.paperTitle;
-    const style = document.createElement('style');
-    style.textContent = 'body{font-family:system-ui;text-align:center;padding:40px;color:#0f172a}img{width:360px;height:360px}p{word-break:break-all;color:#475569}';
-    document.head.replaceChildren(style);
-    const heading = document.createElement('h1');
-    heading.textContent = selectedRelease.paperTitle;
-    const image = document.createElement('img');
-    image.src = qrDataUrl;
-    image.alt = '问卷二维码';
-    const link = document.createElement('p');
-    link.textContent = qrUrl;
-    document.body.replaceChildren(heading, image, link);
-    const print = () => popup.setTimeout(() => popup.print(), 0);
-    if (image.complete) print(); else image.addEventListener('load', print, { once: true });
   };
 
   const selectRelease = (publishId: number) => {
@@ -345,9 +281,16 @@ export const ResearchReleaseManagement: React.FC = () => {
 
             <div className="rounded-2xl border border-slate-200 p-5 dark:border-white/10">
               <div className="flex flex-wrap items-center justify-between gap-3"><div><SectionEyebrow>二维码</SectionEyebrow><h3 className="mt-2 font-black">二维码免码参与</h3></div><StatusBadge label={selectedRelease.qrEntryEnabled ? '已开启' : '未开启'} tone={selectedRelease.qrEntryEnabled ? 'success' : 'warning'} /></div>
-              <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-                {qrDataUrl ? <img src={qrDataUrl} alt={`${selectedRelease.paperTitle}二维码`} className="h-40 w-40 rounded-xl border border-slate-200 bg-white p-2" /> : <div className="flex h-40 w-40 items-center justify-center rounded-xl bg-slate-100"><QrCode /></div>}
-                <div className="min-w-0 flex-1"><p className="break-all text-xs leading-5 text-slate-500">{qrUrl}</p>{qrGenerationError ? <p role="alert" className="mt-2 text-xs text-rose-700">{qrGenerationError}</p> : null}<div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={pendingAction != null} onClick={() => void copyQrUrl()} className="min-h-10 rounded-xl border border-slate-200 text-xs font-bold disabled:opacity-50 dark:border-white/10">{pendingAction === 'copy-qr-url' ? '复制中…' : '复制链接'}</button><button type="button" disabled={!qrDataUrl || pendingAction != null} onClick={downloadQr} className="min-h-10 rounded-xl border border-slate-200 text-xs font-bold disabled:opacity-50 dark:border-white/10">下载 PNG</button><button type="button" disabled={!qrDataUrl || pendingAction != null} onClick={printQr} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-xl border border-slate-200 text-xs font-bold disabled:opacity-50 dark:border-white/10"><Printer size={14} />打印</button><button type="button" disabled={pendingAction != null} onClick={() => setQrToggleTarget({ enabled: !selectedRelease.qrEntryEnabled })} className={`min-h-10 rounded-xl text-xs font-bold text-white ${selectedRelease.qrEntryEnabled ? 'bg-rose-600' : 'bg-primary'}`}>{pendingAction === 'toggle-qr' ? '保存中…' : selectedRelease.qrEntryEnabled ? '关闭免码' : '开启免码'}</button></div></div>
+              <div className="mt-4">
+                <RegistrationQrCode
+                  value={qrUrl}
+                  fileName={`${selectedRelease.releaseCode}-qr`}
+                  alt={`${selectedRelease.paperTitle}二维码`}
+                  printTitle={selectedRelease.paperTitle}
+                  extraActions={
+                    <button type="button" disabled={pendingAction != null} onClick={() => setQrToggleTarget({ enabled: !selectedRelease.qrEntryEnabled })} className={`min-h-10 rounded-xl px-3 text-xs font-bold text-white ${selectedRelease.qrEntryEnabled ? 'bg-rose-600' : 'bg-primary'}`}>{pendingAction === 'toggle-qr' ? '保存中…' : selectedRelease.qrEntryEnabled ? '关闭免码' : '开启免码'}</button>
+                  }
+                />
               </div>
             </div>
           </div>

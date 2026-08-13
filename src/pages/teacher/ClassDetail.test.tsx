@@ -24,6 +24,7 @@ vi.mock('@/components/common', () => ({
     </div>
   ),
   StatusBadge: ({ label }: { label: string }) => <span>{label}</span>,
+  RegistrationQrCode: ({ value }: { value: string }) => <div data-testid="registration-qr">{value}</div>,
 }));
 
 vi.mock('@/components/common/ChartCard', () => ({
