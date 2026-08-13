@@ -921,10 +921,10 @@ final class ResearchExportWorkbook {
             return "";
         }
         return switch (status.toUpperCase(Locale.ROOT)) {
-            case "CLEAN" -> "扫描通过";
-            case "PENDING" -> "扫描中";
-            case "INFECTED" -> "未通过扫描";
-            case "FAILED" -> "扫描失败";
+            case "CLEAN" -> "类型校验通过";
+            case "PENDING" -> "类型校验中";
+            case "INFECTED" -> "类型不匹配";
+            case "FAILED" -> "类型校验失败";
             default -> status;
         };
     }

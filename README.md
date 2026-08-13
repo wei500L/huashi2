@@ -38,6 +38,7 @@
 - `APP_JWT_LEGACY_SECRET` 仅用于旧 token 兼容验签窗口
 - `APP_OPS_CONFIG_ENCRYPTION_SECRET` 与 JWT 密钥职责分离，非 `local/test` 缺失时 `app-server` 不会启动
 - demo 用户初始化仅在 `local/test` profile 且 `APP_DEMO_DATA_ENABLED=true` 时启用
+- 公开研究问卷的 POST/DELETE 要求自定义头 `X-Requested-With: XMLHttpRequest`；JWT API 不启用全局 CSRF
 
 ## 本地启动
 
@@ -68,9 +69,9 @@ JWT key 需要使用随机高熵值，示例可用：`openssl rand -base64 48`�
 
 AI fallback 说明：
 
-- `AI_FALLBACK_*` 需要显式填写，failover 才会真正切到另一套上游
+- `AI_FALLBACK_*` 需要显式填写且与 active 的 URL / key / model 不同，failover 才会切到另一套上游
 - 如果省略这些变量，bootstrap 默认值会回退到 active provider 使用的同一组 URL / API key / model
-- 后台 AI 配置中心会对“fallback 与 active 实际指向同一上游”给出 warning
+- 解析结果相同时运行时**不会** failover；配置中心在 `prod`/`dev` 报 error，`local`/`test` 报 warning
 
 生产环境额外建议：
 
@@ -140,7 +141,7 @@ npm run build:analyze
 - AI Gateway Actuator（直启服务时）：`http://127.0.0.1:18090/actuator/health`
 - `http://localhost:8090/internal/ai/health` 为内部接口，需要 `X-Internal-Token`
 
-Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健康检查，并以非 root 用户运行镜像。`ai-gateway` 的 management 端口仅绑定到容器内 loopback，不映射到宿主机。
+Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健康检查，并以非 root 用户运行镜像。默认将 MySQL / Redis / RabbitMQ / Postgres / app-server `8080` / ai-gateway `8090` / 前端绑到 `127.0.0.1`。`ai-gateway` 的 management 端口仅绑定到容器内 loopback，不映射到宿主机。
 
 ## 备份脚本
 
@@ -160,7 +161,8 @@ Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健�
 
 - diagnosis/training 完成事件默认只在 `app-server` 进程内驱动 analytics 聚合
 - RabbitMQ 当前正式职责是跨服务知识同步，不承担本地 analytics 投影
-- diagnosis / training 都限制为单用户单活跃 `IN_PROGRESS` session，并支持历史查询与进度保存
+- diagnosis / training / practice 都限制为单用户单活跃 `IN_PROGRESS` session；唯一键冲突映射为 409，并支持历史查询与进度保存
+- 公开研究问卷的 POST/DELETE 要求 `X-Requested-With: XMLHttpRequest`（自定义头 CSRF，JWT 路由仍不启用全局 CSRF）
 - 前端采用路由级懒加载、`echarts/core` 按需注册和手动分包，减少图表运行时膨胀
 - RAG 使用 Qwen3-Embedding-8B 单一 1024 维向量空间，并结合精确/模糊词汇召回、RRF、rerank 与生成后证据审查
 

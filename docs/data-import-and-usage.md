@@ -6,7 +6,7 @@
 
 如果你要看当前线上环境到底已经导入了哪一份词库，请先看：
 
-- [词库导入生产状态（2026-04-25）](/mnt/d/huashi2/docs/lexical-import-production-status-2026-04-25.md)
+- [词库导入生产状态（2026-04-25）](lexical-import-production-status-2026-04-25.md)
 
 ## 1. 先理解项目里的“导入”和“使用”
 

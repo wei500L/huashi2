@@ -2,11 +2,15 @@ package com.huashi.eftransfer.shared.enums;
 
 import java.util.Arrays;
 
+/**
+ * Stored scan_status values. {@code CLEAN} means extension and magic-byte
+ * type checks passed, not that an antivirus engine inspected the file.
+ */
 public enum AssessmentFileScanStatus {
-    PENDING("PENDING", "Pending scan"),
-    CLEAN("CLEAN", "Clean"),
-    INFECTED("INFECTED", "Infected"),
-    FAILED("FAILED", "Scan failed");
+    PENDING("PENDING", "Type check pending"),
+    CLEAN("CLEAN", "File type check passed"),
+    INFECTED("INFECTED", "Rejected executable or script signature"),
+    FAILED("FAILED", "File type check failed");
 
     private final String code;
     private final String label;

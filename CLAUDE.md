@@ -56,8 +56,9 @@ npm test
 
 - 修改前后端接口时，同步检查 `shared-kernel/` 与 `src/lib/contracts.ts`。
 - 修改 schema 时：更新对应模块的 `schema.sql`，并新增 `docs/ddl/<module>/YYYY-MM-DD-*.sql` 供已有环境执行。不要只改快照。
-- 诊断与训练 session 仍要求单用户最多一个 `IN_PROGRESS` 记录。
+- 诊断、训练与练习 session 仍要求单用户最多一个 `IN_PROGRESS` 记录；唯一键冲突映射为 409。
 - 词汇知识变更仍通过 RabbitMQ 事件驱动 `ai-gateway` 定向重建索引。
+- 默认 `deploy/docker-compose.yml` 将数据面端口（MySQL / Redis / RabbitMQ / Postgres / app-server / ai-gateway / 前端）绑到 `127.0.0.1`。
 
 ## 变更记录
 
@@ -73,3 +74,4 @@ npm test
 | 2026-08-12 | 辅导链路闭环优化（缓存/历史/拼写/复练） | 辅导报告快照写回 `practice_session.tutoring_status/tutoring_json`，结果页刷新直接读缓存不再重复触发 job；辅导上下文聚合近 10 次练习的错词统计（`listRecentWrongWordStats`，派生表规避 MySQL IN+LIMIT 限制），报告与规则降级均能指出"反复出错词"；新增拼写错误模式分析（`PracticeSpellingAnalyzer`：重音/字母替换/缺/多/形近/差异大），注入单题讲解与结果页标签；`StartPracticeSessionRequest.targetWords` 支持"针对错词再练一轮"（结果页入口，按词过滤组卷） |
 | 2026-08-13 | 审计下一批五项 High | AI 用户/IP 限流并对齐 180s 超时；问卷 verify/QR 改 Bucket4j；`docs/ddl` 与 restore 脚本；CI 跑 `npm test`；研究导出按 `includeSensitiveFields` 脱敏 |
 | 2026-08-13 | 审计第三批五项 High | XFF 仅信代理 CIDR；练习 `answeredCount` 只计非空；导入批次行级 `TransactionTemplate`；单题讲解 grounding fail-closed；verifier 不把学生作答当词义证据 |
+| 2026-08-13 | 审计第四批 | compose 数据面 loopback；练习开局 UK→409；公开问卷 `X-Requested-With` CSRF；附件扫描文案改为类型校验；AI 同上游禁用 failover；CI `permissions: contents: read`；练习页 a11y/Vitest |

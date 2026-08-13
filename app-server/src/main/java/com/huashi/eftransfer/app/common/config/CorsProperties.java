@@ -23,7 +23,7 @@ public class CorsProperties {
     private List<String> allowedMethods = new ArrayList<>(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
     @NotEmpty
-    private List<String> allowedHeaders = new ArrayList<>(List.of("Authorization", "Content-Type", "Accept"));
+    private List<String> allowedHeaders = new ArrayList<>(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
 
     private List<String> exposedHeaders = new ArrayList<>(List.of("X-Trace-Id"));
 

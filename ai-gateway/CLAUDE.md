@@ -47,7 +47,7 @@ AI / RAG 网关，负责 Provider 调用、运行时配置装载、知识摄取�
 ## FAQ
 
 - Q: 如何切换 AI Provider？
-  A: 通过环境变量或 app-server 运维配置中心更新运行时配置。
+  A: 通过环境变量或 app-server 运维配置中心更新运行时配置。真实 failover 必须单独填写 `AI_FALLBACK_*`（URL / key / model 与主通道不同）；解析结果相同时运行时不会切换，prod/dev 配置中心报 error。
 
 - Q: 开发期如何修改数据库结构？
   A:
@@ -78,3 +78,4 @@ ai-gateway/
 | 2026-03-22 | 初始创建 | 全量扫描生成 |
 | 2026-04-18 | 数据库初始化调整 | 移除版本化迁移体系，改为单文件 `schema.sql` |
 | 2026-08-13 | schema 文档 | 已有环境走 `docs/ddl/ai-gateway/`，禁止对有数据的库删卷套快照 |
+| 2026-08-13 | 审计第四批 | fallback 与 active 解析到同一上游时禁用 failover；prod/dev notice 为 error |

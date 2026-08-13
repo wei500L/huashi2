@@ -28,7 +28,9 @@
 - `diagnosisTemplateService` -- 诊断模板 CRUD
 - `diagnosisSessionService` -- 诊断 session 生命周期（创建、答题、进度保存、完成、结果）
 - `trainingService` -- 训练计划、错题本、复习计划、训练 session
-- `aiService` -- 诊断解释、训练推荐、词汇 RAG 查询、教师干预建议
+- `aiService` -- 诊断解释、训练推荐、词汇 RAG 查询、教师干预建议、练习辅导/单题讲解
+- `practiceService` -- 学生自测练习 session
+- `publicAssessmentService` -- 公开研究问卷（`withCredentials` + `X-Requested-With`）
 - `teacherAnalyticsService` -- 教师班级分析
 - `teacherInterventionService` -- 教师干预记录
 - `lexicalPairService` -- 词对 CRUD、CSV 导入导出
@@ -70,7 +72,7 @@
 
 ## 测试与质量
 
-- 前端自动化测试：Vitest + Testing Library，命令 `npm test`
+- 前端自动化测试：Vitest + Testing Library，命令 `npm test`（含练习页 a11y：`src/pages/practice/index.test.tsx`）
 - 质量保障另含 `npm run lint` + `npm run typecheck`
 - 构建验证 `npm run build`
 - 包体积分析 `npm run build:analyze`
@@ -114,6 +116,7 @@ src/
     diagnosis/index.tsx             # 智能诊断
     training/index.tsx              # 个性化训练
     practice/index.tsx              # 自测练习（假朋友题库，无计时整卷作答 + LLM 辅导）
+    practice/index.test.tsx         # 拼写可访问名称与选项 radio 语义
     analytics/index.tsx             # 学情分析
     student/Errors.tsx              # 错题与复习
     student/Settings.tsx            # 设置
@@ -135,3 +138,4 @@ src/
 | 时间 | 操作 | 说明 |
 |------|------|------|
 | 2026-08-13 | 文档 | 更正「无前端自动化测试」；CI 已跑 `npm test` |
+| 2026-08-13 | 审计第四批 | 公开问卷请求带 `X-Requested-With`；练习页 a11y Vitest；附件状态文案改为类型校验 |

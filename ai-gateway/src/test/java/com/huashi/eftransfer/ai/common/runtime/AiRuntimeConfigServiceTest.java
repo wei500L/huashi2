@@ -30,6 +30,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
@@ -253,6 +254,39 @@ class AiRuntimeConfigServiceTest {
     }
 
     @Test
+    void shouldDisableFailoverAndEmitErrorWhenFallbackResolvesToTheSameUpstream() {
+        AiRuntimeConfigService service = runtimeConfigService(baseUrl, "test-internal-token");
+        assertThat(service.isDistinctFallback("chat", service.current())).isFalse();
+        assertThat(service.isDistinctFallback("embedding", service.current())).isFalse();
+        assertThat(service.isDistinctFallback("rerank", service.current())).isFalse();
+
+        AiOpsConfigPayload sameUpstream = payload(baseUrl, "test-internal-token");
+        var qwen = sameUpstream.provider().providers().get("qwen");
+        sameUpstream = new AiOpsConfigPayload(
+                new AiOpsProviderConfig(
+                        "qwen",
+                        "deepseek",
+                        Map.of("qwen", qwen, "deepseek", qwen)
+                ),
+                sameUpstream.resilience(),
+                sameUpstream.rag()
+        );
+
+        StandardEnvironment prodEnvironment = new StandardEnvironment();
+        prodEnvironment.setActiveProfiles("prod");
+        AiRuntimeConfigService prodService = runtimeConfigService(baseUrl, "test-internal-token", "qwen", "deepseek", prodEnvironment);
+        var validation = prodService.validate(sameUpstream);
+        assertThat(validation.notices())
+                .extracting(notice -> notice.code())
+                .contains("fallback_same_upstream_all")
+                .doesNotContain("automatic_failover_enabled");
+        assertThat(validation.notices())
+                .filteredOn(notice -> "fallback_same_upstream_all".equals(notice.code()))
+                .extracting(notice -> notice.severity())
+                .containsExactly("error");
+    }
+
+    @Test
     void shouldMarkStoredSyncFailedWhenStartupSyncFails() throws Exception {
         server.removeContext("/internal/ops/ai-config");
         try {
@@ -381,6 +415,18 @@ class AiRuntimeConfigServiceTest {
             String activeProvider,
             String fallbackProvider
     ) {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.setActiveProfiles("test");
+        return runtimeConfigService(appServerBaseUrl, internalToken, activeProvider, fallbackProvider, environment);
+    }
+
+    private AiRuntimeConfigService runtimeConfigService(
+            String appServerBaseUrl,
+            String internalToken,
+            String activeProvider,
+            String fallbackProvider,
+            org.springframework.core.env.Environment environment
+    ) {
         AiProviderProperties providerProperties = new AiProviderProperties();
         providerProperties.setActiveProvider(activeProvider);
         providerProperties.setFallbackProvider(fallbackProvider);
@@ -417,7 +463,8 @@ class AiRuntimeConfigServiceTest {
                 bundleFactory,
                 ragSchemaDimensionGuard,
                 new SensitiveDataRedactor(),
-                VALIDATOR
+                VALIDATOR,
+                environment
         );
         ReflectionTestUtils.invokeMethod(service, "initialize");
         return service;

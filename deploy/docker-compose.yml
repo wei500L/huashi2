@@ -10,7 +10,7 @@ services:
       MYSQL_PASSWORD: ${APP_DB_PASSWORD}
       TZ: UTC
     ports:
-      - "${APP_DB_PORT}:3306"
+      - "127.0.0.1:${APP_DB_PORT}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
@@ -54,8 +54,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
     ports:
-      - "${RABBITMQ_PORT}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+      - "127.0.0.1:${RABBITMQ_PORT}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -75,7 +75,7 @@ services:
       POSTGRES_PASSWORD: ${AI_DB_PASSWORD}
       TZ: UTC
     ports:
-      - "${AI_DB_PORT}:5432"
+      - "127.0.0.1:${AI_DB_PORT}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
       - ../ai-gateway/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-ai-schema.sql:ro
@@ -131,6 +131,7 @@ services:
       AI_RERANK_API_KEY: ${AI_RERANK_API_KEY}
       AI_RERANK_CONNECT_TIMEOUT: ${AI_RERANK_CONNECT_TIMEOUT}
       AI_RERANK_READ_TIMEOUT: ${AI_RERANK_READ_TIMEOUT}
+      # Identical AI_FALLBACK_* and AI_CHAT_* values keep the process booting but disable failover.
       AI_FALLBACK_CHAT_BASE_URL: ${AI_FALLBACK_CHAT_BASE_URL:-${AI_CHAT_BASE_URL}}
       AI_FALLBACK_CHAT_PROTOCOL: ${AI_FALLBACK_CHAT_PROTOCOL:-${AI_CHAT_PROTOCOL:-openai-compat}}
       AI_FALLBACK_CHAT_API_KEY: ${AI_FALLBACK_CHAT_API_KEY:-${AI_CHAT_API_KEY}}
@@ -268,7 +269,7 @@ services:
       LOG_MAX_HISTORY: ${LOG_MAX_HISTORY:-7}
       LOG_TOTAL_SIZE_CAP: ${LOG_TOTAL_SIZE_CAP:-1GB}
     ports:
-      - "${APP_SERVER_PORT}:8080"
+      - "127.0.0.1:${APP_SERVER_PORT}:8080"
     volumes:
       - app-server-logs:/app/logs
     healthcheck:
@@ -288,7 +289,7 @@ services:
       app-server:
         condition: service_healthy
     ports:
-      - "${FRONTEND_PORT}:3000"
+      - "127.0.0.1:${FRONTEND_PORT}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/healthz || exit 1"]
       interval: 10s

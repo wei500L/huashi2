@@ -90,7 +90,7 @@ public class AiProviderRegistry {
         try {
             return providerOperation.execute(activeRuntime, activeProvider);
         } catch (ProviderCallException ex) {
-            if (!shouldFailover(bundle, activeProvider, fallbackProvider, ex)) {
+            if (!shouldFailover(operation, bundle, activeProvider, fallbackProvider, ex)) {
                 throw ex;
             }
             log.warn("event=ai_provider_failover operation={} fromProvider={} toProvider={} reason={}",
@@ -101,6 +101,7 @@ public class AiProviderRegistry {
     }
 
     private boolean shouldFailover(
+            String operation,
             AiRuntimeBundle bundle,
             String activeProvider,
             String fallbackProvider,
@@ -109,6 +110,7 @@ public class AiProviderRegistry {
         return StringUtils.hasText(fallbackProvider)
                 && !fallbackProvider.equalsIgnoreCase(activeProvider)
                 && bundle.providerRuntime(fallbackProvider) != null
+                && runtimeConfigService.isDistinctFallback(operation, bundle)
                 && (exception.isRetryable() || "circuit_open".equals(exception.getOutcome()));
     }
 

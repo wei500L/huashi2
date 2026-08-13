@@ -751,7 +751,7 @@ const PracticeSessionView: React.FC<{
                 ) : null}
               </div>
 
-              <h3 className="mt-4 text-lg font-black leading-7 text-slate-900 dark:text-white">{question.stemText}</h3>
+              <h3 id={`practice-question-${question.questionOrder}`} className="mt-4 text-lg font-black leading-7 text-slate-900 dark:text-white">{question.stemText}</h3>
               {question.promptText ? <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-white/45">{question.promptText}</p> : null}
 
               {isSpelling ? (
@@ -762,6 +762,7 @@ const PracticeSessionView: React.FC<{
                       value={response[0] || ''}
                       onChange={(event) => updateAnswer(question.questionOrder, event.target.value ? [event.target.value] : [])}
                       placeholder={t('practice.spellingPlaceholder')}
+                      aria-label={t('practice.spellingPlaceholder')}
                       autoComplete="off"
                       autoCorrect="off"
                       spellCheck={false}
@@ -788,13 +789,19 @@ const PracticeSessionView: React.FC<{
                   ) : null}
                 </div>
               ) : (
-                <div className="mt-6 grid gap-3">
+                <div
+                  className="mt-6 grid gap-3"
+                  role="radiogroup"
+                  aria-labelledby={`practice-question-${question.questionOrder}`}
+                >
                   {question.options.map((option, index) => {
                     const selected = response.includes(option.key);
                     return (
                       <button
                         key={option.key}
                         type="button"
+                        role="radio"
+                        aria-checked={selected}
                         onClick={() => updateAnswer(question.questionOrder, selected ? [] : [option.key])}
                         className={`flex min-w-0 items-center gap-3 rounded-[1.2rem] border px-4 py-3 text-left text-sm transition ${
                           selected

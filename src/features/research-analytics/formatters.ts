@@ -15,10 +15,10 @@ const AI_STATUS_LABELS: Record<string, string> = {
 };
 
 const SCAN_STATUS_LABELS: Record<string, string> = {
-  PENDING: '扫描中',
-  CLEAN: '扫描通过',
-  INFECTED: '未通过扫描',
-  FAILED: '扫描失败',
+  PENDING: '类型校验中',
+  CLEAN: '类型校验通过',
+  INFECTED: '类型不匹配',
+  FAILED: '类型校验失败',
 };
 
 const PARTICIPANT_TYPE_LABELS: Record<string, string> = {

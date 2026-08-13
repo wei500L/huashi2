@@ -126,11 +126,12 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 - `REDIS_PASSWORD` 不能为空；Compose 中的 Redis 现在启用密码认证并仅绑定到 `127.0.0.1`
 - `PLATFORM_INTERNAL_API_TOKEN` 必须同时提供给 `app-server` 和 `ai-gateway`；占位符/弱熵在非 `local`/`test` 会拒绝启动
 - `APP_ASSESSMENT_CODE_HMAC_SECRET` 与 `APP_ASSESSMENT_SENSITIVE_PROFILE_KEY` 同样不要保留 example 占位符
-- 默认 compose 将 ai-gateway `8090` 绑到 `127.0.0.1`；容器内仍通过 `ai-gateway:8090` 互访
+- 默认 compose 将 MySQL / Redis / RabbitMQ / Postgres / app-server `8080` / ai-gateway `8090` / 前端绑到 `127.0.0.1`；容器内仍通过服务名互访
 - 通知 WebSocket 不再把 access token 放进 URL；连上后发送首条 `{type:"AUTH",accessToken}`
 - `/actuator/health` 可匿名探测；`/actuator/metrics` 与 `/actuator/prometheus` 需要管理员 JWT
-- `AI_FALLBACK_*` 需要显式提供；如果留空，bootstrap fallback 可能仍与 active provider 指向同一上游
-- `diagnosis` 与 `training` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；刷新后前端优先恢复该 session
+- `AI_FALLBACK_*` 需要显式提供且与 active 不同；解析到同一上游时运行时禁用 failover（`prod`/`dev` 配置中心为 error）
+- `diagnosis` / `training` / `practice` 都只允许同一用户保留一个进行中的 `IN_PROGRESS` session；唯一键冲突返回 409；刷新后前端优先恢复该 session
+- 公开研究问卷的 POST/DELETE 须带 `X-Requested-With: XMLHttpRequest`
 - 生产环境建议显式设置 `APP_DB_SSL_MODE=REQUIRED`
 - 默认登录锁定策略由 `APP_AUTH_LOCKOUT_*` 控制，默认值是 5 次失败锁定 15 分钟
 - `app-server` / `ai-gateway` 在 `local` / `dev` 会执行各自的 `schema.sql` 建表；`prod` 不自动初始化
@@ -139,7 +140,7 @@ JWT key 建议直接用随机源生成，例如：`openssl rand -base64 48`
 
 如果你想直接跑通“导入词对 -> 继续接到模板 / 词表 / RAG”的完整流程，优先看：
 
-- [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
+- [数据导入与使用指南](data-import-and-usage.md)
 
 ## 6. Docker 本地联调
 
@@ -212,6 +213,7 @@ npm run dev
 
 - `http://localhost:8090/internal/ai/health` 是内部接口，需要携带 `X-Internal-Token`
 - Compose 不会把 `ai-gateway` 的 management 端口映射到宿主机；容器健康检查走容器内 `127.0.0.1:${AI_GATEWAY_MANAGEMENT_PORT:-18090}`
+- Compose 发布的数据面端口（含 `8080` / `8090` / `3000`）默认只绑 `127.0.0.1`，宿主机外网卡不可达
 - 本地排查内部接口时可以使用：
 
 ```bash
@@ -285,7 +287,7 @@ python3 scripts/ensure_qa_admin.py
 
 如果你不知道导入入口在哪里，或者不知道导入后为什么学生端还看不到，请直接跳到：
 
-- [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
+- [数据导入与使用指南](data-import-and-usage.md)
 
 ## 13. 前端工程约束
 

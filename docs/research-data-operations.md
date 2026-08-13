@@ -12,7 +12,7 @@
 - 公开研究答卷以 `participant_id` 为身份，教师看到 `P-000137` 这类匿名编号。
 - 管理员不自动获得敏感资料查看权；敏感导出仅限问卷所有者，并写入 `RESEARCH_SENSITIVE_EXPORT_CREATED`。
 - 普通导出不含 IP、参与码明文、姓名、联系方式和 objectKey。
-- 附件下载走 `/api/teacher/research/files/{fileId}/download`，再次校验 paper/publish 权限。扫描未通过不可下载。
+- 附件下载走 `/api/teacher/research/files/{fileId}/download`，再次校验 paper/publish 权限。类型校验未通过（非 `CLEAN`）不可下载。存储值 `CLEAN` 表示魔数与扩展名校验通过，不是杀毒扫描。
 
 ## 群体 AI 报告
 

@@ -28,6 +28,7 @@ import com.huashi.eftransfer.app.modules.practice.vo.PracticeSpellingCheckVO;
 import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.page.PageResult;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -115,7 +116,15 @@ public class PracticeSessionService {
         session.setAnsweredCount(0);
         session.setCorrectCount(0);
         session.setStartedAt(now);
-        practiceSessionMapper.insert(session);
+        try {
+            practiceSessionMapper.insert(session);
+        } catch (DataIntegrityViolationException exception) {
+            if (!isActiveOwnerViolation(exception)) {
+                throw exception;
+            }
+            throw new BusinessException(ResultCode.ACTIVE_SESSION_EXISTS,
+                    "An active practice session already exists for this student", 409);
+        }
 
         int order = 1;
         for (PracticeBankService.BankQuestion question : shuffled) {
@@ -649,6 +658,12 @@ public class PracticeSessionService {
             throw new BusinessException(ResultCode.NOT_FOUND, "Practice question was not found", 404);
         }
         return answer;
+    }
+
+    private boolean isActiveOwnerViolation(DataIntegrityViolationException exception) {
+        Throwable cause = exception.getMostSpecificCause();
+        String message = cause == null || cause.getMessage() == null ? "" : cause.getMessage().toLowerCase();
+        return message.contains("active_owner");
     }
 
     private boolean hasActiveSession(Long ownerUserId) {

@@ -125,7 +125,7 @@ public class ResearchFileService {
         if (AssessmentFileSignature.isExecutableOrScript(header)) {
             file.setScanStatus(AssessmentFileScanStatus.INFECTED.name());
             fileMapper.updateById(file);
-            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Attachment failed the security scan", 400);
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "Attachment failed the file type check", 400);
         }
         String detected = AssessmentFileSignature.detectMime(file.getFileExtension(), header, declaredType);
         if (detected == null) {
@@ -196,7 +196,7 @@ public class ResearchFileService {
         ResearchAccessService.ResearchFileAccess access = accessService.requireAccessibleResearchFile(fileId);
         AssessmentSubmissionFileEntity file = access.file();
         if (!AssessmentFileScanStatus.CLEAN.name().equalsIgnoreCase(file.getScanStatus())) {
-            throw new BusinessException(ResultCode.CONFLICT, "Attachment is not available until the security scan succeeds", 409);
+            throw new BusinessException(ResultCode.CONFLICT, "Attachment is not available until the file type check succeeds", 409);
         }
         if (preview && !isPreviewable(file.getMimeType())) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Only PDF and images can be previewed", 400);

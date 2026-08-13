@@ -193,7 +193,7 @@ const ResearchAttemptDetailPage: React.FC = () => {
       <ConfirmationDialog
         open={pendingFileId != null}
         title="下载附件将被审计"
-        description="下载会写入审计日志。只有扫描通过的文件可以下载，且不会暴露底层存储地址。"
+        description="下载会写入审计日志。只有通过类型校验的文件可以下载，且不会暴露底层存储地址。"
         safety="下载不会把文件公开到外网，也不会展示底层存储地址。"
         nextStep="确认后将开始下载，并留下教师操作审计记录。"
         confirmLabel="确认下载"

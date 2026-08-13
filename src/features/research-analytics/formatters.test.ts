@@ -19,7 +19,7 @@ describe('research analytics formatters', () => {
     expect(qualityFlagLabel('SHORT_TOTAL_DURATION')).toBe('总时长过短');
     expect(aiAnalysisStatusLabel('FALLBACK')).toBe('规则摘要');
     expect(aiAnalysisStatusLabel(null)).toBe('未生成');
-    expect(scanStatusLabel('CLEAN')).toBe('扫描通过');
+    expect(scanStatusLabel('CLEAN')).toBe('类型校验通过');
     expect(submitReasonLabel('TIMEOUT')).toBe('超时提交');
   });
 });

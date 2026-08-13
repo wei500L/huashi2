@@ -11,6 +11,11 @@ import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -130,6 +135,44 @@ class PracticeSessionFlowIntegrationTest extends AbstractWebIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void concurrentCreateMapsUniqueKeyCollisionToConflictInsteadOfServerError() throws Exception {
+        String token = loginAndGetAccessToken("student.li", "Student@123456");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            java.util.concurrent.Callable<Integer> task = () -> {
+                ready.countDown();
+                start.await(10, TimeUnit.SECONDS);
+                return mockMvc.perform(post("/api/student/practice/sessions").with(bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "bankCode": "LEXIBRIDGE_FF4_V2",
+                                          "sectionCode": "FF4_WORD_MEANING"
+                                        }
+                                        """))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            };
+            Future<Integer> first = pool.submit(task);
+            Future<Integer> second = pool.submit(task);
+            ready.await(10, TimeUnit.SECONDS);
+            start.countDown();
+            List<Integer> statuses = List.of(
+                    first.get(30, TimeUnit.SECONDS),
+                    second.get(30, TimeUnit.SECONDS)
+            );
+            assertThat(statuses).doesNotContain(500);
+            assertThat(statuses).contains(409);
+            assertThat(statuses.stream().filter(status -> status == 200).count()).isLessThanOrEqualTo(1);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

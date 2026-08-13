@@ -505,6 +505,10 @@ const publicAssessmentPath = (releaseCode: string) =>
 const publicAssessmentOptions = (options?: RequestOptions): AxiosRequestConfig => ({
   ...options,
   withCredentials: true,
+  headers: {
+    ...options?.headers,
+    'X-Requested-With': 'XMLHttpRequest',
+  },
 });
 
 export const publicAssessmentService = {

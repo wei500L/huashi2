@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -37,6 +38,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,6 +62,7 @@ public class AiRuntimeConfigService {
     private static final int MAX_STAGED_BUNDLES = 16;
     private static final String NOTICE_SEVERITY_INFO = "info";
     private static final String NOTICE_SEVERITY_WARNING = "warning";
+    private static final String NOTICE_SEVERITY_ERROR = "error";
     public static final String STORED_SYNC_STATUS_IN_SYNC = "IN_SYNC";
     public static final String STORED_SYNC_STATUS_NO_STORED_CONFIG = "NO_STORED_CONFIG";
     public static final String STORED_SYNC_STATUS_SYNC_FAILED = "SYNC_FAILED";
@@ -71,6 +74,7 @@ public class AiRuntimeConfigService {
     private final RagSchemaDimensionGuard ragSchemaDimensionGuard;
     private final SensitiveDataRedactor sensitiveDataRedactor;
     private final Validator validator;
+    private final Environment environment;
     private final AtomicReference<AiRuntimeBundle> currentBundle = new AtomicReference<>();
     private final AtomicReference<String> storedSyncStatus = new AtomicReference<>(STORED_SYNC_STATUS_NO_STORED_CONFIG);
     private final AtomicBoolean storedConfigSyncInProgress = new AtomicBoolean(false);
@@ -85,7 +89,8 @@ public class AiRuntimeConfigService {
             AiRuntimeBundleFactory bundleFactory,
             RagSchemaDimensionGuard ragSchemaDimensionGuard,
             SensitiveDataRedactor sensitiveDataRedactor,
-            Validator validator
+            Validator validator,
+            Environment environment
     ) {
         this.providerProperties = providerProperties;
         this.resilienceProperties = resilienceProperties;
@@ -94,6 +99,7 @@ public class AiRuntimeConfigService {
         this.ragSchemaDimensionGuard = ragSchemaDimensionGuard;
         this.sensitiveDataRedactor = sensitiveDataRedactor;
         this.validator = validator;
+        this.environment = environment;
     }
 
     @PostConstruct
@@ -111,6 +117,7 @@ public class AiRuntimeConfigService {
         }
         ragSchemaDimensionGuard.verifyConfig(bundle.config());
         currentBundle.set(bundle);
+        logSameUpstreamFallback(bundle.config());
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -175,6 +182,35 @@ public class AiRuntimeConfigService {
 
     public AiRuntimeBundle current() {
         return currentBundle.get();
+    }
+
+    public boolean isDistinctFallback(String operation, AiRuntimeBundle bundle) {
+        if (bundle == null || bundle.config() == null || bundle.config().provider() == null) {
+            return false;
+        }
+        var provider = bundle.config().provider();
+        String activeProvider = provider.activeProvider();
+        String fallbackProvider = provider.fallbackProvider();
+        if (!StringUtils.hasText(fallbackProvider) || fallbackProvider.equalsIgnoreCase(activeProvider)) {
+            return false;
+        }
+        var providers = provider.providers();
+        if (providers == null || !providers.containsKey(activeProvider) || !providers.containsKey(fallbackProvider)) {
+            return false;
+        }
+        var active = providers.get(activeProvider);
+        var fallback = providers.get(fallbackProvider);
+        if (active == null || fallback == null) {
+            return false;
+        }
+        String normalized = operation == null ? "" : operation.toLowerCase();
+        if (normalized.startsWith("embed")) {
+            return configured(fallback.embedding()) && !sameUpstream(active.embedding(), fallback.embedding());
+        }
+        if (normalized.startsWith("rerank")) {
+            return configured(fallback.rerank()) && !sameUpstream(active.rerank(), fallback.rerank());
+        }
+        return configured(fallback.chat()) && !sameUpstream(active.chat(), fallback.chat());
     }
 
     public AiOpsConfigEffectiveResponse effective() {
@@ -314,12 +350,17 @@ public class AiRuntimeConfigService {
 
     private List<AiOpsConfigNotice> validationNotices(AiOpsConfigPayload payload) {
         List<AiOpsConfigNotice> notices = new ArrayList<>();
-        notices.add(new AiOpsConfigNotice(
-                "automatic_failover_enabled",
-                NOTICE_SEVERITY_INFO,
-                "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
-        ));
-        notices.addAll(fallbackProviderNotices(payload));
+        List<AiOpsConfigNotice> fallbackNotices = fallbackProviderNotices(payload);
+        boolean sameUpstream = fallbackNotices.stream()
+                .anyMatch(notice -> notice.code().startsWith("fallback_same_upstream"));
+        if (!sameUpstream) {
+            notices.add(new AiOpsConfigNotice(
+                    "automatic_failover_enabled",
+                    NOTICE_SEVERITY_INFO,
+                    "Automatic failover is enabled for retryable provider failures and circuit-open scenarios."
+            ));
+        }
+        notices.addAll(fallbackNotices);
         return List.copyOf(notices);
     }
 
@@ -355,12 +396,13 @@ public class AiRuntimeConfigService {
         boolean chatSame = sameUpstream(active.chat(), fallback.chat());
         boolean embeddingSame = sameUpstream(active.embedding(), fallback.embedding());
         boolean rerankSame = sameUpstream(active.rerank(), fallback.rerank());
+        String severity = fallbackSameUpstreamSeverity();
 
         if (chatSame && embeddingSame && rerankSame) {
             return List.of(new AiOpsConfigNotice(
                     "fallback_same_upstream_all",
-                    NOTICE_SEVERITY_WARNING,
-                    "Fallback provider resolves to the same upstream chat, embedding, and rerank endpoints as the active provider.",
+                    severity,
+                    "Fallback provider resolves to the same upstream chat, embedding, and rerank endpoints as the active provider. Failover is disabled.",
                     Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
             ));
         }
@@ -369,28 +411,65 @@ public class AiRuntimeConfigService {
         if (chatSame) {
             notices.add(new AiOpsConfigNotice(
                     "fallback_same_upstream_chat",
-                    NOTICE_SEVERITY_WARNING,
-                    "Fallback chat resolves to the same upstream endpoint as the active provider.",
+                    severity,
+                    "Fallback chat resolves to the same upstream endpoint as the active provider. Chat failover is disabled.",
                     Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
             ));
         }
         if (embeddingSame) {
             notices.add(new AiOpsConfigNotice(
                     "fallback_same_upstream_embedding",
-                    NOTICE_SEVERITY_WARNING,
-                    "Fallback embedding resolves to the same upstream endpoint as the active provider.",
+                    severity,
+                    "Fallback embedding resolves to the same upstream endpoint as the active provider. Embedding failover is disabled.",
                     Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
             ));
         }
         if (rerankSame) {
             notices.add(new AiOpsConfigNotice(
                     "fallback_same_upstream_rerank",
-                    NOTICE_SEVERITY_WARNING,
-                    "Fallback rerank resolves to the same upstream endpoint as the active provider.",
+                    severity,
+                    "Fallback rerank resolves to the same upstream endpoint as the active provider. Rerank failover is disabled.",
                     Map.of("activeProvider", activeProvider, "fallbackProvider", fallbackProvider)
             ));
         }
         return List.copyOf(notices);
+    }
+
+    private void logSameUpstreamFallback(AiOpsConfigPayload payload) {
+        for (AiOpsConfigNotice notice : fallbackProviderNotices(payload)) {
+            if (NOTICE_SEVERITY_ERROR.equals(notice.severity())) {
+                log.error("event=ai_fallback_same_upstream code={} message={}", notice.code(), notice.message());
+            } else {
+                log.warn("event=ai_fallback_same_upstream code={} message={}", notice.code(), notice.message());
+            }
+        }
+    }
+
+    private String fallbackSameUpstreamSeverity() {
+        boolean lenient = Arrays.stream(environment.getActiveProfiles())
+                .anyMatch(profile -> "local".equals(profile) || "test".equals(profile));
+        return lenient ? NOTICE_SEVERITY_WARNING : NOTICE_SEVERITY_ERROR;
+    }
+
+    private boolean configured(AiOpsChatConfig config) {
+        return config != null
+                && StringUtils.hasText(config.baseUrl())
+                && StringUtils.hasText(config.apiKey())
+                && StringUtils.hasText(config.model());
+    }
+
+    private boolean configured(AiOpsEmbeddingConfig config) {
+        return config != null
+                && StringUtils.hasText(config.baseUrl())
+                && StringUtils.hasText(config.apiKey())
+                && StringUtils.hasText(config.model());
+    }
+
+    private boolean configured(AiOpsRerankConfig config) {
+        return config != null
+                && StringUtils.hasText(config.baseUrl())
+                && StringUtils.hasText(config.apiKey())
+                && StringUtils.hasText(config.model());
     }
 
     private boolean sameUpstream(

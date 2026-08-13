@@ -98,6 +98,8 @@ ai:
           multimodal-model: ${AI_MULTIMODAL_RERANK_MODEL:Qwen/Qwen3-VL-Reranker-8B}
           connect-timeout: ${AI_RERANK_CONNECT_TIMEOUT:PT3S}
           read-timeout: ${AI_RERANK_READ_TIMEOUT:PT30S}
+      # Fallback inherits primary values so the named provider still binds (@NotBlank URL/model).
+      # Identical resolved endpoints disable failover at runtime; set distinct AI_FALLBACK_* for real HA.
       deepseek:
         chat:
           protocol: ${AI_FALLBACK_CHAT_PROTOCOL:${AI_CHAT_PROTOCOL:openai-compat}}

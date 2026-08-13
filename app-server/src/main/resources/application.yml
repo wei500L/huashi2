@@ -162,7 +162,7 @@ app:
         - ${APP_CORS_ALLOWED_ORIGIN_LOCALHOST:http://localhost:3000}
         - ${APP_CORS_ALLOWED_ORIGIN_LOOPBACK:http://127.0.0.1:3000}
       allowed-methods: ${APP_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
-      allowed-headers: ${APP_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept}
+      allowed-headers: ${APP_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Requested-With}
       exposed-headers: ${APP_CORS_EXPOSED_HEADERS:X-Trace-Id}
       allow-credentials: ${APP_CORS_ALLOW_CREDENTIALS:false}
       max-age: ${APP_CORS_MAX_AGE:PT1H}

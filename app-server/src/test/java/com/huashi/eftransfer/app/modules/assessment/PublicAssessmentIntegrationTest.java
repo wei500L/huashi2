@@ -14,6 +14,7 @@ import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentTimingEvent
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipantAccessMapper;
 import com.huashi.eftransfer.app.modules.assessment.mapper.AssessmentParticipationCodeMapper;
 import com.huashi.eftransfer.app.support.AbstractWebIntegrationTest;
+import com.huashi.eftransfer.app.support.MockMvcTestSupport;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -753,5 +754,34 @@ class PublicAssessmentIntegrationTest extends AbstractWebIntegrationTest {
         assertThat(setCookie).isNotBlank();
         String value = setCookie.substring(setCookie.indexOf('=') + 1, setCookie.indexOf(';'));
         return new Cookie("LEXIBRIDGE_SESSION", value);
+    }
+
+    @Test
+    void mutatingPublicAssessmentWithoutCustomHeaderIsForbidden() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        long paperId = createPaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        String releaseCode = readJson(published).path("data").path("releaseCode").asText();
+        String participationCode = readJson(published).path("data").path("participationCodes").get(0).asText();
+
+        MvcResult verified = mockMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"" + participationCode + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie cookie = sessionCookie(verified);
+
+        var unguardedMvc = MockMvcTestSupport.buildWithoutDefaultHeaders(webApplicationContext);
+        unguardedMvc.perform(post("/api/public/assessments/{releaseCode}/responses", releaseCode)
+                        .cookie(cookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"answers\":[]}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        unguardedMvc.perform(post("/api/public/assessments/{releaseCode}/verify", releaseCode)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"participationCode\":\"" + participationCode + "\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 }

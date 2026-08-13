@@ -35,7 +35,7 @@
 - 测试快照: `src/test/resources/schema-h2.sql`
 - 最终态约束仍保留：
   - 软删除唯一键约束
-  - 诊断 / 训练 session 单用户并发唯一键
+  - 诊断 / 训练 / 练习 session 单用户并发唯一键
   - outbox DLQ 与相关索引
 
 ## 测试
@@ -58,6 +58,15 @@
 - Q: 事件机制如何工作？
   A: 应用内事件继续走 Spring 事件，总线事件继续走 RabbitMQ。
 
+- Q: 练习开局撞唯一键时返回什么？
+  A: `PracticeSessionService` 捕获 `DataIntegrityViolationException`（`active_owner`），映射为 `ACTIVE_SESSION_EXISTS` 409，与诊断/训练一致。
+
+- Q: 公开问卷如何防 CSRF？
+  A: 不对 JWT API 开全局 CSRF。`PublicAssessmentCsrfHeaderFilter` 要求 `/api/public/assessments/**` 的 POST/DELETE 带 `X-Requested-With: XMLHttpRequest`。
+
+- Q: 研究附件 `CLEAN` 是杀毒通过吗？
+  A: 不是。表示魔数与扩展名类型校验通过；UI/导出文案为「类型校验通过」。
+
 ## 目录提示
 
 ```text
@@ -79,3 +88,4 @@ app-server/
 | 2026-04-18 | 数据库初始化调整 | 移除版本化迁移体系，改为单文件 `schema.sql` |
 | 2026-08-13 | 审计下一批 High | AI 限流与 180s 超时、问卷 Redis 限流、导出脱敏、schema ddl 约定 |
 | 2026-08-13 | 审计第三批 High | XFF 可信代理、练习计分、导入行事务、单题讲解 grounding、verifier 隔离学生作答 |
+| 2026-08-13 | 审计第四批 | 练习开局 UK→409；公开问卷 `X-Requested-With` CSRF；附件 `CLEAN` 语义为类型校验 |
