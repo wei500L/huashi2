@@ -380,9 +380,9 @@ const HistoryPage: React.FC = () => {
           value={activeTab}
           onChange={setActiveTab}
           items={[
-            { id: 'diagnosis', label: '璇婃柇鍘嗗彶' },
-            { id: 'training', label: '璁粌鍘嗗彶' },
-            { id: 'assessment', label: '娴嬭瘎鍘嗗彶' },
+            { id: 'diagnosis', label: t('taskPages.history.tabs.diagnosis') },
+            { id: 'training', label: t('taskPages.history.tabs.training') },
+            { id: 'assessment', label: t('taskPages.history.tabs.assessment') },
           ]}
         />
       </section>

@@ -285,7 +285,6 @@ class AuthControllerIntegrationTest {
                                   "displayName": "自主注册学生",
                                   "password": "Student@123456",
                                   "registrationToken": "%s",
-                                  "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
@@ -294,7 +293,6 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.userInfo.username").value("student.self"))
                 .andExpect(jsonPath("$.data.userInfo.primaryRole").value("STUDENT"))
                 .andExpect(jsonPath("$.data.userInfo.studentProfile.gradeName").value("Pilot Grade"))
-                .andExpect(jsonPath("$.data.userInfo.studentProfile.englishLevel").value("B1"))
                 .andExpect(jsonPath("$.data.userInfo.studentProfile.frenchLevel").value("A2"))
                 .andExpect(jsonPath("$.data.userInfo.studentProfile.courseStage").value("FOUNDATION"));
 
@@ -333,7 +331,6 @@ class AuthControllerIntegrationTest {
                                   "displayName": "邀请码错误学生",
                                   "password": "Student@123456",
                                   "registrationToken": "missing-registration-token",
-                                  "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
@@ -375,7 +372,6 @@ class AuthControllerIntegrationTest {
                                   "displayName": "客户端绑定学生",
                                   "password": "Student@123456",
                                   "registrationToken": "%s",
-                                  "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
@@ -399,7 +395,6 @@ class AuthControllerIntegrationTest {
                                   "displayName": "客户端绑定学生",
                                   "password": "Student@123456",
                                   "registrationToken": "%s",
-                                  "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
@@ -421,7 +416,6 @@ class AuthControllerIntegrationTest {
                                   "displayName": "单次令牌学生",
                                   "password": "Student@123456",
                                   "registrationToken": "%s",
-                                  "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
@@ -437,7 +431,6 @@ class AuthControllerIntegrationTest {
                                   "displayName": "重复令牌学生",
                                   "password": "Student@123456",
                                   "registrationToken": "%s",
-                                  "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }
@@ -459,7 +452,6 @@ class AuthControllerIntegrationTest {
                                       "displayName": "限流学生",
                                       "password": "Student@123456",
                                       "registrationToken": "bogus-registration-token",
-                                      "englishLevel": "B1",
                                       "frenchLevel": "A2",
                                       "courseStage": "FOUNDATION"
                                     }
@@ -479,7 +471,6 @@ class AuthControllerIntegrationTest {
                                   "displayName": "限流学生",
                                   "password": "Student@123456",
                                   "registrationToken": "bogus-registration-token",
-                                  "englishLevel": "B1",
                                   "frenchLevel": "A2",
                                   "courseStage": "FOUNDATION"
                                 }

@@ -250,7 +250,7 @@ public class AuthService {
             StudentProfileEntity studentProfile = new StudentProfileEntity();
             studentProfile.setUserId(user.getId());
             studentProfile.setGradeName(teachingClass.getGradeName());
-            studentProfile.setEnglishLevel(normalizeLevel(request.englishLevel()));
+            studentProfile.setEnglishLevel("");
             studentProfile.setFrenchLevel(normalizeLevel(request.frenchLevel()));
             studentProfile.setCourseStage(normalizeCourseStage(request.courseStage()));
             studentProfile.setCompositeScore(DEFAULT_STUDENT_COMPOSITE_SCORE);
@@ -526,6 +526,8 @@ public class AuthService {
         String normalized = normalizeValue(value);
         return normalized == null ? null : normalized.toUpperCase(Locale.ROOT);
     }
+
+
 
     private String normalizeCourseStage(String value) {
         String normalizedValue = normalizeValue(value);

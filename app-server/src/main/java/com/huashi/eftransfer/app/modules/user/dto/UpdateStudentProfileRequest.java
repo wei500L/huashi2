@@ -8,9 +8,6 @@ public record UpdateStudentProfileRequest(
         @NotBlank(message = "gradeName must not be blank")
         @Size(max = 64, message = "gradeName must be at most 64 characters")
         String gradeName,
-        @NotBlank(message = "englishLevel must not be blank")
-        @Pattern(regexp = "A1|A2|B1|B2|C1|C2", flags = Pattern.Flag.CASE_INSENSITIVE, message = "englishLevel must be one of A1, A2, B1, B2, C1, C2")
-        String englishLevel,
         @NotBlank(message = "frenchLevel must not be blank")
         @Pattern(regexp = "A1|A2|B1|B2|C1|C2", flags = Pattern.Flag.CASE_INSENSITIVE, message = "frenchLevel must be one of A1, A2, B1, B2, C1, C2")
         String frenchLevel,

@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 @Service
 public class LocalObjectStorageService implements ObjectStorageService {
@@ -22,7 +23,7 @@ public class LocalObjectStorageService implements ObjectStorageService {
         try {
             Path target = resolve(objectKey);
             Files.createDirectories(target.getParent());
-            Files.copy(content, target);
+            Files.copy(content, target, StandardCopyOption.REPLACE_EXISTING);
             return objectKey;
         } catch (IOException exception) {
             throw new UncheckedIOException("Failed to store research attachment", exception);

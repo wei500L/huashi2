@@ -422,7 +422,6 @@ public class AiContextAssemblerService {
         payload.put("studentName", student.getDisplayName());
         payload.put("studentNo", studentProfile.getStudentNo());
         payload.put("gradeName", studentProfile.getGradeName());
-        payload.put("englishLevel", studentProfile.getEnglishLevel());
         payload.put("frenchLevel", studentProfile.getFrenchLevel());
         payload.put("courseStage", courseStage(studentProfile));
         payload.put("compositeScore", studentProfile.getCompositeScore());

@@ -169,6 +169,7 @@ class ResearchAnalyticsIntegrationTest extends AbstractWebIntegrationTest {
                 .andExpect(status().isOk());
         ResearchExportJobEntity job = exportJobMapper.selectById(jobId);
         assertThat(job.getObjectKey()).isNotBlank();
+        assertThat(job.getObjectKey()).matches("research-exports/\\d+/[a-zA-Z0-9]+\\.xlsx");
         byte[] body;
         try (java.io.InputStream input = objectStorageService.open(job.getObjectKey())) {
             body = input.readAllBytes();

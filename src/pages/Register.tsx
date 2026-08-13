@@ -18,7 +18,6 @@ type RegisterFormData = {
   email: string;
   password: string;
   confirmPassword: string;
-  englishLevel: string;
   frenchLevel: string;
   courseStage: string;
 };
@@ -52,7 +51,6 @@ const RegisterPage: React.FC = () => {
       .min(1, t('register.validation.passwordRequired'))
       .min(8, t('register.validation.passwordMin')),
     confirmPassword: z.string().min(1, t('register.validation.confirmPasswordRequired')),
-    englishLevel: z.string().min(1, t('register.validation.englishLevelRequired')),
     frenchLevel: z.string().min(1, t('register.validation.frenchLevelRequired')),
     courseStage: z.string().min(1, t('register.validation.courseStageRequired')),
   }).refine((values) => values.password === values.confirmPassword, {
@@ -86,7 +84,6 @@ const RegisterPage: React.FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
-      englishLevel: '',
       frenchLevel: '',
       courseStage: 'FOUNDATION',
     },
@@ -97,7 +94,6 @@ const RegisterPage: React.FC = () => {
   }, [clearError]);
 
   const currentClassCode = watch('classCode').trim();
-  const englishLevelValue = watch('englishLevel');
   const frenchLevelValue = watch('frenchLevel');
   const courseStageValue = watch('courseStage');
   const deferredClassCode = React.useDeferredValue(currentClassCode);
@@ -204,7 +200,6 @@ const RegisterPage: React.FC = () => {
     try {
       await registerStudent({
         password: values.password,
-        englishLevel: values.englishLevel,
         frenchLevel: values.frenchLevel,
         courseStage: values.courseStage,
         registrationToken: activeResolvedContext.registrationToken,
@@ -430,22 +425,7 @@ const RegisterPage: React.FC = () => {
                 </label>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-3">
-                <label className="block">
-                  <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.englishLevelLabel')}</div>
-                  <input type="hidden" {...register('englishLevel')} />
-                  <RoundedSelect
-                    id="register-english-level"
-                    value={englishLevelValue}
-                    options={levelSelectOptions}
-                    ariaLabel={t('register.englishLevelLabel')}
-                    ariaDescribedBy={errors.englishLevel ? 'register-english-level-error' : undefined}
-                    validationState={errors.englishLevel ? 'invalid' : 'default'}
-                    onChange={(value) => setValue('englishLevel', value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
-                  />
-                  {errors.englishLevel && <div id="register-english-level-error" className="form-message form-message-error" role="alert">{errors.englishLevel.message}</div>}
-                </label>
-
+              <div className="grid gap-5 md:grid-cols-2">
                 <label className="block">
                   <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('register.frenchLevelLabel')}</div>
                   <input type="hidden" {...register('frenchLevel')} />

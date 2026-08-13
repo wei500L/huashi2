@@ -26,7 +26,6 @@ type ChangePasswordFormData = {
 
 type StudentProfileFormData = {
   gradeName: string;
-  englishLevel: string;
   frenchLevel: string;
   courseStage: string;
 };
@@ -65,11 +64,6 @@ const SettingsPage: React.FC = () => {
       .trim()
       .min(1, t('ui.validation.gradeRequired'))
       .max(64, t('ui.validation.gradeMax')),
-    englishLevel: z.string()
-      .min(1, t('ui.validation.englishLevelRequired'))
-      .refine((value) => studentLanguageLevelOptions.includes(value as typeof studentLanguageLevelOptions[number]), {
-        message: t('ui.validation.englishLevelRequired'),
-      }),
     frenchLevel: z.string()
       .min(1, t('ui.validation.frenchLevelRequired'))
       .refine((value) => studentLanguageLevelOptions.includes(value as typeof studentLanguageLevelOptions[number]), {
@@ -105,7 +99,6 @@ const SettingsPage: React.FC = () => {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       gradeName: user?.studentProfile?.gradeName || '',
-      englishLevel: user?.studentProfile?.englishLevel || '',
       frenchLevel: user?.studentProfile?.frenchLevel || '',
       courseStage: user?.studentProfile?.courseStage || '',
     },
@@ -114,14 +107,12 @@ const SettingsPage: React.FC = () => {
   React.useEffect(() => {
     resetProfile({
       gradeName: user?.studentProfile?.gradeName || '',
-      englishLevel: user?.studentProfile?.englishLevel || '',
       frenchLevel: user?.studentProfile?.frenchLevel || '',
       courseStage: user?.studentProfile?.courseStage || '',
     });
   }, [
     resetProfile,
     user?.studentProfile?.courseStage,
-    user?.studentProfile?.englishLevel,
     user?.studentProfile?.frenchLevel,
     user?.studentProfile?.gradeName,
   ]);
@@ -153,7 +144,6 @@ const SettingsPage: React.FC = () => {
       setProfileSuccessMessage(t('ui.messages.studentProfileSaved'));
       resetProfile({
         gradeName: studentProfile.gradeName || '',
-        englishLevel: studentProfile.englishLevel || '',
         frenchLevel: studentProfile.frenchLevel || '',
         courseStage: studentProfile.courseStage || '',
       });
@@ -161,12 +151,10 @@ const SettingsPage: React.FC = () => {
         current ? {
           ...current,
           gradeName: studentProfile.gradeName,
-          englishLevel: studentProfile.englishLevel,
           frenchLevel: studentProfile.frenchLevel,
           latestSnapshot: {
             ...current.latestSnapshot,
             gradeName: studentProfile.gradeName,
-            englishLevel: studentProfile.englishLevel,
             frenchLevel: studentProfile.frenchLevel,
           },
         } : current
@@ -231,7 +219,6 @@ const SettingsPage: React.FC = () => {
             <div className="space-y-2 break-words text-sm text-slate-500 dark:text-white/45">
               <div>{t('ui.fields.studentNo')}：{user.studentProfile.studentNo}</div>
               <div>{t('ui.fields.grade')}：{user.studentProfile.gradeName || '--'}</div>
-              <div>{t('ui.fields.englishLevel')}：{user.studentProfile.englishLevel || '--'}</div>
               <div>{t('ui.fields.frenchLevel')}：{user.studentProfile.frenchLevel || '--'}</div>
               <div>{t('ui.fields.courseStage')}：{user.studentProfile.courseStage || '--'}</div>
             </div>
@@ -309,19 +296,6 @@ const SettingsPage: React.FC = () => {
               </label>
 
               <label className="block min-w-0">
-                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.englishLevel')}</div>
-                <select {...registerProfile('englishLevel')} className={inputClassName}>
-                  <option value="">--</option>
-                  {studentLanguageLevelOptions.map((level) => (
-                    <option key={level} value={level}>
-                      {t(`register.levelOptions.${level}`)}
-                    </option>
-                  ))}
-                </select>
-                {profileErrors.englishLevel ? <div className="mt-2 text-sm text-rose-500">{profileErrors.englishLevel.message}</div> : null}
-              </label>
-
-              <label className="block min-w-0">
                 <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.frenchLevel')}</div>
                 <select {...registerProfile('frenchLevel')} className={inputClassName}>
                   <option value="">--</option>
@@ -334,7 +308,7 @@ const SettingsPage: React.FC = () => {
                 {profileErrors.frenchLevel ? <div className="mt-2 text-sm text-rose-500">{profileErrors.frenchLevel.message}</div> : null}
               </label>
 
-              <label className="block min-w-0 md:col-span-2">
+              <label className="block min-w-0">
                 <div className="mb-2 text-sm font-bold text-slate-700 dark:text-white/70">{t('ui.fields.courseStage')}</div>
                 <select {...registerProfile('courseStage')} className={inputClassName}>
                   <option value="">--</option>

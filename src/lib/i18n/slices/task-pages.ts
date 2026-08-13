@@ -60,6 +60,11 @@ export const taskPagesSlice: TranslationSlice = {
         pageTitle: '学习历史',
         pageSubtitle: '统一查看诊断、练习与老师发布测评记录；进行中的任务会跳回对应页面继续，已完成记录可在当前页查看详情。',
         reviewHighRiskPairs: '查看高风险词对',
+        tabs: {
+          diagnosis: '诊断历史',
+          training: '训练历史',
+          assessment: '测评历史',
+        },
       },
     },
   },
@@ -122,6 +127,11 @@ export const taskPagesSlice: TranslationSlice = {
         pageTitle: 'Learning History',
         pageSubtitle: 'Review diagnosis, practice, and assigned assessment records in one place. In-progress work resumes on its original page, and completed work can be inspected here.',
         reviewHighRiskPairs: 'Review High-Risk Pairs',
+        tabs: {
+          diagnosis: 'Diagnosis History',
+          training: 'Training History',
+          assessment: 'Assessment History',
+        },
       },
     },
   },

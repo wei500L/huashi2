@@ -335,10 +335,6 @@ export function StudentAnalyticsPdfReport({
                 <div className="mt-2 text-base font-bold text-slate-900">{overview?.gradeName || '--'}</div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">英语水平</div>
-                <div className="mt-2 text-base font-bold text-slate-900">{overview?.englishLevel || '--'}</div>
-              </div>
-              <div>
                 <div className="text-xs uppercase tracking-[0.18em] text-slate-400">法语水平</div>
                 <div className="mt-2 text-base font-bold text-slate-900">{overview?.frenchLevel || '--'}</div>
               </div>

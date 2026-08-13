@@ -78,7 +78,6 @@ const mockSession: LoginResponse = {
 const completeStudentProfile = {
   studentNo: 'S20260099',
   gradeName: '高一（3）班',
-  englishLevel: 'B1',
   frenchLevel: 'A2',
   courseStage: 'INTERMEDIATE',
   compositeScore: 0,
@@ -385,7 +384,6 @@ describe('App auth-expired handling', () => {
         studentProfile: {
           studentNo: 'S20260001',
           gradeName: '',
-          englishLevel: 'A2',
           frenchLevel: 'A1',
           courseStage: 'FOUNDATION',
           compositeScore: 0,

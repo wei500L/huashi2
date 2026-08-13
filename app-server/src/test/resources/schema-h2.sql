@@ -1424,7 +1424,7 @@ CREATE TABLE student_profile (
   user_id bigint NOT NULL,
   student_no varchar(64) NOT NULL,
   grade_name varchar(64) NOT NULL,
-  english_level varchar(16) NOT NULL,
+  english_level varchar(16) NOT NULL DEFAULT '',
   french_level varchar(16) NOT NULL,
   composite_score int NOT NULL,
   daily_training_target int DEFAULT NULL,

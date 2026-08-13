@@ -413,7 +413,6 @@ public class AnalyticsQueryService {
                 studentUserId,
                 snapshotPayload.studentName(),
                 snapshotPayload.gradeName(),
-                snapshotPayload.englishLevel(),
                 snapshotPayload.frenchLevel(),
                 snapshotPayload.primaryRiskLevel(),
                 snapshotPayload.recommendedTrainingMode(),
@@ -771,7 +770,6 @@ public class AnalyticsQueryService {
         return new StudentAnalyticsSnapshotPayload(
                 user == null ? null : user.getDisplayName(),
                 studentProfile == null ? null : studentProfile.getGradeName(),
-                studentProfile == null ? null : studentProfile.getEnglishLevel(),
                 studentProfile == null ? null : studentProfile.getFrenchLevel(),
                 null,
                 null,

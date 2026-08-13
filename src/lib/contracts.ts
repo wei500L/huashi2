@@ -59,7 +59,6 @@ export interface PageResult<T> {
 export interface StudentProfileVO {
   studentNo: string;
   gradeName: string;
-  englishLevel: string;
   frenchLevel: string;
   courseStage: string;
   compositeScore: number;
@@ -109,7 +108,6 @@ export interface RegisterStudentRequest {
   displayName: string;
   password: string;
   registrationToken: string;
-  englishLevel: string;
   frenchLevel: string;
   courseStage: string;
 }
@@ -195,7 +193,6 @@ export interface StudentErrorDistributionPayload {
 export interface StudentAnalyticsSnapshotPayload {
   studentName: string;
   gradeName: string;
-  englishLevel: string;
   frenchLevel: string;
   lastDiagnosisSummaryId?: number | null;
   lastTrainingSessionId?: number | null;
@@ -244,7 +241,6 @@ export interface UpdateStudentLearningGoalRequest {
 
 export interface UpdateStudentProfileRequest {
   gradeName: string;
-  englishLevel: string;
   frenchLevel: string;
   courseStage: string;
 }
@@ -253,7 +249,6 @@ export interface StudentAnalyticsOverviewVO {
   studentUserId: number;
   studentName: string;
   gradeName: string;
-  englishLevel: string;
   frenchLevel: string;
   primaryRiskLevel: RiskLevel;
   recommendedTrainingMode: TrainingMode;

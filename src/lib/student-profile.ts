@@ -4,13 +4,13 @@ export const studentLanguageLevelOptions = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] 
 export const studentCourseStageOptions = ['FOUNDATION', 'INTERMEDIATE', 'ADVANCED'] as const;
 
 export function isStudentProfileIncomplete(
-  profile?: Pick<StudentProfileVO, 'gradeName' | 'englishLevel' | 'frenchLevel' | 'courseStage'> | null,
+  profile?: Pick<StudentProfileVO, 'gradeName' | 'frenchLevel' | 'courseStage'> | null,
 ): boolean {
   if (!profile) {
     return true;
   }
 
-  return [profile.gradeName, profile.englishLevel, profile.frenchLevel, profile.courseStage]
+  return [profile.gradeName, profile.frenchLevel, profile.courseStage]
     .some((value) => !value?.trim());
 }
 

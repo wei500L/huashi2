@@ -60,7 +60,7 @@ public class StudentProfileService {
             studentProfile.setCompositeScore(DEFAULT_STUDENT_COMPOSITE_SCORE);
         }
         studentProfile.setGradeName(normalizeValue(request.gradeName()));
-        studentProfile.setEnglishLevel(normalizeLevel(request.englishLevel()));
+        studentProfile.setEnglishLevel("");
         studentProfile.setFrenchLevel(normalizeLevel(request.frenchLevel()));
         studentProfile.setCourseStage(normalizeCourseStage(request.courseStage()));
         if (newProfile) {
@@ -124,7 +124,6 @@ public class StudentProfileService {
         StudentAnalyticsSnapshotPayload refreshedPayload = new StudentAnalyticsSnapshotPayload(
                 payload == null ? user == null ? null : user.getDisplayName() : payload.studentName(),
                 studentProfile.getGradeName(),
-                studentProfile.getEnglishLevel(),
                 studentProfile.getFrenchLevel(),
                 payload == null ? null : payload.lastDiagnosisSummaryId(),
                 payload == null ? null : payload.lastTrainingSessionId(),
@@ -192,7 +191,6 @@ public class StudentProfileService {
         return new StudentProfileVO(
                 studentProfile.getStudentNo(),
                 studentProfile.getGradeName(),
-                studentProfile.getEnglishLevel(),
                 studentProfile.getFrenchLevel(),
                 studentProfile.getCourseStage(),
                 studentProfile.getCompositeScore(),

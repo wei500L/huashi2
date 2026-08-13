@@ -274,7 +274,6 @@ class AuthServiceTest {
                 "Self Register Student",
                 "Student@123456",
                 "registration-token",
-                "B1",
                 "A2",
                 "FOUNDATION"
         );

@@ -32,12 +32,16 @@ import com.huashi.eftransfer.shared.api.ResultCode;
 import com.huashi.eftransfer.shared.enums.ResearchExportJobStatus;
 import com.huashi.eftransfer.shared.exception.BusinessException;
 import com.huashi.eftransfer.shared.page.PageResult;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.ByteArrayInputStream;
@@ -66,6 +70,8 @@ public class ResearchExportService {
     private final AssessmentJsonCodec jsonCodec;
     private final ObjectStorageService objectStorageService;
     private final AuditLogService auditLogService;
+    private final TaskExecutor researchExportTaskExecutor;
+    private final TransactionTemplate transactionTemplate;
 
     public ResearchExportService(
             ResearchAccessService accessService,
@@ -74,7 +80,9 @@ public class ResearchExportService {
             ResearchExportJobMapper jobMapper,
             AssessmentJsonCodec jsonCodec,
             ObjectStorageService objectStorageService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            @Qualifier("researchExportTaskExecutor") TaskExecutor researchExportTaskExecutor,
+            PlatformTransactionManager transactionManager
     ) {
         this.accessService = accessService;
         this.analyticsService = analyticsService;
@@ -83,9 +91,10 @@ public class ResearchExportService {
         this.jsonCodec = jsonCodec;
         this.objectStorageService = objectStorageService;
         this.auditLogService = auditLogService;
+        this.researchExportTaskExecutor = researchExportTaskExecutor;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional
     public ResearchExportJobVO createExport(Long publishId, ResearchExportRequest request) {
         ResearchAccessService.ResearchPublishAccess access = accessService.requireAccessibleResearchPublish(publishId);
         boolean includeSensitive = Boolean.TRUE.equals(request.includeSensitiveFields());
@@ -96,26 +105,32 @@ public class ResearchExportService {
         if (!"CSV".equals(format) && !"XLSX".equals(format)) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "Export format must be CSV or XLSX", 400);
         }
-        ResearchExportJobEntity job = new ResearchExportJobEntity();
-        job.setPublishId(publishId);
-        job.setJobKey(UUID.randomUUID().toString().replace("-", ""));
-        job.setStatus(ResearchExportJobStatus.PENDING.name());
-        job.setFormat(format);
-        job.setScope(request.scope() == null || request.scope().isBlank() ? "ATTEMPTS" : request.scope());
-        job.setFilterJson(jsonCodec.write(ResearchQueryFilter.from(
-                request.status(), request.entryType(), request.qualityFlag(), request.aiStatus(),
-                request.submittedFrom(), request.submittedTo(), request.keyword())));
-        job.setIncludeSensitiveFields(includeSensitive);
-        job.setIncludeAttachmentManifest(Boolean.TRUE.equals(request.includeAttachmentManifest()));
-        job.setRequestedBy(SecurityUtils.getCurrentUserId().orElse(null));
-        job.setRequestedAt(LocalDateTime.now());
-        jobMapper.insert(job);
-        if (includeSensitive) {
-            auditLogService.record("RESEARCH_SENSITIVE_EXPORT_CREATED", "RESEARCH_EXPORT_JOB", String.valueOf(job.getId()),
-                    Map.of("publishId", publishId), "SUCCESS");
+        Long jobId = transactionTemplate.execute(status -> {
+            ResearchExportJobEntity job = new ResearchExportJobEntity();
+            job.setPublishId(publishId);
+            job.setJobKey(UUID.randomUUID().toString().replace("-", ""));
+            job.setStatus(ResearchExportJobStatus.PENDING.name());
+            job.setFormat(format);
+            job.setScope(request.scope() == null || request.scope().isBlank() ? "ATTEMPTS" : request.scope());
+            job.setFilterJson(jsonCodec.write(ResearchQueryFilter.from(
+                    request.status(), request.entryType(), request.qualityFlag(), request.aiStatus(),
+                    request.submittedFrom(), request.submittedTo(), request.keyword())));
+            job.setIncludeSensitiveFields(includeSensitive);
+            job.setIncludeAttachmentManifest(Boolean.TRUE.equals(request.includeAttachmentManifest()));
+            job.setRequestedBy(SecurityUtils.getCurrentUserId().orElse(null));
+            job.setRequestedAt(LocalDateTime.now());
+            jobMapper.insert(job);
+            if (includeSensitive) {
+                auditLogService.record("RESEARCH_SENSITIVE_EXPORT_CREATED", "RESEARCH_EXPORT_JOB", String.valueOf(job.getId()),
+                        Map.of("publishId", publishId), "SUCCESS");
+            }
+            return job.getId();
+        });
+        if (jobId == null) {
+            throw new BusinessException(ResultCode.INTERNAL_ERROR, "Failed to create export job", 500);
         }
-        processJob(job.getId());
-        return toVo(jobMapper.selectById(job.getId()));
+        researchExportTaskExecutor.execute(() -> claimAndProcess(jobId));
+        return toVo(jobMapper.selectById(jobId));
     }
 
     @Transactional(readOnly = true)
@@ -159,6 +174,13 @@ public class ResearchExportService {
         }
     }
 
+    void claimAndProcess(Long jobId) {
+        LocalDateTime staleBefore = LocalDateTime.now().minusSeconds(120);
+        if (jobMapper.claimForProcessing(jobId, staleBefore) == 1) {
+            processJob(jobId);
+        }
+    }
+
     void processJob(Long jobId) {
         ResearchExportJobEntity job = jobMapper.selectById(jobId);
         if (job == null) {
@@ -169,19 +191,22 @@ public class ResearchExportService {
             byte[] bytes;
             String fileName;
             String mime;
+            String extension;
             if ("XLSX".equalsIgnoreCase(job.getFormat())) {
                 BuiltExport built = writeResearchXlsx(job.getPublishId(), filter);
                 bytes = built.bytes();
                 fileName = built.fileName();
                 mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                extension = "xlsx";
             } else {
                 PageResult<ResearchAttemptSummaryVO> page = analyticsService.listAttempts(
                         job.getPublishId(), filter, 1, 10_000, "submittedAt,desc");
                 bytes = writeCsv(page.records(), Boolean.TRUE.equals(job.getIncludeAttachmentManifest()));
                 fileName = ResearchExportWorkbook.exportFileName("研究问卷", null, "csv");
                 mime = "text/csv";
+                extension = "csv";
             }
-            String objectKey = "research-exports/" + job.getPublishId() + "/" + job.getJobKey() + "-" + fileName;
+            String objectKey = "research-exports/" + job.getPublishId() + "/" + job.getJobKey() + "." + extension;
             objectStorageService.put(objectKey, new ByteArrayInputStream(bytes), bytes.length, mime);
             job.setStatus(ResearchExportJobStatus.COMPLETED.name());
             job.setObjectKey(objectKey);
@@ -189,10 +214,14 @@ public class ResearchExportService {
             job.setMimeType(mime);
             job.setCompletedAt(LocalDateTime.now());
             jobMapper.updateById(job);
-        } catch (Exception exception) {
+        } catch (Throwable exception) {
             job.setStatus(ResearchExportJobStatus.FAILED.name());
-            job.setErrorMessage(exception.getMessage() == null ? "EXPORT_FAILED" : exception.getMessage());
-            jobMapper.updateById(job);
+            job.setErrorMessage(exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage());
+            try {
+                jobMapper.updateById(job);
+            } catch (Throwable ignored) {
+                // Keep the original generation failure as the job outcome.
+            }
         }
     }
 

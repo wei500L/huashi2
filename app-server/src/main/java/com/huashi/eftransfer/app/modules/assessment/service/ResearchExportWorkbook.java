@@ -692,10 +692,10 @@ final class ResearchExportWorkbook {
     }
 
     private static void autosize(Sheet sheet, int columns) {
+        int[] widths = {18, 24, 28, 36, 40, 20, 18};
         for (int i = 0; i < columns; i++) {
-            sheet.autoSizeColumn(i);
-            int width = sheet.getColumnWidth(i);
-            sheet.setColumnWidth(i, Math.min(Math.max(width + 512, 12 * 256), 48 * 256));
+            int width = widths[Math.min(i, widths.length - 1)];
+            sheet.setColumnWidth(i, Math.min(Math.max(width * 256, 12 * 256), 48 * 256));
         }
     }
 

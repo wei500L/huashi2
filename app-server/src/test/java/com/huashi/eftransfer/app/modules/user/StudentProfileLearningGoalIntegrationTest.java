@@ -72,7 +72,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                         .content("""
                                 {
                                   "gradeName": "高二",
-                                  "englishLevel": "B2",
                                   "frenchLevel": "A2",
                                   "courseStage": "INTERMEDIATE"
                                 }
@@ -80,7 +79,7 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                 .andExpect(status().isOk());
 
         StudentProfileEntity profileAfterUnrelatedUpdate = loadStudentProfile(studentUserId);
-        assertThat(profileAfterUnrelatedUpdate.getUpdatedAt()).isAfterOrEqualTo(firstGoalUpdatedAt);
+        assertThat(profileAfterUnrelatedUpdate.getGradeName()).isEqualTo("高二");
         assertThat(profileAfterUnrelatedUpdate.getLearningGoalsUpdatedAt()).isEqualTo(firstGoalUpdatedAt);
         assertThat(loadGoalTimestamp(studentToken)).isEqualTo(apiTimestampAfterGoalUpdate);
 
@@ -122,7 +121,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                         .content("""
                                 {
                                   "gradeName": "  高三  ",
-                                  "englishLevel": "c1",
                                   "frenchLevel": "b2",
                                   "courseStage": "advanced"
                                 }
@@ -131,13 +129,11 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                 .andReturn();
 
         assertThat(readJson(result).path("data").path("gradeName").asText()).isEqualTo("高三");
-        assertThat(readJson(result).path("data").path("englishLevel").asText()).isEqualTo("C1");
         assertThat(readJson(result).path("data").path("frenchLevel").asText()).isEqualTo("B2");
         assertThat(readJson(result).path("data").path("courseStage").asText()).isEqualTo("ADVANCED");
 
         StudentProfileEntity profile = loadStudentProfile(studentUserId);
         assertThat(profile.getGradeName()).isEqualTo("高三");
-        assertThat(profile.getEnglishLevel()).isEqualTo("C1");
         assertThat(profile.getFrenchLevel()).isEqualTo("B2");
         assertThat(profile.getCourseStage()).isEqualTo("ADVANCED");
     }
@@ -174,7 +170,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                         .content("""
                                 {
                                   "gradeName": "高一",
-                                  "englishLevel": "b1",
                                   "frenchLevel": "a2",
                                   "courseStage": "foundation"
                                 }
@@ -185,7 +180,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
         assertThat(profile.getStudentNo()).startsWith("S");
         assertThat(profile.getCompositeScore()).isZero();
         assertThat(profile.getGradeName()).isEqualTo("高一");
-        assertThat(profile.getEnglishLevel()).isEqualTo("B1");
         assertThat(profile.getFrenchLevel()).isEqualTo("A2");
         assertThat(profile.getCourseStage()).isEqualTo("FOUNDATION");
     }
@@ -205,7 +199,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
         snapshot.setSnapshotJson(analyticsJsonCodec.write(new StudentAnalyticsSnapshotPayload(
                 "Student Li",
                 "旧年级",
-                "A1",
                 "A2",
                 11L,
                 22L,
@@ -229,7 +222,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                         .content("""
                                 {
                                   "gradeName": "高三",
-                                  "englishLevel": "c1",
                                   "frenchLevel": "b2",
                                   "courseStage": "advanced"
                                 }
@@ -248,7 +240,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                 StudentAnalyticsSnapshotPayload.class
         );
         assertThat(payload.gradeName()).isEqualTo("高三");
-        assertThat(payload.englishLevel()).isEqualTo("C1");
         assertThat(payload.frenchLevel()).isEqualTo("B2");
         assertThat(payload.primaryRiskLevel()).isEqualTo("HIGH");
         assertThat(payload.recommendedTrainingMode()).isEqualTo("FALSE_FRIEND_DISCRIM");
@@ -258,7 +249,6 @@ class StudentProfileLearningGoalIntegrationTest extends AbstractWebIntegrationTe
                 .andExpect(status().isOk())
                 .andReturn();
         assertThat(readJson(overviewResult).path("data").path("gradeName").asText()).isEqualTo("高三");
-        assertThat(readJson(overviewResult).path("data").path("englishLevel").asText()).isEqualTo("C1");
         assertThat(readJson(overviewResult).path("data").path("frenchLevel").asText()).isEqualTo("B2");
     }
 

@@ -6,7 +6,6 @@ import java.util.List;
 public record StudentAnalyticsSnapshotPayload(
         String studentName,
         String gradeName,
-        String englishLevel,
         String frenchLevel,
         Long lastDiagnosisSummaryId,
         Long lastTrainingSessionId,

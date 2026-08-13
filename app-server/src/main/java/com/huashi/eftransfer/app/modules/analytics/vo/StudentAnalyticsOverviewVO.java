@@ -10,7 +10,6 @@ public record StudentAnalyticsOverviewVO(
         Long studentUserId,
         String studentName,
         String gradeName,
-        String englishLevel,
         String frenchLevel,
         String primaryRiskLevel,
         String recommendedTrainingMode,

@@ -440,7 +440,6 @@ public class AnalyticsAggregationService {
         StudentAnalyticsSnapshotPayload payload = new StudentAnalyticsSnapshotPayload(
                 user == null ? null : user.getDisplayName(),
                 studentProfile == null ? null : studentProfile.getGradeName(),
-                studentProfile == null ? null : studentProfile.getEnglishLevel(),
                 studentProfile == null ? null : studentProfile.getFrenchLevel(),
                 latestDiagnosis == null ? null : latestDiagnosis.getId(),
                 latestTraining == null ? null : latestTraining.getId(),

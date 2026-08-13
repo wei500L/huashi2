@@ -45,6 +45,12 @@ public class TestAuthTokenStoreConfiguration {
         return new SyncTaskExecutor();
     }
 
+    @Bean("researchExportTaskExecutor")
+    @Primary
+    public TaskExecutor researchExportTaskExecutor() {
+        return new SyncTaskExecutor();
+    }
+
     static class InMemoryAuthTokenStore implements AuthTokenStore {
 
         private final Map<String, RegistrationContextSession> registrationContextSessions = new ConcurrentHashMap<>();

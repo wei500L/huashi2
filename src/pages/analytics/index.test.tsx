@@ -59,7 +59,6 @@ function createOverview() {
   return {
     studentName: '李同学',
     gradeName: '高一',
-    englishLevel: 'A2',
     frenchLevel: 'A1',
     primaryRiskLevel: 'MEDIUM',
     recommendedTrainingMode: 'LEXICAL_DISTINCTION',

@@ -22,9 +22,6 @@ public record RegisterStudentRequest(
         @NotBlank(message = "registrationToken must not be blank")
         @Size(max = 256, message = "registrationToken must be at most 256 characters")
         String registrationToken,
-        @NotBlank(message = "englishLevel must not be blank")
-        @Pattern(regexp = "A1|A2|B1|B2|C1|C2", message = "englishLevel must be one of A1, A2, B1, B2, C1, C2")
-        String englishLevel,
         @NotBlank(message = "frenchLevel must not be blank")
         @Pattern(regexp = "A1|A2|B1|B2|C1|C2", message = "frenchLevel must be one of A1, A2, B1, B2, C1, C2")
         String frenchLevel,

@@ -92,7 +92,6 @@ describe('workspace helpers', () => {
           studentProfile: {
             studentNo: 'S-001',
             gradeName: '',
-            englishLevel: 'A2',
             frenchLevel: 'A1',
             courseStage: 'FOUNDATION',
             compositeScore: 0,
@@ -114,7 +113,6 @@ describe('workspace helpers', () => {
           studentProfile: {
             studentNo: 'S-009',
             gradeName: '',
-            englishLevel: 'A2',
             frenchLevel: 'A1',
             courseStage: 'FOUNDATION',
             compositeScore: 0,

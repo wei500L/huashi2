@@ -29,7 +29,6 @@ const mockUser: CurrentUserVO = {
   studentProfile: {
     studentNo: 'S20260001',
     gradeName: '',
-    englishLevel: '',
     frenchLevel: '',
     courseStage: '',
     compositeScore: 0,
@@ -103,7 +102,6 @@ describe('SettingsPage student profile editor', () => {
     vi.mocked(studentService.updateProfile).mockResolvedValue({
       studentNo: 'S20260001',
       gradeName: '高一（2）班',
-      englishLevel: 'B1',
       frenchLevel: 'A2',
       courseStage: 'INTERMEDIATE',
       compositeScore: 0,
@@ -124,7 +122,6 @@ describe('SettingsPage student profile editor', () => {
     renderSettingsPage();
 
     fireEvent.change(await screen.findByPlaceholderText('例如 高一（2）班'), { target: { value: '高一（2）班' } });
-    fireEvent.change(screen.getByLabelText('英语水平'), { target: { value: 'B1' } });
     fireEvent.change(screen.getByLabelText('法语水平'), { target: { value: 'A2' } });
     fireEvent.change(screen.getByLabelText('课程阶段'), { target: { value: 'INTERMEDIATE' } });
     fireEvent.click(screen.getByRole('button', { name: '保存资料' }));
@@ -132,7 +129,6 @@ describe('SettingsPage student profile editor', () => {
     await waitFor(() => {
       expect(studentService.updateProfile).toHaveBeenCalledWith({
         gradeName: '高一（2）班',
-        englishLevel: 'B1',
         frenchLevel: 'A2',
         courseStage: 'INTERMEDIATE',
       });
@@ -140,7 +136,7 @@ describe('SettingsPage student profile editor', () => {
 
     expect(await screen.findByText('学生资料已更新。')).toBeInTheDocument();
     expect(readStoredSession()?.userInfo.studentProfile?.gradeName).toBe('高一（2）班');
-    expect(useAuthStore.getState().user?.studentProfile?.englishLevel).toBe('B1');
+    expect(useAuthStore.getState().user?.studentProfile?.frenchLevel).toBe('A2');
   });
 
   it('shows the student profile editor for users with the student workspace capability', async () => {
