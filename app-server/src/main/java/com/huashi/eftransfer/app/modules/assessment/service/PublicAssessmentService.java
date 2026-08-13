@@ -36,6 +36,7 @@ import com.huashi.eftransfer.app.modules.assessment.support.AssessmentJsonCodec;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentClientIpNormalizer;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantAccessCipher;
 import com.huashi.eftransfer.app.modules.assessment.support.AssessmentParticipantCodeCodec;
+import com.huashi.eftransfer.app.common.security.ratelimit.PublicAssessmentRateLimiter;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentOptionVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptProgressVO;
 import com.huashi.eftransfer.app.modules.assessment.vo.AssessmentAttemptResultQuestionVO;
@@ -72,11 +73,9 @@ import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayDeque;
-import java.util.Base64;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -86,14 +85,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class PublicAssessmentService {
 
     private static final Logger log = LoggerFactory.getLogger(PublicAssessmentService.class);
-    private static final int VERIFY_LIMIT = 10;
-    private static final Duration VERIFY_WINDOW = Duration.ofMinutes(10);
     private static final int MAX_SPELLING_WRONG_ATTEMPTS = 30;
     private static final Duration MAX_SESSION_TTL = Duration.ofHours(12);
 
@@ -116,8 +112,8 @@ public class PublicAssessmentService {
     private final AssessmentTimeoutProperties timeoutProperties;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectProvider<ResearchFileService> researchFileService;
+    private final PublicAssessmentRateLimiter publicAssessmentRateLimiter;
     private final SecureRandom secureRandom = new SecureRandom();
-    private final Map<String, Deque<LocalDateTime>> verificationAttempts = new ConcurrentHashMap<>();
 
     public PublicAssessmentService(
             AssessmentPublicReleaseMapper publicReleaseMapper,
@@ -138,6 +134,7 @@ public class PublicAssessmentService {
             AssessmentTimeoutProperties timeoutProperties,
             JdbcTemplate jdbcTemplate,
             ObjectProvider<ResearchFileService> researchFileService,
+            PublicAssessmentRateLimiter publicAssessmentRateLimiter,
             @Value("${app.assessment.public-delivery.session-ttl:PT12H}") Duration configuredSessionTtl
     ) {
         this.publicReleaseMapper = publicReleaseMapper;
@@ -158,6 +155,7 @@ public class PublicAssessmentService {
         this.timeoutProperties = timeoutProperties;
         this.jdbcTemplate = jdbcTemplate;
         this.researchFileService = researchFileService;
+        this.publicAssessmentRateLimiter = publicAssessmentRateLimiter;
         this.configuredSessionTtl = configuredSessionTtl == null || configuredSessionTtl.isNegative()
                 ? MAX_SESSION_TTL : configuredSessionTtl.compareTo(MAX_SESSION_TTL) > 0 ? MAX_SESSION_TTL : configuredSessionTtl;
     }
@@ -175,7 +173,7 @@ public class PublicAssessmentService {
 
     @Transactional
     public VerifiedSession verify(String releaseCode, PublicAssessmentVerifyRequest request, String remoteAddress) {
-        enforceRateLimit(remoteAddress);
+        publicAssessmentRateLimiter.checkVerify(remoteAddress);
         ReleaseBundle bundle = requireRelease(releaseCode);
         requireOpen(bundle.publish(), LocalDateTime.now());
         String digest;
@@ -230,7 +228,7 @@ public class PublicAssessmentService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR,
                     "A valid client IP address is required for QR entry", 400);
         }
-        enforceRateLimit("qr:" + normalizedIp);
+        publicAssessmentRateLimiter.checkQrEntry(normalizedIp);
         ReleaseBundle bundle = requireRelease(releaseCode);
         requireOpen(bundle.publish(), LocalDateTime.now());
         if (!Boolean.TRUE.equals(bundle.release().getQrEntryEnabled())) {
@@ -1202,19 +1200,6 @@ public class PublicAssessmentService {
         }
         if (publish.getDueAt() != null && !now.isBefore(publish.getDueAt())) {
             throw new BusinessException(ResultCode.ASSESSMENT_CLOSED, "Assessment is already closed", 409);
-        }
-    }
-
-    private void enforceRateLimit(String remoteAddress) {
-        String key = remoteAddress == null || remoteAddress.isBlank() ? "unknown" : remoteAddress;
-        LocalDateTime threshold = LocalDateTime.now().minus(VERIFY_WINDOW);
-        Deque<LocalDateTime> attempts = verificationAttempts.computeIfAbsent(key, ignored -> new ArrayDeque<>());
-        synchronized (attempts) {
-            while (!attempts.isEmpty() && attempts.peekFirst().isBefore(threshold)) attempts.removeFirst();
-            if (attempts.size() >= VERIFY_LIMIT) {
-                throw new BusinessException(ResultCode.RATE_LIMITED, "Too many participant-code attempts", 429);
-            }
-            attempts.addLast(LocalDateTime.now());
         }
     }
 

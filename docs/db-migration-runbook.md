@@ -36,7 +36,7 @@ HNSW 索引的 predicate 必须包含 `is_current = true`，避免历史向量�
 
 1. 使用 `deploy/scripts/backup-all.sh` 生成备份并验证可读取。
 2. 比较目标环境结构与对应 `schema.sql`。
-3. 将差异整理为一次性、可回滚的 DDL，在预生产数据副本上验证。
+3. 将差异整理为 `docs/ddl/<module>/YYYY-MM-DD-*.sql` 一次性、可回滚的向前脚本，在预生产数据副本上验证。见 [`docs/ddl/README.md`](ddl/README.md)。
 4. 停止写入或进入维护模式后执行 DDL。
 5. 启动服务并检查 app-server、ai-gateway、pgvector 元数据和 RAG 探针。
 6. embedding 模型、维度或指令模板有变化时，执行全量强制 reindex；完成前不得切换检索流量。
@@ -56,6 +56,7 @@ CREATE INDEX idx_chunk_embedding_vector_hnsw
 
 ## 回滚原则
 
+- 若需要还原，使用 `CONFIRM_RESTORE=YES BACKUP_FILE=... ./deploy/scripts/restore-mysql.sh` 或 `restore-postgres.sh`，先在副本上验证。
 - 应用回滚不等于数据库回滚；破坏性 DDL 必须准备反向脚本或从备份恢复。
 - embedding 索引切换应使用新旧空间并存后原子切换，不能把不同模型的向量混在同一空间。
 - 若 reindex 出现任何 `embeddingFailures`，任务应视为失败，修复上游后重试。

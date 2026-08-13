@@ -193,6 +193,42 @@ class ResearchAnalyticsIntegrationTest extends AbstractWebIntegrationTest {
     }
 
     @Test
+    void nonOwnerCannotRequestSensitiveExportAndDefaultWorkbookOmitsSensitiveFlag() throws Exception {
+        String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
+        String outsiderToken = loginAndGetAccessToken("student.li", "Student@123456");
+        long paperId = createChoicePaper(teacherToken);
+        MvcResult published = publishPublic(teacherToken, paperId);
+        long publishId = readJson(published).path("data").path("publishId").asLong();
+
+        mockMvc.perform(post("/api/teacher/research/publishes/{publishId}/exports", publishId)
+                        .with(bearer(outsiderToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"format":"XLSX","includeSensitiveFields":true}
+                                """))
+                .andExpect(status().isForbidden());
+
+        MvcResult created = mockMvc.perform(post("/api/teacher/research/publishes/{publishId}/exports", publishId)
+                        .with(bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"format":"XLSX","includeSensitiveFields":false}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.includeSensitiveFields").value(false))
+                .andReturn();
+        long jobId = readJson(created).path("data").path("jobId").asLong();
+        ResearchExportJobEntity job = exportJobMapper.selectById(jobId);
+        byte[] body;
+        try (java.io.InputStream input = objectStorageService.open(job.getObjectKey())) {
+            body = input.readAllBytes();
+        }
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(body))) {
+            assertThat(workbook.getSheet("资料汇总").getRow(1).getCell(0).getStringCellValue()).contains("非敏感导出");
+        }
+    }
+
+    @Test
     void attachmentsAreBoundScannedAndDownloadedWithoutObjectKeys() throws Exception {
         String teacherToken = loginAndGetAccessToken("teacher.zhang", "Teacher@123456");
         String outsiderToken = loginAndGetAccessToken("student.li", "Student@123456");

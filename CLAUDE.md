@@ -30,7 +30,8 @@ npm run dev
 - 两个后端都使用 `schema.sql` 初始化数据库结构，不保留版本化迁移体系。
 - `app-server` 的数据库结构来自 `app-server/src/main/resources/schema.sql`。
 - `ai-gateway` 的数据库结构来自 `ai-gateway/src/main/resources/schema.sql`。
-- 开发期 schema 变更流程是：改 DDL，清空数据库，重启服务重新建表。
+- 开发期 schema 变更：更新对应 `schema.sql`，并在 `docs/ddl/<module>/` 增加一次性向前脚本。
+- **仅 local 空库** 可用 `docker compose down -v` 或 `DROP DATABASE` 后重启套用快照。已有数据环境（含生产）必须按 `docs/db-migration-runbook.md` 执行 `docs/ddl/` 脚本，禁止删卷重建。
 - `ai-gateway` 的 pgvector 维度固定为 `1024`，并保留 HNSW 索引参数校验。
 
 ## 验证命令
@@ -39,6 +40,7 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run build
+npm test
 ./mvnw test
 ```
 
@@ -53,7 +55,7 @@ npm run build
 ## 协作注意事项
 
 - 修改前后端接口时，同步检查 `shared-kernel/` 与 `src/lib/contracts.ts`。
-- 修改 schema 时，不新增历史脚本，直接更新对应模块的 `schema.sql`。
+- 修改 schema 时：更新对应模块的 `schema.sql`，并新增 `docs/ddl/<module>/YYYY-MM-DD-*.sql` 供已有环境执行。不要只改快照。
 - 诊断与训练 session 仍要求单用户最多一个 `IN_PROGRESS` 记录。
 - 词汇知识变更仍通过 RabbitMQ 事件驱动 `ai-gateway` 定向重建索引。
 
@@ -69,4 +71,4 @@ npm run build
 | 2026-08-12 | V3 题库转为学生自测练习模块 + LLM 个性化辅导 | V3 题库（`LEXIBRIDGE_FF4_V2`，239 道正式题）不再作为研究问卷（V1 保持唯一研究问卷），种子初始器改为只种题库（含"移除题软删同步"）；新增学生自测练习模块（`/practice`，`modules/practice/`）：无计时、整卷作答后评分、拼写首字母提示、独立练习历史；新增 LLM 个性化辅导链路：练习完成后生成辅导报告（异步 job，复用 guidance 场景 + RAG + grounding 校验 + 规则降级）+ 每题"AI 讲解"（结构化单题讲解 + 题库解析降级）；新增表 `practice_session`/`practice_session_answer`、`ai_generation_record.practice_session_id` |
 | 2026-08-12 | 题库词条接入 RAG 知识库 + 生产部署 | 新增 `PRACTICE_WORD` 知识源：app-server 提供 `/internal/knowledge/practice-words/export` 导出接口，ai-gateway 启动时同步并向量化 239 个题库词条（FULL 模式、hash 幂等、失败重试 5 次后降级）；辅导/单题讲解场景的 RAG 检索纳入 `PRACTICE_WORD`；修复 guidance 归一化不覆盖词对标签的问题；为自测辅导场景提供独立的 grounding 校验提示词（服务端练习统计/模式目录视为可信，词义事实仍须证据支撑），并将"词义只引用证据原文"写入辅导 system prompt；生产环境已部署验证：练习全流程、AI 辅导（AI source）、单题讲解均通过 |
 | 2026-08-12 | 辅导链路闭环优化（缓存/历史/拼写/复练） | 辅导报告快照写回 `practice_session.tutoring_status/tutoring_json`，结果页刷新直接读缓存不再重复触发 job；辅导上下文聚合近 10 次练习的错词统计（`listRecentWrongWordStats`，派生表规避 MySQL IN+LIMIT 限制），报告与规则降级均能指出"反复出错词"；新增拼写错误模式分析（`PracticeSpellingAnalyzer`：重音/字母替换/缺/多/形近/差异大），注入单题讲解与结果页标签；`StartPracticeSessionRequest.targetWords` 支持"针对错词再练一轮"（结果页入口，按词过滤组卷） |
-| 2026-08-13 | 审计前五项 High 修复 | 问卷 HMAC/PII 密钥非 local/test fail-fast 并写入 compose/`.env.example`；内部 token 走共享 `SecretPolicy` 且 prod 禁止关闭；ai-gateway 8090 绑 loopback；通知 WS 改为首条 AUTH 消息、拒绝 query token；actuator 除 health 外限 ADMIN；辅导 grounding 空 citation/RAG 失败降级 `RULE_FALLBACK` |
+| 2026-08-13 | 审计下一批五项 High | AI 用户/IP 限流并对齐 180s 超时；问卷 verify/QR 改 Bucket4j；`docs/ddl` 与 restore 脚本；CI 跑 `npm test`；研究导出按 `includeSensitiveFields` 脱敏 |

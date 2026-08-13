@@ -51,9 +51,9 @@
 
 - Q: 开发期如何修改数据库结构？
   A:
-  1. 改 `src/main/resources/schema.sql`
-  2. `docker compose down -v` 或手动 `DROP DATABASE`
-  3. 重启服务，Spring 自动执行 schema 建表
+  1. 改 `src/main/resources/schema.sql`（及测试用 `schema-h2.sql`）
+  2. 在 `docs/ddl/app-server/` 增加一次性向前脚本，已有环境按 `docs/db-migration-runbook.md` 执行
+  3. **仅 local 空库** 可用 `docker compose down -v` 或 `DROP DATABASE` 后重启套用快照；禁止对有数据的环境删卷
 
 - Q: 事件机制如何工作？
   A: 应用内事件继续走 Spring 事件，总线事件继续走 RabbitMQ。
@@ -77,4 +77,4 @@ app-server/
 |------|------|------|
 | 2026-03-22 | 初始创建 | 全量扫描生成 |
 | 2026-04-18 | 数据库初始化调整 | 移除版本化迁移体系，改为单文件 `schema.sql` |
-| 2026-08-13 | 审计前五项安全修复 | 问卷密钥启动校验、内部 token `SecretPolicy`、通知 WS 首条 AUTH、actuator 限 ADMIN、辅导 grounding fail-closed |
+| 2026-08-13 | 审计下一批 High | AI 限流与 180s 超时、问卷 Redis 限流、导出脱敏、schema ddl 约定 |

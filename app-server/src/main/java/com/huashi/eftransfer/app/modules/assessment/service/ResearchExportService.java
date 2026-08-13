@@ -243,7 +243,7 @@ public class ResearchExportService {
             String mime;
             String extension;
             if ("XLSX".equalsIgnoreCase(job.getFormat())) {
-                BuiltExport built = writeResearchXlsx(job.getPublishId(), filter);
+                BuiltExport built = writeResearchXlsx(job.getPublishId(), filter, Boolean.TRUE.equals(job.getIncludeSensitiveFields()));
                 bytes = built.bytes();
                 fileName = built.fileName();
                 mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -301,7 +301,7 @@ public class ResearchExportService {
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private BuiltExport writeResearchXlsx(Long publishId, ResearchQueryFilter filter) throws Exception {
+    private BuiltExport writeResearchXlsx(Long publishId, ResearchQueryFilter filter, boolean includeSensitiveFields) throws Exception {
         ResearchAnalyticsService.ResearchExportMaterial material = analyticsService.loadExportMaterial(publishId, filter);
         Map<Long, AssessmentQuestionEntity> questionsById = material.questions().stream()
                 .collect(Collectors.toMap(AssessmentQuestionEntity::getId, question -> question, (left, right) -> left, LinkedHashMap::new));
@@ -401,7 +401,8 @@ public class ResearchExportService {
                 attempts,
                 answers,
                 questions,
-                attachments
+                attachments,
+                includeSensitiveFields
         );
         populateAnalytics(workbook, publishId, filter, questionsById, participantCodes, material);
         return new BuiltExport(

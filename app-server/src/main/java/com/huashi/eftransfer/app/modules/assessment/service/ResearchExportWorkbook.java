@@ -171,6 +171,7 @@ final class ResearchExportWorkbook {
         final List<AnswerRow> answers;
         final List<QuestionRow> questions;
         final List<AttachmentRow> attachments;
+        final boolean includeSensitiveFields;
         List<KvRow> summary = List.of();
         List<QuestionStatRow> questionStats = List.of();
         List<QuestionStatRow> hardQuestions = List.of();
@@ -190,7 +191,8 @@ final class ResearchExportWorkbook {
                 List<AttemptRow> attempts,
                 List<AnswerRow> answers,
                 List<QuestionRow> questions,
-                List<AttachmentRow> attachments
+                List<AttachmentRow> attachments,
+                boolean includeSensitiveFields
         ) {
             this.paperTitle = paperTitle;
             this.releaseCode = releaseCode;
@@ -200,16 +202,32 @@ final class ResearchExportWorkbook {
             this.answers = answers == null ? List.of() : answers;
             this.questions = questions == null ? List.of() : questions;
             this.attachments = attachments == null ? List.of() : attachments;
+            this.includeSensitiveFields = includeSensitiveFields;
         }
 
         String paperTitle() { return paperTitle; }
         String releaseCode() { return releaseCode; }
         String generatedAt() { return generatedAt; }
         String filterSummary() { return filterSummary; }
+        boolean includeSensitiveFields() { return includeSensitiveFields; }
         List<AttemptRow> attempts() { return attempts; }
         List<AnswerRow> answers() { return answers; }
         List<QuestionRow> questions() { return questions; }
         List<AttachmentRow> attachments() { return attachments; }
+
+        List<AnswerRow> answersForExport() {
+            if (includeSensitiveFields) {
+                return answers;
+            }
+            return answers.stream().filter(AnswerRow::formalSection).toList();
+        }
+
+        List<QuestionRow> questionsForExport() {
+            if (includeSensitiveFields) {
+                return questions;
+            }
+            return questions.stream().filter(QuestionRow::formalSection).toList();
+        }
     }
 
     private static final class Styles {
@@ -244,8 +262,8 @@ final class ResearchExportWorkbook {
             writeAttemptAi(workbook, styles, data.attemptAi);
             writeAttempts(workbook, styles, data.attempts());
             writeWideAnswers(workbook, styles, data);
-            writeAnswerDetails(workbook, styles, data.answers());
-            writeCodebook(workbook, styles, data.questions());
+            writeAnswerDetails(workbook, styles, data.answersForExport());
+            writeCodebook(workbook, styles, data.questionsForExport());
             writeAttachments(workbook, styles, data.attachments());
             workbook.write(output);
             return output.toByteArray();
@@ -267,7 +285,9 @@ final class ResearchExportWorkbook {
                 {"维度统计", "按构念/迁移类别汇总正确率。"},
                 {"作答用时", "每题反应时的中位数和四分位。"},
                 {"质量标记", "过快作答、总时长过短等标记的人数。"},
-                {"资料汇总", "资料题（姓名、联系方式、学业背景）按人展开。"},
+                {"资料汇总", data.includeSensitiveFields()
+                        ? "资料题（姓名、联系方式、学业背景）按人展开。"
+                        : "已按非敏感导出省略资料题原文。"},
                 {"群体AI报告", "当前已生成的群体解读；未生成时表内会说明。"},
                 {"单份AI摘要", "每位参与者的单份解读或规则摘要。"},
                 {"答卷总览", "一行一位参与者：进度、用时、质量标记、提交时间。"},
@@ -275,7 +295,9 @@ final class ResearchExportWorkbook {
                 {"逐题明细", "一行一题：题干、作答、对错、用时，适合逐项核对。"},
                 {"题目说明", "题号、部分、题型、选项和参考答案。"},
                 {"附件清单", "附件元数据。文件需在系统内单独下载。"},
-                {"匿名编号", "P-xxxxxx。姓名、联系方式见资料汇总或资料题作答列。"},
+                {"匿名编号", data.includeSensitiveFields()
+                        ? "P-xxxxxx。姓名、联系方式见资料汇总或资料题作答列。"
+                        : "P-xxxxxx。本文件不含姓名、联系方式等资料题原文。"},
         };
         writeHeader(sheet, styles, "项目", "说明");
         int rowIndex = 1;
@@ -421,6 +443,13 @@ final class ResearchExportWorkbook {
 
     private static void writeProfileSummary(XSSFWorkbook workbook, Styles styles, WorkbookData data) {
         Sheet sheet = workbook.createSheet("资料汇总");
+        if (!data.includeSensitiveFields()) {
+            writeHeader(sheet, styles, "说明");
+            writeRow(sheet, styles, 1, "已按非敏感导出省略资料题");
+            sheet.setColumnWidth(0, 60 * 256);
+            sheet.createFreezePane(0, 1);
+            return;
+        }
         List<AnswerRow> profileAnswers = data.answers().stream()
                 .filter(answer -> !answer.formalSection() && !"INSTRUCTION".equalsIgnoreCase(answer.questionType()))
                 .sorted(Comparator.comparing((AnswerRow row) -> row.questionOrder() == null ? 0 : row.questionOrder()))
@@ -560,14 +589,16 @@ final class ResearchExportWorkbook {
 
     private static void writeWideAnswers(XSSFWorkbook workbook, Styles styles, WorkbookData data) {
         Sheet sheet = workbook.createSheet("作答宽表");
-        List<Integer> orders = data.questions().stream()
+        List<QuestionRow> questions = data.questionsForExport();
+        List<AnswerRow> answers = data.answersForExport();
+        List<Integer> orders = questions.stream()
                 .map(QuestionRow::questionOrder)
                 .filter(Objects::nonNull)
                 .distinct()
                 .sorted()
                 .toList();
         if (orders.isEmpty()) {
-            orders = data.answers().stream()
+            orders = answers.stream()
                     .map(AnswerRow::questionOrder)
                     .filter(Objects::nonNull)
                     .distinct()
@@ -582,7 +613,7 @@ final class ResearchExportWorkbook {
         writeHeader(sheet, styles, headers.toArray(String[]::new));
 
         Map<String, Map<Integer, String>> byParticipant = new LinkedHashMap<>();
-        for (AnswerRow answer : data.answers()) {
+        for (AnswerRow answer : answers) {
             byParticipant.computeIfAbsent(answer.participantCode(), key -> new LinkedHashMap<>())
                     .put(answer.questionOrder(), joinNonBlank(answer.response(), answer.justification()));
         }

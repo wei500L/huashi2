@@ -1,7 +1,7 @@
 package com.huashi.eftransfer.app.common.config;
 
-import com.huashi.eftransfer.app.common.security.ratelimit.AuthRateLimitBucketResolver;
 import com.huashi.eftransfer.app.common.security.ratelimit.LocalAuthRateLimitBucketResolver;
+import com.huashi.eftransfer.app.common.security.ratelimit.RateLimitBucketResolver;
 import com.huashi.eftransfer.app.common.security.ratelimit.RedisAuthRateLimitBucketResolver;
 import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
@@ -19,12 +19,16 @@ import org.springframework.context.annotation.Configuration;
 import java.time.Duration;
 
 @Configuration
-@EnableConfigurationProperties(AuthRateLimitProperties.class)
+@EnableConfigurationProperties({
+        AuthRateLimitProperties.class,
+        AiRateLimitProperties.class,
+        AssessmentRateLimitProperties.class
+})
 public class AuthRateLimitConfiguration {
 
     @Bean
     @ConditionalOnBean(RedissonClient.class)
-    public AuthRateLimitBucketResolver redisAuthRateLimitBucketResolver(RedissonClient redissonClient) {
+    public RateLimitBucketResolver redisAuthRateLimitBucketResolver(RedissonClient redissonClient) {
         CommandAsyncExecutor commandExecutor = ((RedissonKeys) redissonClient.getKeys()).getCommandExecutor();
         ProxyManager<String> proxyManager = RedissonBasedProxyManager.builderFor(commandExecutor)
                 .withKeyMapper(Mapper.STRING)
@@ -34,8 +38,8 @@ public class AuthRateLimitConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(AuthRateLimitBucketResolver.class)
-    public AuthRateLimitBucketResolver localAuthRateLimitBucketResolver() {
+    @ConditionalOnMissingBean(RateLimitBucketResolver.class)
+    public RateLimitBucketResolver localAuthRateLimitBucketResolver() {
         return new LocalAuthRateLimitBucketResolver();
     }
 }

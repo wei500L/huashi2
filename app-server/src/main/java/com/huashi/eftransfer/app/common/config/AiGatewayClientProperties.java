@@ -19,7 +19,7 @@ public class AiGatewayClientProperties {
 
     private Duration connectTimeout = Duration.ofSeconds(3);
 
-    private Duration readTimeout = Duration.ofMinutes(10);
+    private Duration readTimeout = Duration.ofSeconds(180);
 
     @Positive
     private int maxAttempts = 1;

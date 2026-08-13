@@ -23,6 +23,8 @@ jobs:
         run: npm run lint
       - name: Typecheck frontend
         run: npm run typecheck
+      - name: Test frontend
+        run: npm test
       - name: Build frontend
         run: npm run build
 
@@ -36,4 +38,4 @@ jobs:
           java-version: '25'
           cache: maven
       - name: Run backend tests
-        run: ./mvnw -B -ntp test
+        run: ./mvnw -B -ntp -DargLine=-Dapi.version=1.44 test

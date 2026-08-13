@@ -52,8 +52,8 @@ AI / RAG 网关，负责 Provider 调用、运行时配置装载、知识摄取�
 - Q: 开发期如何修改数据库结构？
   A:
   1. 改 `src/main/resources/schema.sql`
-  2. `docker compose down -v` 或手动 `DROP DATABASE`
-  3. 重启服务，Spring 自动执行 schema 建表
+  2. 在 `docs/ddl/ai-gateway/` 增加一次性向前脚本，已有环境按 `docs/db-migration-runbook.md` 执行
+  3. **仅 local 空库** 可用 `docker compose down -v` 或 `DROP DATABASE` 后重启套用快照；禁止对有数据的环境删卷
 
 - Q: 如何触发知识重建？
   A: 继续通过内部 RAG 接口或 RabbitMQ 事件驱动。
@@ -77,4 +77,4 @@ ai-gateway/
 |------|------|------|
 | 2026-03-22 | 初始创建 | 全量扫描生成 |
 | 2026-04-18 | 数据库初始化调整 | 移除版本化迁移体系，改为单文件 `schema.sql` |
-| 2026-08-13 | 内部 token 启动校验 | 非 local/test 走共享 `SecretPolicy`，prod 禁止 `enabled=false`；默认 compose 将 8090 绑 loopback |
+| 2026-08-13 | schema 文档 | 已有环境走 `docs/ddl/ai-gateway/`，禁止对有数据的库删卷套快照 |

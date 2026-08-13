@@ -30,4 +30,4 @@ app.assessment.research.local-root
 app.assessment.research.max-file-bytes
 ```
 
-开发期 schema 变更仍只改 `schema.sql` / `schema-h2.sql`，清空库后重启建表。
+开发期 schema 变更：更新 `schema.sql` / `schema-h2.sql`，并在 `docs/ddl/` 增加向前脚本。仅 local 空库可清空后重启建表；已有环境按 `docs/db-migration-runbook.md` 执行。

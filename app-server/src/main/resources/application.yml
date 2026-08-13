@@ -188,6 +188,24 @@ app:
           ip:
             limit: ${APP_AUTH_RATE_LIMIT_REGISTER_CONTEXT_IP_LIMIT:30}
             window: ${APP_AUTH_RATE_LIMIT_REGISTER_CONTEXT_IP_WINDOW:PT1M}
+      ai:
+        enabled: ${APP_AI_RATE_LIMIT_ENABLED:true}
+        user:
+          limit: ${APP_AI_RATE_LIMIT_USER_LIMIT:30}
+          window: ${APP_AI_RATE_LIMIT_USER_WINDOW:PT10M}
+        ip:
+          limit: ${APP_AI_RATE_LIMIT_IP_LIMIT:200}
+          window: ${APP_AI_RATE_LIMIT_IP_WINDOW:PT10M}
+      assessment:
+        enabled: ${APP_ASSESSMENT_RATE_LIMIT_ENABLED:true}
+        verify:
+          ip:
+            limit: ${APP_ASSESSMENT_RATE_LIMIT_VERIFY_IP_LIMIT:10}
+            window: ${APP_ASSESSMENT_RATE_LIMIT_VERIFY_IP_WINDOW:PT10M}
+        qr-entry:
+          ip:
+            limit: ${APP_ASSESSMENT_RATE_LIMIT_QR_IP_LIMIT:10}
+            window: ${APP_ASSESSMENT_RATE_LIMIT_QR_IP_WINDOW:PT10M}
     registration:
       context-token-ttl: ${APP_AUTH_REGISTRATION_CONTEXT_TOKEN_TTL:PT10M}
       context-lock-ttl: ${APP_AUTH_REGISTRATION_CONTEXT_LOCK_TTL:PT1M}
@@ -206,7 +224,7 @@ integration:
     base-url: ${AI_GATEWAY_BASE_URL:http://localhost:8090}
     internal-token: ${PLATFORM_INTERNAL_API_TOKEN}
     connect-timeout: ${AI_GATEWAY_CONNECT_TIMEOUT:PT3S}
-    read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT10M}
+    read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT180S}
     max-attempts: ${AI_GATEWAY_MAX_ATTEMPTS:1}
     retry-backoff: ${AI_GATEWAY_RETRY_BACKOFF:PT0.2S}
     degrade-enabled: ${AI_GATEWAY_DEGRADE_ENABLED:true}

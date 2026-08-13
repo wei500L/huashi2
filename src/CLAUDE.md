@@ -70,8 +70,8 @@
 
 ## 测试与质量
 
-- **当前无前端自动化测试**
-- 质量保障依赖 `npm run lint` + `npm run typecheck`
+- 前端自动化测试：Vitest + Testing Library，命令 `npm test`
+- 质量保障另含 `npm run lint` + `npm run typecheck`
 - 构建验证 `npm run build`
 - 包体积分析 `npm run build:analyze`
 
@@ -134,4 +134,4 @@ src/
 
 | 时间 | 操作 | 说明 |
 |------|------|------|
-| 2026-03-22 00:35:46 | 初始创建 | 全量扫描生成 |
+| 2026-08-13 | 文档 | 更正「无前端自动化测试」；CI 已跑 `npm test` |

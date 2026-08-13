@@ -1,6 +1,7 @@
 package com.huashi.eftransfer.app.common.security.ratelimit;
 
 import com.huashi.eftransfer.app.common.config.AuthRateLimitProperties;
+import com.huashi.eftransfer.app.common.config.RateLimitWindow;
 import com.huashi.eftransfer.app.common.security.JwtPrincipal;
 import com.huashi.eftransfer.app.common.security.ClientRequestContextResolver;
 import com.huashi.eftransfer.app.common.security.store.AuthTokenStore;
@@ -23,12 +24,12 @@ public class AuthRequestRateLimiter {
     private static final int TOO_MANY_REQUESTS = 429;
 
     private final AuthRateLimitProperties properties;
-    private final AuthRateLimitBucketResolver bucketResolver;
+    private final RateLimitBucketResolver bucketResolver;
     private final AuthTokenStore authTokenStore;
 
     public AuthRequestRateLimiter(
             AuthRateLimitProperties properties,
-            AuthRateLimitBucketResolver bucketResolver,
+            RateLimitBucketResolver bucketResolver,
             AuthTokenStore authTokenStore
     ) {
         this.properties = properties;
@@ -132,7 +133,7 @@ public class AuthRequestRateLimiter {
 
     private void consume(
             String key,
-            AuthRateLimitProperties.RateLimitWindow limit,
+            RateLimitWindow limit,
             String message,
             HttpServletRequest request,
             String action,

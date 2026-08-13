@@ -78,7 +78,7 @@ AI fallback 说明：
 - `APP_AUTH_LOCKOUT_ENABLED=true`
 - `APP_AUTH_LOCKOUT_THRESHOLD=5`
 - `APP_AUTH_LOCKOUT_DURATION=PT15M`
-- `SPRING_PROFILES_ACTIVE=prod`，并保持 `spring.flyway.baseline-on-migrate=false`
+- `SPRING_PROFILES_ACTIVE=prod`（生产 `spring.sql.init.mode=never`，结构变更走 `docs/ddl/` 与 [数据库迁移执行手册](docs/db-migration-runbook.md)）
 - `AI_EMBEDDING_DIMENSION=1024`，不要在运行时切换 pgvector 维度
 
 ### 2. 启动依赖
@@ -112,8 +112,8 @@ python3 scripts/ensure_qa_admin.py
 
 如果你当前最关心的是“怎么导入数据并继续用起来”，先看这份实操指南：
 
-- [数据导入与使用指南](/mnt/d/huashi2/docs/data-import-and-usage.md)
-- [数据库迁移执行手册](/mnt/d/huashi2/docs/db-migration-runbook.md)
+- [数据导入与使用指南](docs/data-import-and-usage.md)
+- [数据库迁移执行手册](docs/db-migration-runbook.md)
 
 ## 验证命令
 
@@ -121,6 +121,7 @@ python3 scripts/ensure_qa_admin.py
 npm run lint
 npm run typecheck
 npm run build
+npm test
 ./mvnw test
 ```
 
@@ -146,6 +147,8 @@ Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健�
 - `deploy/scripts/backup-mysql.sh`
 - `deploy/scripts/backup-postgres.sh`
 - `deploy/scripts/backup-all.sh`
+- `deploy/scripts/restore-mysql.sh`（需 `CONFIRM_RESTORE=YES` 与 `BACKUP_FILE`）
+- `deploy/scripts/restore-postgres.sh`（需 `CONFIRM_RESTORE=YES` 与 `BACKUP_FILE`）
 
 默认读取 `deploy/.env`，备份输出到 `BACKUP_DIR`，保留天数由 `BACKUP_RETENTION_DAYS` 控制。示例 cron：
 
@@ -161,6 +164,6 @@ Docker Compose 现在也为 `app-server` 和 `ai-gateway` 启用了容器级健�
 - 前端采用路由级懒加载、`echarts/core` 按需注册和手动分包，减少图表运行时膨胀
 - RAG 使用 Qwen3-Embedding-8B 单一 1024 维向量空间，并结合精确/模糊词汇召回、RRF、rerank 与生成后证据审查
 
-AI 质量优先链路与配置说明见 [AI 质量优先架构](/mnt/d/huashi2/docs/ai-quality-architecture.md)。
+AI 质量优先链路与配置说明见 [AI 质量优先架构](docs/ai-quality-architecture.md)。
 
-更多本地联调、环境变量和行为说明见 [docs/local-development.md](/mnt/d/huashi2/docs/local-development.md)。
+更多本地联调、环境变量和行为说明见 [docs/local-development.md](docs/local-development.md)。
