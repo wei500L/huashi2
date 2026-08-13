@@ -396,7 +396,10 @@ public class AuthService {
         if (userQueryService.findByUsernameOrEmail(email).isPresent()) {
             throw new BusinessException(ResultCode.CONFLICT, "email already exists", 409);
         }
-        throw exception;
+        // The only unique keys on users are username and email. A raw constraint
+        // violation here therefore means one of them belongs to a soft-deleted
+        // account; surface a clean 409 instead of a 500.
+        throw new BusinessException(ResultCode.CONFLICT, "username or email already exists", 409);
     }
 
     private void insertStudentProfileWithRetry(StudentProfileEntity studentProfile) {

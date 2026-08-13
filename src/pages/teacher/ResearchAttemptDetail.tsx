@@ -52,6 +52,7 @@ const ResearchAttemptDetailPage: React.FC = () => {
   const numericId = Number(attemptId);
   const [filter, setFilter] = React.useState<QuestionFilter>('all');
   const [pendingFileId, setPendingFileId] = React.useState<number | null>(null);
+  const [downloadError, setDownloadError] = React.useState<string | null>(null);
 
   const query = useQuery({
     queryKey: researchAnalyticsKeys.attemptDetail(numericId),
@@ -72,8 +73,13 @@ const ResearchAttemptDetailPage: React.FC = () => {
   const attachmentCount = (detail?.questions || []).reduce((sum, question) => sum + question.attachments.length, 0);
 
   const downloadFile = async (fileId: number, fileName: string) => {
-    saveBlob(await researchAnalyticsService.downloadFile(fileId), fileName);
-    setPendingFileId(null);
+    try {
+      saveBlob(await researchAnalyticsService.downloadFile(fileId), fileName);
+    } catch (error) {
+      setDownloadError(getApiErrorMessage(error, '附件下载失败，请稍后重试。'));
+    } finally {
+      setPendingFileId(null);
+    }
   };
 
   const jumpTo = (questionId: number) => {
@@ -198,6 +204,12 @@ const ResearchAttemptDetailPage: React.FC = () => {
           if (file) void downloadFile(file.fileId, file.originalFileName);
         }}
       />
+
+      {downloadError ? (
+        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-500" role="alert">
+          {downloadError}
+        </div>
+      ) : null}
     </div>
   );
 };

@@ -20,7 +20,7 @@ import { ConfirmationDialog } from '@/components/common/ConfirmationDialog';
 import { FadeContent } from '@/components/common/FadeContent';
 import { getApiErrorMessage } from '@/lib/api';
 import { aiService, practiceService } from '@/lib/services';
-import { formatDateTime, formatMaybePercent } from '@/lib/format';
+import { formatDateTime, formatPercentValue } from '@/lib/format';
 import { useBodyScrollLock, useDialogAccessibility } from '@/lib/a11y';
 import type {
   AiGuidanceResponseVO,
@@ -225,7 +225,7 @@ const PracticePage: React.FC = () => {
   const bank = banksQuery.data?.[0] as PracticeBankVO | undefined;
 
   const historyQuery = useQuery({
-    queryKey: ['practice-history', 1],
+    queryKey: ['practice-history', 1, 6],
     queryFn: ({ signal }) => practiceService.listHistory({ pageNo: 1, pageSize: 6 }, { signal }),
   });
 
@@ -264,6 +264,7 @@ const PracticePage: React.FC = () => {
 
   const goHome = () => {
     setSessionId(null);
+    setResumeCandidate(null);
     setPhase('home');
     void queryClient.invalidateQueries({ queryKey: ['practice-history'] });
   };
@@ -302,7 +303,7 @@ const PracticePage: React.FC = () => {
         <PracticeSessionView
           sessionId={sessionId}
           onAbandon={() => setAbandonConfirmOpen(true)}
-          onComplete={() => setPhase('result')}
+          onComplete={() => { setResumeCandidate(null); setPhase('result'); }}
         />
         <AbandonDialog
           open={abandonConfirmOpen}
@@ -326,6 +327,7 @@ const PracticePage: React.FC = () => {
         <PracticeResultView
           sessionId={sessionId}
           sectionCode={sectionCode}
+          starting={startMutation.isPending}
           onRetake={() => startMutation.mutate({ bankCode, sectionCode })}
           onRetakeWrongWords={(targetWords) => startMutation.mutate({ bankCode, sectionCode: null, targetWords })}
           onBackHome={goHome}
@@ -472,7 +474,7 @@ const PracticePage: React.FC = () => {
                   <span className="font-black text-slate-900 dark:text-white">
                     {record.sectionCode ? record.sectionCode.replace('FF4_', '') : t('practice.allSections')}
                   </span>
-                  <span className="font-bold text-primary">{formatMaybePercent(record.percentage)}</span>
+                  <span className="font-bold text-primary">{formatPercentValue(record.percentage)}</span>
                 </div>
                 <div className="mt-2 text-xs text-slate-500 dark:text-white/45">
                   {t('practice.answered')} {record.answeredCount} / {record.totalCount} · {formatDateTime(record.startedAt)}
@@ -845,10 +847,11 @@ const PracticeSessionView: React.FC<{
 const PracticeResultView: React.FC<{
   sessionId: number;
   sectionCode: string | null;
+  starting: boolean;
   onRetake: () => void;
   onRetakeWrongWords: (targetWords: string[]) => void;
   onBackHome: () => void;
-}> = ({ sessionId, sectionCode, onRetake, onRetakeWrongWords, onBackHome }) => {
+}> = ({ sessionId, sectionCode, starting, onRetake, onRetakeWrongWords, onBackHome }) => {
   const { t } = useTranslation();
   const resultQuery = useQuery({
     queryKey: ['practice-result', sessionId],
@@ -865,31 +868,45 @@ const PracticeResultView: React.FC<{
     if (!result) {
       return;
     }
+    const abortController = new AbortController();
     if (result.tutoringJson) {
       try {
-        setTutoring(JSON.parse(result.tutoringJson) as AiGuidanceResponseVO);
+        setTutoring((current) => {
+          if (current) {
+            return current;
+          }
+          return JSON.parse(result.tutoringJson as string) as AiGuidanceResponseVO;
+        });
         setTutoringBusy(false);
-        return;
+        return () => abortController.abort();
       } catch {
         // fall through to regeneration
       }
     }
     if (generationRef.current) {
-      return;
+      return () => abortController.abort();
     }
     generationRef.current = true;
     setTutoringBusy(true);
-    aiService.practiceTutoringAsync(result.sessionId)
+    aiService.practiceTutoringAsync(result.sessionId, { signal: abortController.signal })
       .then((response) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
         setTutoring(response);
         setTutoringBusy(false);
         void resultQuery.refetch();
       })
       .catch(() => {
+        if (abortController.signal.aborted) {
+          return;
+        }
         generationRef.current = false;
         setTutoringBusy(false);
       });
-  }, [resultQuery.data, resultQuery]);
+    return () => abortController.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultQuery.data]);
 
   const requestQuestionTutor = async (questionOrder: number) => {
     setTutorJobs((current) => ({ ...current, [questionOrder]: 'loading' }));
@@ -937,7 +954,8 @@ const PracticeResultView: React.FC<{
               <button
                 type="button"
                 onClick={() => onRetakeWrongWords(wrongTargetWords)}
-                className="btn-liquid rounded-full px-5 py-2.5 text-sm font-bold text-white"
+                disabled={starting}
+                className="btn-liquid rounded-full px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60"
               >
                 {t('practice.retakeWrongWords')}
               </button>
@@ -945,7 +963,8 @@ const PracticeResultView: React.FC<{
             <button
               type="button"
               onClick={onRetake}
-              className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-bold dark:border-white/10"
+              disabled={starting}
+              className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-bold disabled:opacity-60 dark:border-white/10"
             >
               {t('practice.retake')}
             </button>
@@ -966,7 +985,7 @@ const PracticeResultView: React.FC<{
             <div>
               <div className="text-[10px] uppercase tracking-[0.24em] text-slate-400 dark:text-white/30">{t('practice.accuracy')}</div>
               <div className="type-numeric mt-2 text-4xl font-black text-slate-900 dark:text-white">
-                {formatMaybePercent(result.percentage)}
+                {formatPercentValue(result.percentage)}
               </div>
             </div>
             <div className="h-12 w-px bg-slate-200 dark:bg-white/10" />
@@ -997,7 +1016,7 @@ const PracticeResultView: React.FC<{
           {result.sectionMetrics.filter((metric) => metric.totalCount > 0).map((metric) => (
             <div key={metric.sectionCode} className="rounded-[1.4rem] border border-slate-200/70 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
               <div className="text-xs font-black text-slate-900 dark:text-white">{metric.title}</div>
-              <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{formatMaybePercent(metric.percentage)}</div>
+              <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{formatPercentValue(metric.percentage)}</div>
               <div className="mt-1 text-xs text-slate-400 dark:text-white/30">
                 {metric.correctCount} / {metric.totalCount}
               </div>
@@ -1157,7 +1176,7 @@ const PracticeHistoryView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { t } = useTranslation();
   const [pageNo, setPageNo] = React.useState(1);
   const historyQuery = useQuery({
-    queryKey: ['practice-history', pageNo],
+    queryKey: ['practice-history', pageNo, 10],
     queryFn: ({ signal }) => practiceService.listHistory({ pageNo, pageSize: 10 }, { signal }),
   });
 
@@ -1198,7 +1217,7 @@ const PracticeHistoryView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-xl font-black text-slate-900 dark:text-white">{formatMaybePercent(record.percentage)}</div>
+                    <div className="text-xl font-black text-slate-900 dark:text-white">{formatPercentValue(record.percentage)}</div>
                     <div className="text-xs text-slate-400 dark:text-white/30">{record.correctCount} / {record.totalCount}</div>
                   </div>
                   <History size={16} className="text-slate-300 dark:text-white/20" />

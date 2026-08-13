@@ -404,6 +404,13 @@ export function formatMaybePercent(value?: number | null, digits = 0): string {
   return formatPercent(value, digits);
 }
 
+export function formatPercentValue(value?: number | null, digits = 0): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return localeCopy().emptyLabel;
+  }
+  return `${value.toFixed(digits)}%`;
+}
+
 export function formatMs(value?: number | null): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return localeCopy().emptyLabel;

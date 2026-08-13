@@ -96,7 +96,14 @@ public class RedisAuthTokenStore implements AuthTokenStore {
 
     @Override
     public void revokeRefreshSession(String refreshTokenHash) {
-        findRefreshSession(refreshTokenHash).ifPresent(session -> stringRedisTemplate.delete(userSessionKey(session.userId())));
+        findRefreshSession(refreshTokenHash).ifPresent(session -> {
+            // Only clear the active-session index when the revoked token is the one
+            // currently active for the user. Revoking a stale/reused token must not
+            // orphan the legitimate active session.
+            if (refreshTokenHash.equals(findActiveRefreshTokenHash(session.userId()).orElse(null))) {
+                stringRedisTemplate.delete(userSessionKey(session.userId()));
+            }
+        });
         stringRedisTemplate.delete(refreshKey(refreshTokenHash));
     }
 

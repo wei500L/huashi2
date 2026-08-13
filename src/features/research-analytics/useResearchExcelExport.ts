@@ -59,8 +59,13 @@ export function useResearchExcelExport() {
   const [exporting, setExporting] = React.useState(false);
   const [exportError, setExportError] = React.useState<string | null>(null);
   const [lastFileName, setLastFileName] = React.useState<string | null>(null);
+  const runningRef = React.useRef(false);
 
   const exportExcel = React.useCallback(async (publishId: number, filters?: ResearchAnalyticsFilter) => {
+    if (runningRef.current) {
+      return;
+    }
+    runningRef.current = true;
     setExporting(true);
     setExportError(null);
     try {
@@ -82,6 +87,7 @@ export function useResearchExcelExport() {
     } catch (error) {
       setExportError(toResearchExportErrorMessage(error));
     } finally {
+      runningRef.current = false;
       setExporting(false);
     }
   }, []);

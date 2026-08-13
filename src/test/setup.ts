@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom/vitest';
-import { vi } from 'vitest';
 
 const storage = new Map<string, string>();
 
@@ -24,8 +23,11 @@ const storageMock = {
   },
 } satisfies Storage;
 
-vi.stubGlobal('localStorage', storageMock);
 Object.defineProperty(window, 'localStorage', {
+  configurable: true,
+  value: storageMock,
+});
+Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
   value: storageMock,
 });

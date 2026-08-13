@@ -143,12 +143,14 @@ class AuthServiceTest {
                 .thenReturn("encoded-password");
         when(userMapper.insert(any(UserEntity.class))).thenThrow(unexpectedFailure);
 
-        DataIntegrityViolationException exception = assertThrows(
-                DataIntegrityViolationException.class,
+        BusinessException exception = assertThrows(
+                BusinessException.class,
                 () -> authService.registerStudent(request, new AuthClientContext("10.0.0.52", "junit"))
         );
 
-        assertSame(unexpectedFailure, exception);
+        assertEquals(ResultCode.CONFLICT, exception.getResultCode());
+        assertEquals(409, exception.getHttpStatus());
+        assertEquals("username or email already exists", exception.getMessage());
         verify(authTokenStore).releaseRegistrationContextLock(org.mockito.ArgumentMatchers.anyString());
     }
 
