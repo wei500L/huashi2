@@ -18,4 +18,24 @@ public interface UserMapper extends BaseMapper<UserEntity> {
             LIMIT 1
             """)
     UserEntity selectByUsernameOrEmail(@Param("loginId") String loginId);
+
+    @Select("""
+            SELECT id, username, email, password_hash, display_name, enabled, last_login_at,
+                   created_at, created_by, updated_at, updated_by, deleted
+            FROM users
+            WHERE deleted = FALSE
+              AND LOWER(username) = LOWER(#{username})
+            LIMIT 1
+            """)
+    UserEntity selectByUsername(@Param("username") String username);
+
+    @Select("""
+            SELECT id, username, email, password_hash, display_name, enabled, last_login_at,
+                   created_at, created_by, updated_at, updated_by, deleted
+            FROM users
+            WHERE deleted = FALSE
+              AND LOWER(email) = LOWER(#{email})
+            LIMIT 1
+            """)
+    UserEntity selectByEmail(@Param("email") String email);
 }

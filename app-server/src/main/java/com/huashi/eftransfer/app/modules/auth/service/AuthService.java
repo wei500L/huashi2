@@ -223,8 +223,7 @@ public class AuthService {
 
             String username = normalizeValue(request.username());
             String email = normalizeEmail(request.email());
-            ensureLoginIdentifierAvailable(username, "username");
-            ensureLoginIdentifierAvailable(email, "email");
+            ensureLoginIdentifierAvailable(username, email);
 
             TeachingClassEntity teachingClass = requireActiveClass(registrationContext.classCode());
             LocalDateTime now = LocalDateTime.now();
@@ -356,12 +355,21 @@ public class AuthService {
 
     private RegistrationContextSession requireRegistrationContext(String registrationToken) {
         String registrationTokenHash = TokenGenerator.sha256(registrationToken);
-        return authTokenStore.findRegistrationContextSession(registrationTokenHash)
+        RegistrationContextSession session = authTokenStore.findRegistrationContextSession(registrationTokenHash)
                 .orElseThrow(() -> new BusinessException(
                         ResultCode.REGISTRATION_CONTEXT_INVALID,
                         "Registration verification is invalid or has expired. Re-enter the class invite code.",
                         400
                 ));
+        if (session.expiresAt() != null && session.expiresAt().isBefore(Instant.now())) {
+            authTokenStore.revokeRegistrationContextSession(registrationTokenHash);
+            throw new BusinessException(
+                    ResultCode.REGISTRATION_CONTEXT_INVALID,
+                    "Registration verification is invalid or has expired. Re-enter the class invite code.",
+                    400
+            );
+        }
+        return session;
     }
 
     private RegistrationContextReservation reserveRegistrationContext(String registrationToken) {
@@ -390,10 +398,10 @@ public class AuthService {
             String email,
             DataIntegrityViolationException exception
     ) {
-        if (userQueryService.findByUsernameOrEmail(username).isPresent()) {
+        if (userQueryService.findByUsername(username).isPresent()) {
             throw new BusinessException(ResultCode.CONFLICT, "username already exists", 409);
         }
-        if (userQueryService.findByUsernameOrEmail(email).isPresent()) {
+        if (userQueryService.findByEmail(email).isPresent()) {
             throw new BusinessException(ResultCode.CONFLICT, "email already exists", 409);
         }
         // The only unique keys on users are username and email. A raw constraint
@@ -426,9 +434,12 @@ public class AuthService {
         return count != null && count > 0;
     }
 
-    private void ensureLoginIdentifierAvailable(String value, String fieldName) {
-        if (userQueryService.findByUsernameOrEmail(value).isPresent()) {
-            throw new BusinessException(ResultCode.CONFLICT, fieldName + " already exists", 409);
+    private void ensureLoginIdentifierAvailable(String username, String email) {
+        if (userQueryService.findByUsername(username).isPresent()) {
+            throw new BusinessException(ResultCode.CONFLICT, "username already exists", 409);
+        }
+        if (userQueryService.findByEmail(email).isPresent()) {
+            throw new BusinessException(ResultCode.CONFLICT, "email already exists", 409);
         }
     }
 

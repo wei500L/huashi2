@@ -341,6 +341,48 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void shouldReportDistinctFieldConflictForUsernameVsEmail() throws Exception {
+        String registrationToken = resolveRegistrationToken("CLS-0001", "10.0.0.71");
+        String base = """
+                {
+                  "username": "%s",
+                  "email": "%s",
+                  "displayName": "字段冲突学生",
+                  "password": "Student@123456",
+                  "registrationToken": "%s",
+                  "frenchLevel": "A2",
+                  "courseStage": "FOUNDATION"
+                }
+                """;
+
+        mockMvc.perform(post("/api/auth/register")
+                        .with(remoteAddress("10.0.0.71"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(base.formatted("student.unique", "student.unique@ef.local", registrationToken)))
+                .andExpect(status().isOk());
+
+        // Reusing the same username with a different email must point at username.
+        String secondToken = resolveRegistrationToken("CLS-0001", "10.0.0.72");
+        mockMvc.perform(post("/api/auth/register")
+                        .with(remoteAddress("10.0.0.72"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(base.formatted("student.unique", "another.mail@ef.local", secondToken)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value("username already exists"));
+
+        // Reusing the same email with a different username must point at email.
+        String thirdToken = resolveRegistrationToken("CLS-0001", "10.0.0.73");
+        mockMvc.perform(post("/api/auth/register")
+                        .with(remoteAddress("10.0.0.73"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(base.formatted("student.unique2", "student.unique@ef.local", thirdToken)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value("email already exists"));
+    }
+
+    @Test
     void shouldExposeRegistrationContextForValidClassInviteCode() throws Exception {
         mockMvc.perform(post("/api/auth/register/context")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -52,6 +52,14 @@ public class UserQueryService {
         return Optional.ofNullable(userMapper.selectByUsernameOrEmail(loginId));
     }
 
+    public Optional<UserEntity> findByUsername(String username) {
+        return Optional.ofNullable(userMapper.selectByUsername(username));
+    }
+
+    public Optional<UserEntity> findByEmail(String email) {
+        return Optional.ofNullable(userMapper.selectByEmail(email));
+    }
+
     public Optional<UserEntity> findEnabledById(Long userId) {
         UserEntity user = userMapper.selectOne(Wrappers.<UserEntity>lambdaQuery()
                 .eq(UserEntity::getId, userId)

@@ -101,9 +101,9 @@ class AuthServiceTest {
                 .thenReturn(true);
         when(authTokenStore.findRegistrationContextSession(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(Optional.of(registrationContextSession));
-        when(userQueryService.findByUsernameOrEmail(request.username()))
+        when(userQueryService.findByUsername(request.username()))
                 .thenReturn(Optional.empty(), Optional.of(existingUser));
-        when(userQueryService.findByUsernameOrEmail(request.email()))
+        when(userQueryService.findByEmail(request.email()))
                 .thenReturn(Optional.empty());
         when(teachingClassService.findActiveByClassCode("CLS-0001"))
                 .thenReturn(Optional.of(teachingClass));
@@ -133,9 +133,9 @@ class AuthServiceTest {
                 .thenReturn(true);
         when(authTokenStore.findRegistrationContextSession(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(Optional.of(registrationContextSession));
-        when(userQueryService.findByUsernameOrEmail(request.username()))
+        when(userQueryService.findByUsername(request.username()))
                 .thenReturn(Optional.empty(), Optional.empty());
-        when(userQueryService.findByUsernameOrEmail(request.email()))
+        when(userQueryService.findByEmail(request.email()))
                 .thenReturn(Optional.empty(), Optional.empty());
         when(teachingClassService.findActiveByClassCode("CLS-0001"))
                 .thenReturn(Optional.of(teachingClass));
@@ -184,9 +184,9 @@ class AuthServiceTest {
                 .thenReturn(true);
         when(authTokenStore.findRegistrationContextSession(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(Optional.of(registrationContextSession));
-        when(userQueryService.findByUsernameOrEmail(request.username()))
+        when(userQueryService.findByUsername(request.username()))
                 .thenReturn(Optional.empty());
-        when(userQueryService.findByUsernameOrEmail(request.email()))
+        when(userQueryService.findByEmail(request.email()))
                 .thenReturn(Optional.empty());
         when(teachingClassService.findActiveByClassCode("CLS-0001"))
                 .thenReturn(Optional.of(teachingClass));
