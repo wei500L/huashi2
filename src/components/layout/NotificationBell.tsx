@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { FeedbackState } from '@/components/common/FeedbackState';
 import type { NotificationItemVO, NotificationSocketMessage, PageResult } from '@/lib/contracts';
 import { getProductizedErrorState } from '@/lib/async-state';
-import { buildNotificationAuthMessage, buildNotificationWebSocketUrl } from '@/lib/notifications';
+import { createNotificationWebSocketConnection, buildNotificationWebSocketUrl } from '@/lib/notifications';
 import { notificationService } from '@/lib/services';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useUIStore } from '@/store';
@@ -234,46 +234,19 @@ export const NotificationBell: React.FC = () => {
       return;
     }
     const accessToken = session?.accessToken;
-    const wsUrl = accessToken ? buildNotificationWebSocketUrl() : null;
+    if (!accessToken) {
+      return;
+    }
+    const wsUrl = buildNotificationWebSocketUrl();
     if (!wsUrl) {
       return;
     }
 
-    let closedByEffect = false;
-    let reconnectTimer: number | null = null;
-    let socket: WebSocket | null = null;
-
-    const connect = () => {
-      if (closedByEffect) {
-        return;
-      }
-      socket = new WebSocket(wsUrl);
-      socket.onopen = () => {
-        if (closedByEffect || !accessToken) {
-          return;
-        }
-        socket?.send(buildNotificationAuthMessage(accessToken));
-      };
-      socket.onmessage = handleSocketMessage;
-      socket.onclose = () => {
-        if (closedByEffect) {
-          return;
-        }
-        reconnectTimer = window.setTimeout(connect, 3_000);
-      };
-    };
-
-    reconnectTimer = window.setTimeout(connect, 0);
-
-    return () => {
-      closedByEffect = true;
-      if (reconnectTimer !== null) {
-        window.clearTimeout(reconnectTimer);
-      }
-      if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
-        socket.close();
-      }
-    };
+    return createNotificationWebSocketConnection({
+      url: wsUrl,
+      accessToken,
+      onMessage: handleSocketMessage,
+    });
   }, [handleSocketMessage, isAuthenticated, session?.accessToken]);
 
   const handleNotificationClick = (notification: NotificationItemVO) => {

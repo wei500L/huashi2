@@ -66,6 +66,9 @@ if (staleReferences.length > 0) {
 if (!nginxConfig.includes(`server_name ${EXPECTED_DOMAIN};`)) {
   errors.push(`Nginx config does not declare ${EXPECTED_DOMAIN}`);
 }
+if (!nginxConfig.includes('proxy_buffering off;')) {
+  errors.push('Nginx config must stream proxied responses without host proxy temp files');
+}
 if (!envExample.includes(`PUBLIC_DOMAIN=${EXPECTED_DOMAIN}`)) {
   errors.push(`deploy/.env.example does not default PUBLIC_DOMAIN to ${EXPECTED_DOMAIN}`);
 }

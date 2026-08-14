@@ -9,6 +9,7 @@ if (!i18n.isInitialized) {
     lng: readStoredLocale(),
     fallbackLng: DEFAULT_LOCALE,
     supportedLngs: ['zh-CN', 'en-US'],
+    showSupportNotice: false,
     interpolation: {
       escapeValue: false,
     },

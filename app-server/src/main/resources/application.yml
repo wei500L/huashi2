@@ -114,7 +114,7 @@ app:
       batch-size: ${APP_ASSESSMENT_AI_ANALYSIS_BATCH_SIZE:10}
       max-retries: ${APP_ASSESSMENT_AI_ANALYSIS_MAX_RETRIES:2}
       retry-delay: ${APP_ASSESSMENT_AI_ANALYSIS_RETRY_DELAY:PT5S}
-      processing-timeout: ${APP_ASSESSMENT_AI_ANALYSIS_PROCESSING_TIMEOUT:PT5M}
+      processing-timeout: ${APP_ASSESSMENT_AI_ANALYSIS_PROCESSING_TIMEOUT:PT20M}
     seed:
       lexibridge-enabled: ${APP_ASSESSMENT_LEXIBRIDGE_SEED_ENABLED:true}
       # Seeds only the FF4 V2 practice question bank (no research questionnaire);
@@ -134,7 +134,7 @@ app:
       batch-size: ${APP_ASSESSMENT_RESEARCH_BATCH_SIZE:5}
       max-retries: ${APP_ASSESSMENT_RESEARCH_MAX_RETRIES:2}
       retry-delay: ${APP_ASSESSMENT_RESEARCH_RETRY_DELAY:PT5S}
-      processing-timeout: ${APP_ASSESSMENT_RESEARCH_PROCESSING_TIMEOUT:PT5M}
+      processing-timeout: ${APP_ASSESSMENT_RESEARCH_PROCESSING_TIMEOUT:PT20M}
       max-file-bytes: ${APP_ASSESSMENT_RESEARCH_MAX_FILE_BYTES:20971520}
       max-files-per-question: ${APP_ASSESSMENT_RESEARCH_MAX_FILES_PER_QUESTION:5}
       max-attempt-bytes: ${APP_ASSESSMENT_RESEARCH_MAX_ATTEMPT_BYTES:52428800}
@@ -239,7 +239,7 @@ integration:
     base-url: ${AI_GATEWAY_BASE_URL:http://localhost:8090}
     internal-token: ${PLATFORM_INTERNAL_API_TOKEN}
     connect-timeout: ${AI_GATEWAY_CONNECT_TIMEOUT:PT3S}
-    read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT180S}
+    read-timeout: ${AI_GATEWAY_READ_TIMEOUT:PT15M}
     max-attempts: ${AI_GATEWAY_MAX_ATTEMPTS:1}
     retry-backoff: ${AI_GATEWAY_RETRY_BACKOFF:PT0.2S}
     degrade-enabled: ${AI_GATEWAY_DEGRADE_ENABLED:true}
