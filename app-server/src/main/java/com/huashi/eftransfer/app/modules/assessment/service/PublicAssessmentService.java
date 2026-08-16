@@ -712,6 +712,10 @@ public class PublicAssessmentService {
         String previousJustification = normalizeText(answer.getJustificationText());
         List<String> normalized = normalizeResponses(type, request.responses(), answer.getOptionsJsonSnapshot());
         String justification = normalizeText(request.justificationText());
+        if (type == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION
+                && normalized.stream().noneMatch("F"::equalsIgnoreCase)) {
+            justification = null;
+        }
         if (finalSubmission && type == AssessmentQuestionType.TRUE_FALSE_WITH_JUSTIFICATION
                 && normalized.stream().anyMatch("F"::equalsIgnoreCase) && justification == null) {
             throw new BusinessException(ResultCode.VALIDATION_ERROR,

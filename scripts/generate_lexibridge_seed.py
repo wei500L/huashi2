@@ -256,7 +256,7 @@ def build(questionnaire_path: Path, analysis_path: Path) -> dict:
         end = p4t3_starts[index + 1] if index + 1 < len(p4t3_starts) else len(analysis)
         block = analysis_block(analysis, p4t3_starts[index], end)
         items.append(item(code=f"P4T3-{index + 1:02d}", section="P4T3", order=51 + index,
-                          stem=source[stem_index], options=[{"key": "V", "label": "正确"}, {"key": "F", "label": "错误"}],
+                          stem=source[stem_index], options=[{"key": "V", "label": "V"}, {"key": "F", "label": "F"}],
                           answer=p4t3_answers[index], block=block, context="READING", target=p4t3_targets[index],
                           question_type="TRUE_FALSE_WITH_JUSTIFICATION", shared_material_ref="P4T3"))
 
@@ -297,7 +297,7 @@ def build(questionnaire_path: Path, analysis_path: Path) -> dict:
             "questionnaireCode": PACKAGE_CODE,
             "title": "Lexi-bridge 英法词汇认知迁移研究问卷",
             "description": source[0],
-            "durationMinutes": 60,
+            "durationMinutes": 40,
             "resultReleasePolicy": "IMMEDIATE",
             "scoringVersion": "SCORING_V1",
             "aiPromptVersion": "assessment-analysis/v2",

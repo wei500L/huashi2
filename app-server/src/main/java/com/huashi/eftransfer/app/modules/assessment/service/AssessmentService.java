@@ -1093,6 +1093,10 @@ public class AssessmentService {
         List<String> correctAnswers = assessmentJsonCodec.readStringList(answer.getCorrectAnswerJson());
         boolean answered = !normalizedResponses.isEmpty();
         String justificationText = normalizeOptionalText(rawJustificationText);
+        if ("TRUE_FALSE_WITH_JUSTIFICATION".equals(questionType.name())
+                && normalizedResponses.stream().noneMatch("F"::equalsIgnoreCase)) {
+            justificationText = null;
+        }
         if (requireComplete
                 && "TRUE_FALSE_WITH_JUSTIFICATION".equals(questionType.name())
                 && normalizedResponses.stream().anyMatch("F"::equalsIgnoreCase)

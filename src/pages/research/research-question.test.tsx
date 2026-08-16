@@ -116,3 +116,138 @@ describe('ResearchQuestionMap navigation semantics', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 });
+
+const judgementQuestion = (overrides: Partial<PublicAssessmentQuestionVO> = {}): PublicAssessmentQuestionVO =>
+  baseQuestion({
+    questionId: 51,
+    questionOrder: 51,
+    questionType: 'TRUE_FALSE_WITH_JUSTIFICATION',
+    itemCode: 'P4T3-01',
+    sectionCode: 'P4T3',
+    sectionTitle: '判断题',
+    formalSection: true,
+    stemText: 'Avignon était une destination qui plaisait à beaucoup de monde chaque année.',
+    options: [
+      { key: 'V', label: 'V' },
+      { key: 'F', label: 'F' },
+    ],
+    justificationRequired: true,
+    ...overrides,
+  });
+
+describe('TRUE_FALSE_WITH_JUSTIFICATION completion', () => {
+  it('renders V and F option labels instead of 正确/错误', () => {
+    render(
+      <PublicQuestion
+        question={judgementQuestion()}
+        responses={[]}
+        justification=""
+        disabled={false}
+        reducedMotion
+        onResponsesChange={() => undefined}
+        onJustificationChange={() => undefined}
+        labelledBy="question-51"
+      />,
+    );
+
+    expect(screen.getByRole('radio', { name: /V/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /F/ })).toBeInTheDocument();
+    expect(screen.queryByText('正确')).not.toBeInTheDocument();
+    expect(screen.queryByText('错误')).not.toBeInTheDocument();
+    const keys = [...document.querySelectorAll('.research-option-key')].map((node) => node.textContent);
+    expect(keys).toEqual(['V', 'F']);
+  });
+
+  it('clears leftover justification when switching from F to V', () => {
+    const onJustificationChange = vi.fn();
+    render(
+      <PublicQuestion
+        question={judgementQuestion()}
+        responses={['F']}
+        justification="原文没有这么说"
+        disabled={false}
+        reducedMotion
+        onResponsesChange={() => undefined}
+        onJustificationChange={onJustificationChange}
+        labelledBy="question-51"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: /V/ }));
+    expect(onJustificationChange).toHaveBeenCalledWith('');
+  });
+  it('treats selecting V as complete and hides the justification field', () => {
+    const question = judgementQuestion();
+    render(
+      <>
+        <ResearchQuestionMap
+          questions={[question]}
+          selectedOrder={51}
+          responsesByOrder={{ 51: ['V'] }}
+          justificationsByOrder={{}}
+          attachmentsByOrder={{}}
+          onSelect={() => undefined}
+        />
+        <PublicQuestion
+          question={question}
+          responses={['V']}
+          justification=""
+          disabled={false}
+          reducedMotion
+          onResponsesChange={() => undefined}
+          onJustificationChange={() => undefined}
+          labelledBy="question-51"
+        />
+      </>,
+    );
+
+    expect(screen.getByRole('button', { name: '正式题1，已作答' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /V/ })).toBeChecked();
+    expect(screen.queryByLabelText('请说明判断为错误的原因')).not.toBeInTheDocument();
+  });
+
+  it('shows the justification field and stays unanswered when F is selected without a reason', () => {
+    const question = judgementQuestion();
+    render(
+      <>
+        <ResearchQuestionMap
+          questions={[question]}
+          selectedOrder={51}
+          responsesByOrder={{ 51: ['F'] }}
+          justificationsByOrder={{}}
+          attachmentsByOrder={{}}
+          onSelect={() => undefined}
+        />
+        <PublicQuestion
+          question={question}
+          responses={['F']}
+          justification=""
+          disabled={false}
+          reducedMotion
+          onResponsesChange={() => undefined}
+          onJustificationChange={() => undefined}
+          labelledBy="question-51"
+        />
+      </>,
+    );
+
+    expect(screen.getByRole('button', { name: '正式题1，未作答' })).toBeInTheDocument();
+    expect(screen.getByLabelText('请说明判断为错误的原因')).toBeInTheDocument();
+  });
+
+  it('marks F complete after a justification is filled', () => {
+    const question = judgementQuestion();
+    render(
+      <ResearchQuestionMap
+        questions={[question]}
+        selectedOrder={51}
+        responsesByOrder={{ 51: ['f'] }}
+        justificationsByOrder={{ 51: '原文说每年吸引游客，不是令人不悦。' }}
+        attachmentsByOrder={{}}
+        onSelect={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '正式题1，已作答' })).toBeInTheDocument();
+  });
+});

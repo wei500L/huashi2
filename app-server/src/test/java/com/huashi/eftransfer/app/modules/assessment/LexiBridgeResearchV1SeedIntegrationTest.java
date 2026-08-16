@@ -59,19 +59,19 @@ class LexiBridgeResearchV1SeedIntegrationTest extends AbstractWebIntegrationTest
     }
 
     @Test
-    void seedAppliesSixtyMinuteDurationToPaperAndPublishedSnapshots() {
+    void seedAppliesFortyMinuteDurationToPaperAndPublishedSnapshots() {
         Long versionId = versionId();
         Long paperId = jdbcTemplate.queryForObject(
                 "SELECT paper_id FROM assessment_questionnaire_version WHERE id = ?", Long.class, versionId);
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT duration_minutes FROM assessment_paper WHERE id = ?", Integer.class, paperId)).isEqualTo(60);
+                "SELECT duration_minutes FROM assessment_paper WHERE id = ?", Integer.class, paperId)).isEqualTo(40);
         assertThat(jdbcTemplate.queryForList(
                 "SELECT duration_minutes FROM assessment_publish WHERE paper_id = ? AND deleted = FALSE",
-                Integer.class, paperId)).allSatisfy(minutes -> assertThat(minutes).isEqualTo(60));
+                Integer.class, paperId)).allSatisfy(minutes -> assertThat(minutes).isEqualTo(40));
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT stem_text FROM assessment_question
                 WHERE paper_id = ? AND section_code = 'BASIC_INFO' AND question_type = 'INSTRUCTION' AND deleted = FALSE
-                """, String.class, paperId)).contains("约 60 分钟");
+                """, String.class, paperId)).contains("约 40 分钟");
     }
 
     @Test
@@ -173,13 +173,13 @@ class LexiBridgeResearchV1SeedIntegrationTest extends AbstractWebIntegrationTest
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT total_score FROM assessment_paper WHERE id = ?", Integer.class, paperId)).isEqualTo(60);
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT duration_minutes FROM assessment_paper WHERE id = ?", Integer.class, paperId)).isEqualTo(60);
+                "SELECT duration_minutes FROM assessment_paper WHERE id = ?", Integer.class, paperId)).isEqualTo(40);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT question_count_snapshot FROM assessment_publish WHERE id = ?", Integer.class, publishId)).isEqualTo(69);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT total_score_snapshot FROM assessment_publish WHERE id = ?", Integer.class, publishId)).isEqualTo(60);
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT duration_minutes FROM assessment_publish WHERE id = ?", Integer.class, publishId)).isEqualTo(60);
+                "SELECT duration_minutes FROM assessment_publish WHERE id = ?", Integer.class, publishId)).isEqualTo(40);
 
         List<Map<String, Object>> answers = jdbcTemplate.queryForList("""
                 SELECT question_id, question_order, question_type, stem_text_snapshot, response_json, answered

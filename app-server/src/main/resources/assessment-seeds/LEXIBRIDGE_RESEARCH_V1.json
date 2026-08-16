@@ -10,7 +10,7 @@
     "questionnaireCode": "LEXIBRIDGE_RESEARCH_V1",
     "title": "Lexi-bridge 英法词汇认知迁移研究问卷",
     "description": "Lexi-bridge：英法词汇智能学习系统—跨语言词汇认知迁移的研究与干预",
-    "durationMinutes": 60,
+    "durationMinutes": 40,
     "resultReleasePolicy": "IMMEDIATE",
     "scoringVersion": "SCORING_V1",
     "aiPromptVersion": "assessment-analysis/v2",
@@ -97,7 +97,7 @@
       "sectionCode": "BASIC_INFO",
       "sortOrder": 1,
       "questionType": "INSTRUCTION",
-      "stemText": "【亲爱的同学：\n您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 60 分钟，请合理安排时间。\n感谢您的配合与支持！】",
+      "stemText": "【亲爱的同学：\n您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 40 分钟，请合理安排时间。\n感谢您的配合与支持！】",
       "promptText": null,
       "options": [],
       "correctAnswers": [],
@@ -2726,11 +2726,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2749,7 +2749,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-01",
-      "contentHash": "8fad53d1cab0501190dd56284ac101c83086f93989ca12ae5b84bfcf0305bebd"
+      "contentHash": "08b4401844f7ca75046eb77cab08b7b2b039d4ab5983cea9abf80a74bab929bc"
     },
     {
       "itemCode": "P4T3-02",
@@ -2761,11 +2761,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2784,7 +2784,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-02",
-      "contentHash": "b887f545440ed461cd2245b789dca9cefbd6a5377d07bc7570ec978a00baad04"
+      "contentHash": "ef08384393e71ab096bec274236457fc9c9c0447eaf1bac2f986bba313005513"
     },
     {
       "itemCode": "P4T3-03",
@@ -2796,11 +2796,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2819,7 +2819,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-03",
-      "contentHash": "2a617bc5df8abca186cb080834195b4a395d1a10c4fbfa19d1bddb04ed9231f0"
+      "contentHash": "6c2550a45b4e94619e76964cc42dd3d46fcdfe6b05804142479d59c7cbb22897"
     },
     {
       "itemCode": "P4T3-04",
@@ -2831,11 +2831,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2854,7 +2854,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-04",
-      "contentHash": "3c906f43ee07a25a452ad9c34ed04e9280554e325763e34c0e0655be988050e3"
+      "contentHash": "bf98328bbbfa4c3bcddc113490ab8ea11a62095efbfb2894ca98de011256720d"
     },
     {
       "itemCode": "P4T3-05",
@@ -2866,11 +2866,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2889,7 +2889,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-05",
-      "contentHash": "69c94ad40506113f413cc51bc5b9264d2767ae47b462793c1629ced25b1df66a"
+      "contentHash": "f2b10e2214c496319899745fa047a32099a15b6a9b87016d6ceb7e8e6d52032c"
     },
     {
       "itemCode": "P4T3-06",
@@ -2901,11 +2901,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2924,7 +2924,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-06",
-      "contentHash": "090440ca1f213d6fee66e73b5405a836dfae0876fa74584328787fd61536450d"
+      "contentHash": "af4988d0eefd2a0a6be41fdd9847cc7c7fa97b6b510104f2d42f2360ee420d31"
     },
     {
       "itemCode": "P4T3-07",
@@ -2936,11 +2936,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2959,7 +2959,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-07",
-      "contentHash": "c1d0108d322efbc47021ebf8de530d1e3f3c2d6be9c9e4322e015bd13694f2c8"
+      "contentHash": "3963b742d751f8467742349770aee7e3190baa818d583c6d68fdf69fa65df3ea"
     },
     {
       "itemCode": "P4T3-08",
@@ -2971,11 +2971,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -2994,7 +2994,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-08",
-      "contentHash": "8487d6a067df9ae6c84012838ec3b39904b75676e66b5dad6588646f6034f0f4"
+      "contentHash": "a86a347a6278443f2428ce7184da4ea8d5e53637e9b33e47a5ef8ab57e1e69db"
     },
     {
       "itemCode": "P4T3-09",
@@ -3006,11 +3006,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -3029,7 +3029,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-09",
-      "contentHash": "6308ce70d9bcfc693f5fd1be3422fb184486bac0ba6ee6187c54ecf324bcac5c"
+      "contentHash": "05d380c536f6e2443b20a0b5dab760ee5d57532ad2d1dc50ad983c55119f93d6"
     },
     {
       "itemCode": "P4T3-10",
@@ -3041,11 +3041,11 @@
       "options": [
         {
           "key": "V",
-          "label": "正确"
+          "label": "V"
         },
         {
           "key": "F",
-          "label": "错误"
+          "label": "F"
         }
       ],
       "correctAnswers": [
@@ -3064,7 +3064,7 @@
       "displayCondition": null,
       "sharedMaterialRef": "P4T3",
       "sourceReference": "questionnaire:P4T3-10",
-      "contentHash": "75212e535760d44f23d33638d3df8bb09419e0a5ae4f91eb9578827967dbbe69"
+      "contentHash": "fdcc85090b3b97094810a4b840c666255b7bbc3d1edf80a617cf00ee09dc8c91"
     }
   ],
   "options": [
@@ -4319,121 +4319,121 @@
     {
       "itemCode": "P4T3-01",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-01",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-02",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-02",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-03",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-03",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-04",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-04",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-05",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-05",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-06",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-06",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-07",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-07",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-08",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-08",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-09",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-09",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     },
     {
       "itemCode": "P4T3-10",
       "optionKey": "V",
-      "label": "正确",
+      "label": "V",
       "explanation": null
     },
     {
       "itemCode": "P4T3-10",
       "optionKey": "F",
-      "label": "错误",
+      "label": "F",
       "explanation": null
     }
   ],

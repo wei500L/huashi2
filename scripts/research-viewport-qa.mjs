@@ -3,9 +3,9 @@
  * Research questionnaire viewport QA (desktop/tablet/mobile).
  *
  * Boots the local Vite dev server, mocks the public-assessment API, and verifies:
- *   - entry page shows 60 formal questions and 60 minutes
- *   - answering page status line "正式题 60 道 · 限时 60 分钟"
- *   - countdown starts at 60:00 and stays in the top-right region on scroll
+ *   - entry page shows 60 formal questions and 40 minutes
+ *   - answering page status line "正式题 60 道 · 限时 40 分钟"
+ *   - countdown starts at 40:00 and stays in the top-right region on scroll
  *   - non-English-major profile shows 资料 xx/06; English-major shows /08
  *   - switching back from English major clears hidden TEM answers
  *   - text inputs/buttons keep 44px-plus touch targets
@@ -51,7 +51,7 @@ const questionTypeOf = (order) => {
 
 const buildQuestions = () => {
   const basicStems = {
-    1: '【亲爱的同学：\n您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 60 分钟，请合理安排时间。\n感谢您的配合与支持！】',
+    1: '【亲爱的同学：\n您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 40 分钟，请合理安排时间。\n感谢您的配合与支持！】',
     2: '您的姓名：',
     3: '您的联系方式是（电话/QQ/……）：',
     4: '您的英语学习水平为：高考英语分数______',
@@ -113,11 +113,11 @@ const attemptPayload = () => ({
   paperDescription: '跨语言词汇认知迁移的研究与干预',
   instructionsText: null,
   status: state.submitted ? 'SUBMITTED' : 'IN_PROGRESS',
-  durationMinutes: 60,
+  durationMinutes: 40,
   questionCount: 69,
   answeredCount: Object.values(state.answers).filter((values) => values.some((value) => value && value.trim())).length,
   startedAt: nowIso(),
-  expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  expiresAt: new Date(Date.now() + 40 * 60 * 1000).toISOString(),
   lastSavedAt: nowIso(),
   version: state.version,
   serverTime: nowIso(),
@@ -147,7 +147,7 @@ const handleApi = (route, url) => {
       title: 'Lexi-bridge 英法词汇认知迁移研究问卷',
       description: '一项关于英语与法语之间词义迁移的公开研究。',
       instructionsText: null,
-      durationMinutes: 60,
+      durationMinutes: 40,
       questionCount: 69,
       formalQuestionCount: 60,
       profileFieldCount: 8,
@@ -301,8 +301,8 @@ const main = async () => {
       await page.locator('.research-facts').waitFor({ state: 'visible', timeout: 15_000 });
 
       const entryFacts = await page.locator('.research-facts strong').allTextContents();
-      if (entryFacts.slice(0, 2).join(',') !== '60,60') {
-        failures.push(`[${viewport.name}] entry facts are ${entryFacts.join(',')}, expected 60,60`);
+      if (entryFacts.slice(0, 2).join(',') !== '60,40') {
+        failures.push(`[${viewport.name}] entry facts are ${entryFacts.join(',')}, expected 60,40`);
       }
       await checkPageWidth(page, viewport, 'entry', failures);
       await checkTouchTargets(page, '.research-code-form input, .research-code-form button', viewport, 'entry', failures);
@@ -313,13 +313,13 @@ const main = async () => {
       await page.locator('[role="timer"]').waitFor({ state: 'visible', timeout: 10_000 });
 
       const timerText = (await page.locator('[role="timer"]').textContent()) || '';
-      if (!timerText.trim().startsWith('60:00')) {
-        failures.push(`[${viewport.name}] countdown did not start at 60:00, got "${timerText}"`);
+      if (!timerText.trim().startsWith('40:00')) {
+        failures.push(`[${viewport.name}] countdown did not start at 40:00, got "${timerText}"`);
       }
 
       const statusLine = await page.locator('.research-progress-meta').textContent();
-      if (!statusLine || !statusLine.includes('正式题 60 道') || !statusLine.includes('限时 60 分钟')) {
-        failures.push(`[${viewport.name}] status line missing 60 道/60 分钟: "${statusLine}"`);
+      if (!statusLine || !statusLine.includes('正式题 60 道') || !statusLine.includes('限时 40 分钟')) {
+        failures.push(`[${viewport.name}] status line missing 60 道/40 分钟: "${statusLine}"`);
       }
       await checkPageWidth(page, viewport, 'assessment', failures);
       await checkTouchTargets(page, '.research-question-footer button', viewport, 'assessment navigation', failures);

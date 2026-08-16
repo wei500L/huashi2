@@ -103,7 +103,7 @@ UPDATE assessment_question q
 JOIN assessment_questionnaire_item i ON i.assessment_question_id = q.id
 SET q.question_type = 'INSTRUCTION',
     q.stem_text = '【亲爱的同学：
-您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 60 分钟，请合理安排时间。
+您好！欢迎参与本次法语词汇与阅读理解能力测试！本测试结果仅用于学术研究，所有数据严格保密，不会用作其他用途。请您认真阅读每一道题目，结合文本内容选出最佳答案。答题过程中请勿查阅词典、相互交流，独立完成作答。整套测试答题时长约 40 分钟，请合理安排时间。
 感谢您的配合与支持！】',
     q.prompt_text = '',
     q.options_json = '[]',
@@ -3533,7 +3533,7 @@ JOIN assessment_questionnaire_item i ON i.assessment_question_id = q.id
 SET q.question_type = 'TRUE_FALSE_WITH_JUSTIFICATION',
     q.stem_text = 'Avignon était une destination qui plaisait à beaucoup de monde chaque année.',
     q.prompt_text = '请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。',
-    q.options_json = '[{"key":"V","label":"正确"},{"key":"F","label":"错误"}]',
+    q.options_json = '[{"key":"V","label":"V"},{"key":"F","label":"F"}]',
     q.correct_answer_json = '["V"]',
     q.explanation_text = '1. Avignon était une destination qui plaisait à beaucoup de monde chaque année.
 题型： 判断正误题（同源词正迁移）
@@ -3564,7 +3564,7 @@ UPDATE assessment_question_version
 SET question_type = 'TRUE_FALSE_WITH_JUSTIFICATION',
     stem_text = 'Avignon était une destination qui plaisait à beaucoup de monde chaque année.',
     prompt_text = '请阅读上面的法语短文，根据短文内容判断下列句子的正误。正确的请写“V”，错误的请写“F”，判断为F的题目需要在横线上写明错误原因。',
-    options_json = '[{"key":"V","label":"正确"},{"key":"F","label":"错误"}]',
+    options_json = '[{"key":"V","label":"V"},{"key":"F","label":"F"}]',
     correct_answer_json = '["V"]',
     explanation_text = '1. Avignon était une destination qui plaisait à beaucoup de monde chaque année.
 题型： 判断正误题（同源词正迁移）

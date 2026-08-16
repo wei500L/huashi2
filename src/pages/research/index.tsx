@@ -91,12 +91,17 @@ export const ResearchQuestionMap: React.FC<{
   );
 };
 
+function isFalseJudgement(responses: string[]): boolean {
+  return responses.some((value) => value.trim().toUpperCase() === 'F');
+}
+
 function hasQuestionResponse(question: PublicAssessmentQuestionVO, responses: string[], justification: string, attachmentTokens: string[] = []): boolean {
   if (question.questionType === 'INSTRUCTION') return true;
   if (question.questionType === 'FILE_UPLOAD') return attachmentTokens.length > 0 || (question.attachments || []).some((file) => file.bindingStatus !== 'DELETED' && file.uploadToken);
   const hasValue = responses.some((value) => value.trim().length > 0);
   if (!hasValue) return false;
-  return !question.justificationRequired || justification.trim().length > 0;
+  const needsJustification = question.justificationRequired && isFalseJudgement(responses);
+  return !needsJustification || justification.trim().length > 0;
 }
 
 function hydrateResponses(attempt: PublicAssessmentAttemptVO) {
@@ -237,11 +242,12 @@ const ResearchOption: React.FC<{
   value: string;
   label: string;
   index: number;
+  keyText?: string;
   selected: boolean;
   disabled: boolean;
   reducedMotion: boolean;
   onChange: () => void;
-}> = ({ inputType, inputName, value, label, index, selected, disabled, reducedMotion, onChange }) => {
+}> = ({ inputType, inputName, value, label, index, keyText, selected, disabled, reducedMotion, onChange }) => {
   const optionRef = React.useRef<HTMLLabelElement>(null);
   const { contextSafe } = useGSAP(() => {
     const option = optionRef.current;
@@ -293,7 +299,7 @@ const ResearchOption: React.FC<{
     >
       <span className="research-option-selection-wave" aria-hidden="true" />
       <input className="research-option-input" type={inputType} name={inputName} value={value} checked={selected} disabled={disabled} onChange={onChange} />
-      <span className="research-option-key" aria-hidden="true">{String.fromCharCode(65 + index)}</span>
+      <span className="research-option-key" aria-hidden="true">{keyText ?? String.fromCharCode(65 + index)}</span>
       <span className="research-option-label">{label}</span>
       <span className={`research-option-control ${inputType === 'radio' ? 'is-radio' : ''}`} aria-hidden="true">
         {inputType === 'radio' ? <span /> : selected ? <Check size={13} strokeWidth={2.6} /> : null}
@@ -465,6 +471,7 @@ export const PublicQuestion: React.FC<{
     />;
   }
   if (type === 'SINGLE_CHOICE' || type === 'INFORMED_CONSENT' || type === 'TRUE_FALSE' || type === 'TRUE_FALSE_WITH_JUSTIFICATION') {
+    const judgementKeys = type === 'TRUE_FALSE' || type === 'TRUE_FALSE_WITH_JUSTIFICATION';
     return <fieldset className="research-options" aria-labelledby={labelledBy}><legend className="sr-only">请选择一个答案</legend>{question.options.map((option, index) => <ResearchOption
       key={option.key}
       inputType="radio"
@@ -472,12 +479,18 @@ export const PublicQuestion: React.FC<{
       value={option.key}
       label={option.label}
       index={index}
-      selected={responses[0] === option.key}
+      keyText={judgementKeys ? option.key : undefined}
+      selected={responses[0]?.toUpperCase() === option.key.toUpperCase()}
       disabled={disabled}
       reducedMotion={reducedMotion}
-      onChange={() => onResponsesChange([option.key])}
+      onChange={() => {
+        onResponsesChange([option.key]);
+        if (type === 'TRUE_FALSE_WITH_JUSTIFICATION' && option.key.toUpperCase() !== 'F') {
+          onJustificationChange('');
+        }
+      }}
     />)}
-      {type === 'TRUE_FALSE_WITH_JUSTIFICATION' && responses[0] === 'F' ? <label className="research-justification">请说明判断为错误的原因<textarea value={justification} disabled={disabled} onChange={(event) => onJustificationChange(event.target.value)} rows={4} /></label> : null}
+      {type === 'TRUE_FALSE_WITH_JUSTIFICATION' && isFalseJudgement(responses) ? <label className="research-justification">请说明判断为错误的原因<textarea value={justification} disabled={disabled} onChange={(event) => onJustificationChange(event.target.value)} rows={4} /></label> : null}
     </fieldset>;
   }
   if (type === 'MULTIPLE_CHOICE') return <fieldset className="research-options" aria-labelledby={labelledBy}><legend className="sr-only">请选择所有适用答案</legend>{question.options.map((option, index) => {
